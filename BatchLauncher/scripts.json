@@ -1,0 +1,7 @@
+﻿{
+  "Name": "NPM Build",
+  "Path": "npm",
+  "Args": "run build",
+  "WorkingDirectory": "G:\\Function-viewer-2025-11-18\\Function-viewer-2026-01-07\\Math3D",
+  "UseTerminal": true
+}

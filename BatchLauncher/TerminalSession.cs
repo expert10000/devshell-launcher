@@ -1,4 +1,5 @@
 using System.Text;
+using System.IO;
 
 namespace BatchLauncher;
 
@@ -14,14 +15,16 @@ public sealed class TerminalSession : IDisposable
     private bool _disposed;
 
     public string SessionId { get; }
+    public string ProfileId { get; }
 
     public event Action<TerminalSession, string>? Output;
     public event Action<TerminalSession, int>? Exited;
     public event Action<TerminalSession, string>? Error;
 
-    private TerminalSession(string sessionId, ConPtyProcess process)
+    private TerminalSession(string sessionId, string profileId, ConPtyProcess process)
     {
         SessionId = sessionId;
+        ProfileId = profileId;
         _process = process;
         _inputStream = new FileStream(_process.InputWrite, FileAccess.Write, 4096, isAsync: false);
         _outputStream = new FileStream(_process.OutputRead, FileAccess.Read, 4096, isAsync: false);
@@ -30,11 +33,52 @@ public sealed class TerminalSession : IDisposable
         _ = Task.Run(() => WaitForExitAsync(_cts.Token));
     }
 
-    public static TerminalSession Start(string sessionId, string shell)
+    public static TerminalSession Start(
+        string sessionId,
+        TerminalProfile profile,
+        TerminalManager.ShellCommand command,
+        SessionStartOptions options)
     {
-        var command = ResolveShellCommand(shell);
-        var process = ConPtyProcess.Start(command.Application, command.Arguments, 80, 24);
-        return new TerminalSession(sessionId, process);
+        var cols = options.Cols ?? profile.DefaultCols ?? 80;
+        var rows = options.Rows ?? profile.DefaultRows ?? 24;
+        var workingDir = options.WorkingDirectory ?? profile.WorkingDirectory;
+        var hasWorkingDir = !string.IsNullOrWhiteSpace(workingDir);
+        if (hasWorkingDir && !Directory.Exists(workingDir))
+        {
+            workingDir = null;
+            hasWorkingDir = false;
+        }
+        var env = MergeEnvironment(profile.Environment, options.Environment);
+        var arguments = string.IsNullOrWhiteSpace(options.Arguments)
+            ? command.Arguments
+            : string.IsNullOrWhiteSpace(command.Arguments)
+                ? options.Arguments
+                : $"{command.Arguments} {options.Arguments}";
+
+        var resolved = new TerminalManager.ShellCommand(command.Application, arguments);
+        ConPtyProcess process;
+        try
+        {
+            process = ConPtyProcess.Start(
+                resolved.Application,
+                resolved.Arguments,
+                cols,
+                rows,
+                workingDir,
+                env);
+        }
+        catch (InvalidOperationException ex) when (hasWorkingDir &&
+                                                   ex.Message.Contains("CreateProcess failed: 5", StringComparison.OrdinalIgnoreCase))
+        {
+            process = ConPtyProcess.Start(
+                resolved.Application,
+                resolved.Arguments,
+                cols,
+                rows,
+                null,
+                env);
+        }
+        return new TerminalSession(sessionId, profile.Id, process);
     }
 
     public Task WriteAsync(string data)
@@ -132,43 +176,29 @@ public sealed class TerminalSession : IDisposable
         }
     }
 
-    private static ShellCommand ResolveShellCommand(string shell)
+    private static Dictionary<string, string>? MergeEnvironment(
+        Dictionary<string, string>? baseEnv,
+        Dictionary<string, string>? overrides)
     {
-        if (string.IsNullOrWhiteSpace(shell))
+        if (baseEnv == null && overrides == null)
         {
-            return BuildPowerShellCommand();
+            return null;
         }
 
-        return shell.Equals("cmd", StringComparison.OrdinalIgnoreCase)
-            ? BuildCmdCommand()
-            : BuildPowerShellCommand();
-    }
+        var merged = baseEnv != null
+            ? new Dictionary<string, string>(baseEnv, StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-    private static ShellCommand BuildPowerShellCommand()
-    {
-        var systemDir = Environment.SystemDirectory;
-        var fullPath = Path.Combine(systemDir, "WindowsPowerShell", "v1.0", "powershell.exe");
-        if (File.Exists(fullPath))
+        if (overrides != null)
         {
-            return new ShellCommand(fullPath, "-NoLogo");
+            foreach (var pair in overrides)
+            {
+                merged[pair.Key] = pair.Value;
+            }
         }
 
-        return new ShellCommand("powershell.exe", "-NoLogo");
+        return merged;
     }
-
-    private static ShellCommand BuildCmdCommand()
-    {
-        var systemDir = Environment.SystemDirectory;
-        var fullPath = Path.Combine(systemDir, "cmd.exe");
-        if (File.Exists(fullPath))
-        {
-            return new ShellCommand(fullPath, null);
-        }
-
-        return new ShellCommand("cmd.exe", null);
-    }
-
-    private readonly record struct ShellCommand(string Application, string? Arguments);
 
     private void WriteAndFlush(byte[] buffer)
     {

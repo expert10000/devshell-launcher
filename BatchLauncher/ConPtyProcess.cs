@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Linq;
 using Microsoft.Win32.SafeHandles;
 
 namespace BatchLauncher;
@@ -32,7 +33,13 @@ internal sealed class ConPtyProcess : IDisposable
         ThreadHandle = threadHandle;
     }
 
-    public static ConPtyProcess Start(string application, string? arguments, int cols, int rows)
+    public static ConPtyProcess Start(
+        string application,
+        string? arguments,
+        int cols,
+        int rows,
+        string? workingDirectory,
+        IReadOnlyDictionary<string, string>? environment)
     {
         if (!CreatePipe(out var ptyInputRead, out var inputWrite, IntPtr.Zero, 0))
         {
@@ -90,6 +97,7 @@ internal sealed class ConPtyProcess : IDisposable
             ? $"\"{application}\""
             : $"\"{application}\" {arguments}";
         var commandLineBuilder = new StringBuilder(commandLine);
+        var envBlock = EnvironmentBlock.Create(environment);
         var created = CreateProcess(
             application,
             commandLineBuilder,
@@ -97,13 +105,14 @@ internal sealed class ConPtyProcess : IDisposable
             IntPtr.Zero,
             false,
             ExtendedStartupinfoPresent | CreateUnicodeEnvironment,
-            IntPtr.Zero,
-            null,
+            envBlock.Pointer,
+            workingDirectory,
             ref startupInfo,
             out var processInfo);
 
         DeleteProcThreadAttributeList(startupInfo.lpAttributeList);
         Marshal.FreeHGlobal(startupInfo.lpAttributeList);
+        envBlock.Dispose();
 
         if (!created)
         {
@@ -178,6 +187,54 @@ internal sealed class ConPtyProcess : IDisposable
 
         inputWrite.Dispose();
         outputRead.Dispose();
+    }
+
+    private sealed class EnvironmentBlock : IDisposable
+    {
+        public IntPtr Pointer { get; private set; }
+
+        private EnvironmentBlock(IntPtr pointer)
+        {
+            Pointer = pointer;
+        }
+
+        public static EnvironmentBlock Create(IReadOnlyDictionary<string, string>? overrides)
+        {
+            if (overrides == null || overrides.Count == 0)
+            {
+                return new EnvironmentBlock(IntPtr.Zero);
+            }
+
+            var values = Environment.GetEnvironmentVariables();
+            var merged = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var key in values.Keys)
+            {
+                if (key is string name && values[key] is string value)
+                {
+                    merged[name] = value;
+                }
+            }
+
+            foreach (var pair in overrides)
+            {
+                merged[pair.Key] = pair.Value;
+            }
+
+            var block = string.Join('\0', merged.Select(pair => $"{pair.Key}={pair.Value}")) + "\0\0";
+            var bytes = Encoding.Unicode.GetBytes(block);
+            var pointer = Marshal.AllocHGlobal(bytes.Length);
+            Marshal.Copy(bytes, 0, pointer, bytes.Length);
+            return new EnvironmentBlock(pointer);
+        }
+
+        public void Dispose()
+        {
+            if (Pointer != IntPtr.Zero)
+            {
+                Marshal.FreeHGlobal(Pointer);
+                Pointer = IntPtr.Zero;
+            }
+        }
     }
 
     [StructLayout(LayoutKind.Sequential)]

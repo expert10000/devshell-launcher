@@ -1,6 +1,7 @@
 using Microsoft.Web.WebView2.Core;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Text;
 using System.Diagnostics;
@@ -21,8 +22,8 @@ public partial class Form1 : Form
     private readonly Dictionary<string, FileStream> _fileTransfers = new();
     private readonly Dictionary<string, StreamWriter> _sessionLogs = new();
     private readonly object _logLock = new();
-    private readonly List<ScriptEntry> _tasks;
-    private readonly List<ProjectDefinition> _projects;
+    private readonly WorkspaceConfig _workspace;
+    private readonly Dictionary<string, string> _environment;
     private AppState _latestState;
     private readonly string _scriptsPath;
 
@@ -35,8 +36,8 @@ public partial class Form1 : Form
         _terminalManager.Output += HandleSessionOutput;
         _terminalManager.Exited += HandleSessionExit;
         _terminalManager.Error += HandleSessionError;
-        _tasks = TaskStore.LoadTasks();
-        _projects = ProjectStore.LoadProjects();
+        _workspace = WorkspaceStore.LoadWorkspace();
+        _environment = BuildEnvironmentSnapshot();
         _latestState = AppStateStore.Load();
         Shown += async (_, _) => await InitializeWebViewAsync();
         FormClosing += (_, _) => StopAllSessions();
@@ -726,8 +727,9 @@ public partial class Form1 : Form
             type = "app.init",
             profiles = _profiles,
             statePayload = _latestState,
-            tasks = _tasks.Where(task => task.UseTerminal != false).ToList(),
-            projects = _projects,
+            workspace = _workspace,
+            environment = _environment,
+            projects = _workspace.Projects ?? new List<WorkspaceProject>(),
             scriptsPath = _scriptsPath,
             sessions = _terminalManager.Sessions.Select(session => new
             {
@@ -753,7 +755,8 @@ public partial class Form1 : Form
         SendMessage(new
         {
             type = "projects.list",
-            projects = _projects
+            workspace = _workspace,
+            projects = _workspace.Projects ?? new List<WorkspaceProject>()
         });
     }
 
@@ -762,8 +765,31 @@ public partial class Form1 : Form
         SendMessage(new
         {
             type = "tasks.list",
-            tasks = _tasks.Where(task => task.UseTerminal != false).ToList()
+            workspace = _workspace
         });
+    }
+
+    private static Dictionary<string, string> BuildEnvironmentSnapshot()
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (DictionaryEntry entry in Environment.GetEnvironmentVariables())
+        {
+            var key = entry.Key?.ToString();
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                continue;
+            }
+
+            var value = entry.Value?.ToString();
+            if (value == null)
+            {
+                continue;
+            }
+
+            result[key] = value;
+        }
+
+        return result;
     }
 
     private void RefreshProfileAvailability()

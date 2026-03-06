@@ -19,6 +19,8 @@ type BackendMessage = {
   profileId?: string
   tasks?: TaskEntry[]
   projects?: ProjectDefinition[]
+  workspace?: WorkspaceConfig
+  environment?: Record<string, string>
   sessions?: ExistingSession[]
   enabled?: boolean
   path?: string
@@ -63,6 +65,50 @@ type TaskEntry = {
   autoRun?: boolean
 }
 
+type WorkspaceGlobals = {
+  defaultShell?: string
+  terminal?: {
+    fontSize?: number
+    scrollback?: number
+  }
+  vars?: Record<string, string>
+}
+
+type WorkspaceTaskStep = {
+  run: string
+}
+
+type WorkspaceTask = {
+  group?: string
+  shell?: string
+  cwd?: string
+  steps?: WorkspaceTaskStep[]
+  dependsOn?: string[]
+  runInNewTab?: boolean
+  focusTab?: boolean
+  useTemplate?: string
+}
+
+type WorkspaceLaunchTab = {
+  task: string
+  title?: string
+}
+
+type WorkspaceLaunch = {
+  id: string
+  name: string
+  projectId: string
+  openTabs: WorkspaceLaunchTab[]
+}
+
+type WorkspaceConfig = {
+  version?: number
+  globals?: WorkspaceGlobals
+  templates?: Record<string, WorkspaceTask>
+  projects?: ProjectDefinition[]
+  workspaces?: WorkspaceLaunch[]
+}
+
 type ExistingSession = {
   sessionId: string
   profileId: string
@@ -89,8 +135,41 @@ type ProjectDefinition = {
   id: string
   name: string
   root?: string
+  pinned?: boolean
+  vars?: Record<string, string>
+  bootstrap?: WorkspaceTask
+  tasks?: Record<string, WorkspaceTask>
+  quickTasks?: string[]
   layout?: ProjectLayout
 }
+
+type ResolvedTaskStep = {
+  run: string
+  cwd?: string
+}
+
+type ResolvedTask = {
+  key: string
+  name: string
+  projectId: string
+  group: string
+  shell?: string
+  cwd?: string
+  steps: ResolvedTaskStep[]
+  dependsOn: string[]
+  runInNewTab?: boolean
+  focusTab?: boolean
+}
+
+type TaskExecutionStep = {
+  run: string
+  cwd?: string
+  taskName: string
+}
+
+type PendingTaskRun =
+  | { kind: 'legacy'; taskId: string }
+  | { kind: 'workspace'; taskKey: string }
 
 type PersistedPane = {
   id: string
@@ -234,18 +313,22 @@ const App = () => {
   const paneToSession = useRef<Map<string, string>>(new Map())
   const sessionToPane = useRef<Map<string, string>>(new Map())
   const pendingStart = useRef<Map<string, string>>(new Map())
-  const pendingTasks = useRef<Map<string, string>>(new Map())
+  const pendingTasks = useRef<Map<string, PendingTaskRun>>(new Map())
+  const bootstrappedSessions = useRef<Map<string, Set<string>>>(new Map())
   const closedTabs = useRef<PersistedTab[]>([])
   const profileMenuRef = useRef<HTMLDivElement | null>(null)
   const projectMenuRef = useRef<HTMLDivElement | null>(null)
   const taskMenuRef = useRef<HTMLDivElement | null>(null)
   const folderPickerRef = useRef<HTMLDivElement | null>(null)
+  const folderPickerWasOpen = useRef(false)
   const contextMenuRef = useRef<HTMLDivElement | null>(null)
   const loggingSessions = useRef<Set<string>>(new Set())
   const folderNav = useRef<Map<string, FolderNavState>>(new Map())
   const [profiles, setProfiles] = useState<TerminalProfile[]>([])
-  const [tasks, setTasks] = useState<TaskEntry[]>([])
+  const [workspace, setWorkspace] = useState<WorkspaceConfig>({ version: 2, projects: [] })
   const [projects, setProjects] = useState<ProjectDefinition[]>([])
+  const [legacyTasks, setLegacyTasks] = useState<TaskEntry[]>([])
+  const [environment, setEnvironment] = useState<Record<string, string>>({})
   const [tabs, setTabs] = useState<TabInfo[]>([])
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
   const [selectedProfileId, setSelectedProfileId] = useState<string>('powershell')
@@ -275,6 +358,9 @@ const App = () => {
   const [folderPickerQuery, setFolderPickerQuery] = useState('')
   const [folderPickerVersion, setFolderPickerVersion] = useState(0)
   const [folderPickerWidth, setFolderPickerWidth] = useState(420)
+  const [folderPickerTab, setFolderPickerTab] = useState<
+    'browse' | 'favorites' | 'recent' | 'tools'
+  >('browse')
   const [folderListing, setFolderListing] = useState<FolderListing>({
     path: '',
     entries: [],
@@ -282,6 +368,7 @@ const App = () => {
   })
   const [profileQuery, setProfileQuery] = useState('')
   const [projectQuery, setProjectQuery] = useState('')
+  const [projectFilter, setProjectFilter] = useState<'all' | 'pinned' | 'recent'>('all')
   const [taskQuery, setTaskQuery] = useState('')
   const [pinnedProjectIds, setPinnedProjectIds] = useState<string[]>(() => {
     if (typeof window === 'undefined') {
@@ -317,6 +404,8 @@ const App = () => {
   const postMessage = (payload: Record<string, unknown>) => {
     bridge?.postMessage(payload)
   }
+
+  const isWorkspaceV2 = workspace.version === 2
 
   const getActiveTab = () => tabs.find((tab) => tab.id === activeTabId) ?? null
 
@@ -466,11 +555,11 @@ const App = () => {
     return 'powershell'
   }
 
-  const quotePowerShell = (value: string) => `"${value.replace(/"/g, '`"')}"`
+  const quotePowerShell = (value: string) => '"' + value.replace(/"/g, '`"') + '"'
   const quoteCmd = (value: string) => `"${value.replace(/"/g, '""')}"`
   const quoteBash = (value: string) => `"${value.replace(/"/g, '\\"')}"`
 
-  const buildTaskCommand = (task: TaskEntry) => {
+  const buildLegacyTaskCommand = (task: TaskEntry) => {
     const command = task.command?.trim()
     if (command) {
       return command
@@ -481,6 +570,101 @@ const App = () => {
     }
     const args = task.args?.trim()
     return args ? `${path} ${args}` : path
+  }
+
+  const getEnvValue = (name: string) => {
+    if (!name) {
+      return undefined
+    }
+    return (
+      environment[name] ??
+      environment[name.toUpperCase()] ??
+      environment[name.toLowerCase()]
+    )
+  }
+
+  const expandVariables = (
+    value: string,
+    context: {
+      project: ProjectDefinition
+      globalsVars: Record<string, string>
+      projectVars: Record<string, string>
+    }
+  ) => {
+    if (!value) {
+      return value
+    }
+    let next = value
+    for (let i = 0; i < 5; i += 1) {
+      const replaced = next.replace(/\$\{([^}]+)\}/g, (match, token) => {
+        const raw = token.trim()
+        if (!raw) {
+          return match
+        }
+        if (raw.startsWith('env:')) {
+          const name = raw.slice(4)
+          const envValue = getEnvValue(name)
+          return envValue ?? match
+        }
+        if (raw.startsWith('project.')) {
+          const key = raw.slice('project.'.length)
+          if (key === 'root') {
+            return context.project.root ?? match
+          }
+          if (key === 'id') {
+            return context.project.id
+          }
+          if (key === 'name') {
+            return context.project.name
+          }
+          return match
+        }
+        if (raw.startsWith('globals.vars.')) {
+          const name = raw.slice('globals.vars.'.length)
+          return context.globalsVars[name] ?? match
+        }
+        if (raw.startsWith('vars.')) {
+          const name = raw.slice('vars.'.length)
+          return (
+            context.projectVars[name] ??
+            context.globalsVars[name] ??
+            match
+          )
+        }
+        return match
+      })
+      if (replaced === next) {
+        break
+      }
+      next = replaced
+    }
+    return next
+  }
+
+  const mergeWorkspaceTask = (base: WorkspaceTask | undefined, override: WorkspaceTask) => {
+    const merged: WorkspaceTask = { ...(base ?? {}), ...(override ?? {}) }
+    if (override.steps === undefined && base?.steps !== undefined) {
+      merged.steps = base.steps
+    }
+    if (override.dependsOn === undefined && base?.dependsOn !== undefined) {
+      merged.dependsOn = base.dependsOn
+    }
+    if (override.group === undefined && base?.group !== undefined) {
+      merged.group = base.group
+    }
+    if (override.shell === undefined && base?.shell !== undefined) {
+      merged.shell = base.shell
+    }
+    if (override.cwd === undefined && base?.cwd !== undefined) {
+      merged.cwd = base.cwd
+    }
+    if (override.runInNewTab === undefined && base?.runInNewTab !== undefined) {
+      merged.runInNewTab = base.runInNewTab
+    }
+    if (override.focusTab === undefined && base?.focusTab !== undefined) {
+      merged.focusTab = base.focusTab
+    }
+    return merged
   }
 
   const buildChangeDirectoryCommand = (profileId: string, path: string) => {
@@ -494,8 +678,8 @@ const App = () => {
     return `Set-Location -Path ${quotePowerShell(path)}`
   }
 
-  const sendTaskToSession = (sessionId: string, task: TaskEntry) => {
-    const command = buildTaskCommand(task)
+  const sendLegacyTaskToSession = (sessionId: string, task: TaskEntry) => {
+    const command = buildLegacyTaskCommand(task)
     if (!command) {
       return false
     }
@@ -515,18 +699,227 @@ const App = () => {
     return true
   }
 
-  const runTaskByIdInActivePane = (taskId: string) => {
-    const pane = getActivePane()
-    if (!pane?.sessionId) {
-      window.alert('No active session to receive commands.')
+  const buildTaskKey = (projectId: string, taskName: string) => `${projectId}:${taskName}`
+
+  const resolveWorkspaceTask = (project: ProjectDefinition, taskName: string) => {
+    const rawTask = project.tasks?.[taskName]
+    if (!rawTask) {
+      return null
+    }
+    const template = rawTask.useTemplate
+      ? workspace.templates?.[rawTask.useTemplate]
+      : undefined
+    const merged = mergeWorkspaceTask(template, rawTask)
+    const globalsVars = workspace.globals?.vars ?? {}
+    const projectVars = project.vars ?? {}
+    const context = { project, globalsVars, projectVars }
+    const cwd = merged.cwd ? expandVariables(merged.cwd, context) : undefined
+    const steps = (merged.steps ?? []).map((step) => ({
+      run: expandVariables(step.run, context),
+    }))
+    const defaultShell = workspace.globals?.defaultShell ?? selectedProfileId
+    return {
+      key: buildTaskKey(project.id, taskName),
+      name: taskName,
+      projectId: project.id,
+      group: merged.group ?? 'Other',
+      shell: merged.shell ?? defaultShell,
+      cwd,
+      steps,
+      dependsOn: merged.dependsOn ?? [],
+      runInNewTab: merged.runInNewTab,
+      focusTab: merged.focusTab,
+    } as ResolvedTask
+  }
+
+  const resolveProjectTasks = (project: ProjectDefinition) => {
+    if (!project.tasks) {
+      return []
+    }
+    return Object.keys(project.tasks)
+      .map((taskName) => resolveWorkspaceTask(project, taskName))
+      .filter((task): task is ResolvedTask => Boolean(task))
+  }
+
+  const groupTasksByGroup = (tasks: ResolvedTask[]) => {
+    const grouped = new Map<string, ResolvedTask[]>()
+    tasks.forEach((task) => {
+      const group = task.group || 'Other'
+      const existing = grouped.get(group)
+      if (existing) {
+        existing.push(task)
+      } else {
+        grouped.set(group, [task])
+      }
+    })
+    const preferredOrder = ['Dev', 'Build', 'Test', 'Docker', 'Utils', 'Other']
+    const sortedGroups = Array.from(grouped.keys()).sort((left, right) => {
+      const leftIndex = preferredOrder.indexOf(left)
+      const rightIndex = preferredOrder.indexOf(right)
+      if (leftIndex === -1 && rightIndex === -1) {
+        return left.localeCompare(right)
+      }
+      if (leftIndex === -1) {
+        return 1
+      }
+      if (rightIndex === -1) {
+        return -1
+      }
+      return leftIndex - rightIndex
+    })
+    return sortedGroups.map((group) => ({ group, tasks: grouped.get(group) ?? [] }))
+  }
+
+  const resolvedTaskIndex = useMemo(() => {
+    const byKey = new Map<string, ResolvedTask>()
+    const byProject = new Map<string, ResolvedTask[]>()
+    if (!isWorkspaceV2) {
+      return { byKey, byProject }
+    }
+    projects.forEach((project) => {
+      const resolved = resolveProjectTasks(project)
+      byProject.set(project.id, resolved)
+      resolved.forEach((task) => {
+        byKey.set(task.key, task)
+      })
+    })
+    return { byKey, byProject }
+  }, [isWorkspaceV2, projects, workspace, environment, selectedProfileId])
+
+  const buildTaskExecutionPlan = (task: ResolvedTask) => {
+    const projectTasks = resolvedTaskIndex.byProject.get(task.projectId) ?? []
+    const byName = new Map(projectTasks.map((entry) => [entry.name, entry]))
+    const ordered: TaskExecutionStep[] = []
+    const visiting = new Set<string>()
+    const visited = new Set<string>()
+
+    const visit = (current: ResolvedTask) => {
+      if (visited.has(current.name)) {
+        return
+      }
+      if (visiting.has(current.name)) {
+        return
+      }
+      visiting.add(current.name)
+      current.dependsOn.forEach((dep) => {
+        const next = byName.get(dep)
+        if (next) {
+          visit(next)
+        }
+      })
+      current.steps.forEach((step) => {
+        ordered.push({ run: step.run, cwd: current.cwd, taskName: current.name })
+      })
+      visiting.delete(current.name)
+      visited.add(current.name)
+    }
+
+    visit(task)
+    return ordered
+  }
+
+  const resolveBootstrapSteps = (project: ProjectDefinition) => {
+    const bootstrap = project.bootstrap
+    if (!bootstrap?.steps?.length) {
+      return []
+    }
+    const globalsVars = workspace.globals?.vars ?? {}
+    const projectVars = project.vars ?? {}
+    const context = { project, globalsVars, projectVars }
+    const cwd = bootstrap.cwd ? expandVariables(bootstrap.cwd, context) : undefined
+    return bootstrap.steps.map((step) => ({
+      run: expandVariables(step.run, context),
+      cwd,
+      taskName: 'bootstrap',
+    }))
+  }
+
+  const queueTaskSteps = (
+    sessionId: string,
+    profileId: string,
+    steps: TaskExecutionStep[],
+    options?: { delayMs?: number }
+  ) => {
+    let delay = options?.delayMs ?? 0
+    let lastCwd: string | undefined
+    steps.forEach((step) => {
+      const commands: string[] = []
+      if (step.cwd && step.cwd !== lastCwd) {
+        commands.push(buildChangeDirectoryCommand(profileId, step.cwd))
+        lastCwd = step.cwd
+      }
+      commands.push(step.run)
+      const payload = `${commands.join('\r\n')}\r\n`
+      setTimeout(() => {
+        postMessage({ type: 'input', sessionId, data: payload })
+      }, delay)
+      delay += 150
+    })
+    return delay
+  }
+
+  const runWorkspaceTaskInSession = (
+    task: ResolvedTask,
+    sessionId: string,
+    paneId: string
+  ) => {
+    const pane = findPaneById(paneId)
+    const profileId = pane?.profileId ?? task.shell ?? selectedProfileId
+    const project = projects.find((item) => item.id === task.projectId)
+    let delay = 0
+    if (project) {
+      const bootstrapSteps = resolveBootstrapSteps(project)
+      if (bootstrapSteps.length > 0) {
+        const existing = bootstrappedSessions.current.get(sessionId)
+        if (!existing?.has(project.id)) {
+          delay = queueTaskSteps(sessionId, profileId, bootstrapSteps, { delayMs: delay })
+          if (existing) {
+            existing.add(project.id)
+          } else {
+            bootstrappedSessions.current.set(sessionId, new Set([project.id]))
+          }
+        }
+      }
+    }
+
+    const plan = buildTaskExecutionPlan(task)
+    if (plan.length === 0) {
       return
     }
-    const task = findTask(taskId)
-    if (!task) {
-      window.alert(`Task not found: ${taskId}`)
+
+    termRefs.current
+      .get(paneId)
+      ?.writeln(`\r\n[task] ${task.name} (${task.group})`)
+
+    queueTaskSteps(sessionId, profileId, plan, { delayMs: delay })
+  }
+
+  const runWorkspaceTask = (
+    task: ResolvedTask,
+    options?: { forceNewTab?: boolean; title?: string }
+  ) => {
+    const activePane = getActivePane()
+    const targetProfileId = task.shell ?? selectedProfileId
+    const resolvedProfileId = profiles.some((profile) => profile.id === targetProfileId)
+      ? targetProfileId
+      : selectedProfileId
+    const shellMismatch =
+      Boolean(activePane?.profileId) && task.shell
+        ? task.shell.toLowerCase() !== activePane?.profileId.toLowerCase()
+        : false
+    const shouldNewTab =
+      options?.forceNewTab ?? task.runInNewTab ?? shellMismatch ?? false
+
+    if (!activePane?.sessionId || shouldNewTab) {
+      const { paneId } = createTabWithPane(resolvedProfileId, true, {
+        title: options?.title ?? task.name,
+        pane: { cwd: task.cwd },
+      }, { focus: task.focusTab !== false })
+      pendingTasks.current.set(paneId, { kind: 'workspace', taskKey: task.key })
       return
     }
-    sendTaskToSession(pane.sessionId, task)
+
+    runWorkspaceTaskInSession(task, activePane.sessionId, activePane.id)
   }
 
   const applyFolderChange = (
@@ -765,7 +1158,7 @@ const App = () => {
     }
 
     if (pane.taskId) {
-      pendingTasks.current.set(pane.id, pane.taskId)
+      pendingTasks.current.set(pane.id, { kind: 'legacy', taskId: pane.taskId })
     }
 
     return pane
@@ -781,7 +1174,11 @@ const App = () => {
     }
   }
 
-  const createWorkspace = (groups: GroupInfo[], overrides?: Partial<TabInfo>) => {
+  const createWorkspace = (
+    groups: GroupInfo[],
+    overrides?: Partial<TabInfo>,
+    options?: { focus?: boolean }
+  ) => {
     const newTab: TabInfo = {
       id: overrides?.id ?? crypto.randomUUID(),
       title: overrides?.title ?? groups[0]?.title ?? 'Tab',
@@ -793,19 +1190,29 @@ const App = () => {
     }
 
     setTabs((current) => [...current, newTab])
-    setActiveTabId(newTab.id)
+    if (options?.focus !== false) {
+      setActiveTabId(newTab.id)
+    }
     return newTab.id
+  }
+
+  const createTabWithPane = (
+    profileId: string,
+    autoStart: boolean,
+    overrides?: Partial<TabInfo> & { group?: Partial<GroupInfo>; pane?: Partial<SessionInfo> },
+    options?: { focus?: boolean }
+  ) => {
+    const pane = createSession(profileId, autoStart, overrides?.pane)
+    const group = createGroup([pane], overrides?.group)
+    const tabId = createWorkspace([group], overrides, options)
+    return { tabId, paneId: pane.id }
   }
 
   const createTab = (
     profileId: string,
     autoStart: boolean,
     overrides?: Partial<TabInfo> & { group?: Partial<GroupInfo>; pane?: Partial<SessionInfo> }
-  ) => {
-    const pane = createSession(profileId, autoStart, overrides?.pane)
-    const group = createGroup([pane], overrides?.group)
-    return createWorkspace([group], overrides)
-  }
+  ) => createTabWithPane(profileId, autoStart, overrides).tabId
 
   const startSessionForPane = (
     paneId: string,
@@ -839,6 +1246,7 @@ const App = () => {
       if (pane.sessionId) {
         postMessage({ type: 'kill', sessionId: pane.sessionId })
         sessionToPane.current.delete(pane.sessionId)
+        bootstrappedSessions.current.delete(pane.sessionId)
       }
 
       paneToSession.current.delete(pane.id)
@@ -870,6 +1278,7 @@ const App = () => {
         if (pane.sessionId) {
           postMessage({ type: 'kill', sessionId: pane.sessionId })
           sessionToPane.current.delete(pane.sessionId)
+          bootstrappedSessions.current.delete(pane.sessionId)
         }
         paneToSession.current.delete(pane.id)
         termRefs.current.get(pane.id)?.dispose()
@@ -881,6 +1290,7 @@ const App = () => {
         folderNav.current.delete(pane.id)
       })
     })
+    bootstrappedSessions.current.clear()
     closedTabs.current = []
     setTabs([])
     setActiveTabId(null)
@@ -916,6 +1326,7 @@ const App = () => {
     if (pane.sessionId) {
       postMessage({ type: 'kill', sessionId: pane.sessionId })
       sessionToPane.current.delete(pane.sessionId)
+      bootstrappedSessions.current.delete(pane.sessionId)
     }
 
     paneToSession.current.delete(pane.id)
@@ -1120,6 +1531,19 @@ const App = () => {
     }
   }
 
+  const clearPane = (pane: SessionInfo) => {
+    const kind = resolveShellKind(pane.profileId)
+    const command = kind === 'cmd' || kind === 'powershell' ? 'cls' : 'clear'
+    handlePaneInput(pane.id, `${command}\r`)
+  }
+
+  const killPaneSession = (pane: SessionInfo) => {
+    if (!pane.sessionId) {
+      return
+    }
+    postMessage({ type: 'kill', sessionId: pane.sessionId })
+  }
+
   const openContextMenu = (paneId: string, event: MouseEvent) => {
     if (!rightClickPaste) {
       return
@@ -1158,8 +1582,10 @@ const App = () => {
     return host ? host.contains(target) : false
   }
 
-  const findTask = (taskId: string) =>
-    tasks.find((task) => task.id === taskId || task.name === taskId) ?? null
+  const findLegacyTask = (taskId: string) =>
+    legacyTasks.find((task) => task.id === taskId || task.name === taskId) ?? null
+
+  const findResolvedTask = (taskKey: string) => resolvedTaskIndex.byKey.get(taskKey) ?? null
 
   const initializeFromState = (state: AppState) => {
     setRestoreSessions(state.restoreSessions ?? true)
@@ -1313,11 +1739,29 @@ const App = () => {
       switch (message.type) {
         case 'app.init': {
           const incomingProfiles = message.profiles ?? []
-          setProfiles(normalizeProfileList(incomingProfiles))
-          setTasks(message.tasks ?? [])
-          setProjects(message.projects ?? [])
-          setScriptsPath(message.scriptsPath ?? null)
+          const incomingWorkspace = message.workspace
           const incomingState = message.statePayload
+          const incomingEnvironment = message.environment ?? {}
+          setProfiles(normalizeProfileList(incomingProfiles))
+          setEnvironment(incomingEnvironment)
+          if (incomingWorkspace) {
+            setWorkspace(incomingWorkspace)
+            setProjects(incomingWorkspace.projects ?? [])
+            setLegacyTasks([])
+            const defaultShell = incomingWorkspace.globals?.defaultShell
+            if (defaultShell && incomingProfiles.some((profile) => profile.id === defaultShell)) {
+              setSelectedProfileId(defaultShell)
+            }
+            const workspaceFontSize = incomingWorkspace.globals?.terminal?.fontSize
+            if (workspaceFontSize && !incomingState?.fontSize) {
+              setFontSize(workspaceFontSize)
+            }
+          } else {
+            setWorkspace({ version: 1, projects: message.projects ?? [] })
+            setProjects(message.projects ?? [])
+            setLegacyTasks(message.tasks ?? [])
+          }
+          setScriptsPath(message.scriptsPath ?? null)
           if (incomingState && incomingState.tabs?.length) {
             initializeFromState(incomingState)
           } else if (message.sessions && message.sessions.length > 0) {
@@ -1335,11 +1779,25 @@ const App = () => {
           break
         }
         case 'tasks.list': {
-          setTasks(message.tasks ?? [])
+          if (message.workspace) {
+            setWorkspace(message.workspace)
+            setProjects(message.workspace.projects ?? [])
+            setLegacyTasks([])
+            if (message.workspace.globals?.defaultShell) {
+              setSelectedProfileId(message.workspace.globals.defaultShell)
+            }
+          } else {
+            setLegacyTasks(message.tasks ?? [])
+          }
           break
         }
         case 'projects.list': {
-          setProjects(message.projects ?? [])
+          if (message.workspace) {
+            setWorkspace(message.workspace)
+            setProjects(message.workspace.projects ?? [])
+          } else {
+            setProjects(message.projects ?? [])
+          }
           break
         }
         case 'ready': {
@@ -1386,17 +1844,25 @@ const App = () => {
             }, 200)
           }
 
-          const taskId = pendingTasks.current.get(paneId) ?? pane?.taskId
-          if (taskId) {
-            const paneAutoRun = pane?.autoRun !== false
-            const task = findTask(taskId)
-            if (!paneAutoRun || task?.autoRun === false) {
-              pendingTasks.current.delete(paneId)
-            } else if (task) {
-              sendTaskToSession(message.sessionId, task)
-              pendingTasks.current.delete(paneId)
+          const pending = pendingTasks.current.get(paneId)
+          if (pending) {
+            if (pending.kind === 'legacy') {
+              const paneAutoRun = pane?.autoRun !== false
+              const task = findLegacyTask(pending.taskId)
+              if (!paneAutoRun || task?.autoRun === false) {
+                pendingTasks.current.delete(paneId)
+              } else if (task) {
+                sendLegacyTaskToSession(message.sessionId, task)
+                pendingTasks.current.delete(paneId)
+              } else {
+                schedulePendingTask(paneId, pending.taskId)
+              }
             } else {
-              schedulePendingTask(paneId, taskId)
+              const task = findResolvedTask(pending.taskKey)
+              if (task) {
+                runWorkspaceTaskInSession(task, message.sessionId, paneId)
+              }
+              pendingTasks.current.delete(paneId)
             }
           }
           break
@@ -1598,6 +2064,9 @@ const App = () => {
   }, [projectMenuProjectId])
 
   useEffect(() => {
+    if (isWorkspaceV2) {
+      return
+    }
     if (typeof window === 'undefined') {
       return
     }
@@ -1606,15 +2075,18 @@ const App = () => {
     } catch {
       // Ignore storage errors (private mode, blocked, etc.)
     }
-  }, [pinnedProjectIds])
+  }, [pinnedProjectIds, isWorkspaceV2])
 
   useEffect(() => {
+    if (isWorkspaceV2) {
+      return
+    }
     if (pinnedProjectIds.length === 0) {
       return
     }
     const available = new Set(projects.map((project) => project.id))
     setPinnedProjectIds((current) => current.filter((id) => available.has(id)))
-  }, [projects, pinnedProjectIds.length])
+  }, [projects, pinnedProjectIds.length, isWorkspaceV2])
 
   useEffect(() => {
     if (!taskMenuOpen) {
@@ -1633,9 +2105,29 @@ const App = () => {
   }, [taskMenuOpen])
 
   useEffect(() => {
+    termRefs.current.forEach((terminal) => {
+      terminal.options.disableStdin = folderPickerOpen
+      if (terminal.textarea) {
+        terminal.textarea.readOnly = folderPickerOpen
+      }
+    })
+
     if (!folderPickerOpen) {
+      if (folderPickerWasOpen.current) {
+        const pane =
+          (folderPickerPaneId ? findPaneById(folderPickerPaneId) : null) ?? getActivePane()
+        const sessionId =
+          pane?.sessionId ?? (pane ? paneToSession.current.get(pane.id) : null)
+        if (sessionId) {
+          postMessage({ type: 'input', sessionId, data: String.fromCharCode(3) })
+        }
+      }
+      folderPickerWasOpen.current = false
       return
     }
+
+    folderPickerWasOpen.current = true
+    setFolderPickerTab('browse')
 
     const handleClick = (event: MouseEvent) => {
       const target = event.target as Node
@@ -1646,17 +2138,20 @@ const App = () => {
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        event.preventDefault()
+        event.stopPropagation()
+        event.stopImmediatePropagation()
         setFolderPickerOpen(false)
       }
     }
 
     window.addEventListener('click', handleClick)
-    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keydown', handleKeyDown, true)
     return () => {
       window.removeEventListener('click', handleClick)
-      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keydown', handleKeyDown, true)
     }
-  }, [folderPickerOpen])
+  }, [folderPickerOpen, folderPickerPaneId])
 
   useEffect(() => {
     if (!folderPickerOpen || !folderPickerPaneId) {
@@ -1725,6 +2220,12 @@ const App = () => {
   }, [projects, activeProjectId, taskProjectId])
 
   useEffect(() => {
+    if (isWorkspaceV2 && projectEditorTab !== 'basics') {
+      setProjectEditorTab('basics')
+    }
+  }, [isWorkspaceV2, projectEditorTab])
+
+  useEffect(() => {
     const handleResize = () => {
       if (!autoFit) {
         return
@@ -1763,12 +2264,27 @@ const App = () => {
           fontFamily,
           fontSize,
           cursorBlink: true,
-          scrollback: 8000,
+          scrollback: terminalScrollback,
           theme: {
-            background: theme === 'midnight' ? '#0e1116' : '#0d1014',
-            foreground: theme === 'midnight' ? '#d9e2f1' : '#e5e8f0',
-            cursor: '#8ad1ff',
-            selectionBackground: theme === 'midnight' ? '#2c3a54' : '#2c2f3f',
+            background:
+              theme === 'midnight'
+                ? '#0e1116'
+                : theme === 'graphite'
+                  ? '#0d1014'
+                  : '#f7f7f8',
+            foreground:
+              theme === 'midnight'
+                ? '#d9e2f1'
+                : theme === 'graphite'
+                  ? '#e5e8f0'
+                  : '#1f2430',
+            cursor: theme === 'daylight' ? '#0068d6' : '#8ad1ff',
+            selectionBackground:
+              theme === 'midnight'
+                ? '#2c3a54'
+                : theme === 'graphite'
+                  ? '#2c2f3f'
+                  : '#cfe3ff',
           },
         })
 
@@ -1780,6 +2296,14 @@ const App = () => {
         term.loadAddon(webLinksAddon)
         term.open(host)
         fitAddon.fit()
+        const updateScrollState = () => {
+          const baseY = term.buffer?.active?.baseY ?? 0
+          term.element?.classList.toggle('no-scrollback', baseY === 0)
+        }
+        term.onScroll(updateScrollState)
+        term.onWriteParsed(updateScrollState)
+        term.onResize(updateScrollState)
+        updateScrollState()
 
         term.onData((data) => handlePaneInput(pane.id, data))
         term.onSelectionChange(() => {
@@ -1829,10 +2353,12 @@ const App = () => {
     if (pendingTasks.current.size === 0) {
       return
     }
-    pendingTasks.current.forEach((taskId, paneId) => {
-      schedulePendingTask(paneId, taskId)
+    pendingTasks.current.forEach((pending, paneId) => {
+      if (pending.kind === 'legacy') {
+        schedulePendingTask(paneId, pending.taskId)
+      }
     })
-  }, [tasks])
+  }, [legacyTasks])
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -1977,6 +2503,15 @@ const App = () => {
     return () => window.removeEventListener('keydown', handleKey)
   }, [tabs, activeTabId, selectedProfileId])
 
+  const workspacePaletteCommands: PaletteCommand[] = isWorkspaceV2
+    ? (workspace.workspaces ?? []).map((entry) => ({
+        id: `workspace-${entry.id}`,
+        label: `Workspace: ${entry.name}`,
+        action: () => launchWorkspace(entry),
+        keywords: `workspace ${entry.projectId}`,
+      }))
+    : []
+
   const paletteCommands: PaletteCommand[] = [
     {
       id: 'new-tab',
@@ -1998,8 +2533,11 @@ const App = () => {
     },
     {
       id: 'theme',
-      label: 'Toggle Theme',
-      action: () => setTheme((current) => (current === 'midnight' ? 'graphite' : 'midnight')),
+      label: 'Cycle Theme',
+      action: () =>
+        setTheme((current) =>
+          current === 'midnight' ? 'graphite' : current === 'graphite' ? 'daylight' : 'midnight'
+        ),
       keywords: 'theme color',
     },
     {
@@ -2026,6 +2564,7 @@ const App = () => {
       action: requestWorkingDirectory,
       keywords: 'folder cwd directory browse',
     },
+    ...workspacePaletteCommands,
   ]
 
   const filteredCommands = paletteCommands.filter((command) => {
@@ -2046,7 +2585,7 @@ const App = () => {
   }
 
   const tryRunPendingTask = (paneId: string, taskId: string) => {
-    const task = findTask(taskId)
+    const task = findLegacyTask(taskId)
     const pane = findPaneById(paneId)
     if (task?.autoRun === false || pane?.autoRun === false) {
       pendingTasks.current.delete(paneId)
@@ -2064,7 +2603,7 @@ const App = () => {
     termRefs.current
       .get(paneId)
       ?.writeln(`\r\n[task] ${task.name} :: ${commandLabel} @ ${cwd}`)
-    if (!sendTaskToSession(sessionId, task)) {
+    if (!sendLegacyTaskToSession(sessionId, task)) {
       return false
     }
     pendingTasks.current.delete(paneId)
@@ -2100,7 +2639,7 @@ const App = () => {
     }
   }
 
-  const handleTaskSelect = (task: TaskEntry) => {
+  const handleLegacyTaskSelect = (task: TaskEntry) => {
     setTaskMenuOpen(false)
     if (!task.path && !task.command) {
       window.alert('Task is missing a command.')
@@ -2115,26 +2654,26 @@ const App = () => {
         .filter((pane) => !task.profileId || task.profileId === pane.profileId)
 
       if (targetPanes.length === 0) {
-        handleTaskRunInNewTab(task)
+        handleLegacyTaskRunInNewTab(task)
         return
       }
 
       targetPanes.forEach((pane) => {
-        sendTaskToSession(pane.sessionId as string, task)
+        sendLegacyTaskToSession(pane.sessionId as string, task)
       })
       return
     }
 
     const activePane = getActivePane()
     if (!activePane?.sessionId) {
-      handleTaskRunInNewTab(task)
+      handleLegacyTaskRunInNewTab(task)
       return
     }
 
-    sendTaskToSession(activePane.sessionId, task)
+    sendLegacyTaskToSession(activePane.sessionId, task)
   }
 
-  const handleTaskRunInNewTab = (task: TaskEntry) => {
+  const handleLegacyTaskRunInNewTab = (task: TaskEntry) => {
     setTaskMenuOpen(false)
     if (!task.path && !task.command) {
       window.alert('Task is missing a command.')
@@ -2151,6 +2690,61 @@ const App = () => {
     })
   }
 
+  const handleWorkspaceTaskSelect = (task: ResolvedTask) => {
+    setTaskMenuOpen(false)
+    if (task.steps.length === 0) {
+      window.alert('Task is missing steps.')
+      return
+    }
+
+    if (runAllSessions) {
+      const targetPanes = tabs
+        .flatMap((tab) => tab.groups)
+        .flatMap((group) => group.tabs)
+        .filter((pane) => pane.sessionId)
+        .filter(
+          (pane) =>
+            !task.shell ||
+            task.shell.toLowerCase() === pane.profileId.toLowerCase()
+        )
+
+      if (targetPanes.length === 0) {
+        handleWorkspaceTaskRunInNewTab(task)
+        return
+      }
+
+      targetPanes.forEach((pane) => {
+        runWorkspaceTaskInSession(task, pane.sessionId as string, pane.id)
+      })
+      return
+    }
+
+    const activePane = getActivePane()
+    if (!activePane?.sessionId) {
+      handleWorkspaceTaskRunInNewTab(task)
+      return
+    }
+
+    if (
+      task.shell &&
+      task.shell.toLowerCase() !== activePane.profileId.toLowerCase()
+    ) {
+      handleWorkspaceTaskRunInNewTab(task)
+      return
+    }
+
+    runWorkspaceTaskInSession(task, activePane.sessionId, activePane.id)
+  }
+
+  const handleWorkspaceTaskRunInNewTab = (task: ResolvedTask) => {
+    setTaskMenuOpen(false)
+    if (task.steps.length === 0) {
+      window.alert('Task is missing steps.')
+      return
+    }
+    runWorkspaceTask(task, { forceNewTab: true })
+  }
+
   const buildGroupFromLayout = (
     layout: ProjectLayout,
     projectRoot?: string
@@ -2162,7 +2756,7 @@ const App = () => {
       }
       const panes = items.map((item) =>
         {
-          const task = item.taskId ? findTask(item.taskId) : null
+          const task = item.taskId ? findLegacyTask(item.taskId) : null
           const taskCwd = task?.workingDirectory ?? task?.cwd
           return createSession(item.profileId ?? selectedProfileId, true, {
             title: item.title,
@@ -2229,7 +2823,7 @@ const App = () => {
       return null
     }
     const root = projectRoot.toLowerCase()
-    const signals = tasks
+    const signals = legacyTasks
       .filter((task) => {
         const cwd = task.cwd ?? task.workingDirectory
         return cwd?.toLowerCase().startsWith(root)
@@ -2277,9 +2871,15 @@ const App = () => {
     return project.root ?? 'Workspace'
   }
 
-  const getTaskSubtitle = (task: TaskEntry) => {
+  const getLegacyTaskSubtitle = (task: TaskEntry) => {
     const command = task.command ?? task.path ?? 'command'
     const cwd = task.cwd ?? task.workingDirectory
+    return cwd ? `${command} - ${cwd}` : command
+  }
+
+  const getWorkspaceTaskSubtitle = (task: ResolvedTask) => {
+    const command = task.steps[0]?.run ?? 'command'
+    const cwd = task.cwd
     return cwd ? `${command} - ${cwd}` : command
   }
 
@@ -2288,7 +2888,7 @@ const App = () => {
       .flatMap((group) => group.tabs)
       .filter((pane) => pane.taskId && pane.autoRun !== false)
       .filter((pane) => {
-        const task = findTask(pane.taskId as string)
+        const task = findLegacyTask(pane.taskId as string)
         return !task || task.autoRun !== false
       })
 
@@ -2303,7 +2903,7 @@ const App = () => {
 
     sorted.forEach((pane, index) => {
       const taskId = pane.taskId as string
-      pendingTasks.current.set(pane.id, taskId)
+      pendingTasks.current.set(pane.id, { kind: 'legacy', taskId })
       schedulePendingTask(pane.id, taskId, 0, index * 250)
     })
   }
@@ -2318,6 +2918,11 @@ const App = () => {
       return next.slice(0, 6)
     })
     const root = project.root
+    if (isWorkspaceV2) {
+      const profileId = workspace.globals?.defaultShell ?? selectedProfileId
+      createTab(profileId, true, { title: project.name, pane: { cwd: root } })
+      return
+    }
     const layout = project.layout
     if (!layout) {
       createTab(selectedProfileId, true, { title: project.name, pane: { cwd: root } })
@@ -2359,6 +2964,30 @@ const App = () => {
     }
   }
 
+  function launchWorkspace(entry: WorkspaceLaunch) {
+    resetWorkspace()
+    setProjectMenuProjectId(null)
+    const project = projects.find((item) => item.id === entry.projectId) ?? null
+    if (project) {
+      setActiveProjectId(project.id)
+      setTaskProjectId(project.id)
+      setRecentProjectIds((current) => {
+        const next = [project.id, ...current.filter((item) => item !== project.id)]
+        return next.slice(0, 6)
+      })
+    }
+    entry.openTabs.forEach((tab) => {
+      if (!project) {
+        return
+      }
+      const task = findResolvedTask(buildTaskKey(project.id, tab.task))
+      if (!task) {
+        return
+      }
+      runWorkspaceTask(task, { forceNewTab: true, title: tab.title ?? task.name })
+    })
+  }
+
   const selectProject = (project: ProjectDefinition) => {
     setActiveProjectId(project.id)
     setTaskProjectId(project.id)
@@ -2369,6 +2998,14 @@ const App = () => {
   }
 
   const togglePinnedProject = (projectId: string) => {
+    if (isWorkspaceV2) {
+      setProjects((current) =>
+        current.map((project) =>
+          project.id === projectId ? { ...project, pinned: !project.pinned } : project
+        )
+      )
+      return
+    }
     setPinnedProjectIds((current) => {
       if (current.includes(projectId)) {
         return current.filter((id) => id !== projectId)
@@ -2502,12 +3139,21 @@ const App = () => {
   }
 
   const createProject = () => {
-    const newProject: ProjectDefinition = {
-      id: `project-${crypto.randomUUID()}`,
-      name: 'New project',
-      root: '',
-      layout: { type: 'tabs', items: [] },
-    }
+    const newProject: ProjectDefinition = isWorkspaceV2
+      ? {
+          id: `project-${crypto.randomUUID()}`,
+          name: 'New project',
+          root: '',
+          pinned: false,
+          tasks: {},
+          quickTasks: [],
+        }
+      : {
+          id: `project-${crypto.randomUUID()}`,
+          name: 'New project',
+          root: '',
+          layout: { type: 'tabs', items: [] },
+        }
     setProjects((current) => [...current, newProject])
     setProjectEditorProjectId(newProject.id)
     setProjectEditorOpen(true)
@@ -2631,7 +3277,7 @@ const App = () => {
   }
 
   const updateTaskEntry = (taskId: string, updater: (task: TaskEntry) => TaskEntry) => {
-    setTasks((current) =>
+    setLegacyTasks((current) =>
       current.map((task) => (getTaskKey(task) === taskId ? updater(task) : task))
     )
   }
@@ -2667,7 +3313,14 @@ const App = () => {
       window.alert('Scripts path not available.')
       return
     }
-    const payload = `${JSON.stringify({ projects, tasks }, null, 2)}\n`
+    const payloadObject = isWorkspaceV2
+      ? {
+          ...workspace,
+          version: workspace.version ?? 2,
+          projects,
+        }
+      : { projects, tasks: legacyTasks }
+    const payload = `${JSON.stringify(payloadObject, null, 2)}\n`
     const encoder = new TextEncoder()
     const bytes = encoder.encode(payload)
     const transferId = crypto.randomUUID()
@@ -2689,46 +3342,99 @@ const App = () => {
     postMessage({ type: 'file.upload.end', transferId })
   }
 
+  const terminalScrollback = workspace.globals?.terminal?.scrollback ?? 8000
   const activePane = getActivePane()
-  const activeShellKind = activePane ? resolveShellKind(activePane.profileId) : null
   const contextMenuStyle = contextMenu.open
     ? {
         left: Math.min(contextMenu.x, window.innerWidth - 180),
         top: Math.min(contextMenu.y, window.innerHeight - 110),
       }
     : { left: 0, top: 0 }
-  const availableTasks = tasks.filter(
-    (task) =>
-      task.useTerminal !== false &&
-      (!task.profileId || task.profileId === activePane?.profileId)
-  )
   const activeProject = projects.find((project) => project.id === activeProjectId) ?? null
   const taskProject = taskProjectId
     ? projects.find((project) => project.id === taskProjectId) ?? activeProject
     : activeProject
-  const taskProjectRoot = taskProject?.root
-  const projectTasks = taskProjectRoot
-    ? availableTasks.filter((task) => {
+  const taskQueryLower = taskQuery.trim().toLowerCase()
+  const legacyAvailableTasks = legacyTasks.filter(
+    (task) =>
+      task.useTerminal !== false &&
+      (!task.profileId || task.profileId === activePane?.profileId)
+  )
+  const legacyTaskProjectRoot = taskProject?.root
+  const legacyProjectTasks = legacyTaskProjectRoot
+    ? legacyAvailableTasks.filter((task) => {
         const cwd = task.cwd ?? task.workingDirectory
-        return cwd?.toLowerCase().startsWith(taskProjectRoot.toLowerCase())
+        return cwd?.toLowerCase().startsWith(legacyTaskProjectRoot.toLowerCase())
       })
     : []
-  const globalTasks = availableTasks.filter((task) => !projectTasks.includes(task))
-  const taskQueryLower = taskQuery.trim().toLowerCase()
-  const filteredProjectTasks = projectTasks.filter((task) =>
+  const legacyGlobalTasks = legacyAvailableTasks.filter((task) => !legacyProjectTasks.includes(task))
+
+  const legacyTaskMatchesQuery = (task: TaskEntry) =>
     taskQueryLower
       ? `${task.name} ${task.command ?? ''} ${task.path ?? ''}`
           .toLowerCase()
           .includes(taskQueryLower)
       : true
-  )
-  const filteredGlobalTasks = globalTasks.filter((task) =>
-    taskQueryLower
-      ? `${task.name} ${task.command ?? ''} ${task.path ?? ''}`
-          .toLowerCase()
-          .includes(taskQueryLower)
-      : true
-  )
+
+  const taskMatchesQuery = (task: ResolvedTask) => {
+    if (!taskQueryLower) {
+      return true
+    }
+    const steps = task.steps.map((step) => step.run).join(' ')
+    return `${task.name} ${task.group} ${steps}`.toLowerCase().includes(taskQueryLower)
+  }
+
+  const taskProjectTasks = isWorkspaceV2
+    ? taskProject
+      ? resolvedTaskIndex.byProject.get(taskProject.id) ?? []
+      : []
+    : legacyProjectTasks
+  const filteredProjectTasks = isWorkspaceV2
+    ? (taskProjectTasks as ResolvedTask[]).filter(taskMatchesQuery)
+    : legacyProjectTasks.filter(legacyTaskMatchesQuery)
+  const filteredGlobalTasks = isWorkspaceV2
+    ? []
+    : legacyGlobalTasks.filter(legacyTaskMatchesQuery)
+  const groupedProjectTasks = isWorkspaceV2
+    ? groupTasksByGroup(filteredProjectTasks as ResolvedTask[])
+    : []
+  const quickTasks = isWorkspaceV2 && taskProject
+    ? (taskProject.quickTasks ?? [])
+        .map((taskName) => findResolvedTask(buildTaskKey(taskProject.id, taskName)))
+        .filter((task): task is ResolvedTask => Boolean(task))
+    : []
+  const taskMenuHasItems = isWorkspaceV2
+    ? resolvedTaskIndex.byKey.size > 0
+    : legacyAvailableTasks.length > 0
+  const panelProject = activeProject ?? taskProject ?? null
+  const panelWorkspaceTasks = isWorkspaceV2
+    ? panelProject
+      ? resolvedTaskIndex.byProject.get(panelProject.id) ?? []
+      : []
+    : []
+  const panelLegacyTasks =
+    !isWorkspaceV2 && panelProject?.root
+      ? legacyAvailableTasks.filter((task) => {
+          const cwd = task.cwd ?? task.workingDirectory
+          return cwd?.toLowerCase().startsWith(panelProject.root?.toLowerCase() ?? '')
+        })
+      : []
+  const panelTaskCount = isWorkspaceV2
+    ? panelWorkspaceTasks.length
+    : panelLegacyTasks.length
+  const panelGroupedTasks = isWorkspaceV2
+    ? groupTasksByGroup(panelWorkspaceTasks)
+    : []
+  const panelQuickTasks = isWorkspaceV2 && panelProject
+    ? (panelProject.quickTasks ?? [])
+        .map((taskName) => findResolvedTask(buildTaskKey(panelProject.id, taskName)))
+        .filter((task): task is ResolvedTask => Boolean(task))
+    : []
+  const taskStripTasks = isWorkspaceV2
+    ? panelQuickTasks.length > 0
+      ? panelQuickTasks
+      : panelWorkspaceTasks.slice(0, 6)
+    : panelLegacyTasks.slice(0, 6)
   const profileQueryLower = profileQuery.trim().toLowerCase()
   const filteredProfiles = profiles.filter((profile) =>
     profileQueryLower ? profile.name.toLowerCase().includes(profileQueryLower) : true
@@ -2749,6 +3455,9 @@ const App = () => {
   const filteredEditorProjects = projects.filter((project) =>
     projectEditorQueryLower ? project.name.toLowerCase().includes(projectEditorQueryLower) : true
   )
+  const projectEditorTabs = isWorkspaceV2
+    ? (['basics'] as const)
+    : (['basics', 'layout', 'tasks'] as const)
   const editorProject =
     projects.find((project) => project.id === projectEditorProjectId) ?? null
   const editorLayout = editorProject ? normalizeLayout(editorProject.layout) : null
@@ -2774,31 +3483,36 @@ const App = () => {
   const editorItem = editorItems[editorItemIndex] ?? null
   const editorProjectRoot = editorProject?.root ?? ''
   const projectEditorTaskQueryLower = projectEditorTaskQuery.trim().toLowerCase()
-  const taskMatchesQuery = (task: TaskEntry) =>
+  const legacyEditorTaskMatchesQuery = (task: TaskEntry) =>
     projectEditorTaskQueryLower
       ? `${task.name} ${task.command ?? ''} ${task.path ?? ''}`
           .toLowerCase()
           .includes(projectEditorTaskQueryLower)
       : true
-  const editorProjectTasks = tasks.filter((task) => {
-    if (!editorProjectRoot) {
-      return taskMatchesQuery(task)
-    }
-    const cwd = resolveTaskDirectory(task)
-    const inRoot = cwd.toLowerCase().startsWith(editorProjectRoot.toLowerCase())
-    return inRoot && taskMatchesQuery(task)
-  })
-  const editorOtherTasks = editorProjectRoot
-    ? tasks.filter((task) => {
+  const editorProjectTasks = isWorkspaceV2
+    ? []
+    : legacyTasks.filter((task) => {
+        if (!editorProjectRoot) {
+          return legacyEditorTaskMatchesQuery(task)
+        }
         const cwd = resolveTaskDirectory(task)
         const inRoot = cwd.toLowerCase().startsWith(editorProjectRoot.toLowerCase())
-        return !inRoot && taskMatchesQuery(task)
+        return inRoot && legacyEditorTaskMatchesQuery(task)
       })
-    : []
-  const pinnedProjects = pinnedProjectIds
-    .map((id) => projects.find((project) => project.id === id))
-    .filter((project): project is ProjectDefinition => Boolean(project))
-    .filter((project) => projectMatchesQuery(project))
+  const editorOtherTasks =
+    editorProjectRoot && !isWorkspaceV2
+      ? legacyTasks.filter((task) => {
+          const cwd = resolveTaskDirectory(task)
+          const inRoot = cwd.toLowerCase().startsWith(editorProjectRoot.toLowerCase())
+          return !inRoot && legacyEditorTaskMatchesQuery(task)
+        })
+      : []
+  const pinnedProjects = isWorkspaceV2
+    ? projects.filter((project) => project.pinned).filter((project) => projectMatchesQuery(project))
+    : pinnedProjectIds
+        .map((id) => projects.find((project) => project.id === id))
+        .filter((project): project is ProjectDefinition => Boolean(project))
+        .filter((project) => projectMatchesQuery(project))
   const pinnedProjectSet = new Set(pinnedProjects.map((project) => project.id))
   const recentProjects = recentProjectIds
     .map((id) => projects.find((project) => project.id === id))
@@ -2809,6 +3523,13 @@ const App = () => {
   const otherProjects = filteredProjects.filter(
     (project) => !pinnedProjectSet.has(project.id) && !recentProjectSet.has(project.id)
   )
+  const allProjects = [...pinnedProjects, ...recentProjects, ...otherProjects]
+  const visibleProjects =
+    projectFilter === 'pinned'
+      ? pinnedProjects
+      : projectFilter === 'recent'
+        ? recentProjects
+        : allProjects
   const folderPickerPane = folderPickerPaneId ? findPaneById(folderPickerPaneId) : null
   const folderPickerProfile = folderPickerPane ? getProfileById(folderPickerPane.profileId) : null
   const folderPickerCwd = folderPickerPane?.cwd ?? folderPickerProfile?.workingDirectory ?? ''
@@ -2880,8 +3601,11 @@ const App = () => {
   const renderProjectRow = (project: ProjectDefinition) => {
     const badges = getProjectBadges(project)
     const isActive = project.id === activeProjectId
-    const isPinned = pinnedProjectIds.includes(project.id)
+    const isPinned = isWorkspaceV2 ? project.pinned === true : pinnedProjectIds.includes(project.id)
     const isMenuOpen = projectMenuProjectId === project.id
+    const projectWorkspaces = (workspace.workspaces ?? []).filter(
+      (entry) => entry.projectId === project.id
+    )
 
     return (
       <div key={project.id} className={`project-row ${isActive ? 'active' : ''}`}>
@@ -2926,6 +3650,16 @@ const App = () => {
               >
                 Open workspace
               </button>
+              {isWorkspaceV2 &&
+                projectWorkspaces.map((entry) => (
+                  <button
+                    key={entry.id}
+                    className="project-row-menu-item"
+                    onClick={() => launchWorkspace(entry)}
+                  >
+                    Launch {entry.name}
+                  </button>
+                ))}
               <button
                 className="project-row-menu-item"
                 onClick={() => openProjectEditor(project)}
@@ -2954,7 +3688,26 @@ const App = () => {
         <aside className="project-sidebar">
           <div className="project-sidebar-header">
             <div className="project-sidebar-title">Projects</div>
-            <div className="project-sidebar-subtitle">Pinned • Recent • All</div>
+            <div className="project-sidebar-filters">
+              <button
+                className={`project-filter ${projectFilter === 'pinned' ? 'active' : ''}`}
+                onClick={() => setProjectFilter('pinned')}
+              >
+                Pinned
+              </button>
+              <button
+                className={`project-filter ${projectFilter === 'recent' ? 'active' : ''}`}
+                onClick={() => setProjectFilter('recent')}
+              >
+                Recent
+              </button>
+              <button
+                className={`project-filter ${projectFilter === 'all' ? 'active' : ''}`}
+                onClick={() => setProjectFilter('all')}
+              >
+                All
+              </button>
+            </div>
           </div>
           <input
             className="project-sidebar-search"
@@ -2962,28 +3715,17 @@ const App = () => {
             onChange={(event) => setProjectQuery(event.target.value)}
             placeholder="Search projects..."
           />
-          <div className="project-sidebar-sections">
-            <div className="project-section">
-              <div className="project-section-title">Pinned</div>
-              {pinnedProjects.map((project) => renderProjectRow(project))}
-              {pinnedProjects.length === 0 && (
-                <div className="project-sidebar-empty">No pinned projects</div>
-              )}
-            </div>
-            <div className="project-section">
-              <div className="project-section-title">Recent</div>
-              {recentProjects.map((project) => renderProjectRow(project))}
-              {recentProjects.length === 0 && (
-                <div className="project-sidebar-empty">No recent projects</div>
-              )}
-            </div>
-            <div className="project-section">
-              <div className="project-section-title">All</div>
-              {otherProjects.map((project) => renderProjectRow(project))}
-              {otherProjects.length === 0 && (
-                <div className="project-sidebar-empty">No projects</div>
-              )}
-            </div>
+          <div className="project-sidebar-list">
+            {visibleProjects.map((project) => renderProjectRow(project))}
+            {visibleProjects.length === 0 && (
+              <div className="project-sidebar-empty">
+                {projectFilter === 'pinned'
+                  ? 'No pinned projects'
+                  : projectFilter === 'recent'
+                    ? 'No recent projects'
+                    : 'No projects'}
+              </div>
+            )}
           </div>
           <div className="project-sidebar-footer">
             <button className="row-action primary" onClick={() => createProject()}>
@@ -3122,9 +3864,9 @@ const App = () => {
               <div className="task-actions" ref={taskMenuRef}>
             <button
               className="action ghost"
-              disabled={availableTasks.length === 0}
+              disabled={!taskMenuHasItems}
               onClick={() => {
-                if (availableTasks.length > 0) {
+                if (taskMenuHasItems) {
                   setTaskMenuOpen((current) => !current)
                   setTaskQuery('')
                   setProjectTaskMenuOpen(true)
@@ -3190,30 +3932,62 @@ const App = () => {
                     </button>
                     {projectTaskMenuOpen && (
                       <>
-                        {filteredProjectTasks.map((task) => (
-                          <div key={task.id ?? task.name} className="menu-row task-row">
-                            <div className="row-main">
-                              <div className="row-title">{task.name}</div>
-                              <div className="row-subtitle">
-                                {getTaskSubtitle(task)}
+                        {isWorkspaceV2 ? (
+                          groupedProjectTasks.map((group) => (
+                            <div key={group.group} className="menu-section">
+                              <div className="menu-section-title">{group.group}</div>
+                              {group.tasks.map((task) => (
+                                <div key={task.key} className="menu-row task-row">
+                                  <div className="row-main">
+                                    <div className="row-title">{task.name}</div>
+                                    <div className="row-subtitle">
+                                      {getWorkspaceTaskSubtitle(task)}
+                                    </div>
+                                  </div>
+                                  <div className="row-actions">
+                                    <button
+                                      className="row-action primary"
+                                      onClick={() => handleWorkspaceTaskSelect(task)}
+                                    >
+                                      ▶ Run here
+                                    </button>
+                                    <button
+                                      className="row-action ghost"
+                                      onClick={() => handleWorkspaceTaskRunInNewTab(task)}
+                                    >
+                                      ➕ New tab
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ))
+                        ) : (
+                          (filteredProjectTasks as TaskEntry[]).map((task) => (
+                            <div key={task.id ?? task.name} className="menu-row task-row">
+                              <div className="row-main">
+                                <div className="row-title">{task.name}</div>
+                                <div className="row-subtitle">
+                                  {getLegacyTaskSubtitle(task)}
+                                </div>
+                              </div>
+                              <div className="row-actions">
+                                <button
+                                  className="row-action primary"
+                                  onClick={() => handleLegacyTaskSelect(task)}
+                                >
+                                  ▶ Run here
+                                </button>
+                                <button
+                                  className="row-action ghost"
+                                  onClick={() => handleLegacyTaskRunInNewTab(task)}
+                                >
+                                  ➕ New tab
+                                </button>
                               </div>
                             </div>
-                            <div className="row-actions">
-                              <button
-                                className="row-action primary"
-                                onClick={() => handleTaskSelect(task)}
-                              >
-                                ▶ Run here
-                              </button>
-                              <button
-                                className="row-action ghost"
-                                onClick={() => handleTaskRunInNewTab(task)}
-                              >
-                                ➕ New tab
-                              </button>
-                            </div>
-                          </div>
-                        ))}
+                          ))
+                        )}
                         {filteredProjectTasks.length === 0 && (
                           <div className="menu-empty">No project tasks</div>
                         )}
@@ -3221,36 +3995,69 @@ const App = () => {
                     )}
                   </div>
                 )}
-                <div className="menu-section">
-                  <div className="menu-section-title">Other tasks</div>
-                  {filteredGlobalTasks.map((task) => (
-                    <div key={task.id ?? task.name} className="menu-row task-row">
-                      <div className="row-main">
-                        <div className="row-title">{task.name}</div>
-                        <div className="row-subtitle">{getTaskSubtitle(task)}</div>
+                {!isWorkspaceV2 && (
+                  <div className="menu-section">
+                    <div className="menu-section-title">Other tasks</div>
+                    {(filteredGlobalTasks as TaskEntry[]).map((task) => (
+                      <div key={task.id ?? task.name} className="menu-row task-row">
+                        <div className="row-main">
+                          <div className="row-title">{task.name}</div>
+                          <div className="row-subtitle">{getLegacyTaskSubtitle(task)}</div>
+                        </div>
+                        <div className="row-actions">
+                          <button
+                            className="row-action primary"
+                            onClick={() => handleLegacyTaskSelect(task)}
+                          >
+                            ▶ Run here
+                          </button>
+                          <button
+                            className="row-action ghost"
+                            onClick={() => handleLegacyTaskRunInNewTab(task)}
+                          >
+                            ➕ New tab
+                          </button>
+                        </div>
                       </div>
-                      <div className="row-actions">
-                        <button
-                          className="row-action primary"
-                          onClick={() => handleTaskSelect(task)}
-                        >
-                          ▶ Run here
-                        </button>
-                        <button
-                          className="row-action ghost"
-                          onClick={() => handleTaskRunInNewTab(task)}
-                        >
-                          ➕ New tab
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  {filteredGlobalTasks.length === 0 && (
-                    <div className="menu-empty">No tasks</div>
-                  )}
-                </div>
+                    ))}
+                    {filteredGlobalTasks.length === 0 && (
+                      <div className="menu-empty">No tasks</div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
+          </div>
+          <div className="task-strip" title="Project tasks">
+            <div className="task-strip-label">
+              {panelProject ? panelProject.name : 'No project'}
+            </div>
+            <div className="task-strip-items">
+              {taskStripTasks.length === 0 && (
+                <span className="task-strip-empty">No tasks</span>
+              )}
+              {isWorkspaceV2
+                ? (taskStripTasks as ResolvedTask[]).map((task) => (
+                    <button
+                      key={task.key}
+                      className="task-chip"
+                      title={getWorkspaceTaskSubtitle(task)}
+                      onClick={() => handleWorkspaceTaskSelect(task)}
+                    >
+                      {task.name}
+                    </button>
+                  ))
+                : (taskStripTasks as TaskEntry[]).map((task) => (
+                    <button
+                      key={task.id ?? task.name}
+                      className="task-chip"
+                      title={getLegacyTaskSubtitle(task)}
+                      onClick={() => handleLegacyTaskSelect(task)}
+                    >
+                      {task.name}
+                    </button>
+                  ))}
+            </div>
           </div>
           <div className="quick-actions">
             {profiles
@@ -3265,46 +4072,16 @@ const App = () => {
                   {profile.name}
                 </button>
               ))}
-            {activePane && (activeShellKind === 'powershell' || activeShellKind === 'cmd') && (
-              <>
-                <button
-                  className="action ghost"
-                  onClick={() => void copySelectionForPane(activePane.id)}
-                >
-                  Copy
-                </button>
-                <button
-                  className="action ghost"
-                  disabled={!activePane.sessionId}
-                  onClick={() => void pasteClipboardForPane(activePane.id)}
-                >
-                  Paste
-                </button>
-              </>
-            )}
-            <button
-              className="action ghost"
-              onClick={() => runTaskByIdInActivePane('react-dev')}
-            >
-              Run npm build
-            </button>
+            {quickTasks.map((task) => (
+              <button
+                key={task.key}
+                className="action ghost"
+                onClick={() => runWorkspaceTask(task)}
+              >
+                {task.name}
+              </button>
+            ))}
           </div>
-          <button className="action ghost" onClick={splitActiveTab}>
-            Split
-          </button>
-          <button className="action danger" onClick={killActiveSession}>
-            Kill session
-          </button>
-          <button
-            className="action ghost"
-            onClick={() => {
-              if (activePane) {
-                termRefs.current.get(activePane.id)?.clear()
-              }
-            }}
-          >
-            Clear
-          </button>
           <button className="action ghost" onClick={() => setAutoFit((current) => !current)}>
             {autoFit ? 'Auto fit: on' : 'Auto fit: off'}
           </button>
@@ -3417,6 +4194,56 @@ const App = () => {
                             <span className="pane-cwd-label">CWD:</span>
                             <span className="pane-cwd-path">{headerCwd}</span>
                           </button>
+                          <div className="pane-clip">
+                            <button
+                              className="pane-clip-btn"
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                void copySelectionForPane(headerPane.id)
+                              }}
+                            >
+                              Copy
+                            </button>
+                            <button
+                              className="pane-clip-btn"
+                              disabled={!headerPane.sessionId}
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                void pasteClipboardForPane(headerPane.id)
+                              }}
+                            >
+                              Paste
+                            </button>
+                            <button
+                              className="pane-clear-btn"
+                              disabled={!headerPane.sessionId}
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                clearPane(headerPane)
+                              }}
+                            >
+                              Clear
+                            </button>
+                            <button
+                              className="pane-split-btn"
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                splitActiveTab()
+                              }}
+                            >
+                              Split
+                            </button>
+                            <button
+                              className="pane-kill-btn"
+                              disabled={!headerPane.sessionId}
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                killPaneSession(headerPane)
+                              }}
+                            >
+                              Kill
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -3506,8 +4333,97 @@ const App = () => {
           Context menu
         </label>
       </div>
-    </div>
-  </div>
+        </div>
+        <aside className="task-sidebar">
+          <div className="task-sidebar-header">
+            <div className="task-sidebar-title">Tasks</div>
+            <div className="task-sidebar-subtitle">
+              {panelProject ? `${panelProject.name} • ${panelTaskCount}` : 'Select a project'}
+            </div>
+          </div>
+          {panelProject && panelQuickTasks.length > 0 && (
+            <div className="task-sidebar-quick">
+              <div className="task-panel-section-title">Quick</div>
+              <div className="task-sidebar-quick-list">
+                {panelQuickTasks.map((task) => (
+                  <button
+                    key={task.key}
+                    className="task-chip"
+                    title={getWorkspaceTaskSubtitle(task)}
+                    onClick={() => handleWorkspaceTaskSelect(task)}
+                  >
+                    {task.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="task-sidebar-list">
+            {!panelProject && (
+              <div className="task-sidebar-empty">Select a project to see tasks.</div>
+            )}
+            {panelProject && panelTaskCount === 0 && (
+              <div className="task-sidebar-empty">No tasks for this project.</div>
+            )}
+            {panelProject &&
+              panelTaskCount > 0 &&
+              (isWorkspaceV2 ? (
+                panelGroupedTasks.map((group) => (
+                  <div key={group.group} className="task-panel-section">
+                    <div className="task-panel-section-title">{group.group}</div>
+                    {group.tasks.map((task) => (
+                      <div key={task.key} className="task-panel-row">
+                        <div className="row-main">
+                          <div className="row-title">{task.name}</div>
+                          <div className="row-subtitle">
+                            {getWorkspaceTaskSubtitle(task)}
+                          </div>
+                        </div>
+                        <div className="row-actions">
+                          <button
+                            className="row-action primary"
+                            onClick={() => handleWorkspaceTaskSelect(task)}
+                          >
+                            Run
+                          </button>
+                          <button
+                            className="row-action ghost"
+                            onClick={() => handleWorkspaceTaskRunInNewTab(task)}
+                          >
+                            New tab
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))
+              ) : (
+                panelLegacyTasks.map((task) => (
+                  <div key={task.id ?? task.name} className="task-panel-row">
+                    <div className="row-main">
+                      <div className="row-title">{task.name}</div>
+                      <div className="row-subtitle">{getLegacyTaskSubtitle(task)}</div>
+                    </div>
+                    <div className="row-actions">
+                      <button
+                        className="row-action primary"
+                        onClick={() => handleLegacyTaskSelect(task)}
+                      >
+                        Run
+                      </button>
+                      <button
+                        className="row-action ghost"
+                        onClick={() => handleLegacyTaskRunInNewTab(task)}
+                      >
+                        New tab
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ))}
+          </div>
+        </aside>
+      </div>
 
       {folderPickerOpen && folderPickerPane && folderPickerState && (
         <div className="folder-panel-overlay" onClick={() => setFolderPickerOpen(false)}>
@@ -3521,10 +4437,7 @@ const App = () => {
             <div className="folder-picker-header">
               <div>
                 <div className="folder-picker-title">
-                  Change directory — {folderPickerProfile?.name ?? folderPickerPane.profileId}
-                </div>
-                <div className="folder-picker-subtitle">
-                  {folderPickerPane.title} • Session scoped
+                  Change directory
                 </div>
               </div>
               <div className="folder-picker-actions">
@@ -3549,199 +4462,240 @@ const App = () => {
                 </button>
               </div>
             </div>
-            <div className="folder-section">
-              <div className="folder-section-title">Search / paste path</div>
-              <div className="folder-input-row">
-                <input
-                  className="folder-input"
-                  value={folderPickerQuery}
-                  onChange={(event) => setFolderPickerQuery(event.target.value)}
-                  placeholder="Type to filter or paste a path..."
-                  autoFocus
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
+            <div className="folder-tabs">
+              <button
+                className={`folder-tab ${folderPickerTab === 'browse' ? 'active' : ''}`}
+                onClick={() => setFolderPickerTab('browse')}
+              >
+                Browse
+              </button>
+              <button
+                className={`folder-tab ${folderPickerTab === 'favorites' ? 'active' : ''}`}
+                onClick={() => setFolderPickerTab('favorites')}
+              >
+                Favorites
+              </button>
+              <button
+                className={`folder-tab ${folderPickerTab === 'recent' ? 'active' : ''}`}
+                onClick={() => setFolderPickerTab('recent')}
+              >
+                Recent
+              </button>
+              <button
+                className={`folder-tab ${folderPickerTab === 'tools' ? 'active' : ''}`}
+                onClick={() => setFolderPickerTab('tools')}
+              >
+                Tools
+              </button>
+            </div>
+            {folderPickerTab === 'browse' && (
+              <div className="folder-section">
+                <div className="folder-section-title">Search / paste path</div>
+                <div className="folder-input-row">
+                  <input
+                    className="folder-input"
+                    value={folderPickerQuery}
+                    onChange={(event) => setFolderPickerQuery(event.target.value)}
+                    placeholder="Type to filter or paste a path..."
+                    autoFocus
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        applyFolderChange(folderPickerPane.id, folderPickerQuery)
+                        setFolderPickerQuery('')
+                      }
+                    }}
+                  />
+                  <button
+                    className="folder-go"
+                    onClick={() => {
                       applyFolderChange(folderPickerPane.id, folderPickerQuery)
                       setFolderPickerQuery('')
-                    }
-                  }}
-                />
-                <button
-                  className="folder-go"
-                  onClick={() => {
-                    applyFolderChange(folderPickerPane.id, folderPickerQuery)
-                    setFolderPickerQuery('')
-                  }}
-                >
-                  Go
-                </button>
-              </div>
-            </div>
-            <div className="folder-section">
-              <div className="folder-section-title">Current</div>
-              <div className="folder-current">
-                <span className="folder-current-path">
-                  {folderPickerState?.current ?? folderPickerCwdDisplay}
-                </span>
-                <div className="folder-current-actions">
-                  <button
-                    className="folder-mini"
-                    onClick={() => {
-                      const value = folderPickerState?.current ?? folderPickerCwd
-                      if (value) {
-                        navigator.clipboard?.writeText(value).catch(() => undefined)
-                      }
                     }}
                   >
-                    Copy
-                  </button>
-                  <button
-                    className={`folder-mini ${isFolderFavorite ? 'active' : ''}`}
-                    disabled={!folderPickerCurrent}
-                    onClick={() => {
-                      if (folderPickerCurrent) {
-                        toggleFavoriteFolder(folderPickerCurrent)
-                      }
-                    }}
-                  >
-                    {isFolderFavorite ? 'Unfavorite' : 'Favorite'}
+                    Go
                   </button>
                 </div>
               </div>
-            </div>
-            <div className="folder-section">
-              <div className="folder-section-title">Favorites</div>
-              <div className="folder-list">
-                {filteredFavoriteFolders.map((path) => (
-                  <div key={path} className="folder-favorite-row">
+            )}
+            {folderPickerTab === 'browse' && (
+              <div className="folder-section">
+                <div className="folder-section-title">Current</div>
+                <div className="folder-current">
+                  <span className="folder-current-path">
+                    {folderPickerState?.current ?? folderPickerCwdDisplay}
+                  </span>
+                  <div className="folder-current-actions">
                     <button
-                      className="folder-row folder-favorite-main"
+                      className="folder-mini"
+                      onClick={() => {
+                        const value = folderPickerState?.current ?? folderPickerCwd
+                        if (value) {
+                          navigator.clipboard?.writeText(value).catch(() => undefined)
+                        }
+                      }}
+                    >
+                      Copy
+                    </button>
+                    <button
+                      className={`folder-mini ${isFolderFavorite ? 'active' : ''}`}
+                      disabled={!folderPickerCurrent}
+                      onClick={() => {
+                        if (folderPickerCurrent) {
+                          toggleFavoriteFolder(folderPickerCurrent)
+                        }
+                      }}
+                    >
+                      {isFolderFavorite ? 'Unfavorite' : 'Favorite'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {folderPickerTab === 'favorites' && (
+              <div className="folder-section">
+                <div className="folder-section-title">Favorites</div>
+                <div className="folder-list">
+                  {filteredFavoriteFolders.map((path) => (
+                    <div key={path} className="folder-favorite-row">
+                      <button
+                        className="folder-row folder-favorite-main"
+                        onClick={() => applyFolderChange(folderPickerPane.id, path)}
+                      >
+                        {path}
+                      </button>
+                      <button
+                        className="folder-mini folder-favorite-remove"
+                        onClick={() => removeFavoriteFolder(path)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                  {filteredFavoriteFolders.length === 0 && (
+                    <div className="folder-empty">No favorites yet</div>
+                  )}
+                </div>
+              </div>
+            )}
+            {folderPickerTab === 'browse' && (
+              <div className="folder-section">
+                <div className="folder-section-title">Folders</div>
+                <div className="folder-location">
+                  <span className="folder-location-path">
+                    {folderBrowsePath || 'Drives'}
+                  </span>
+                  <div className="folder-location-actions">
+                    <button
+                      className="folder-mini"
+                      disabled={!folderParent}
+                      onClick={() => {
+                        if (folderParent) {
+                          applyFolderChange(folderPickerPane.id, folderParent)
+                        }
+                      }}
+                    >
+                      Up
+                    </button>
+                    <button
+                      className="folder-mini"
+                      disabled={!folderBrowsePath}
+                      onClick={() => {
+                        if (folderBrowsePath) {
+                          requestFolderListing(folderPickerPane.id, folderBrowsePath)
+                        }
+                      }}
+                    >
+                      Refresh
+                    </button>
+                  </div>
+                </div>
+                <div className="folder-list">
+                  {folderListingLoading && (
+                    <div className="folder-empty">Loading folders...</div>
+                  )}
+                  {!folderListingLoading && folderListingError && (
+                    <div className="folder-empty">{folderListingError}</div>
+                  )}
+                  {!folderListingLoading && !folderListingError && folderParent && (
+                    <button
+                      className="folder-row folder-up"
+                      onClick={() => applyFolderChange(folderPickerPane.id, folderParent)}
+                    >
+                      .. (Up one level)
+                    </button>
+                  )}
+                  {!folderListingLoading &&
+                    !folderListingError &&
+                    folderEntries.map((entry) => (
+                      <button
+                        key={entry.path}
+                        className="folder-row folder-entry"
+                        onClick={() => applyFolderChange(folderPickerPane.id, entry.path)}
+                      >
+                        <span className="folder-entry-name">{entry.name}</span>
+                      </button>
+                    ))}
+                  {!folderListingLoading &&
+                    !folderListingError &&
+                    folderEntries.length === 0 && (
+                      <div className="folder-empty">No subfolders</div>
+                    )}
+                </div>
+              </div>
+            )}
+            {folderPickerTab === 'recent' && (
+              <div className="folder-section">
+                <div className="folder-section-title">Recent (this session)</div>
+                <div className="folder-list">
+                  {filteredFolderRecent.map((path) => (
+                    <button
+                      key={path}
+                      className="folder-row"
                       onClick={() => applyFolderChange(folderPickerPane.id, path)}
                     >
                       {path}
                     </button>
-                    <button
-                      className="folder-mini folder-favorite-remove"
-                      onClick={() => removeFavoriteFolder(path)}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-                {filteredFavoriteFolders.length === 0 && (
-                  <div className="folder-empty">No favorites yet</div>
-                )}
+                  ))}
+                  {filteredFolderRecent.length === 0 && (
+                    <div className="folder-empty">No folders yet</div>
+                  )}
+                </div>
               </div>
-            </div>
-            <div className="folder-section">
-              <div className="folder-section-title">Folders</div>
-              <div className="folder-location">
-                <span className="folder-location-path">
-                  {folderBrowsePath || 'Drives'}
-                </span>
-                <div className="folder-location-actions">
+            )}
+            {folderPickerTab === 'tools' && (
+              <div className="folder-section">
+                <div className="folder-section-title">Convenience</div>
+                <div className="folder-list">
                   <button
-                    className="folder-mini"
-                    disabled={!folderParent}
+                    className="folder-row"
+                    disabled={!folderPickerState?.startFolder}
                     onClick={() => {
-                      if (folderParent) {
-                        applyFolderChange(folderPickerPane.id, folderParent)
+                      if (folderPickerState?.startFolder) {
+                        applyFolderChange(
+                          folderPickerPane.id,
+                          folderPickerState.startFolder
+                        )
                       }
                     }}
                   >
-                    Up
+                    Back to start folder
                   </button>
                   <button
-                    className="folder-mini"
-                    disabled={!folderBrowsePath}
-                    onClick={() => {
-                      if (folderBrowsePath) {
-                        requestFolderListing(folderPickerPane.id, folderBrowsePath)
-                      }
-                    }}
+                    className="folder-row"
+                    onClick={() => openFolderBrowser(folderPickerPane.id)}
                   >
-                    Refresh
+                    Browse...
+                  </button>
+                  <button
+                    className="folder-row"
+                    disabled={!folderPickerState?.current}
+                    onClick={() => openFolderInExplorer(folderPickerPane.id)}
+                  >
+                    Open in Explorer
                   </button>
                 </div>
               </div>
-              <div className="folder-list">
-                {folderListingLoading && (
-                  <div className="folder-empty">Loading folders...</div>
-                )}
-                {!folderListingLoading && folderListingError && (
-                  <div className="folder-empty">{folderListingError}</div>
-                )}
-                {!folderListingLoading && !folderListingError && folderParent && (
-                  <button
-                    className="folder-row folder-up"
-                    onClick={() => applyFolderChange(folderPickerPane.id, folderParent)}
-                  >
-                    .. (Up one level)
-                  </button>
-                )}
-                {!folderListingLoading &&
-                  !folderListingError &&
-                  folderEntries.map((entry) => (
-                    <button
-                      key={entry.path}
-                      className="folder-row folder-entry"
-                      onClick={() => applyFolderChange(folderPickerPane.id, entry.path)}
-                    >
-                      <span className="folder-entry-name">{entry.name}</span>
-                    </button>
-                  ))}
-                {!folderListingLoading &&
-                  !folderListingError &&
-                  folderEntries.length === 0 && (
-                    <div className="folder-empty">No subfolders</div>
-                  )}
-              </div>
-            </div>
-            <div className="folder-section">
-              <div className="folder-section-title">Recent (this session)</div>
-              <div className="folder-list">
-                {filteredFolderRecent.map((path) => (
-                  <button
-                    key={path}
-                    className="folder-row"
-                    onClick={() => applyFolderChange(folderPickerPane.id, path)}
-                  >
-                    {path}
-                  </button>
-                ))}
-                {filteredFolderRecent.length === 0 && (
-                  <div className="folder-empty">No folders yet</div>
-                )}
-              </div>
-            </div>
-            <div className="folder-section">
-              <div className="folder-section-title">Convenience</div>
-              <div className="folder-list">
-                <button
-                  className="folder-row"
-                  disabled={!folderPickerState?.startFolder}
-                  onClick={() => {
-                    if (folderPickerState?.startFolder) {
-                      applyFolderChange(folderPickerPane.id, folderPickerState.startFolder)
-                    }
-                  }}
-                >
-                  Back to start folder
-                </button>
-                <button
-                  className="folder-row"
-                  onClick={() => openFolderBrowser(folderPickerPane.id)}
-                >
-                  Browse...
-                </button>
-                <button
-                  className="folder-row"
-                  disabled={!folderPickerState?.current}
-                  onClick={() => openFolderInExplorer(folderPickerPane.id)}
-                >
-                  Open in Explorer
-                </button>
-              </div>
-            </div>
+            )}
           </aside>
         </div>
       )}
@@ -3926,7 +4880,7 @@ const App = () => {
                 </div>
               </div>
               <div className="project-editor-tabs">
-                {(['basics', 'layout', 'tasks'] as const).map((tab) => (
+                {projectEditorTabs.map((tab) => (
                   <button
                     key={tab}
                     className={`project-editor-tab ${
@@ -4001,7 +4955,7 @@ const App = () => {
                   </div>
                 )}
 
-                {editorProject && projectEditorTab === 'layout' && (
+                {editorProject && !isWorkspaceV2 && projectEditorTab === 'layout' && (
                   <div className="layout-editor">
                     <div className="layout-preview">
                       <div
@@ -4166,7 +5120,7 @@ const App = () => {
                               }
                             >
                               <option value="">No task</option>
-                              {tasks.map((task) => (
+                              {legacyTasks.map((task) => (
                                 <option key={getTaskKey(task)} value={getTaskKey(task)}>
                                   {task.name}
                                 </option>
@@ -4217,7 +5171,7 @@ const App = () => {
                   </div>
                 )}
 
-                {editorProject && projectEditorTab === 'tasks' && (
+                {editorProject && !isWorkspaceV2 && projectEditorTab === 'tasks' && (
                   <div className="task-editor">
                     <div className="task-editor-header">
                       <div>

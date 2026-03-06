@@ -15,4 +15,7 @@
 
 
 @media(max-width:1200px){.sidebar-resizer{display:none}}
+.task-sidebar-list{align-content:start;grid-auto-rows:max-content}
+.task-panel-row{align-items:flex-start}
+.task-panel-row .row-actions{align-items:flex-start}
 

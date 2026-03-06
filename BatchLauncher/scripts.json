@@ -212,6 +212,39 @@
       ]
     },
     {
+      "id": "browser-project",
+      "name": "BrowserProject",
+      "root": "G:\\BrowserProject",
+      "layout": {
+        "type": "tabs",
+        "items": [
+          {
+            "title": "BrowserProject Shell",
+            "profileId": "pwsh",
+            "cwd": "G:\\BrowserProject"
+          }
+        ]
+      },
+      "tasks": {
+        "Open in VS Code": {
+          "cwd": "G:\\BrowserProject",
+          "steps": [
+            { "run": "Start-Process code -ArgumentList '.'" }
+          ]
+        },
+        "Open in Visual Studio": {
+          "cwd": "G:\\BrowserProject",
+          "steps": [
+            { "run": "Start-Process devenv -ArgumentList '.'" }
+          ]
+        }
+      },
+      "quickTasks": [
+        "Open in VS Code",
+        "Open in Visual Studio"
+      ]
+    },
+    {
       "id": "misc",
       "name": "Misc / Global Tasks",
       "tasks": {

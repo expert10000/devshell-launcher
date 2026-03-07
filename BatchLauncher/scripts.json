@@ -312,11 +312,33 @@
             }
           ]
         },
+        "Launch Docker Desktop": {
+          "steps": [
+            {
+              "run": "Start-Process \"C:\\\\Program Files\\\\Docker\\\\Docker\\\\Docker Desktop.exe\""
+            }
+          ]
+        },
         "DNS-project": {
-          "cwd": "G:\\Applications-2026-02-25-aspirepl2",
+          "cwd": "G:\\Applications-2026-03-03-aspirepl2",
           "steps": [
             {
               "run": "docker compose up --build"
+            }
+          ]
+        },
+        "DNS-project - open in VS Code": {
+          "cwd": "G:\\Applications-2026-03-03-aspirepl2",
+          "steps": [
+            {
+              "run": "Start-Process code -ArgumentList '.'"
+            }
+          ]
+        },
+        "DNS-project - open browser": {
+          "steps": [
+            {
+              "run": "Start-Process \"http://localhost:5173\""
             }
           ]
         }

@@ -324,6 +324,9 @@ const App = () => {
   const contextMenuRef = useRef<HTMLDivElement | null>(null)
   const loggingSessions = useRef<Set<string>>(new Set())
   const folderNav = useRef<Map<string, FolderNavState>>(new Map())
+  const selectionBuffer = useRef<Map<string, string>>(new Map())
+  const bufferOpenRef = useRef(false)
+  const bufferPaneIdRef = useRef<string | null>(null)
   const [profiles, setProfiles] = useState<TerminalProfile[]>([])
   const [workspace, setWorkspace] = useState<WorkspaceConfig>({ version: 2, projects: [] })
   const [projects, setProjects] = useState<ProjectDefinition[]>([])
@@ -340,6 +343,10 @@ const App = () => {
   const [fontFamily, setFontFamily] = useState('"JetBrains Mono", "Cascadia Mono", monospace')
   const [fontSize, setFontSize] = useState(14)
   const [favoriteFolders, setFavoriteFolders] = useState<string[]>([])
+  const [bufferInfo, setBufferInfo] = useState<Record<string, number>>({})
+  const [bufferOpen, setBufferOpen] = useState(false)
+  const [bufferPaneId, setBufferPaneId] = useState<string | null>(null)
+  const [bufferText, setBufferText] = useState('')
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [paletteQuery, setPaletteQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
@@ -406,6 +413,14 @@ const App = () => {
   }
 
   const isWorkspaceV2 = workspace.version === 2
+
+  useEffect(() => {
+    bufferOpenRef.current = bufferOpen
+  }, [bufferOpen])
+
+  useEffect(() => {
+    bufferPaneIdRef.current = bufferPaneId
+  }, [bufferPaneId])
 
   const getActiveTab = () => tabs.find((tab) => tab.id === activeTabId) ?? null
 
@@ -511,6 +526,60 @@ const App = () => {
   }
 
   const clampFolderPickerWidth = (value: number) => Math.min(720, Math.max(320, value))
+
+  const rememberSelection = (paneId: string, selection: string) => {
+    if (!selection) {
+      return
+    }
+    selectionBuffer.current.set(paneId, selection)
+    if (bufferOpenRef.current && bufferPaneIdRef.current === paneId) {
+      setBufferText(selection)
+    }
+    setBufferInfo((current) => {
+      const nextLength = selection.length
+      if (current[paneId] === nextLength) {
+        return current
+      }
+      return { ...current, [paneId]: nextLength }
+    })
+  }
+
+  const getBufferedSelection = (paneId: string) =>
+    selectionBuffer.current.get(paneId) ?? ''
+
+  const clearSelectionBuffer = (paneId: string) => {
+    if (!selectionBuffer.current.has(paneId)) {
+      return
+    }
+    selectionBuffer.current.delete(paneId)
+    setBufferInfo((current) => {
+      if (!(paneId in current)) {
+        return current
+      }
+      const { [paneId]: _, ...rest } = current
+      return rest
+    })
+    if (bufferPaneId === paneId) {
+      setBufferText('')
+      setBufferOpen(false)
+      setBufferPaneId(null)
+    }
+  }
+
+  const openBufferViewer = (paneId: string) => {
+    const buffered = getBufferedSelection(paneId)
+    if (!buffered) {
+      return
+    }
+    setBufferPaneId(paneId)
+    setBufferText(buffered)
+    setBufferOpen(true)
+  }
+
+  const closeBufferViewer = () => {
+    setBufferOpen(false)
+    setBufferPaneId(null)
+  }
 
   const startFolderPickerResize = (event: ReactMouseEvent<HTMLDivElement>) => {
     event.preventDefault()
@@ -1257,6 +1326,7 @@ const App = () => {
       hostRefs.current.delete(pane.id)
       pendingTasks.current.delete(pane.id)
       folderNav.current.delete(pane.id)
+      clearSelectionBuffer(pane.id)
     })
     if (folderPickerPaneId && panes.some((pane) => pane.id === folderPickerPaneId)) {
       setFolderPickerOpen(false)
@@ -1292,6 +1362,11 @@ const App = () => {
     })
     bootstrappedSessions.current.clear()
     closedTabs.current = []
+    selectionBuffer.current.clear()
+    setBufferInfo({})
+    setBufferText('')
+    setBufferOpen(false)
+    setBufferPaneId(null)
     setTabs([])
     setActiveTabId(null)
   }
@@ -1337,6 +1412,7 @@ const App = () => {
     hostRefs.current.delete(pane.id)
     pendingTasks.current.delete(pane.id)
     folderNav.current.delete(pane.id)
+    clearSelectionBuffer(pane.id)
     if (folderPickerPaneId === paneId) {
       setFolderPickerOpen(false)
       setFolderPickerPaneId(null)
@@ -1510,11 +1586,12 @@ const App = () => {
       return
     }
     const selection = term.getSelection()
-    if (!selection) {
+    const buffered = selection || getBufferedSelection(paneId)
+    if (!buffered) {
       return
     }
     try {
-      await navigator.clipboard?.writeText(selection)
+      await navigator.clipboard?.writeText(buffered)
     } catch {
       // Ignore clipboard failures (permissions, etc.).
     }
@@ -1549,14 +1626,16 @@ const App = () => {
       return
     }
     event.preventDefault()
+    event.stopPropagation()
     const term = termRefs.current.get(paneId)
     const selection = term?.getSelection() ?? ''
+    const buffered = getBufferedSelection(paneId)
     setContextMenu({
       open: true,
       x: event.clientX,
       y: event.clientY,
       paneId,
-      hasSelection: Boolean(selection),
+      hasSelection: Boolean(selection || buffered),
     })
   }
 
@@ -2307,19 +2386,35 @@ const App = () => {
 
         term.onData((data) => handlePaneInput(pane.id, data))
         term.onSelectionChange(() => {
+          const selection = term.getSelection()
+          if (selection) {
+            rememberSelection(pane.id, selection)
+          }
           if (!copyOnSelect) {
             return
           }
 
-          const selection = term.getSelection()
           if (selection) {
             navigator.clipboard?.writeText(selection).catch(() => undefined)
           }
         })
 
-        host.addEventListener('contextmenu', (event) => {
-          openContextMenu(pane.id, event)
-        })
+        host.addEventListener(
+          'contextmenu',
+          (event) => {
+            openContextMenu(pane.id, event)
+          },
+          true
+        )
+        host.addEventListener(
+          'pointerdown',
+          (event) => {
+            if (event.button === 2) {
+              openContextMenu(pane.id, event)
+            }
+          },
+          true
+        )
 
         termRefs.current.set(pane.id, term)
         fitRefs.current.set(pane.id, fitAddon)
@@ -3398,11 +3493,6 @@ const App = () => {
   const groupedProjectTasks = isWorkspaceV2
     ? groupTasksByGroup(filteredProjectTasks as ResolvedTask[])
     : []
-  const quickTasks = isWorkspaceV2 && taskProject
-    ? (taskProject.quickTasks ?? [])
-        .map((taskName) => findResolvedTask(buildTaskKey(taskProject.id, taskName)))
-        .filter((task): task is ResolvedTask => Boolean(task))
-    : []
   const taskMenuHasItems = isWorkspaceV2
     ? resolvedTaskIndex.byKey.size > 0
     : legacyAvailableTasks.length > 0
@@ -3681,6 +3771,14 @@ const App = () => {
       </div>
     )
   }
+
+  const contextBuffer =
+    contextMenu.open && contextMenu.paneId ? getBufferedSelection(contextMenu.paneId) : ''
+  const hasContextBuffer = Boolean(contextBuffer)
+  const bufferLength =
+    bufferPaneId && bufferInfo[bufferPaneId] !== undefined
+      ? bufferInfo[bufferPaneId]
+      : bufferText.length
 
   return (
     <div className={`shell-app theme-${theme}`}>
@@ -4072,15 +4170,18 @@ const App = () => {
                   {profile.name}
                 </button>
               ))}
-            {quickTasks.map((task) => (
-              <button
-                key={task.key}
-                className="action ghost"
-                onClick={() => runWorkspaceTask(task)}
-              >
-                {task.name}
-              </button>
-            ))}
+            {/* Temporarily disabled: selected project quick actions */}
+            {/*
+              quickTasks.map((task) => (
+                <button
+                  key={task.key}
+                  className="action ghost"
+                  onClick={() => runWorkspaceTask(task)}
+                >
+                  {task.name}
+                </button>
+              ))
+            */}
           </div>
           <button className="action ghost" onClick={() => setAutoFit((current) => !current)}>
             {autoFit ? 'Auto fit: on' : 'Auto fit: off'}
@@ -4142,6 +4243,8 @@ const App = () => {
                 const headerProfile = headerPane ? getProfileById(headerPane.profileId) : null
                 const headerCwd =
                   headerPane?.cwd ?? headerProfile?.workingDirectory ?? 'Unknown'
+                const headerBufferLength = headerPane ? bufferInfo[headerPane.id] ?? 0 : 0
+                const hasHeaderBuffer = headerBufferLength > 0
                 const isFolderOpen =
                   folderPickerOpen && folderPickerPaneId === headerPane?.id && folderPickerState
 
@@ -4203,6 +4306,21 @@ const App = () => {
                               }}
                             >
                               Copy
+                            </button>
+                            <button
+                              className="pane-clip-btn"
+                              disabled={!hasHeaderBuffer}
+                              title={
+                                hasHeaderBuffer
+                                  ? `Buffer: ${headerBufferLength} chars`
+                                  : 'Buffer empty'
+                              }
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                openBufferViewer(headerPane.id)
+                              }}
+                            >
+                              Buffer
                             </button>
                             <button
                               className="pane-clip-btn"
@@ -4745,6 +4863,41 @@ const App = () => {
         </div>
       )}
 
+      {bufferOpen && bufferPaneId && (
+        <div className="buffer-overlay" onClick={closeBufferViewer}>
+          <div className="buffer-panel" onClick={(event) => event.stopPropagation()}>
+            <div className="buffer-header">
+              <div>
+                <div className="buffer-title">Selection Buffer</div>
+                <div className="buffer-subtitle">{bufferLength} chars</div>
+              </div>
+              <div className="buffer-actions">
+                <button
+                  className="action ghost"
+                  onClick={() => {
+                    if (bufferText) {
+                      navigator.clipboard?.writeText(bufferText).catch(() => undefined)
+                    }
+                  }}
+                >
+                  Copy
+                </button>
+                <button
+                  className="action danger"
+                  onClick={() => clearSelectionBuffer(bufferPaneId)}
+                >
+                  Clear
+                </button>
+                <button className="action ghost" onClick={closeBufferViewer}>
+                  Close
+                </button>
+              </div>
+            </div>
+            <textarea className="buffer-text" readOnly value={bufferText} />
+          </div>
+        </div>
+      )}
+
       {contextMenu.open && contextMenu.paneId && (
         <div className="context-menu" ref={contextMenuRef} style={contextMenuStyle}>
           <button
@@ -4756,6 +4909,16 @@ const App = () => {
             }}
           >
             Copy
+          </button>
+          <button
+            className="context-menu-item"
+            disabled={!hasContextBuffer}
+            onClick={() => {
+              openBufferViewer(contextMenu.paneId as string)
+              closeContextMenu()
+            }}
+          >
+            Show buffer
           </button>
           <button
             className="context-menu-item"

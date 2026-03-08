@@ -245,6 +245,38 @@
       ]
     },
     {
+      "id": "batchlauncher-dev",
+      "name": "BatchLauncher (Build + Launch)",
+      "root": "G:\\BatchLauncher-2026-03-08",
+      "tasks": {
+        "UI build": {
+          "group": "Dev",
+          "shell": "pwsh",
+          "cwd": "G:\\BatchLauncher-2026-03-08\\DevShell\\ui\\dev-ui-react",
+          "steps": [
+            { "run": "npm run build" }
+          ]
+        },
+        "BatchLauncher build + launch": {
+          "group": "Dev",
+          "shell": "pwsh",
+          "cwd": "G:\\BatchLauncher-2026-03-08\\BatchLauncher",
+          "dependsOn": [
+            "UI build"
+          ],
+          "steps": [
+            {
+              "run": "dotnet build .\\BatchLauncher.csproj; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; dotnet run --no-build --project .\\BatchLauncher.csproj"
+            }
+          ]
+        }
+      },
+      "quickTasks": [
+        "UI build",
+        "BatchLauncher build + launch"
+      ]
+    },
+    {
       "id": "misc",
       "name": "Misc / Global Tasks",
       "tasks": {

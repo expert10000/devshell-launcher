@@ -1156,21 +1156,26 @@ const App = () => {
       shellLayoutRef.current?.clientWidth ??
       document.documentElement.clientWidth ??
       window.innerWidth
+    const isWide = width >= 1700
+    const isMedium = width >= 1450
     return {
       width,
       gapTotal: 10 * 4,
       resizerTotal: 6 * 2,
-      leftMin: 180,
-      rightMin: 240,
-      centerMin: 300,
+      leftMin: isWide ? 260 : isMedium ? 220 : 180,
+      rightMin: isWide ? 320 : isMedium ? 280 : 240,
+      leftMax: isWide ? 520 : 420,
+      rightMax: isWide ? 560 : 420,
+      centerMin: isWide ? 360 : 300,
     }
   }
 
   const clampSidebarWidths = (nextLeft: number, nextRight: number) => {
-    const { width, gapTotal, resizerTotal, leftMin, centerMin, rightMin } = getLayoutMetrics()
+    const { width, gapTotal, resizerTotal, leftMin, centerMin, rightMin, leftMax, rightMax } =
+      getLayoutMetrics()
     const available = Math.max(0, width - gapTotal - resizerTotal)
-    let left = Math.min(420, Math.max(leftMin, nextLeft))
-    let right = Math.min(420, Math.max(rightMin, nextRight))
+    let left = Math.min(leftMax, Math.max(leftMin, nextLeft))
+    let right = Math.min(rightMax, Math.max(rightMin, nextRight))
     let overflow = left + right + centerMin - available
 
     if (overflow > 0) {
@@ -1214,13 +1219,14 @@ const App = () => {
     const startWidth = leftWidth
 
     const handleMove = (moveEvent: MouseEvent) => {
-      const { width, gapTotal, resizerTotal, leftMin, centerMin, rightMin } = getLayoutMetrics()
+      const { width, gapTotal, resizerTotal, leftMin, centerMin, rightMin, leftMax } =
+        getLayoutMetrics()
       const maxLeft = Math.max(
         leftMin,
         width - centerMin - Math.max(rightMin, rightWidth) - gapTotal - resizerTotal
       )
       const nextWidth = Math.min(
-        Math.min(420, maxLeft),
+        Math.min(leftMax, maxLeft),
         Math.max(leftMin, startWidth + (moveEvent.clientX - startX))
       )
       setLeftWidth(nextWidth)
@@ -1242,13 +1248,14 @@ const App = () => {
     const startWidth = rightWidth
 
     const handleMove = (moveEvent: MouseEvent) => {
-      const { width, gapTotal, resizerTotal, leftMin, centerMin, rightMin } = getLayoutMetrics()
+      const { width, gapTotal, resizerTotal, leftMin, centerMin, rightMin, rightMax } =
+        getLayoutMetrics()
       const maxRight = Math.max(
         rightMin,
         width - centerMin - Math.max(leftMin, leftWidth) - gapTotal - resizerTotal
       )
       const nextWidth = Math.min(
-        Math.min(420, maxRight),
+        Math.min(rightMax, maxRight),
         Math.max(rightMin, startWidth - (moveEvent.clientX - startX))
       )
       setRightWidth(nextWidth)
@@ -3559,11 +3566,6 @@ const App = () => {
   const groupedProjectTasks = isWorkspaceV2
     ? groupTasksByGroup(filteredProjectTasks as ResolvedTask[])
     : []
-  const quickTasks = isWorkspaceV2 && taskProject
-    ? (taskProject.quickTasks ?? [])
-        .map((taskName) => findResolvedTask(buildTaskKey(taskProject.id, taskName)))
-        .filter((task): task is ResolvedTask => Boolean(task))
-    : []
   const taskMenuHasItems = isWorkspaceV2
     ? resolvedTaskIndex.byKey.size > 0
     : legacyAvailableTasks.length > 0
@@ -3591,11 +3593,6 @@ const App = () => {
         .map((taskName) => findResolvedTask(buildTaskKey(panelProject.id, taskName)))
         .filter((task): task is ResolvedTask => Boolean(task))
     : []
-  const taskStripTasks = isWorkspaceV2
-    ? panelQuickTasks.length > 0
-      ? panelQuickTasks
-      : panelWorkspaceTasks.slice(0, 6)
-    : panelLegacyTasks.slice(0, 6)
   const profileQueryLower = profileQuery.trim().toLowerCase()
   const filteredProfiles = profiles.filter((profile) =>
     profileQueryLower ? profile.name.toLowerCase().includes(profileQueryLower) : true
@@ -4199,59 +4196,19 @@ const App = () => {
               </div>
             )}
           </div>
-          <div className="task-strip" title="Project tasks">
-            <div className="task-strip-label">
-              {panelProject ? panelProject.name : 'No project'}
-            </div>
-            <div className="task-strip-items">
-              {taskStripTasks.length === 0 && (
-                <span className="task-strip-empty">No tasks</span>
-              )}
-              {isWorkspaceV2
-                ? (taskStripTasks as ResolvedTask[]).map((task) => (
-                    <button
-                      key={task.key}
-                      className="task-chip"
-                      title={getWorkspaceTaskSubtitle(task)}
-                      onClick={() => handleWorkspaceTaskSelect(task)}
-                    >
-                      {task.name}
-                    </button>
-                  ))
-                : (taskStripTasks as TaskEntry[]).map((task) => (
-                    <button
-                      key={task.id ?? task.name}
-                      className="task-chip"
-                      title={getLegacyTaskSubtitle(task)}
-                      onClick={() => handleLegacyTaskSelect(task)}
-                    >
-                      {task.name}
-                    </button>
-                  ))}
-            </div>
-          </div>
-          <div className="quick-actions">
-            {profiles
-              .filter((profile) => profile.id === 'powershell' || profile.id === 'cmd')
-              .map((profile) => (
-                <button
-                  key={profile.id}
-                  className="action ghost"
-                  disabled={profile.isAvailable === false}
-                  onClick={() => handleProfileSelect(profile)}
-                >
-                  {profile.name}
-                </button>
-              ))}
-            {quickTasks.map((task) => (
-              <button
-                key={task.key}
-                className="action ghost"
-                onClick={() => runWorkspaceTask(task)}
-              >
-                {task.name}
-              </button>
-            ))}
+          <div className="theme-switch">
+            <button
+              className={`action ghost ${theme === 'midnight' ? 'active' : ''}`}
+              onClick={() => setTheme('midnight')}
+            >
+              Dark
+            </button>
+            <button
+              className={`action ghost ${theme === 'daylight' ? 'active' : ''}`}
+              onClick={() => setTheme('daylight')}
+            >
+              Light
+            </button>
           </div>
           <button className="action ghost" onClick={() => setAutoFit((current) => !current)}>
             {autoFit ? 'Auto fit: on' : 'Auto fit: off'}

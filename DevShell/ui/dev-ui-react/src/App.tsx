@@ -410,8 +410,25 @@ const App = () => {
     paneId: null,
     hasSelection: false,
   })
+  const autoFitRef = useRef(autoFit)
+  const copyOnSelectRef = useRef(copyOnSelect)
+  const rightClickPasteRef = useRef(rightClickPaste)
+  const hostResizeObservers = useRef<Map<string, ResizeObserver>>(new Map())
+  const hostResizeRafs = useRef<Map<string, number>>(new Map())
 
   const bridge = useMemo(getBridge, [])
+
+  useEffect(() => {
+    autoFitRef.current = autoFit
+  }, [autoFit])
+
+  useEffect(() => {
+    copyOnSelectRef.current = copyOnSelect
+  }, [copyOnSelect])
+
+  useEffect(() => {
+    rightClickPasteRef.current = rightClickPaste
+  }, [rightClickPaste])
 
   const postMessage = (payload: Record<string, unknown>) => {
     bridge?.postMessage(payload)
@@ -1415,6 +1432,13 @@ const App = () => {
       fitRefs.current.delete(pane.id)
       searchRefs.current.delete(pane.id)
       hostRefs.current.delete(pane.id)
+      hostResizeObservers.current.get(pane.id)?.disconnect()
+      hostResizeObservers.current.delete(pane.id)
+      const pendingResize = hostResizeRafs.current.get(pane.id)
+      if (pendingResize != null) {
+        cancelAnimationFrame(pendingResize)
+      }
+      hostResizeRafs.current.delete(pane.id)
       pendingTasks.current.delete(pane.id)
       folderNav.current.delete(pane.id)
     })
@@ -1446,6 +1470,13 @@ const App = () => {
         fitRefs.current.delete(pane.id)
         searchRefs.current.delete(pane.id)
         hostRefs.current.delete(pane.id)
+        hostResizeObservers.current.get(pane.id)?.disconnect()
+        hostResizeObservers.current.delete(pane.id)
+        const pendingResize = hostResizeRafs.current.get(pane.id)
+        if (pendingResize != null) {
+          cancelAnimationFrame(pendingResize)
+        }
+        hostResizeRafs.current.delete(pane.id)
         pendingTasks.current.delete(pane.id)
         folderNav.current.delete(pane.id)
       })
@@ -1495,6 +1526,13 @@ const App = () => {
     fitRefs.current.delete(pane.id)
     searchRefs.current.delete(pane.id)
     hostRefs.current.delete(pane.id)
+    hostResizeObservers.current.get(pane.id)?.disconnect()
+    hostResizeObservers.current.delete(pane.id)
+    const pendingResize = hostResizeRafs.current.get(pane.id)
+    if (pendingResize != null) {
+      cancelAnimationFrame(pendingResize)
+    }
+    hostResizeRafs.current.delete(pane.id)
     pendingTasks.current.delete(pane.id)
     folderNav.current.delete(pane.id)
     if (folderPickerPaneId === paneId) {
@@ -1705,10 +1743,11 @@ const App = () => {
   }
 
   const openContextMenu = (paneId: string, event: MouseEvent) => {
-    if (!rightClickPaste) {
+    if (!rightClickPasteRef.current) {
       return
     }
     event.preventDefault()
+    event.stopPropagation()
     const term = termRefs.current.get(paneId)
     const selection = term?.getSelection() ?? ''
     setContextMenu({
@@ -2360,12 +2399,10 @@ const App = () => {
       }
     }
 
-    window.addEventListener('click', handleDismiss)
-    window.addEventListener('contextmenu', handleDismiss)
+    window.addEventListener('mousedown', handleDismiss, true)
     window.addEventListener('keydown', handleKeyDown)
     return () => {
-      window.removeEventListener('click', handleDismiss)
-      window.removeEventListener('contextmenu', handleDismiss)
+      window.removeEventListener('mousedown', handleDismiss, true)
       window.removeEventListener('keydown', handleKeyDown)
     }
   }, [contextMenu.open])
@@ -2475,7 +2512,7 @@ const App = () => {
 
         term.onData((data) => handlePaneInput(pane.id, data))
         term.onSelectionChange(() => {
-          if (!copyOnSelect) {
+          if (!copyOnSelectRef.current) {
             return
           }
 
@@ -2485,9 +2522,33 @@ const App = () => {
           }
         })
 
+        host.addEventListener('mousedown', (event) => {
+          if (event.button !== 2) {
+            return
+          }
+          openContextMenu(pane.id, event)
+        })
         host.addEventListener('contextmenu', (event) => {
           openContextMenu(pane.id, event)
         })
+        if (!hostResizeObservers.current.has(pane.id) && typeof ResizeObserver !== 'undefined') {
+          const observer = new ResizeObserver(() => {
+            if (!autoFitRef.current) {
+              return
+            }
+            const pending = hostResizeRafs.current.get(pane.id)
+            if (pending != null) {
+              cancelAnimationFrame(pending)
+            }
+            const raf = requestAnimationFrame(() => {
+              hostResizeRafs.current.delete(pane.id)
+              sendResize(pane.id)
+            })
+            hostResizeRafs.current.set(pane.id, raf)
+          })
+          observer.observe(host)
+          hostResizeObservers.current.set(pane.id, observer)
+        }
 
         termRefs.current.set(pane.id, term)
         fitRefs.current.set(pane.id, fitAddon)
@@ -4239,12 +4300,15 @@ const App = () => {
             })
           }}
         >
-          {tabs.map((tab) => (
+          {tabs.map((tab) => {
+            const hasSplit = tab.split && tab.groups.length > 1
+            const splitClass = hasSplit ? `split-${tab.splitDirection}` : 'split-none'
+            return (
             <div
               key={tab.id}
-              className={`terminal-host ${activeTabId === tab.id ? 'active' : ''}`}
+              className={`terminal-host ${activeTabId === tab.id ? 'active' : ''} ${splitClass}`}
               style={
-                tab.split
+                hasSplit
                   ? {
                       gridTemplateColumns:
                         tab.splitDirection === 'horizontal'
@@ -4393,7 +4457,7 @@ const App = () => {
                   </div>
                 )
               })}
-              {tab.split && (
+              {hasSplit && (
                 <div
                   className={`splitter ${
                     tab.splitDirection === 'horizontal' ? 'horizontal' : 'vertical'
@@ -4427,7 +4491,7 @@ const App = () => {
                 />
               )}
             </div>
-          ))}
+          )})}
           {dragActive && (
             <div className="drop-overlay">
               <div className="drop-message">Drop files to upload</div>

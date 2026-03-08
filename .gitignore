@@ -18,3 +18,4 @@ BatchLauncher/bin/
 BatchLauncher/obj/
 DevShell/ui/dev-ui-react/node_modules/
 terminal/
+.tmp/

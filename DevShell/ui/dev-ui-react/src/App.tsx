@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+} from 'react'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import { SearchAddon } from 'xterm-addon-search'
@@ -210,6 +217,8 @@ type AppState = {
   copyOnSelect?: boolean
   rightClickPaste?: boolean
   favoriteFolders?: string[]
+  leftWidth?: number
+  rightWidth?: number
 }
 
 type SessionInfo = {
@@ -319,14 +328,12 @@ const App = () => {
   const profileMenuRef = useRef<HTMLDivElement | null>(null)
   const projectMenuRef = useRef<HTMLDivElement | null>(null)
   const taskMenuRef = useRef<HTMLDivElement | null>(null)
+  const shellLayoutRef = useRef<HTMLDivElement | null>(null)
   const folderPickerRef = useRef<HTMLDivElement | null>(null)
   const folderPickerWasOpen = useRef(false)
   const contextMenuRef = useRef<HTMLDivElement | null>(null)
   const loggingSessions = useRef<Set<string>>(new Set())
   const folderNav = useRef<Map<string, FolderNavState>>(new Map())
-  const selectionBuffer = useRef<Map<string, string>>(new Map())
-  const bufferOpenRef = useRef(false)
-  const bufferPaneIdRef = useRef<string | null>(null)
   const [profiles, setProfiles] = useState<TerminalProfile[]>([])
   const [workspace, setWorkspace] = useState<WorkspaceConfig>({ version: 2, projects: [] })
   const [projects, setProjects] = useState<ProjectDefinition[]>([])
@@ -343,10 +350,6 @@ const App = () => {
   const [fontFamily, setFontFamily] = useState('"JetBrains Mono", "Cascadia Mono", monospace')
   const [fontSize, setFontSize] = useState(14)
   const [favoriteFolders, setFavoriteFolders] = useState<string[]>([])
-  const [bufferInfo, setBufferInfo] = useState<Record<string, number>>({})
-  const [bufferOpen, setBufferOpen] = useState(false)
-  const [bufferPaneId, setBufferPaneId] = useState<string | null>(null)
-  const [bufferText, setBufferText] = useState('')
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [paletteQuery, setPaletteQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
@@ -365,6 +368,8 @@ const App = () => {
   const [folderPickerQuery, setFolderPickerQuery] = useState('')
   const [folderPickerVersion, setFolderPickerVersion] = useState(0)
   const [folderPickerWidth, setFolderPickerWidth] = useState(420)
+  const [leftWidth, setLeftWidth] = useState(280)
+  const [rightWidth, setRightWidth] = useState(370)
   const [folderPickerTab, setFolderPickerTab] = useState<
     'browse' | 'favorites' | 'recent' | 'tools'
   >('browse')
@@ -413,14 +418,6 @@ const App = () => {
   }
 
   const isWorkspaceV2 = workspace.version === 2
-
-  useEffect(() => {
-    bufferOpenRef.current = bufferOpen
-  }, [bufferOpen])
-
-  useEffect(() => {
-    bufferPaneIdRef.current = bufferPaneId
-  }, [bufferPaneId])
 
   const getActiveTab = () => tabs.find((tab) => tab.id === activeTabId) ?? null
 
@@ -526,60 +523,6 @@ const App = () => {
   }
 
   const clampFolderPickerWidth = (value: number) => Math.min(720, Math.max(320, value))
-
-  const rememberSelection = (paneId: string, selection: string) => {
-    if (!selection) {
-      return
-    }
-    selectionBuffer.current.set(paneId, selection)
-    if (bufferOpenRef.current && bufferPaneIdRef.current === paneId) {
-      setBufferText(selection)
-    }
-    setBufferInfo((current) => {
-      const nextLength = selection.length
-      if (current[paneId] === nextLength) {
-        return current
-      }
-      return { ...current, [paneId]: nextLength }
-    })
-  }
-
-  const getBufferedSelection = (paneId: string) =>
-    selectionBuffer.current.get(paneId) ?? ''
-
-  const clearSelectionBuffer = (paneId: string) => {
-    if (!selectionBuffer.current.has(paneId)) {
-      return
-    }
-    selectionBuffer.current.delete(paneId)
-    setBufferInfo((current) => {
-      if (!(paneId in current)) {
-        return current
-      }
-      const { [paneId]: _, ...rest } = current
-      return rest
-    })
-    if (bufferPaneId === paneId) {
-      setBufferText('')
-      setBufferOpen(false)
-      setBufferPaneId(null)
-    }
-  }
-
-  const openBufferViewer = (paneId: string) => {
-    const buffered = getBufferedSelection(paneId)
-    if (!buffered) {
-      return
-    }
-    setBufferPaneId(paneId)
-    setBufferText(buffered)
-    setBufferOpen(true)
-  }
-
-  const closeBufferViewer = () => {
-    setBufferOpen(false)
-    setBufferPaneId(null)
-  }
 
   const startFolderPickerResize = (event: ReactMouseEvent<HTMLDivElement>) => {
     event.preventDefault()
@@ -1196,6 +1139,147 @@ const App = () => {
     )
   }
 
+  const refitActivePanes = () => {
+    const activeTab = getActiveTab()
+    if (!activeTab) {
+      return
+    }
+    activeTab.groups.forEach((group) => {
+      if (group.activeTabId) {
+        setTimeout(() => sendResize(group.activeTabId), 0)
+      }
+    })
+  }
+
+  const getLayoutMetrics = () => {
+    const width =
+      shellLayoutRef.current?.clientWidth ??
+      document.documentElement.clientWidth ??
+      window.innerWidth
+    return {
+      width,
+      gapTotal: 10 * 4,
+      resizerTotal: 6 * 2,
+      leftMin: 180,
+      rightMin: 240,
+      centerMin: 300,
+    }
+  }
+
+  const clampSidebarWidths = (nextLeft: number, nextRight: number) => {
+    const { width, gapTotal, resizerTotal, leftMin, centerMin, rightMin } = getLayoutMetrics()
+    const available = Math.max(0, width - gapTotal - resizerTotal)
+    let left = Math.min(420, Math.max(leftMin, nextLeft))
+    let right = Math.min(420, Math.max(rightMin, nextRight))
+    let overflow = left + right + centerMin - available
+
+    if (overflow > 0) {
+      const rightSlack = Math.max(0, right - rightMin)
+      const reduceRight = Math.min(rightSlack, overflow)
+      right -= reduceRight
+      overflow -= reduceRight
+    }
+
+    if (overflow > 0) {
+      const leftSlack = Math.max(0, left - leftMin)
+      const reduceLeft = Math.min(leftSlack, overflow)
+      left -= reduceLeft
+      overflow -= reduceLeft
+    }
+
+    // If the window is very narrow, allow sidebars to shrink below preferred mins
+    // to prevent any clipping/off-screen layout.
+    if (overflow > 0) {
+      const hardRightMin = 170
+      const rightHardSlack = Math.max(0, right - hardRightMin)
+      const reduceRight = Math.min(rightHardSlack, overflow)
+      right -= reduceRight
+      overflow -= reduceRight
+    }
+
+    if (overflow > 0) {
+      const hardLeftMin = 140
+      const leftHardSlack = Math.max(0, left - hardLeftMin)
+      const reduceLeft = Math.min(leftHardSlack, overflow)
+      left -= reduceLeft
+      overflow -= reduceLeft
+    }
+
+    return { left, right }
+  }
+
+  const leftResize = (event: ReactMouseEvent) => {
+    event.preventDefault()
+    const startX = event.clientX
+    const startWidth = leftWidth
+
+    const handleMove = (moveEvent: MouseEvent) => {
+      const { width, gapTotal, resizerTotal, leftMin, centerMin, rightMin } = getLayoutMetrics()
+      const maxLeft = Math.max(
+        leftMin,
+        width - centerMin - Math.max(rightMin, rightWidth) - gapTotal - resizerTotal
+      )
+      const nextWidth = Math.min(
+        Math.min(420, maxLeft),
+        Math.max(leftMin, startWidth + (moveEvent.clientX - startX))
+      )
+      setLeftWidth(nextWidth)
+    }
+
+    const handleUp = () => {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+      refitActivePanes()
+    }
+
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup', handleUp)
+  }
+
+  const rightResize = (event: ReactMouseEvent) => {
+    event.preventDefault()
+    const startX = event.clientX
+    const startWidth = rightWidth
+
+    const handleMove = (moveEvent: MouseEvent) => {
+      const { width, gapTotal, resizerTotal, leftMin, centerMin, rightMin } = getLayoutMetrics()
+      const maxRight = Math.max(
+        rightMin,
+        width - centerMin - Math.max(leftMin, leftWidth) - gapTotal - resizerTotal
+      )
+      const nextWidth = Math.min(
+        Math.min(420, maxRight),
+        Math.max(rightMin, startWidth - (moveEvent.clientX - startX))
+      )
+      setRightWidth(nextWidth)
+    }
+
+    const handleUp = () => {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+      refitActivePanes()
+    }
+
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup', handleUp)
+  }
+
+  useEffect(() => {
+    const syncToLayout = () => {
+      const { left, right } = clampSidebarWidths(leftWidth, rightWidth)
+      if (left !== leftWidth) {
+        setLeftWidth(left)
+      }
+      if (right !== rightWidth) {
+        setRightWidth(right)
+      }
+    }
+
+    syncToLayout()
+    window.addEventListener('resize', syncToLayout)
+    return () => window.removeEventListener('resize', syncToLayout)
+  }, [leftWidth, rightWidth])
+
   const createSession = (
     profileId: string,
     autoStart: boolean,
@@ -1326,7 +1410,6 @@ const App = () => {
       hostRefs.current.delete(pane.id)
       pendingTasks.current.delete(pane.id)
       folderNav.current.delete(pane.id)
-      clearSelectionBuffer(pane.id)
     })
     if (folderPickerPaneId && panes.some((pane) => pane.id === folderPickerPaneId)) {
       setFolderPickerOpen(false)
@@ -1362,11 +1445,6 @@ const App = () => {
     })
     bootstrappedSessions.current.clear()
     closedTabs.current = []
-    selectionBuffer.current.clear()
-    setBufferInfo({})
-    setBufferText('')
-    setBufferOpen(false)
-    setBufferPaneId(null)
     setTabs([])
     setActiveTabId(null)
   }
@@ -1412,7 +1490,6 @@ const App = () => {
     hostRefs.current.delete(pane.id)
     pendingTasks.current.delete(pane.id)
     folderNav.current.delete(pane.id)
-    clearSelectionBuffer(pane.id)
     if (folderPickerPaneId === paneId) {
       setFolderPickerOpen(false)
       setFolderPickerPaneId(null)
@@ -1586,12 +1663,11 @@ const App = () => {
       return
     }
     const selection = term.getSelection()
-    const buffered = selection || getBufferedSelection(paneId)
-    if (!buffered) {
+    if (!selection) {
       return
     }
     try {
-      await navigator.clipboard?.writeText(buffered)
+      await navigator.clipboard?.writeText(selection)
     } catch {
       // Ignore clipboard failures (permissions, etc.).
     }
@@ -1626,16 +1702,14 @@ const App = () => {
       return
     }
     event.preventDefault()
-    event.stopPropagation()
     const term = termRefs.current.get(paneId)
     const selection = term?.getSelection() ?? ''
-    const buffered = getBufferedSelection(paneId)
     setContextMenu({
       open: true,
       x: event.clientX,
       y: event.clientY,
       paneId,
-      hasSelection: Boolean(selection || buffered),
+      hasSelection: Boolean(selection),
     })
   }
 
@@ -1675,6 +1749,12 @@ const App = () => {
     setCopyOnSelect(state.copyOnSelect ?? false)
     setRightClickPaste(state.rightClickPaste ?? true)
     setFavoriteFolders(state.favoriteFolders ?? [])
+    if (state.leftWidth != null) {
+      setLeftWidth(state.leftWidth)
+    }
+    if (state.rightWidth != null) {
+      setRightWidth(state.rightWidth)
+    }
 
     if (!state.tabs || state.tabs.length === 0) {
       createTab(selectedProfileId, true)
@@ -1794,6 +1874,8 @@ const App = () => {
     copyOnSelect,
     rightClickPaste,
     favoriteFolders,
+    leftWidth,
+    rightWidth,
   })
 
   useEffect(() => {
@@ -2386,35 +2468,19 @@ const App = () => {
 
         term.onData((data) => handlePaneInput(pane.id, data))
         term.onSelectionChange(() => {
-          const selection = term.getSelection()
-          if (selection) {
-            rememberSelection(pane.id, selection)
-          }
           if (!copyOnSelect) {
             return
           }
 
+          const selection = term.getSelection()
           if (selection) {
             navigator.clipboard?.writeText(selection).catch(() => undefined)
           }
         })
 
-        host.addEventListener(
-          'contextmenu',
-          (event) => {
-            openContextMenu(pane.id, event)
-          },
-          true
-        )
-        host.addEventListener(
-          'pointerdown',
-          (event) => {
-            if (event.button === 2) {
-              openContextMenu(pane.id, event)
-            }
-          },
-          true
-        )
+        host.addEventListener('contextmenu', (event) => {
+          openContextMenu(pane.id, event)
+        })
 
         termRefs.current.set(pane.id, term)
         fitRefs.current.set(pane.id, fitAddon)
@@ -3493,6 +3559,11 @@ const App = () => {
   const groupedProjectTasks = isWorkspaceV2
     ? groupTasksByGroup(filteredProjectTasks as ResolvedTask[])
     : []
+  const quickTasks = isWorkspaceV2 && taskProject
+    ? (taskProject.quickTasks ?? [])
+        .map((taskName) => findResolvedTask(buildTaskKey(taskProject.id, taskName)))
+        .filter((task): task is ResolvedTask => Boolean(task))
+    : []
   const taskMenuHasItems = isWorkspaceV2
     ? resolvedTaskIndex.byKey.size > 0
     : legacyAvailableTasks.length > 0
@@ -3772,17 +3843,18 @@ const App = () => {
     )
   }
 
-  const contextBuffer =
-    contextMenu.open && contextMenu.paneId ? getBufferedSelection(contextMenu.paneId) : ''
-  const hasContextBuffer = Boolean(contextBuffer)
-  const bufferLength =
-    bufferPaneId && bufferInfo[bufferPaneId] !== undefined
-      ? bufferInfo[bufferPaneId]
-      : bufferText.length
-
   return (
     <div className={`shell-app theme-${theme}`}>
-      <div className="shell-layout">
+      <div
+        className="shell-layout"
+        ref={shellLayoutRef}
+        style={
+          {
+            '--left-width': `${leftWidth}px`,
+            '--right-width': `${rightWidth}px`,
+          } as CSSProperties
+        }
+      >
         <aside className="project-sidebar">
           <div className="project-sidebar-header">
             <div className="project-sidebar-title">Projects</div>
@@ -3834,6 +3906,7 @@ const App = () => {
             </button>
           </div>
         </aside>
+        <div className="sidebar-resizer left" onMouseDown={leftResize} />
         <div className="shell-main">
           <header className="shell-toolbar">
             <div className="brand">
@@ -4170,18 +4243,15 @@ const App = () => {
                   {profile.name}
                 </button>
               ))}
-            {/* Temporarily disabled: selected project quick actions */}
-            {/*
-              quickTasks.map((task) => (
-                <button
-                  key={task.key}
-                  className="action ghost"
-                  onClick={() => runWorkspaceTask(task)}
-                >
-                  {task.name}
-                </button>
-              ))
-            */}
+            {quickTasks.map((task) => (
+              <button
+                key={task.key}
+                className="action ghost"
+                onClick={() => runWorkspaceTask(task)}
+              >
+                {task.name}
+              </button>
+            ))}
           </div>
           <button className="action ghost" onClick={() => setAutoFit((current) => !current)}>
             {autoFit ? 'Auto fit: on' : 'Auto fit: off'}
@@ -4243,8 +4313,6 @@ const App = () => {
                 const headerProfile = headerPane ? getProfileById(headerPane.profileId) : null
                 const headerCwd =
                   headerPane?.cwd ?? headerProfile?.workingDirectory ?? 'Unknown'
-                const headerBufferLength = headerPane ? bufferInfo[headerPane.id] ?? 0 : 0
-                const hasHeaderBuffer = headerBufferLength > 0
                 const isFolderOpen =
                   folderPickerOpen && folderPickerPaneId === headerPane?.id && folderPickerState
 
@@ -4306,21 +4374,6 @@ const App = () => {
                               }}
                             >
                               Copy
-                            </button>
-                            <button
-                              className="pane-clip-btn"
-                              disabled={!hasHeaderBuffer}
-                              title={
-                                hasHeaderBuffer
-                                  ? `Buffer: ${headerBufferLength} chars`
-                                  : 'Buffer empty'
-                              }
-                              onClick={(event) => {
-                                event.stopPropagation()
-                                openBufferViewer(headerPane.id)
-                              }}
-                            >
-                              Buffer
                             </button>
                             <button
                               className="pane-clip-btn"
@@ -4452,6 +4505,7 @@ const App = () => {
         </label>
       </div>
         </div>
+        <div className="sidebar-resizer right" onMouseDown={rightResize} />
         <aside className="task-sidebar">
           <div className="task-sidebar-header">
             <div className="task-sidebar-title">Tasks</div>
@@ -4863,41 +4917,6 @@ const App = () => {
         </div>
       )}
 
-      {bufferOpen && bufferPaneId && (
-        <div className="buffer-overlay" onClick={closeBufferViewer}>
-          <div className="buffer-panel" onClick={(event) => event.stopPropagation()}>
-            <div className="buffer-header">
-              <div>
-                <div className="buffer-title">Selection Buffer</div>
-                <div className="buffer-subtitle">{bufferLength} chars</div>
-              </div>
-              <div className="buffer-actions">
-                <button
-                  className="action ghost"
-                  onClick={() => {
-                    if (bufferText) {
-                      navigator.clipboard?.writeText(bufferText).catch(() => undefined)
-                    }
-                  }}
-                >
-                  Copy
-                </button>
-                <button
-                  className="action danger"
-                  onClick={() => clearSelectionBuffer(bufferPaneId)}
-                >
-                  Clear
-                </button>
-                <button className="action ghost" onClick={closeBufferViewer}>
-                  Close
-                </button>
-              </div>
-            </div>
-            <textarea className="buffer-text" readOnly value={bufferText} />
-          </div>
-        </div>
-      )}
-
       {contextMenu.open && contextMenu.paneId && (
         <div className="context-menu" ref={contextMenuRef} style={contextMenuStyle}>
           <button
@@ -4909,16 +4928,6 @@ const App = () => {
             }}
           >
             Copy
-          </button>
-          <button
-            className="context-menu-item"
-            disabled={!hasContextBuffer}
-            onClick={() => {
-              openBufferViewer(contextMenu.paneId as string)
-              closeContextMenu()
-            }}
-          >
-            Show buffer
           </button>
           <button
             className="context-menu-item"
@@ -5381,5 +5390,3 @@ const App = () => {
 }
 
 export default App
-
-

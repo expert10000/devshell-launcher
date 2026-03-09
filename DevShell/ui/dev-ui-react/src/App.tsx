@@ -3313,6 +3313,40 @@ const App = () => {
     return btoa(binary)
   }
 
+  const getQuickStartProfile = (kind: 'powershell' | 'cmd') => {
+    if (kind === 'powershell') {
+      return (
+        getProfileById('powershell') ??
+        profiles.find((profile) => {
+          const name = profile.name.toLowerCase()
+          const command = profile.command.toLowerCase()
+          return name.includes('powershell') || command.includes('powershell')
+        }) ??
+        null
+      )
+    }
+
+    return (
+      getProfileById('cmd') ??
+      profiles.find((profile) => {
+        const name = profile.name.toLowerCase()
+        const command = profile.command.toLowerCase()
+        return name === 'cmd' || command.includes('cmd.exe')
+      }) ??
+      null
+    )
+  }
+
+  const startQuickShell = (kind: 'powershell' | 'cmd') => {
+    const profile = getQuickStartProfile(kind)
+    if (!profile || profile.isAvailable === false) {
+      return
+    }
+
+    setSelectedProfileId(profile.id)
+    createTab(profile.id, true)
+  }
+
   const handleProfileSelect = (profile: TerminalProfile) => {
     setProfileMenuOpen(false)
     if (profile.isTemplate) {
@@ -3658,6 +3692,8 @@ const App = () => {
   const filteredProfiles = profiles.filter((profile) =>
     profileQueryLower ? profile.name.toLowerCase().includes(profileQueryLower) : true
   )
+  const quickPowerShellProfile = getQuickStartProfile('powershell')
+  const quickCmdProfile = getQuickStartProfile('cmd')
   const projectQueryLower = projectQuery.trim().toLowerCase()
   const projectMatchesQuery = (project: ProjectDefinition) => {
     if (!projectQueryLower) {
@@ -4028,6 +4064,22 @@ const App = () => {
               ))}
             </div>
             <div className="actions">
+              <button
+                className="action ghost"
+                disabled={!quickPowerShellProfile || quickPowerShellProfile.isAvailable === false}
+                onClick={() => startQuickShell('powershell')}
+                title="Start a PowerShell tab"
+              >
+                PowerShell
+              </button>
+              <button
+                className="action ghost"
+                disabled={!quickCmdProfile || quickCmdProfile.isAvailable === false}
+                onClick={() => startQuickShell('cmd')}
+                title="Start a CMD tab"
+              >
+                CMD
+              </button>
               <div className="profile-actions" ref={profileMenuRef}>
                 <button
                   className="action primary"

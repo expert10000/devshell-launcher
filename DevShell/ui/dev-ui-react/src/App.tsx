@@ -4064,22 +4064,24 @@ const App = () => {
               ))}
             </div>
             <div className="actions">
-              <button
-                className="action ghost"
-                disabled={!quickPowerShellProfile || quickPowerShellProfile.isAvailable === false}
-                onClick={() => startQuickShell('powershell')}
-                title="Start a PowerShell tab"
-              >
-                PowerShell
-              </button>
-              <button
-                className="action ghost"
-                disabled={!quickCmdProfile || quickCmdProfile.isAvailable === false}
-                onClick={() => startQuickShell('cmd')}
-                title="Start a CMD tab"
-              >
-                CMD
-              </button>
+              <div className="quick-shell-actions">
+                <button
+                  className="action quick-shell-action"
+                  disabled={!quickPowerShellProfile || quickPowerShellProfile.isAvailable === false}
+                  onClick={() => startQuickShell('powershell')}
+                  title="Start a PowerShell tab"
+                >
+                  PowerShell
+                </button>
+                <button
+                  className="action quick-shell-action"
+                  disabled={!quickCmdProfile || quickCmdProfile.isAvailable === false}
+                  onClick={() => startQuickShell('cmd')}
+                  title="Start a CMD tab"
+                >
+                  CMD
+                </button>
+              </div>
               <div className="profile-actions" ref={profileMenuRef}>
                 <button
                   className="action primary"

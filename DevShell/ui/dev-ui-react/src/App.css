@@ -1076,6 +1076,7 @@
   color: rgba(219, 231, 247, 0.7);
   background: rgba(8, 12, 18, 0.85);
   border-bottom: 1px solid rgba(88, 130, 172, 0.2);
+  min-width: 0;
 }
 
 .pane-tabs {
@@ -1083,7 +1084,7 @@
   gap: 6px;
   align-items: center;
   flex-wrap: wrap;
-  flex: 1;
+  flex: 1 1 220px;
   min-width: 0;
 }
 
@@ -1135,6 +1136,8 @@
   gap: 8px;
   flex-wrap: wrap;
   justify-content: flex-end;
+  flex: 1 1 100%;
+  max-width: 100%;
   min-width: 0;
   position: relative;
 }
@@ -1149,10 +1152,13 @@
   background: rgba(10, 16, 24, 0.6);
   color: rgba(219, 231, 247, 0.85);
   cursor: pointer;
+  flex: 1 1 160px;
+  min-width: 120px;
   max-width: min(42vw, 320px);
   font-family: inherit;
   text-transform: none;
   letter-spacing: normal;
+  overflow: hidden;
 }
 
 .pane-cwd-icon {
@@ -1183,6 +1189,11 @@
 .pane-clip {
   display: flex;
   gap: 6px;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .pane-clip-btn,
@@ -1196,6 +1207,7 @@
   font-size: 0.65rem;
   cursor: pointer;
   font-family: inherit;
+  white-space: nowrap;
 }
 
 .pane-clip-btn:disabled,
@@ -1213,6 +1225,7 @@
   font-size: 0.65rem;
   cursor: pointer;
   font-family: inherit;
+  white-space: nowrap;
 }
 
 .pane-kill-btn:disabled {

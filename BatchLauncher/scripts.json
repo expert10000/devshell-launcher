@@ -277,6 +277,51 @@
       ]
     },
     {
+      "id": "jupyter",
+      "name": "Jupyter",
+      "root": "G:\\A-Jupyter\\Jupyter",
+      "layout": {
+        "type": "tabs",
+        "items": [
+          {
+            "title": "Jupyter Compose",
+            "profileId": "pwsh",
+            "cwd": "G:\\A-Jupyter\\Jupyter",
+            "taskId": "Jupyter - Docker Compose up"
+          }
+        ]
+      },
+      "tasks": {
+        "Jupyter - Launch Docker Desktop": {
+          "steps": [
+            {
+              "run": "Start-Process \"C:\\\\Program Files\\\\Docker\\\\Docker\\\\Docker Desktop.exe\""
+            }
+          ]
+        },
+        "Jupyter - Docker Compose up": {
+          "cwd": "G:\\A-Jupyter\\Jupyter",
+          "steps": [
+            {
+              "run": "docker compose -f docker-compose.yml up -d"
+            }
+          ]
+        },
+        "Jupyter - Open in browser": {
+          "steps": [
+            {
+              "run": "Start-Process \"http://localhost:8888\""
+            }
+          ]
+        }
+      },
+      "quickTasks": [
+        "Jupyter - Launch Docker Desktop",
+        "Jupyter - Docker Compose up",
+        "Jupyter - Open in browser"
+      ]
+    },
+    {
       "id": "misc",
       "name": "Misc / Global Tasks",
       "tasks": {
@@ -285,6 +330,14 @@
           "steps": [
             {
               "run": "conda deactivate; conda activate math3d-cgal; $env:MATH3D_PYTHON = (Get-Command python).Source; npm run build:main; npm run build\r"
+            }
+          ]
+        },
+        "Math3D dist": {
+          "cwd": "G:\\Function-viewer-2026-02-05\\Math3D",
+          "steps": [
+            {
+              "run": "conda deactivate; conda activate math3d-cgal; $env:MATH3D_PYTHON = (Get-Command python).Source; npm run dist\r"
             }
           ]
         },

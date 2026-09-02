@@ -69,19 +69,25 @@
         "Wyp-Sprz - Docker Compose up": {
           "cwd": "G:\\Applications-2026-01-29-wyp-sprz",
           "steps": [
-            { "run": "docker compose -f docker-compose.yaml up -d --build" }
+            {
+              "run": "docker compose -f docker-compose.yaml up -d --build"
+            }
           ]
         },
         "Frankow - up": {
           "cwd": "G:\\Applications-2026-02-02-frankow",
           "steps": [
-            { "run": "docker compose up --build" }
+            {
+              "run": "docker compose up --build"
+            }
           ]
         },
         "React dev server": {
           "cwd": "G:\\Applications-2026-01-22-fluent-puchmos\\react-server",
           "steps": [
-            { "run": "npm run dev" }
+            {
+              "run": "npm run dev"
+            }
           ]
         },
         "Spring Boot dev": {
@@ -95,7 +101,9 @@
         "Docker Compose dev up": {
           "cwd": "G:\\Applications-2026-01-21-fluent-puchmos\\",
           "steps": [
-            { "run": "docker compose -f compose-dev.yaml up -d --build" }
+            {
+              "run": "docker compose -f compose-dev.yaml up -d --build"
+            }
           ]
         },
         "Keycloak dev": {
@@ -108,7 +116,9 @@
         },
         "Open localhost:5173": {
           "steps": [
-            { "run": "Start-Process \"http://localhost:5173\"" }
+            {
+              "run": "Start-Process \"http://localhost:5173\""
+            }
           ]
         },
         "Glasses Detector - Docker Compose GPU up": {
@@ -144,31 +154,41 @@
         "Frankow - up": {
           "cwd": "G:\\Applications-2026-02-02-frankow",
           "steps": [
-            { "run": "docker compose up --build" }
+            {
+              "run": "docker compose up --build"
+            }
           ]
         },
         "Frankow - down": {
           "cwd": "G:\\Applications-2026-02-02-frankow",
           "steps": [
-            { "run": "docker compose down" }
+            {
+              "run": "docker compose down"
+            }
           ]
         },
         "Frankow - seed": {
           "cwd": "G:\\Applications-2026-02-02-frankow",
           "steps": [
-            { "run": "docker compose exec api python -m app.etl.seed --limit 1000" }
+            {
+              "run": "docker compose exec api python -m app.etl.seed --limit 1000"
+            }
           ]
         },
         "Frankow - train baseline": {
           "cwd": "G:\\Applications-2026-02-02-frankow",
           "steps": [
-            { "run": "docker compose exec api python -m app.ml.train_baseline --version v1" }
+            {
+              "run": "docker compose exec api python -m app.ml.train_baseline --version v1"
+            }
           ]
         },
         "Frankow - train main": {
           "cwd": "G:\\Applications-2026-02-02-frankow",
           "steps": [
-            { "run": "docker compose exec api python -m app.ml.train_main --version v1 --model xgboost" }
+            {
+              "run": "docker compose exec api python -m app.ml.train_main --version v1 --model xgboost"
+            }
           ]
         },
         "Frankow - train per league": {
@@ -190,19 +210,25 @@
         "Frankow - predict db": {
           "cwd": "G:\\Applications-2026-02-02-frankow",
           "steps": [
-            { "run": "docker compose exec api python -m app.ml.predict_to_db --version v1 --model main_xgboost" }
+            {
+              "run": "docker compose exec api python -m app.ml.predict_to_db --version v1 --model main_xgboost"
+            }
           ]
         },
         "Frankow - report": {
           "cwd": "G:\\Applications-2026-02-02-frankow",
           "steps": [
-            { "run": "docker compose exec api python -m app.reporting.prediction_report" }
+            {
+              "run": "docker compose exec api python -m app.reporting.prediction_report"
+            }
           ]
         },
         "Frankow - logs": {
           "cwd": "G:\\Applications-2026-02-02-frankow",
           "steps": [
-            { "run": "docker compose logs -f --tail=200" }
+            {
+              "run": "docker compose logs -f --tail=200"
+            }
           ]
         }
       },
@@ -229,13 +255,17 @@
         "Open in VS Code": {
           "cwd": "G:\\BrowserProject",
           "steps": [
-            { "run": "Start-Process code -ArgumentList '.'" }
+            {
+              "run": "Start-Process code -ArgumentList '.'"
+            }
           ]
         },
         "Open in Visual Studio": {
           "cwd": "G:\\BrowserProject",
           "steps": [
-            { "run": "Start-Process devenv -ArgumentList '.'" }
+            {
+              "run": "Start-Process devenv -ArgumentList '.'"
+            }
           ]
         }
       },
@@ -254,7 +284,9 @@
           "shell": "pwsh",
           "cwd": "G:\\BatchLauncher-2026-03-08\\DevShell\\ui\\dev-ui-react",
           "steps": [
-            { "run": "npm run build" }
+            {
+              "run": "npm run build"
+            }
           ]
         },
         "BatchLauncher build + launch": {
@@ -279,19 +311,85 @@
     {
       "id": "jupyter",
       "name": "Jupyter",
-      "root": "G:\\A-Jupyter\\Jupyter",
+      "root": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
       "layout": {
         "type": "tabs",
         "items": [
           {
-            "title": "Jupyter Compose",
+            "title": "Jupyter Terminal",
             "profileId": "pwsh",
-            "cwd": "G:\\A-Jupyter\\Jupyter",
-            "taskId": "Jupyter - Docker Compose up"
+            "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
+            "taskId": "Jupyter - Version"
+          },
+          {
+            "title": "Jupyter Lab",
+            "profileId": "pwsh",
+            "taskId": "Jupyter - Open Lab UI"
           }
         ]
       },
       "tasks": {
+        "Jupyter - Install / Upgrade": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
+          "steps": [
+            {
+              "run": "python -m pip install jupyter"
+            }
+          ]
+        },
+        "Jupyter - Version": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
+          "steps": [
+            {
+              "run": "python -m jupyter --version"
+            }
+          ]
+        },
+        "Jupyter - List Servers": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
+          "steps": [
+            {
+              "run": "python -m jupyter notebook list"
+            }
+          ]
+        },
+        "Jupyter - Start Notebook": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
+          "steps": [
+            {
+              "run": "python -m notebook --no-browser --port=8888 --NotebookApp.token='' --NotebookApp.password=''"
+            }
+          ]
+        },
+        "Jupyter - Start JupyterLab": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
+          "steps": [
+            {
+              "run": "python -m jupyter lab --no-browser --port=8889 --NotebookApp.token='' --NotebookApp.password=''"
+            }
+          ]
+        },
+        "Jupyter - Open Notebook UI": {
+          "steps": [
+            {
+              "run": "Start-Process \"http://localhost:8888\""
+            }
+          ]
+        },
+        "Jupyter - Open Lab UI": {
+          "steps": [
+            {
+              "run": "Start-Process \"http://localhost:8889\""
+            }
+          ]
+        },
+        "Jupyter - Stop Servers": {
+          "steps": [
+            {
+              "run": "Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | Where-Object { $_.CommandLine -like '*jupyter*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"
+            }
+          ]
+        },
         "Jupyter - Launch Docker Desktop": {
           "steps": [
             {
@@ -306,19 +404,155 @@
               "run": "docker compose -f docker-compose.yml up -d"
             }
           ]
+        }
+      },
+      "quickTasks": [
+        "Jupyter - Version",
+        "Jupyter - Start Notebook",
+        "Jupyter - Open Notebook UI",
+        "Jupyter - Start JupyterLab",
+        "Jupyter - Open Lab UI",
+        "Jupyter - List Servers",
+        "Jupyter - Stop Servers"
+      ]
+    },
+    {
+      "id": "jupyter-playground",
+      "name": "Jupyter Playground",
+      "root": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
+      "layout": {
+        "type": "tabs",
+        "items": [
+          {
+            "title": "Jupyter Terminal",
+            "profileId": "pwsh",
+            "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
+            "taskId": "Jupyter - Version"
+          },
+          {
+            "title": "Jupyter Lab",
+            "profileId": "pwsh",
+            "taskId": "Jupyter - Open Lab UI"
+          }
+        ]
+      },
+      "tasks": {
+        "Jupyter - Install / Upgrade": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
+          "steps": [
+            { "run": "python -m pip install jupyter" }
+          ]
         },
-        "Jupyter - Open in browser": {
+        "Jupyter - Version": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
+          "steps": [
+            { "run": "python -m jupyter --version" }
+          ]
+        },
+        "Jupyter - List Servers": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
+          "steps": [
+            { "run": "python -m jupyter notebook list" }
+          ]
+        },
+        "Jupyter - Start Notebook": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
           "steps": [
             {
-              "run": "Start-Process \"http://localhost:8888\""
+              "run": "python -m notebook --no-browser --port=8888 --NotebookApp.token='' --NotebookApp.password=''"
+            }
+          ]
+        },
+        "Jupyter - Start JupyterLab": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
+          "steps": [
+            {
+              "run": "python -m jupyter lab --no-browser --port=8889 --NotebookApp.token='' --NotebookApp.password=''"
+            }
+          ]
+        },
+        "Jupyter - Open Notebook UI": {
+          "steps": [
+            { "run": "Start-Process \"http://localhost:8888\"" }
+          ]
+        },
+        "Jupyter - Open Lab UI": {
+          "steps": [
+            { "run": "Start-Process \"http://localhost:8889\"" }
+          ]
+        },
+        "Jupyter - Stop Servers": {
+          "steps": [
+            {
+              "run": "Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | Where-Object { $_.CommandLine -like '*jupyter*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"
             }
           ]
         }
       },
       "quickTasks": [
-        "Jupyter - Launch Docker Desktop",
-        "Jupyter - Docker Compose up",
-        "Jupyter - Open in browser"
+        "Jupyter - Version",
+        "Jupyter - Start Notebook",
+        "Jupyter - Open Notebook UI",
+        "Jupyter - Start JupyterLab",
+        "Jupyter - Open Lab UI",
+        "Jupyter - List Servers",
+        "Jupyter - Stop Servers"
+      ]
+    },
+    {
+      "id": "github",
+      "name": "GitHub Repos",
+      "root": "C:\\Users\\janko\\OneDrive\\Desktop",
+      "layout": {
+        "type": "tabs",
+        "items": [
+          {
+            "title": "Math3D",
+            "profileId": "pwsh",
+            "cwd": "G:\\Function-viewer-2026-02-05\\Math3D"
+          },
+          {
+            "title": "Theory",
+            "profileId": "pwsh",
+            "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\THEORY"
+          },
+          {
+            "title": "Math",
+            "profileId": "pwsh",
+            "cwd": "C:\\Users\\janko\\OneDrive\\Dokumenty\\MATH"
+          }
+        ]
+      },
+      "tasks": {
+        "Math3D": {
+          "cwd": "G:\\Function-viewer-2026-02-05\\Math3D",
+          "steps": [
+            {
+              "run": "Start-Process code -ArgumentList '.'"
+            }
+          ]
+        },
+        "theory": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\THEORY",
+          "steps": [
+            {
+              "run": "Start-Process code -ArgumentList '.'"
+            }
+          ]
+        },
+        "math": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Dokumenty\\MATH",
+          "steps": [
+            {
+              "run": "Start-Process code -ArgumentList '.'"
+            }
+          ]
+        }
+      },
+      "quickTasks": [
+        "Math3D",
+        "theory",
+        "math"
       ]
     },
     {
@@ -428,8 +662,6 @@
           ]
         }
       },
-      
-
       "quickTasks": [
         "Math3D build + dev"
       ]

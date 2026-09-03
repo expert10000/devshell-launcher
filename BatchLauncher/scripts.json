@@ -251,7 +251,7 @@
           }
         ]
       },
-      "tasks": {
+        "tasks": {
         "Open in VS Code": {
           "cwd": "G:\\BrowserProject",
           "steps": [
@@ -267,11 +267,67 @@
               "run": "Start-Process devenv -ArgumentList '.'"
             }
           ]
+        },
+        "Open URL in external browser": {
+          "steps": [
+            {
+              "run": "$url = Get-Clipboard; if ([string]::IsNullOrWhiteSpace($url)) { $url = Read-Host 'Paste repository URL' }; if ([string]::IsNullOrWhiteSpace($url)) { exit 1 }; Start-Process $url"
+            }
+          ]
+        },
+        "Open Math3D GitHub repo in BrowserProject": {
+          "steps": [
+            {
+              "run": "Start-Process \"G:\\BrowserProject\\bin\\Debug\\net8.0-windows\\BrowserAI.exe\" -ArgumentList 'https://github.com/expert10000/Math3D'"
+            }
+          ]
+        },
+        "Open Math3D GitHub repo in outer browser": {
+          "steps": [
+            {
+              "run": "Start-Process \"https://github.com/expert10000/Math3D\""
+            }
+          ]
+        },
+        "Open theory GitHub repo in outer browser": {
+          "steps": [
+            {
+              "run": "Start-Process \"https://github.com/expert10000/theory\""
+            }
+          ]
+        },
+        "Open theory GitHub repo in BrowserProject": {
+          "steps": [
+            {
+              "run": "Start-Process \"G:\\BrowserProject\\bin\\Debug\\net8.0-windows\\BrowserAI.exe\" -ArgumentList 'https://github.com/expert10000/theory'"
+            }
+          ]
+        },
+        "Open math GitHub repo in BrowserProject": {
+          "steps": [
+            {
+              "run": "Start-Process \"G:\\BrowserProject\\bin\\Debug\\net8.0-windows\\BrowserAI.exe\" -ArgumentList 'https://github.com/expert10000/math'"
+            }
+          ]
+        },
+        "Open math GitHub repo in outer browser": {
+          "steps": [
+            {
+              "run": "Start-Process \"https://github.com/expert10000/math\""
+            }
+          ]
         }
       },
       "quickTasks": [
         "Open in VS Code",
-        "Open in Visual Studio"
+        "Open in Visual Studio",
+        "Open Math3D GitHub repo in BrowserProject",
+        "Open Math3D GitHub repo in outer browser",
+        "Open theory GitHub repo in outer browser",
+        "Open theory GitHub repo in BrowserProject",
+        "Open math GitHub repo in BrowserProject",
+        "Open math GitHub repo in outer browser",
+        "Open URL in external browser"
       ]
     },
     {
@@ -528,6 +584,9 @@
           "cwd": "G:\\Function-viewer-2026-02-05\\Math3D",
           "steps": [
             {
+              "run": "Start-Process \"https://github.com/expert10000/Math3D\""
+            },
+            {
               "run": "Start-Process code -ArgumentList '.'"
             }
           ]
@@ -536,6 +595,9 @@
           "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\THEORY",
           "steps": [
             {
+              "run": "Start-Process \"https://github.com/expert10000/theory\""
+            },
+            {
               "run": "Start-Process code -ArgumentList '.'"
             }
           ]
@@ -543,6 +605,9 @@
         "math": {
           "cwd": "C:\\Users\\janko\\OneDrive\\Dokumenty\\MATH",
           "steps": [
+            {
+              "run": "Start-Process \"https://github.com/expert10000/math\""
+            },
             {
               "run": "Start-Process code -ArgumentList '.'"
             }

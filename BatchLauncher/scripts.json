@@ -378,6 +378,30 @@
       "name": "BatchLauncher (Build + Launch)",
       "root": "G:\\BatchLauncher-2026-03-08",
       "tasks": {
+        "Open Math3D in BrowserEditor": {
+          "shell": "pwsh",
+          "steps": [
+            {
+              "run": "$url = 'https://github.com/expert10000/Math3D'; $browserEditor = 'G:\\BrowserProject\\bin\\Debug\\net8.0-windows\\BrowserAI.exe'; if (Test-Path $browserEditor) { Start-Process $browserEditor -ArgumentList $url } else { Start-Process $url }"
+            }
+          ]
+        },
+        "Open theory in BrowserEditor": {
+          "shell": "pwsh",
+          "steps": [
+            {
+              "run": "$url = 'https://github.com/expert10000/theory'; $browserEditor = 'G:\\BrowserProject\\bin\\Debug\\net8.0-windows\\BrowserAI.exe'; if (Test-Path $browserEditor) { Start-Process $browserEditor -ArgumentList $url } else { Start-Process $url }"
+            }
+          ]
+        },
+        "Open math in BrowserEditor": {
+          "shell": "pwsh",
+          "steps": [
+            {
+              "run": "$url = 'https://github.com/expert10000/math'; $browserEditor = 'G:\\BrowserProject\\bin\\Debug\\net8.0-windows\\BrowserAI.exe'; if (Test-Path $browserEditor) { Start-Process $browserEditor -ArgumentList $url } else { Start-Process $url }"
+            }
+          ]
+        },
         "UI build": {
           "group": "Dev",
           "shell": "pwsh",
@@ -403,6 +427,9 @@
         }
       },
       "quickTasks": [
+        "Open Math3D in BrowserEditor",
+        "Open theory in BrowserEditor",
+        "Open math in BrowserEditor",
         "UI build",
         "BatchLauncher build + launch"
       ]
@@ -623,6 +650,33 @@
         ]
       },
       "tasks": {
+        "Open Math3D in BrowserEditor": {
+          "shell": "pwsh",
+          "cwd": "G:\\Function-viewer-2026-02-05\\Math3D",
+          "steps": [
+            {
+              "run": "$url = 'https://github.com/expert10000/Math3D'; $browserEditor = 'G:\\BrowserProject\\bin\\Debug\\net8.0-windows\\BrowserAI.exe'; if (Test-Path $browserEditor) { Start-Process $browserEditor -ArgumentList $url } else { Start-Process $url }"
+            }
+          ]
+        },
+        "Open theory in BrowserEditor": {
+          "shell": "pwsh",
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\THEORY",
+          "steps": [
+            {
+              "run": "$url = 'https://github.com/expert10000/theory'; $browserEditor = 'G:\\BrowserProject\\bin\\Debug\\net8.0-windows\\BrowserAI.exe'; if (Test-Path $browserEditor) { Start-Process $browserEditor -ArgumentList $url } else { Start-Process $url }"
+            }
+          ]
+        },
+        "Open math in BrowserEditor": {
+          "shell": "pwsh",
+          "cwd": "C:\\Users\\janko\\OneDrive\\Dokumenty\\MATH",
+          "steps": [
+            {
+              "run": "$url = 'https://github.com/expert10000/math'; $browserEditor = 'G:\\BrowserProject\\bin\\Debug\\net8.0-windows\\BrowserAI.exe'; if (Test-Path $browserEditor) { Start-Process $browserEditor -ArgumentList $url } else { Start-Process $url }"
+            }
+          ]
+        },
         "Math3D (GitHub in browser)": {
           "shell": "pwsh",
           "cwd": "G:\\Function-viewer-2026-02-05\\Math3D",
@@ -679,6 +733,9 @@
         }
       },
       "quickTasks": [
+        "Open Math3D in BrowserEditor",
+        "Open theory in BrowserEditor",
+        "Open math in BrowserEditor",
         "Math3D (GitHub in browser)",
         "theory (GitHub in browser)",
         "math (GitHub in browser)",

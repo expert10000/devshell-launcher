@@ -152,6 +152,7 @@ public partial class Form1 : Form
             "tasks.request" => HandleTasksRequestAsync(),
             "task.run" => HandleTaskRunAsync(doc.RootElement),
             "service.control" => HandleServiceControlAsync(doc.RootElement),
+            "dashboard.request" => HandleDashboardRequestAsync(),
             "session.attach" => HandleSessionAttachAsync(doc.RootElement),
             "logging.start" => HandleLoggingStartAsync(doc.RootElement),
             "logging.stop" => HandleLoggingStopAsync(doc.RootElement),

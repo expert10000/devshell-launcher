@@ -43,6 +43,9 @@ public sealed class WorkspaceTaskStep
 
 public sealed class WorkspaceProject
 {
+    public List<WorkspaceRepository>? Repositories { get; set; }
+    public List<string>? RequiredTools { get; set; }
+    public List<string>? PythonModules { get; set; }
     public WorkspaceService? Service { get; set; }
     public string? PythonEnvironment { get; set; }
     public string Id { get; set; } = string.Empty;
@@ -61,6 +64,16 @@ public sealed class WorkspaceService
     public string Name { get; set; } = "Jupyter Lab";
     public string Python { get; set; } = string.Empty;
     public int Port { get; set; } = 8889;
+}
+
+public sealed class WorkspaceRepository
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Path { get; set; } = string.Empty;
+    public string? BuildTask { get; set; }
+    public string? RunTask { get; set; }
+    public string? RunLabel { get; set; }
 }
 
 public sealed class WorkspaceLaunch

@@ -161,6 +161,66 @@
               "run": "Start-Process '${vars.devshellRepoUrl}'"
             }
           ]
+        },
+        "DevShell - Build": {
+          "steps": [
+            {
+              "run": "npm --prefix DevShell/ui/dev-ui-react run build; if ($LASTEXITCODE -eq 0) { dotnet build BatchLauncher/BatchLauncher.csproj --configuration Debug }"
+            }
+          ],
+          "cwd": "${vars.devshellRepoPath}",
+          "runInNewTab": true,
+          "shell": "pwsh"
+        },
+        "Theory - Build PDF": {
+          "steps": [
+            {
+              "run": "latexmk -pdf main.tex"
+            }
+          ],
+          "cwd": "${vars.theoryRepoPath}",
+          "runInNewTab": true,
+          "shell": "pwsh"
+        },
+        "Theory - Open PDF": {
+          "steps": [
+            {
+              "run": "if (Test-Path 'build/main.pdf') { Start-Process 'build/main.pdf' } else { Write-Error 'Build the PDF first.' }"
+            }
+          ],
+          "cwd": "${vars.theoryRepoPath}",
+          "runInNewTab": true,
+          "shell": "pwsh"
+        },
+        "Math3D - Run": {
+          "steps": [
+            {
+              "run": "npm run dev"
+            }
+          ],
+          "cwd": "${vars.math3dRepoPath}",
+          "runInNewTab": true,
+          "shell": "pwsh"
+        },
+        "Math3D - Build": {
+          "steps": [
+            {
+              "run": "npm run build:core"
+            }
+          ],
+          "cwd": "${vars.math3dRepoPath}",
+          "runInNewTab": true,
+          "shell": "pwsh"
+        },
+        "DevShell - Run": {
+          "steps": [
+            {
+              "run": "Start-Process 'BatchLauncher/bin/Debug/net8.0-windows/BatchLauncher.exe'"
+            }
+          ],
+          "cwd": "${vars.devshellRepoPath}",
+          "runInNewTab": true,
+          "shell": "pwsh"
         }
       },
       "quickTasks": [
@@ -178,7 +238,46 @@
         "DevShell - Open in VS Code",
         "DevShell - GitHub"
       ],
-      "pinned": true
+      "pinned": true,
+      "repositories": [
+        {
+          "name": "Math3D",
+          "buildTask": "Math3D - Build",
+          "runTask": "Math3D - Run",
+          "id": "math3d",
+          "path": "${vars.math3dRepoPath}"
+        },
+        {
+          "name": "Theory",
+          "buildTask": "Theory - Build PDF",
+          "id": "theory",
+          "runTask": "Theory - Open PDF",
+          "path": "${vars.theoryRepoPath}",
+          "runLabel": "Open PDF"
+        },
+        {
+          "name": "Math",
+          "runTask": "Math - Open in VS Code",
+          "id": "math",
+          "path": "${vars.mathRepoPath}",
+          "runLabel": "Open"
+        },
+        {
+          "name": "DevShell",
+          "buildTask": "DevShell - Build",
+          "runTask": "DevShell - Run",
+          "id": "devshell",
+          "path": "${vars.devshellRepoPath}"
+        }
+      ],
+      "requiredTools": [
+        "node",
+        "npm",
+        "dotnet",
+        "code",
+        "latexmk",
+        "${vars.browserEditorExe}"
+      ]
     },
     {
       "id": "jupyter-studio",
@@ -366,7 +465,17 @@
             "run": "$env:VIRTUAL_ENV = 'C:\\Users\\janko\\.venvs\\devshell-jupyter'; $env:PATH = \"$env:VIRTUAL_ENV\\Scripts;\" + (($env:PATH -split ';' | Where-Object { $_ -ne \"$env:VIRTUAL_ENV\\Scripts\" }) -join ';')"
           }
         ]
-      }
+      },
+      "pythonModules": [
+        "jupyterlab",
+        "numpy",
+        "pandas",
+        "matplotlib",
+        "sympy",
+        "scipy",
+        "pytest",
+        "ipywidgets"
+      ]
     }
   ],
   "workspaces": []

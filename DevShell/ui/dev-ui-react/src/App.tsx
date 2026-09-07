@@ -14,6 +14,9 @@ import 'xterm/css/xterm.css'
 import './App.css'
 
 type BackendMessage = {
+  repositories?: RepositoryStatus[]
+  checks?: HealthCheck[]
+  checkedAt?: string
   projectId?: string
   port?: number
   type: string
@@ -151,6 +154,9 @@ type ProjectLayout = {
 }
 
 type ProjectDefinition = {
+  repositories?: { id: string; name: string; path: string; buildTask?: string; runTask?: string; runLabel?: string }[]
+  requiredTools?: string[]
+  pythonModules?: string[]
   service?: { name: string; python: string; port: number }
   pythonEnvironment?: string
   id: string
@@ -168,6 +174,9 @@ type ResolvedTaskStep = {
   run: string
   cwd?: string
 }
+
+type RepositoryStatus = { projectId: string; id: string; path: string; branch?: string; upstream?: string; ahead?: number; behind?: number; changed: number; files: string[]; error?: string }
+type HealthCheck = { name: string; state: string; detail: string }
 
 type ResolvedTask = {
   servicePath?: string
@@ -410,6 +419,10 @@ const App = () => {
     }
   })
   const [taskProjectId, setTaskProjectId] = useState<string | null>(null)
+  const [dashboard, setDashboard] = useState<BackendMessage | null>(null)
+  const [repositoriesView, setRepositoriesView] = useState(true)
+  const [healthOpen, setHealthOpen] = useState(false)
+  const [dashboardLoading, setDashboardLoading] = useState(false)
   const [serviceStatuses, setServiceStatuses] = useState<Record<string, { state: string; message: string }>>({})
   const [projectTaskMenuOpen, setProjectTaskMenuOpen] = useState(true)
   const [runAllSessions, setRunAllSessions] = useState(false)
@@ -1397,6 +1410,7 @@ const App = () => {
 
     setTabs((current) => [...current, newTab])
     if (options?.focus !== false) {
+      setRepositoriesView(false)
       setActiveTabId(newTab.id)
     }
     return newTab.id
@@ -2015,6 +2029,7 @@ const App = () => {
           } else {
             createTab(selectedProfileId, true)
           }
+          setRepositoriesView(true)
           break
         }
         case 'workspace.profile.changed': {
@@ -2685,6 +2700,10 @@ const App = () => {
 
       if (event.ctrlKey && event.key.toLowerCase() === 'w') {
         event.preventDefault()
+        if (repositoriesView) {
+          setRepositoriesView(false)
+          return
+        }
         if (activeTabId) {
           closeTab(activeTabId)
         }
@@ -2783,7 +2802,7 @@ const App = () => {
 
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [tabs, activeTabId, selectedProfileId])
+  }, [tabs, activeTabId, selectedProfileId, repositoriesView])
 
   const workspacePaletteCommands: PaletteCommand[] = isWorkspaceV2
     ? (workspace.workspaces ?? []).map((entry) => ({
@@ -2970,6 +2989,41 @@ const App = () => {
         cwd: task.cwd ?? task.workingDirectory,
       },
     })
+  }
+
+  useEffect(() => {
+    if (repositoriesView) return
+    const timer = window.setTimeout(() => {
+      const pane = getActivePane()
+      if (pane) { sendResize(pane.id); termRefs.current.get(pane.id)?.focus() }
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [repositoriesView, activeTabId])
+
+  const refreshDashboard = () => {
+    setDashboardLoading(true)
+    postMessage({ type: 'dashboard.request' })
+  }
+
+  useEffect(() => {
+    if (!bridge || !activeWorkspaceProfileId) return
+    const receive = (event: MessageEvent) => {
+      const message = parseMessage(event)
+      if (message?.type !== 'dashboard.result' || message.profileId !== activeWorkspaceProfileId) return
+      setDashboard(message)
+      setDashboardLoading(false)
+    }
+    bridge.addEventListener('message', receive)
+    setDashboard(null)
+    refreshDashboard()
+    const timer = window.setInterval(() => postMessage({ type: 'dashboard.request' }), 30000)
+    return () => { clearInterval(timer); bridge.removeEventListener('message', receive) }
+  }, [bridge, activeWorkspaceProfileId, projects])
+
+  const runRepositoryAction = (project: ProjectDefinition, taskName?: string) => {
+    if (!taskName) return
+    const task = resolveWorkspaceTask(project, taskName)
+    if (task) { setRepositoriesView(false); handleWorkspaceTaskRunInNewTab(task) }
   }
 
   const controlService = (projectId: string, action: NonNullable<WorkspaceTask['serviceAction']>, path?: string) => {
@@ -4034,7 +4088,7 @@ const App = () => {
   return (
     <div className={`shell-app theme-${theme}`}>
       <div
-        className="shell-layout"
+        className={`shell-layout ${repositoriesView ? 'repositories-view' : ''}`}
         ref={shellLayoutRef}
         style={
           {
@@ -4071,6 +4125,7 @@ const App = () => {
                 ))}
               </select>
               <div className="workspace-profile-actions">
+                <button className="project-filter" onClick={() => { setHealthOpen(true); refreshDashboard() }}>Health check</button>
                 <button
                   className="project-filter"
                   onClick={() => postMessage({ type: 'workspace.profile.reload' })}
@@ -4149,11 +4204,12 @@ const App = () => {
               )}
             </div>
             <div className="tab-strip">
+              <button className={`tab ${repositoriesView ? 'active' : ''}`} onClick={() => setRepositoriesView(true)} aria-pressed={repositoriesView}>Repositories</button>
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
-                  className={`tab ${activeTabId === tab.id ? 'active' : ''}`}
-                  onClick={() => setActiveTabId(tab.id)}
+                  className={`tab ${!repositoriesView && activeTabId === tab.id ? 'active' : ''}`}
+                  onClick={() => { setRepositoriesView(false); setActiveTabId(tab.id) }}
                   onDoubleClick={() => {
                     setEditingTabId(tab.id)
                     setEditingTitle(tab.title)
@@ -4467,7 +4523,33 @@ const App = () => {
           <span>{activePane?.status ?? 'disconnected'}</span>
         </div>
       </header>
-      <main className="terminal-pane">
+      {repositoriesView && <main className="repositories-page" aria-label="Repositories">
+        <div className="repositories-title"><div><h1>Repositories</h1><p>Your repositories, build actions, and working changes.</p></div><button className="action ghost" onClick={() => { setHealthOpen(true); refreshDashboard() }}>Profile health</button></div>
+        {projects.filter((project) => project.repositories?.length).map((project) => (
+            <section key={project.id} className="repo-dashboard" aria-label="Repository dashboard">
+              <div className="service-heading"><h2>{project.name}</h2><button className="project-filter" disabled={dashboardLoading} onClick={refreshDashboard}>{dashboardLoading ? 'Checking…' : 'Refresh'}</button></div>
+              <p className="service-detail">Upstream counts use the last fetch. Updated {dashboard?.checkedAt ? new Date(dashboard.checkedAt).toLocaleTimeString() : '—'}.</p>
+              <div className="repository-grid">{project.repositories?.map((repo) => {
+                const status = dashboard?.repositories?.find((item) => item.projectId === project.id && item.id === repo.id)
+                return <article className="repo-card" key={repo.id}>
+                  <h3>{repo.name}</h3><div className="repo-path">{status?.path ?? repo.path}</div>
+                  <div className="service-detail">{status?.branch ?? (status?.error ? 'Unavailable' : 'Checking…')}</div>
+                  {status?.error ? <p className="check-error">{status.error}</p> : status && <>
+                    <div className="service-detail">{status.changed} changed · {status.upstream ? `${status.ahead ?? '—'} ahead / ${status.behind ?? '—'} behind ${status.upstream}` : 'No tracking branch'}</div>
+                    {status.files.length > 0 && <details><summary>Changed files</summary><ul className="repo-files">{status.files.map((file) => <li key={file}>{file}</li>)}</ul>{status.changed > status.files.length && <p>Showing first {status.files.length} files.</p>}</details>}
+                  </>}
+                  <div className="service-actions">
+                    <button disabled={!repo.buildTask || !status || !!status.error} title={repo.buildTask ?? 'No build command configured for this repository'} onClick={() => runRepositoryAction(project, repo.buildTask)}>Build</button>
+                    <button disabled={!repo.runTask || !status || !!status.error} title={repo.runTask ?? 'No run command configured'} onClick={() => runRepositoryAction(project, repo.runTask)}>{repo.runLabel ?? 'Run'}</button>
+                  </div>
+                  {!repo.buildTask && <div className="service-detail">Build: not configured</div>}
+                </article>
+              })}</div>
+            </section>
+        ))}
+        {!projects.some((project) => project.repositories?.length) && <p>No repositories configured in this profile.</p>}
+      </main>}
+      <main className="terminal-pane" style={{ display: repositoriesView ? 'none' : undefined }}>
         <div
           className="terminal-frame"
           onDragOver={(event) => {
@@ -5168,6 +5250,14 @@ const App = () => {
         </div>
       )}
 
+      {healthOpen && <div className="project-editor-overlay" onClick={() => setHealthOpen(false)}>
+        <section className="health-dialog" role="dialog" aria-modal="true" aria-label="Profile health check" onClick={(event) => event.stopPropagation()}>
+          <div className="service-heading"><h2>Profile health check</h2><button onClick={() => setHealthOpen(false)}>Close</button></div>
+          <p>{dashboard ? `${dashboard.checks?.filter((check) => check.state !== 'ok').length ?? 0} issues · ${dashboard.checks?.length ?? 0} checks` : 'Checking profile…'}</p>
+          <button disabled={dashboardLoading} onClick={refreshDashboard}>{dashboardLoading ? 'Checking…' : 'Check again'}</button>
+          <div aria-live="polite">{dashboard?.checks?.map((check, index) => <div className="health-row" key={index}><strong className={check.state === 'ok' ? 'check-ok' : 'check-error'}>{check.state === 'ok' ? 'OK' : 'Needs attention'} · {check.name}</strong><p>{check.detail}</p></div>)}</div>
+        </section>
+      </div>}
       {projectEditorOpen && (
         <div className="project-editor-overlay" onClick={closeProjectEditor}>
           <div

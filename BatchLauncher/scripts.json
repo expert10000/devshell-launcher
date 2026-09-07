@@ -2,6 +2,9 @@
   "version": 2,
   "globals": {
     "defaultShell": "pwsh",
+    "vars": {
+      "browserEditorExe": "G:\\BrowserProject\\bin\\Debug\\net8.0-windows\\BrowserAI.exe"
+    },
     "terminal": {
       "fontSize": 14,
       "scrollback": 5000
@@ -272,7 +275,7 @@
           "shell": "pwsh",
           "steps": [
             {
-              "run": "$url = Get-Clipboard; if ([string]::IsNullOrWhiteSpace($url)) { $url = Read-Host 'Paste repository URL' }; if ([string]::IsNullOrWhiteSpace($url)) { exit 1 }; Start-Process $url"
+              "run": "$url = Get-Clipboard; if ([string]::IsNullOrWhiteSpace($url)) { $url = Read-Host 'Paste repository URL' }; if ([string]::IsNullOrWhiteSpace($url)) { exit 1 }; $browserEditor = '${vars.browserEditorExe}'; if (Test-Path $browserEditor) { Start-Process $browserEditor -ArgumentList $url } else { Start-Process $url }"
             }
           ]
         },
@@ -280,16 +283,16 @@
           "shell": "pwsh",
           "steps": [
             {
-              "run": "$url = Get-Clipboard; if ([string]::IsNullOrWhiteSpace($url)) { $url = Read-Host 'Paste repository URL' }; if ([string]::IsNullOrWhiteSpace($url)) { exit 1 }; $browserProject = 'G:\\BrowserProject\\bin\\Debug\\net8.0-windows\\BrowserAI.exe'; if (Test-Path $browserProject) { Start-Process $browserProject -ArgumentList $url } else { Start-Process $url }"
+              "run": "$url = Get-Clipboard; if ([string]::IsNullOrWhiteSpace($url)) { $url = Read-Host 'Paste repository URL' }; if ([string]::IsNullOrWhiteSpace($url)) { exit 1 }; $browserProject = '${vars.browserEditorExe}'; if (Test-Path $browserProject) { Start-Process $browserProject -ArgumentList $url } else { Start-Process $url }"
             }
           ]
         },
         "Open Math3D GitHub repo in BrowserProject": {
           "shell": "pwsh",
           "steps": [
-            {
-              "run": "$url = 'https://github.com/expert10000/Math3D'; $browserProject = 'G:\\BrowserProject\\bin\\Debug\\net8.0-windows\\BrowserAI.exe'; if (Test-Path $browserProject) { Start-Process $browserProject -ArgumentList $url } else { Start-Process $url }"
-            }
+              {
+                "run": "$url = 'https://github.com/expert10000/Math3D'; $browserEditor = '${vars.browserEditorExe}'; if (Test-Path $browserEditor) { Start-Process $browserEditor -ArgumentList $url } else { Start-Process $url }"
+              }
           ]
         },
         "Open Math3D GitHub repo in outer browser": {
@@ -303,9 +306,9 @@
         "Open Math3D GitHub repo in BrowserProject (best)": {
           "shell": "pwsh",
           "steps": [
-            {
-              "run": "$url = 'https://github.com/expert10000/Math3D'; $browserProject = 'G:\\BrowserProject\\bin\\Debug\\net8.0-windows\\BrowserAI.exe'; if (Test-Path $browserProject) { Start-Process $browserProject -ArgumentList $url } else { Start-Process $url }"
-            }
+              {
+                "run": "$url = 'https://github.com/expert10000/Math3D'; $browserEditor = '${vars.browserEditorExe}'; if (Test-Path $browserEditor) { Start-Process $browserEditor -ArgumentList $url } else { Start-Process $url }"
+              }
           ]
         },
         "Open theory GitHub repo in outer browser": {
@@ -319,25 +322,25 @@
         "Open theory GitHub repo in BrowserProject": {
           "shell": "pwsh",
           "steps": [
-            {
-              "run": "$url = 'https://github.com/expert10000/theory'; $browserProject = 'G:\\BrowserProject\\bin\\Debug\\net8.0-windows\\BrowserAI.exe'; if (Test-Path $browserProject) { Start-Process $browserProject -ArgumentList $url } else { Start-Process $url }"
-            }
+              {
+                "run": "$url = 'https://github.com/expert10000/theory'; $browserEditor = '${vars.browserEditorExe}'; if (Test-Path $browserEditor) { Start-Process $browserEditor -ArgumentList $url } else { Start-Process $url }"
+              }
           ]
         },
         "Open theory GitHub repo in BrowserProject (best)": {
           "shell": "pwsh",
           "steps": [
-            {
-              "run": "$url = 'https://github.com/expert10000/theory'; $browserProject = 'G:\\BrowserProject\\bin\\Debug\\net8.0-windows\\BrowserAI.exe'; if (Test-Path $browserProject) { Start-Process $browserProject -ArgumentList $url } else { Start-Process $url }"
-            }
+              {
+                "run": "$url = 'https://github.com/expert10000/theory'; $browserEditor = '${vars.browserEditorExe}'; if (Test-Path $browserEditor) { Start-Process $browserEditor -ArgumentList $url } else { Start-Process $url }"
+              }
           ]
         },
         "Open math GitHub repo in BrowserProject": {
           "shell": "pwsh",
           "steps": [
-            {
-              "run": "$url = 'https://github.com/expert10000/math'; $browserProject = 'G:\\BrowserProject\\bin\\Debug\\net8.0-windows\\BrowserAI.exe'; if (Test-Path $browserProject) { Start-Process $browserProject -ArgumentList $url } else { Start-Process $url }"
-            }
+              {
+                "run": "$url = 'https://github.com/expert10000/math'; $browserEditor = '${vars.browserEditorExe}'; if (Test-Path $browserEditor) { Start-Process $browserEditor -ArgumentList $url } else { Start-Process $url }"
+              }
           ]
         },
         "Open math GitHub repo in outer browser": {
@@ -351,9 +354,9 @@
         "Open math GitHub repo in BrowserProject (best)": {
           "shell": "pwsh",
           "steps": [
-            {
-              "run": "$url = 'https://github.com/expert10000/math'; $browserProject = 'G:\\BrowserProject\\bin\\Debug\\net8.0-windows\\BrowserAI.exe'; if (Test-Path $browserProject) { Start-Process $browserProject -ArgumentList $url } else { Start-Process $url }"
-            }
+              {
+                "run": "$url = 'https://github.com/expert10000/math'; $browserEditor = '${vars.browserEditorExe}'; if (Test-Path $browserEditor) { Start-Process $browserEditor -ArgumentList $url } else { Start-Process $url }"
+              }
           ]
         }
       },
@@ -381,25 +384,25 @@
         "Open Math3D in BrowserEditor": {
           "shell": "pwsh",
           "steps": [
-            {
-              "run": "$url = 'https://github.com/expert10000/Math3D'; $browserEditor = 'G:\\BrowserProject\\bin\\Debug\\net8.0-windows\\BrowserAI.exe'; if (Test-Path $browserEditor) { Start-Process $browserEditor -ArgumentList $url } else { Start-Process $url }"
-            }
+              {
+                "run": "$url = 'https://github.com/expert10000/Math3D'; $browserEditor = '${vars.browserEditorExe}'; if (Test-Path $browserEditor) { Start-Process $browserEditor -ArgumentList $url } else { Start-Process $url }"
+              }
           ]
         },
         "Open theory in BrowserEditor": {
           "shell": "pwsh",
           "steps": [
-            {
-              "run": "$url = 'https://github.com/expert10000/theory'; $browserEditor = 'G:\\BrowserProject\\bin\\Debug\\net8.0-windows\\BrowserAI.exe'; if (Test-Path $browserEditor) { Start-Process $browserEditor -ArgumentList $url } else { Start-Process $url }"
-            }
+              {
+                "run": "$url = 'https://github.com/expert10000/theory'; $browserEditor = '${vars.browserEditorExe}'; if (Test-Path $browserEditor) { Start-Process $browserEditor -ArgumentList $url } else { Start-Process $url }"
+              }
           ]
         },
         "Open math in BrowserEditor": {
           "shell": "pwsh",
           "steps": [
-            {
-              "run": "$url = 'https://github.com/expert10000/math'; $browserEditor = 'G:\\BrowserProject\\bin\\Debug\\net8.0-windows\\BrowserAI.exe'; if (Test-Path $browserEditor) { Start-Process $browserEditor -ArgumentList $url } else { Start-Process $url }"
-            }
+              {
+                "run": "$url = 'https://github.com/expert10000/math'; $browserEditor = '${vars.browserEditorExe}'; if (Test-Path $browserEditor) { Start-Process $browserEditor -ArgumentList $url } else { Start-Process $url }"
+              }
           ]
         },
         "UI build": {
@@ -629,102 +632,120 @@
       "id": "github",
       "name": "GitHub Repos",
       "root": "C:\\Users\\janko\\OneDrive\\Desktop",
+      "vars": {
+        "math3dRepoPath": "G:\\Function-viewer-2026-02-05\\Math3D",
+        "math3dRepoUrl": "https://github.com/expert10000/Math3D",
+        "theoryRepoPath": "C:\\Users\\janko\\OneDrive\\Desktop\\THEORY",
+        "theoryRepoUrl": "https://github.com/expert10000/theory",
+        "mathRepoPath": "C:\\Users\\janko\\OneDrive\\Dokumenty\\MATH",
+        "mathRepoUrl": "https://github.com/expert10000/math"
+      },
       "layout": {
         "type": "tabs",
         "items": [
           {
             "title": "Math3D",
             "profileId": "pwsh",
-            "cwd": "G:\\Function-viewer-2026-02-05\\Math3D"
+            "cwd": "${vars.math3dRepoPath}"
           },
           {
             "title": "Theory",
             "profileId": "pwsh",
-            "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\THEORY"
+            "cwd": "${vars.theoryRepoPath}"
           },
           {
             "title": "Math",
             "profileId": "pwsh",
-            "cwd": "C:\\Users\\janko\\OneDrive\\Dokumenty\\MATH"
+            "cwd": "${vars.mathRepoPath}"
           }
         ]
       },
       "tasks": {
-        "Open Math3D in BrowserEditor": {
+        "Launcher health check": {
           "shell": "pwsh",
-          "cwd": "G:\\Function-viewer-2026-02-05\\Math3D",
           "steps": [
             {
-              "run": "$url = 'https://github.com/expert10000/Math3D'; $browserEditor = 'G:\\BrowserProject\\bin\\Debug\\net8.0-windows\\BrowserAI.exe'; if (Test-Path $browserEditor) { Start-Process $browserEditor -ArgumentList $url } else { Start-Process $url }"
+              "run": "$browserEditor = '${vars.browserEditorExe}'; $repoPaths = @('${vars.math3dRepoPath}', '${vars.theoryRepoPath}', '${vars.mathRepoPath}'); $errors = @(); if (-not (Test-Path $browserEditor)) { $errors += \"BrowserEditor missing: $browserEditor\" }; if (-not (Get-Command code -ErrorAction SilentlyContinue)) { $errors += \"VS Code CLI missing (command: code)\" }; $repoPaths | ForEach-Object { if (-not (Test-Path $_)) { $errors += \"Repo path missing: $_\" } }; if ($errors.Count -gt 0) { Write-Host 'Launcher health check failed:'; $errors | ForEach-Object { Write-Host \" - $_\" }; exit 1 }; Write-Host 'Launcher health check passed.'"
             }
           ]
         },
-        "Open theory in BrowserEditor": {
+        "Open active URL in BrowserEditor": {
           "shell": "pwsh",
-          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\THEORY",
           "steps": [
             {
-              "run": "$url = 'https://github.com/expert10000/theory'; $browserEditor = 'G:\\BrowserProject\\bin\\Debug\\net8.0-windows\\BrowserAI.exe'; if (Test-Path $browserEditor) { Start-Process $browserEditor -ArgumentList $url } else { Start-Process $url }"
+              "run": "$url = (Get-Clipboard | Out-String).Trim(); if ([string]::IsNullOrWhiteSpace($url)) { $url = Read-Host 'Paste repository URL' }; if ([string]::IsNullOrWhiteSpace($url)) { Write-Host 'No URL provided.'; exit 1 }; $browserEditor = '${vars.browserEditorExe}'; $opened = $false; if (Test-Path -LiteralPath $browserEditor) { foreach ($attempt in 1..2) { try { Start-Process -FilePath $browserEditor -ArgumentList @($url) -ErrorAction Stop; $opened = $true; break } catch { if ($attempt -lt 2) { Start-Sleep -Milliseconds 500 } } } }; if (-not $opened) { Write-Warning 'BrowserEditor could not be started; opening the outer browser.'; Start-Process $url }"
             }
           ]
         },
-        "Open math in BrowserEditor": {
+        "Math3D - GitHub (BrowserEditor)": {
           "shell": "pwsh",
-          "cwd": "C:\\Users\\janko\\OneDrive\\Dokumenty\\MATH",
           "steps": [
             {
-              "run": "$url = 'https://github.com/expert10000/math'; $browserEditor = 'G:\\BrowserProject\\bin\\Debug\\net8.0-windows\\BrowserAI.exe'; if (Test-Path $browserEditor) { Start-Process $browserEditor -ArgumentList $url } else { Start-Process $url }"
+              "run": "$url = '${vars.math3dRepoUrl}'; $browserEditor = '${vars.browserEditorExe}'; try { if (-not (Test-Path -LiteralPath $browserEditor)) { throw 'BrowserEditor missing' }; Start-Process -FilePath $browserEditor -ArgumentList @($url) -ErrorAction Stop } catch { Write-Warning 'Opening Math3D in the outer browser.'; Start-Process $url }"
             }
           ]
         },
-        "Math3D (GitHub in browser)": {
+        "Math3D - GitHub (outer browser)": {
           "shell": "pwsh",
-          "cwd": "G:\\Function-viewer-2026-02-05\\Math3D",
           "steps": [
             {
-              "run": "$url = 'https://github.com/expert10000/Math3D'; Start-Process $url"
+              "run": "Start-Process '${vars.math3dRepoUrl}'"
             }
           ]
         },
-        "Math3D (VS Code)": {
+        "Math3D - Open in VS Code": {
           "shell": "pwsh",
-          "cwd": "G:\\Function-viewer-2026-02-05\\Math3D",
+          "cwd": "${vars.math3dRepoPath}",
           "steps": [
             {
               "run": "Start-Process code -ArgumentList '.'"
             }
           ]
         },
-        "theory (GitHub in browser)": {
+        "Theory - GitHub (BrowserEditor)": {
           "shell": "pwsh",
-          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\THEORY",
           "steps": [
             {
-              "run": "$url = 'https://github.com/expert10000/theory'; Start-Process $url"
+              "run": "$url = '${vars.theoryRepoUrl}'; $browserEditor = '${vars.browserEditorExe}'; try { if (-not (Test-Path -LiteralPath $browserEditor)) { throw 'BrowserEditor missing' }; Start-Process -FilePath $browserEditor -ArgumentList @($url) -ErrorAction Stop } catch { Write-Warning 'Opening Theory in the outer browser.'; Start-Process $url }"
             }
           ]
         },
-        "theory (VS Code)": {
+        "Theory - GitHub (outer browser)": {
           "shell": "pwsh",
-          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\THEORY",
+          "steps": [
+            {
+              "run": "Start-Process '${vars.theoryRepoUrl}'"
+            }
+          ]
+        },
+        "Theory - Open in VS Code": {
+          "shell": "pwsh",
+          "cwd": "${vars.theoryRepoPath}",
           "steps": [
             {
               "run": "Start-Process code -ArgumentList '.'"
             }
           ]
         },
-        "math (GitHub in browser)": {
+        "Math - GitHub (BrowserEditor)": {
           "shell": "pwsh",
-          "cwd": "C:\\Users\\janko\\OneDrive\\Dokumenty\\MATH",
           "steps": [
             {
-              "run": "$url = 'https://github.com/expert10000/math'; Start-Process $url"
+              "run": "$url = '${vars.mathRepoUrl}'; $browserEditor = '${vars.browserEditorExe}'; try { if (-not (Test-Path -LiteralPath $browserEditor)) { throw 'BrowserEditor missing' }; Start-Process -FilePath $browserEditor -ArgumentList @($url) -ErrorAction Stop } catch { Write-Warning 'Opening Math in the outer browser.'; Start-Process $url }"
             }
           ]
         },
-        "math (VS Code)": {
+        "Math - GitHub (outer browser)": {
           "shell": "pwsh",
-          "cwd": "C:\\Users\\janko\\OneDrive\\Dokumenty\\MATH",
+          "steps": [
+            {
+              "run": "Start-Process '${vars.mathRepoUrl}'"
+            }
+          ]
+        },
+        "Math - Open in VS Code": {
+          "shell": "pwsh",
+          "cwd": "${vars.mathRepoPath}",
           "steps": [
             {
               "run": "Start-Process code -ArgumentList '.'"
@@ -733,15 +754,17 @@
         }
       },
       "quickTasks": [
-        "Open Math3D in BrowserEditor",
-        "Open theory in BrowserEditor",
-        "Open math in BrowserEditor",
-        "Math3D (GitHub in browser)",
-        "theory (GitHub in browser)",
-        "math (GitHub in browser)",
-        "Math3D (VS Code)",
-        "theory (VS Code)",
-        "math (VS Code)"
+        "Launcher health check",
+        "Open active URL in BrowserEditor",
+        "Math3D - GitHub (BrowserEditor)",
+        "Math3D - Open in VS Code",
+        "Math3D - GitHub (outer browser)",
+        "Theory - GitHub (BrowserEditor)",
+        "Theory - Open in VS Code",
+        "Theory - GitHub (outer browser)",
+        "Math - GitHub (BrowserEditor)",
+        "Math - Open in VS Code",
+        "Math - GitHub (outer browser)"
       ]
     },
     {

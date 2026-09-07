@@ -438,207 +438,6 @@
       ]
     },
     {
-      "id": "jupyter",
-      "name": "Jupyter",
-      "root": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
-      "layout": {
-        "type": "tabs",
-        "items": [
-          {
-            "title": "Jupyter Terminal",
-            "profileId": "pwsh",
-            "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
-            "taskId": "Jupyter - Version"
-          },
-          {
-            "title": "Jupyter Lab",
-            "profileId": "pwsh",
-            "taskId": "Jupyter - Open Lab UI"
-          }
-        ]
-      },
-      "tasks": {
-        "Jupyter - Install / Upgrade": {
-          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
-          "steps": [
-            {
-              "run": "python -m pip install jupyter"
-            }
-          ]
-        },
-        "Jupyter - Version": {
-          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
-          "steps": [
-            {
-              "run": "python -m jupyter --version"
-            }
-          ]
-        },
-        "Jupyter - List Servers": {
-          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
-          "steps": [
-            {
-              "run": "python -m jupyter notebook list"
-            }
-          ]
-        },
-        "Jupyter - Start Notebook": {
-          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
-          "steps": [
-            {
-              "run": "python -m notebook --no-browser --port=8888 --NotebookApp.token='' --NotebookApp.password=''"
-            }
-          ]
-        },
-        "Jupyter - Start JupyterLab": {
-          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
-          "steps": [
-            {
-              "run": "python -m jupyter lab --no-browser --port=8889 --NotebookApp.token='' --NotebookApp.password=''"
-            }
-          ]
-        },
-        "Jupyter - Open Notebook UI": {
-          "steps": [
-            {
-              "run": "Start-Process \"http://localhost:8888\""
-            }
-          ]
-        },
-        "Jupyter - Open Lab UI": {
-          "steps": [
-            {
-              "run": "Start-Process \"http://localhost:8889\""
-            }
-          ]
-        },
-        "Jupyter - Stop Servers": {
-          "steps": [
-            {
-              "run": "Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | Where-Object { $_.CommandLine -like '*jupyter*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"
-            }
-          ]
-        },
-        "Jupyter - Launch Docker Desktop": {
-          "steps": [
-            {
-              "run": "Start-Process \"C:\\\\Program Files\\\\Docker\\\\Docker\\\\Docker Desktop.exe\""
-            }
-          ]
-        },
-        "Jupyter - Docker Compose up": {
-          "cwd": "G:\\A-Jupyter\\Jupyter",
-          "steps": [
-            {
-              "run": "docker compose -f docker-compose.yml up -d"
-            }
-          ]
-        }
-      },
-      "quickTasks": [
-        "Jupyter - Version",
-        "Jupyter - Start Notebook",
-        "Jupyter - Open Notebook UI",
-        "Jupyter - Start JupyterLab",
-        "Jupyter - Open Lab UI",
-        "Jupyter - List Servers",
-        "Jupyter - Stop Servers"
-      ]
-    },
-    {
-      "id": "jupyter-playground",
-      "name": "Jupyter Playground",
-      "root": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
-      "layout": {
-        "type": "tabs",
-        "items": [
-          {
-            "title": "Jupyter Terminal",
-            "profileId": "pwsh",
-            "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
-            "taskId": "Jupyter - Version"
-          },
-          {
-            "title": "Jupyter Lab",
-            "profileId": "pwsh",
-            "taskId": "Jupyter - Open Lab UI"
-          }
-        ]
-      },
-      "tasks": {
-        "Jupyter - Install / Upgrade": {
-          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
-          "steps": [
-            {
-              "run": "python -m pip install jupyter"
-            }
-          ]
-        },
-        "Jupyter - Version": {
-          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
-          "steps": [
-            {
-              "run": "python -m jupyter --version"
-            }
-          ]
-        },
-        "Jupyter - List Servers": {
-          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
-          "steps": [
-            {
-              "run": "python -m jupyter notebook list"
-            }
-          ]
-        },
-        "Jupyter - Start Notebook": {
-          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
-          "steps": [
-            {
-              "run": "python -m notebook --no-browser --port=8888 --NotebookApp.token='' --NotebookApp.password=''"
-            }
-          ]
-        },
-        "Jupyter - Start JupyterLab": {
-          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
-          "steps": [
-            {
-              "run": "python -m jupyter lab --no-browser --port=8889 --NotebookApp.token='' --NotebookApp.password=''"
-            }
-          ]
-        },
-        "Jupyter - Open Notebook UI": {
-          "steps": [
-            {
-              "run": "Start-Process \"http://localhost:8888\""
-            }
-          ]
-        },
-        "Jupyter - Open Lab UI": {
-          "steps": [
-            {
-              "run": "Start-Process \"http://localhost:8889\""
-            }
-          ]
-        },
-        "Jupyter - Stop Servers": {
-          "steps": [
-            {
-              "run": "Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | Where-Object { $_.CommandLine -like '*jupyter*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"
-            }
-          ]
-        }
-      },
-      "quickTasks": [
-        "Jupyter - Version",
-        "Jupyter - Start Notebook",
-        "Jupyter - Open Notebook UI",
-        "Jupyter - Start JupyterLab",
-        "Jupyter - Open Lab UI",
-        "Jupyter - List Servers",
-        "Jupyter - Stop Servers"
-      ]
-    },
-    {
       "id": "github",
       "name": "GitHub Repos",
       "root": "C:\\Users\\janko\\OneDrive\\Desktop",
@@ -886,6 +685,143 @@
       },
       "quickTasks": [
         "Math3D build + dev"
+      ]
+    },
+    {
+      "id": "jupyter-studio",
+      "name": "Jupyter Studio",
+      "root": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
+      "pinned": true,
+      "layout": {
+        "type": "tabs",
+        "items": [
+          {
+            "title": "Jupyter Lab Server",
+            "profileId": "pwsh",
+            "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
+            "taskId": "Jupyter - Start Lab",
+            "autoRun": false
+          },
+          {
+            "title": "Notebook Workspace",
+            "profileId": "pwsh",
+            "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\notebooks",
+            "taskId": "Jupyter - Environment Check",
+            "autoRun": false
+          }
+        ]
+      },
+      "tasks": {
+        "Jupyter - Open Guide": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
+          "steps": [
+            {
+              "run": "Start-Process \"C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\guide.html\""
+            }
+          ]
+        },
+        "Jupyter - Environment Check": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
+          "steps": [
+            {
+              "run": "python -c \"import jupyterlab, numpy, pandas, matplotlib, sympy; print(jupyterlab.__version__)\""
+            }
+          ]
+        },
+        "Jupyter - Install Environment": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
+          "steps": [
+            {
+              "run": "python -m pip install --upgrade -r requirements.txt"
+            }
+          ]
+        },
+        "Jupyter - Start Lab": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
+          "steps": [
+            {
+              "run": "python -m jupyter lab --no-browser --ip=127.0.0.1 --port=8889 --ServerApp.root_dir=\"C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\" --ServerApp.token=\"\" --ServerApp.password=\"\""
+            }
+          ]
+        },
+        "Jupyter - Open Lab": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
+          "steps": [
+            {
+              "run": "Start-Process \"http://localhost:8889/lab\""
+            }
+          ]
+        },
+        "Jupyter - Open Start Here": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\notebooks",
+          "steps": [
+            {
+              "run": "Start-Process \"http://localhost:8889/lab/tree/notebooks/00_start_here.ipynb\""
+            }
+          ]
+        },
+        "Jupyter - Open Data Exploration": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\notebooks",
+          "steps": [
+            {
+              "run": "Start-Process \"http://localhost:8889/lab/tree/notebooks/01_data_exploration.ipynb\""
+            }
+          ]
+        },
+        "Jupyter - Open Math3D Vectors": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\notebooks",
+          "steps": [
+            {
+              "run": "Start-Process \"http://localhost:8889/lab/tree/notebooks/02_math3d_vectors.ipynb\""
+            }
+          ]
+        },
+        "Jupyter - Open Symbolic Mathematics": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\notebooks",
+          "steps": [
+            {
+              "run": "Start-Process \"http://localhost:8889/lab/tree/notebooks/03_symbolic_mathematics.ipynb\""
+            }
+          ]
+        },
+        "Jupyter - List Servers": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
+          "steps": [
+            {
+              "run": "python -m jupyter server list"
+            }
+          ]
+        },
+        "Jupyter - Stop Lab": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
+          "steps": [
+            {
+              "run": "python -m jupyter server stop 8889"
+            }
+          ]
+        },
+        "Jupyter - Open Workspace in VS Code": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
+          "steps": [
+            {
+              "run": "Start-Process code -ArgumentList \".\""
+            }
+          ]
+        }
+      },
+      "quickTasks": [
+        "Jupyter - Open Guide",
+        "Jupyter - Environment Check",
+        "Jupyter - Install Environment",
+        "Jupyter - Start Lab",
+        "Jupyter - Open Lab",
+        "Jupyter - Open Start Here",
+        "Jupyter - Open Data Exploration",
+        "Jupyter - Open Math3D Vectors",
+        "Jupyter - Open Symbolic Mathematics",
+        "Jupyter - List Servers",
+        "Jupyter - Stop Lab",
+        "Jupyter - Open Workspace in VS Code"
       ]
     }
   ],

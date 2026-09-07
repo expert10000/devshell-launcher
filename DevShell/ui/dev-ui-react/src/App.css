@@ -61,6 +61,42 @@
   color: rgba(255, 184, 107, 0.9);
 }
 
+.workspace-profile-control {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid rgba(255, 184, 107, 0.22);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(40, 28, 19, 0.72), rgba(15, 23, 34, 0.88));
+}
+
+.workspace-profile-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: rgba(255, 199, 135, 0.72);
+}
+
+.workspace-profile-select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(255, 184, 107, 0.32);
+  border-radius: 9px;
+  padding: 8px 10px;
+  background: rgba(9, 15, 24, 0.92);
+  color: rgba(235, 242, 251, 0.96);
+}
+
+.workspace-profile-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.workspace-profile-actions .project-filter {
+  flex: 1;
+}
+
 .project-sidebar-filters {
   display: flex;
   flex-wrap: wrap;

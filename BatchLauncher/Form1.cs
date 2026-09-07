@@ -22,21 +22,27 @@ public partial class Form1 : Form
     private readonly Dictionary<string, FileStream> _fileTransfers = new();
     private readonly Dictionary<string, StreamWriter> _sessionLogs = new();
     private readonly object _logLock = new();
-    private readonly WorkspaceConfig _workspace;
+    private WorkspaceConfig _workspace;
     private readonly Dictionary<string, string> _environment;
     private AppState _latestState;
-    private readonly string _scriptsPath;
+    private string _scriptsPath;
+    private List<WorkspaceProfileInfo> _workspaceProfiles;
+    private string _activeWorkspaceProfileId;
 
     public Form1()
     {
         InitializeComponent();
-        _scriptsPath = AppPaths.ScriptsPath;
+        _workspaceProfiles = WorkspaceProfileStore.GetProfiles();
+        var selectedWorkspaceProfile =
+            WorkspaceProfileStore.ResolveInitialProfile(_workspaceProfiles);
+        _scriptsPath = selectedWorkspaceProfile?.Path ?? AppPaths.ScriptsPath;
+        _activeWorkspaceProfileId = selectedWorkspaceProfile?.Id ?? "default";
         _profiles = ProfileStore.LoadProfiles();
         _terminalManager = new TerminalManager(_profiles);
         _terminalManager.Output += HandleSessionOutput;
         _terminalManager.Exited += HandleSessionExit;
         _terminalManager.Error += HandleSessionError;
-        _workspace = WorkspaceStore.LoadWorkspace();
+        _workspace = WorkspaceStore.LoadWorkspace(_scriptsPath);
         _environment = BuildEnvironmentSnapshot();
         _latestState = AppStateStore.Load();
         Shown += async (_, _) => await InitializeWebViewAsync();
@@ -140,6 +146,9 @@ public partial class Form1 : Form
             "profiles.request" => HandleProfilesRequestAsync(),
             "profiles.save" => HandleProfilesSaveAsync(doc.RootElement),
             "projects.request" => HandleProjectsRequestAsync(),
+            "workspace.profile.select" => HandleWorkspaceProfileSelectAsync(doc.RootElement),
+            "workspace.profile.reload" => HandleWorkspaceProfileReloadAsync(),
+            "workspace.profile.openFolder" => HandleWorkspaceProfileOpenFolderAsync(),
             "tasks.request" => HandleTasksRequestAsync(),
             "task.run" => HandleTaskRunAsync(doc.RootElement),
             "session.attach" => HandleSessionAttachAsync(doc.RootElement),
@@ -180,6 +189,108 @@ public partial class Form1 : Form
     {
         SendProjects();
         return Task.CompletedTask;
+    }
+
+    private Task HandleWorkspaceProfileSelectAsync(JsonElement root)
+    {
+        var profileId = root.TryGetProperty("profileId", out var profileElement)
+            ? profileElement.GetString()
+            : null;
+        if (string.IsNullOrWhiteSpace(profileId))
+        {
+            return Task.CompletedTask;
+        }
+
+        RefreshWorkspaceProfiles();
+        var profile = _workspaceProfiles.FirstOrDefault(item =>
+            item.Id.Equals(profileId, StringComparison.OrdinalIgnoreCase));
+        if (profile == null)
+        {
+            SendWorkspaceProfileError($"Profile not found: {profileId}");
+            return Task.CompletedTask;
+        }
+
+        LoadWorkspaceProfile(profile);
+        return Task.CompletedTask;
+    }
+
+    private Task HandleWorkspaceProfileReloadAsync()
+    {
+        RefreshWorkspaceProfiles();
+        var profile = _workspaceProfiles.FirstOrDefault(item =>
+            item.Id.Equals(_activeWorkspaceProfileId, StringComparison.OrdinalIgnoreCase));
+        if (profile == null)
+        {
+            SendWorkspaceProfileError(
+                $"Active profile not found: {_activeWorkspaceProfileId}");
+            return Task.CompletedTask;
+        }
+
+        LoadWorkspaceProfile(profile);
+        return Task.CompletedTask;
+    }
+
+    private Task HandleWorkspaceProfileOpenFolderAsync()
+    {
+        try
+        {
+            AppPaths.EnsureWorkspaceProfilesDirectory();
+            Process.Start(new ProcessStartInfo(
+                "explorer.exe",
+                AppPaths.WorkspaceProfilesDirectory)
+            {
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            SendWorkspaceProfileError(ex.Message);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void LoadWorkspaceProfile(WorkspaceProfileInfo profile)
+    {
+        if (!WorkspaceStore.TryLoadWorkspace(profile.Path, out var workspace, out var error))
+        {
+            SendWorkspaceProfileError(
+                $"Could not load {profile.Name}: {error ?? "Unknown error"}");
+            return;
+        }
+
+        _workspace = workspace;
+        _scriptsPath = profile.Path;
+        _activeWorkspaceProfileId = profile.Id;
+        WorkspaceProfileStore.SaveSelection(profile.Id);
+        SendWorkspaceProfileChanged();
+    }
+
+    private void RefreshWorkspaceProfiles()
+    {
+        _workspaceProfiles = WorkspaceProfileStore.GetProfiles();
+    }
+
+    private void SendWorkspaceProfileChanged()
+    {
+        SendMessage(new
+        {
+            type = "workspace.profile.changed",
+            workspace = _workspace,
+            projects = _workspace.Projects ?? new List<WorkspaceProject>(),
+            scriptsPath = _scriptsPath,
+            workspaceProfiles = _workspaceProfiles,
+            activeWorkspaceProfileId = _activeWorkspaceProfileId
+        });
+    }
+
+    private void SendWorkspaceProfileError(string message)
+    {
+        SendMessage(new
+        {
+            type = "workspace.profile.error",
+            message
+        });
     }
 
     private Task HandleProfilesSaveAsync(JsonElement root)
@@ -722,6 +833,7 @@ public partial class Form1 : Form
     private void SendInitPayload()
     {
         RefreshProfileAvailability();
+        RefreshWorkspaceProfiles();
         SendMessage(new
         {
             type = "app.init",
@@ -731,6 +843,8 @@ public partial class Form1 : Form
             environment = _environment,
             projects = _workspace.Projects ?? new List<WorkspaceProject>(),
             scriptsPath = _scriptsPath,
+            workspaceProfiles = _workspaceProfiles,
+            activeWorkspaceProfileId = _activeWorkspaceProfileId,
             sessions = _terminalManager.Sessions.Select(session => new
             {
                 sessionId = session.SessionId,

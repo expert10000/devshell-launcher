@@ -44,6 +44,9 @@
     <None Update="scripts.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="profiles\**\*.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="_scripts.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

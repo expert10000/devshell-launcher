@@ -36,12 +36,20 @@ type BackendMessage = {
   error?: string
   transferId?: string
   scriptsPath?: string
+  workspaceProfiles?: WorkspaceProfileInfo[]
+  activeWorkspaceProfileId?: string
 }
 
 type WebViewBridge = {
   postMessage: (data: unknown) => void
   addEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void
   removeEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void
+}
+
+type WorkspaceProfileInfo = {
+  id: string
+  name: string
+  path: string
 }
 
 type TerminalProfile = {
@@ -403,6 +411,8 @@ const App = () => {
   const [editingTitle, setEditingTitle] = useState('')
   const [dragActive, setDragActive] = useState(false)
   const [scriptsPath, setScriptsPath] = useState<string | null>(null)
+  const [workspaceProfiles, setWorkspaceProfiles] = useState<WorkspaceProfileInfo[]>([])
+  const [activeWorkspaceProfileId, setActiveWorkspaceProfileId] = useState<string | null>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
     open: false,
     x: 0,
@@ -1969,6 +1979,8 @@ const App = () => {
             setLegacyTasks(message.tasks ?? [])
           }
           setScriptsPath(message.scriptsPath ?? null)
+          setWorkspaceProfiles(message.workspaceProfiles ?? [])
+          setActiveWorkspaceProfileId(message.activeWorkspaceProfileId ?? null)
           if (incomingState && incomingState.tabs?.length) {
             initializeFromState(incomingState)
           } else if (message.sessions && message.sessions.length > 0) {
@@ -1978,6 +1990,22 @@ const App = () => {
           } else {
             createTab(selectedProfileId, true)
           }
+          break
+        }
+        case 'workspace.profile.changed': {
+          const incomingWorkspace = message.workspace ?? { version: 1, projects: message.projects ?? [] }
+          setWorkspace(incomingWorkspace)
+          setProjects(incomingWorkspace.projects ?? message.projects ?? [])
+          setScriptsPath(message.scriptsPath ?? null)
+          setWorkspaceProfiles(message.workspaceProfiles ?? [])
+          setActiveWorkspaceProfileId(message.activeWorkspaceProfileId ?? null)
+          setActiveProjectId(null)
+          setTaskProjectId(null)
+          setProjectMenuProjectId(null)
+          break
+        }
+        case 'workspace.profile.error': {
+          window.alert(message.message ?? 'Workspace profile could not be loaded.')
           break
         }
         case 'profiles.list': {
@@ -3952,6 +3980,45 @@ const App = () => {
         <aside className="project-sidebar">
           <div className="project-sidebar-header">
             <div className="project-sidebar-title">Projects</div>
+            <div className="workspace-profile-control">
+              <label className="workspace-profile-label" htmlFor="workspace-profile-select">
+                Configuration
+              </label>
+              <select
+                id="workspace-profile-select"
+                className="workspace-profile-select"
+                value={activeWorkspaceProfileId ?? ''}
+                onChange={(event) =>
+                  postMessage({
+                    type: 'workspace.profile.select',
+                    profileId: event.target.value,
+                  })
+                }
+                title={
+                  workspaceProfiles.find((profile) => profile.id === activeWorkspaceProfileId)?.path
+                }
+              >
+                {workspaceProfiles.map((profile) => (
+                  <option key={profile.id} value={profile.id}>
+                    {profile.name}
+                  </option>
+                ))}
+              </select>
+              <div className="workspace-profile-actions">
+                <button
+                  className="project-filter"
+                  onClick={() => postMessage({ type: 'workspace.profile.reload' })}
+                >
+                  Reload
+                </button>
+                <button
+                  className="project-filter"
+                  onClick={() => postMessage({ type: 'workspace.profile.openFolder' })}
+                >
+                  Folder
+                </button>
+              </div>
+            </div>
             <div className="project-sidebar-filters">
               <button
                 className={`project-filter ${projectFilter === 'pinned' ? 'active' : ''}`}

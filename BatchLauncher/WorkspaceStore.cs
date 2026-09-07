@@ -11,20 +11,40 @@ internal static class WorkspaceStore
 
     public static WorkspaceConfig LoadWorkspace()
     {
-        var path = AppPaths.ScriptsPath;
+        return LoadWorkspace(AppPaths.ScriptsPath);
+    }
+
+    public static WorkspaceConfig LoadWorkspace(string path)
+    {
+        return TryLoadWorkspace(path, out var workspace, out _)
+            ? workspace
+            : new WorkspaceConfig();
+    }
+
+    public static bool TryLoadWorkspace(
+        string path,
+        out WorkspaceConfig workspace,
+        out string? error)
+    {
+        workspace = new WorkspaceConfig();
+        error = null;
         if (!File.Exists(path))
         {
-            return new WorkspaceConfig();
+            error = $"Configuration file not found: {path}";
+            return false;
         }
 
         try
         {
             var json = File.ReadAllText(path);
-            return JsonSerializer.Deserialize<WorkspaceConfig>(json, Options) ?? new WorkspaceConfig();
+            workspace = JsonSerializer.Deserialize<WorkspaceConfig>(json, Options)
+                ?? new WorkspaceConfig();
+            return true;
         }
-        catch
+        catch (Exception ex)
         {
-            return new WorkspaceConfig();
+            error = ex.Message;
+            return false;
         }
     }
 }

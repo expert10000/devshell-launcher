@@ -8,6 +8,13 @@ internal static class AppPaths
 
     public static string ScriptsPath => Path.Combine(AppBasePath, "scripts.json");
 
+    public static string WorkspaceProfilesDirectory => Path.Combine(AppBasePath, "profiles");
+
+    public static string WorkspaceProfileSelectionPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "DevShellLauncher",
+        "workspace-profile.json");
+
     public static string ProfilesPath => Path.Combine(AppBasePath, "profile.json");
 
     public static string LegacyProfilesPath => Path.Combine(AppBasePath, "profiles.json");
@@ -26,6 +33,20 @@ internal static class AppPaths
     public static void EnsureProfilesDirectory()
     {
         Directory.CreateDirectory(AppBasePath);
+    }
+
+    public static void EnsureWorkspaceProfilesDirectory()
+    {
+        Directory.CreateDirectory(WorkspaceProfilesDirectory);
+    }
+
+    public static void EnsureLocalSettingsDirectory()
+    {
+        var directory = Path.GetDirectoryName(WorkspaceProfileSelectionPath);
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
     }
 
     private static string ResolveAppBasePath()

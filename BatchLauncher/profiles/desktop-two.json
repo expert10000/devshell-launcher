@@ -1,0 +1,357 @@
+{
+  "version": 2,
+  "globals": {
+    "defaultShell": "pwsh",
+    "vars": {
+      "browserEditorExe": "G:\\BrowserProject\\bin\\Debug\\net8.0-windows\\BrowserAI.exe"
+    },
+    "terminal": {
+      "fontSize": 14,
+      "scrollback": 5000
+    }
+  },
+  "templates": {},
+  "projects": [
+    {
+      "id": "jupyter",
+      "name": "Jupyter",
+      "root": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
+      "layout": {
+        "type": "tabs",
+        "items": [
+          {
+            "title": "Jupyter Terminal",
+            "profileId": "pwsh",
+            "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
+            "taskId": "Jupyter - Version"
+          },
+          {
+            "title": "Jupyter Lab",
+            "profileId": "pwsh",
+            "taskId": "Jupyter - Open Lab UI"
+          }
+        ]
+      },
+      "tasks": {
+        "Jupyter - Install / Upgrade": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
+          "steps": [
+            {
+              "run": "python -m pip install jupyter"
+            }
+          ]
+        },
+        "Jupyter - Version": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
+          "steps": [
+            {
+              "run": "python -m jupyter --version"
+            }
+          ]
+        },
+        "Jupyter - List Servers": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
+          "steps": [
+            {
+              "run": "python -m jupyter notebook list"
+            }
+          ]
+        },
+        "Jupyter - Start Notebook": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
+          "steps": [
+            {
+              "run": "python -m notebook --no-browser --port=8888 --NotebookApp.token='' --NotebookApp.password=''"
+            }
+          ]
+        },
+        "Jupyter - Start JupyterLab": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
+          "steps": [
+            {
+              "run": "python -m jupyter lab --no-browser --port=8889 --NotebookApp.token='' --NotebookApp.password=''"
+            }
+          ]
+        },
+        "Jupyter - Open Notebook UI": {
+          "steps": [
+            {
+              "run": "Start-Process \"http://localhost:8888\""
+            }
+          ]
+        },
+        "Jupyter - Open Lab UI": {
+          "steps": [
+            {
+              "run": "Start-Process \"http://localhost:8889\""
+            }
+          ]
+        },
+        "Jupyter - Stop Servers": {
+          "steps": [
+            {
+              "run": "Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | Where-Object { $_.CommandLine -like '*jupyter*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"
+            }
+          ]
+        },
+        "Jupyter - Launch Docker Desktop": {
+          "steps": [
+            {
+              "run": "Start-Process \"C:\\\\Program Files\\\\Docker\\\\Docker\\\\Docker Desktop.exe\""
+            }
+          ]
+        },
+        "Jupyter - Docker Compose up": {
+          "cwd": "G:\\A-Jupyter\\Jupyter",
+          "steps": [
+            {
+              "run": "docker compose -f docker-compose.yml up -d"
+            }
+          ]
+        }
+      },
+      "quickTasks": [
+        "Jupyter - Version",
+        "Jupyter - Start Notebook",
+        "Jupyter - Open Notebook UI",
+        "Jupyter - Start JupyterLab",
+        "Jupyter - Open Lab UI",
+        "Jupyter - List Servers",
+        "Jupyter - Stop Servers"
+      ]
+    },
+    {
+      "id": "jupyter-playground",
+      "name": "Jupyter Playground",
+      "root": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
+      "layout": {
+        "type": "tabs",
+        "items": [
+          {
+            "title": "Jupyter Terminal",
+            "profileId": "pwsh",
+            "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
+            "taskId": "Jupyter - Version"
+          },
+          {
+            "title": "Jupyter Lab",
+            "profileId": "pwsh",
+            "taskId": "Jupyter - Open Lab UI"
+          }
+        ]
+      },
+      "tasks": {
+        "Jupyter - Install / Upgrade": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
+          "steps": [
+            {
+              "run": "python -m pip install jupyter"
+            }
+          ]
+        },
+        "Jupyter - Version": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
+          "steps": [
+            {
+              "run": "python -m jupyter --version"
+            }
+          ]
+        },
+        "Jupyter - List Servers": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
+          "steps": [
+            {
+              "run": "python -m jupyter notebook list"
+            }
+          ]
+        },
+        "Jupyter - Start Notebook": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
+          "steps": [
+            {
+              "run": "python -m notebook --no-browser --port=8888 --NotebookApp.token='' --NotebookApp.password=''"
+            }
+          ]
+        },
+        "Jupyter - Start JupyterLab": {
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\jupyter-playground",
+          "steps": [
+            {
+              "run": "python -m jupyter lab --no-browser --port=8889 --NotebookApp.token='' --NotebookApp.password=''"
+            }
+          ]
+        },
+        "Jupyter - Open Notebook UI": {
+          "steps": [
+            {
+              "run": "Start-Process \"http://localhost:8888\""
+            }
+          ]
+        },
+        "Jupyter - Open Lab UI": {
+          "steps": [
+            {
+              "run": "Start-Process \"http://localhost:8889\""
+            }
+          ]
+        },
+        "Jupyter - Stop Servers": {
+          "steps": [
+            {
+              "run": "Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | Where-Object { $_.CommandLine -like '*jupyter*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"
+            }
+          ]
+        }
+      },
+      "quickTasks": [
+        "Jupyter - Version",
+        "Jupyter - Start Notebook",
+        "Jupyter - Open Notebook UI",
+        "Jupyter - Start JupyterLab",
+        "Jupyter - Open Lab UI",
+        "Jupyter - List Servers",
+        "Jupyter - Stop Servers"
+      ]
+    },
+    {
+      "id": "github",
+      "name": "GitHub Repos",
+      "root": "C:\\Users\\janko\\OneDrive\\Desktop",
+      "vars": {
+        "math3dRepoPath": "G:\\Function-viewer-2026-02-05\\Math3D",
+        "math3dRepoUrl": "https://github.com/expert10000/Math3D",
+        "theoryRepoPath": "C:\\Users\\janko\\OneDrive\\Desktop\\THEORY",
+        "theoryRepoUrl": "https://github.com/expert10000/theory",
+        "mathRepoPath": "C:\\Users\\janko\\OneDrive\\Dokumenty\\MATH",
+        "mathRepoUrl": "https://github.com/expert10000/math"
+      },
+      "layout": {
+        "type": "tabs",
+        "items": [
+          {
+            "title": "Math3D",
+            "profileId": "pwsh",
+            "cwd": "${vars.math3dRepoPath}"
+          },
+          {
+            "title": "Theory",
+            "profileId": "pwsh",
+            "cwd": "${vars.theoryRepoPath}"
+          },
+          {
+            "title": "Math",
+            "profileId": "pwsh",
+            "cwd": "${vars.mathRepoPath}"
+          }
+        ]
+      },
+      "tasks": {
+        "Launcher health check": {
+          "shell": "pwsh",
+          "steps": [
+            {
+              "run": "$browserEditor = '${vars.browserEditorExe}'; $repoPaths = @('${vars.math3dRepoPath}', '${vars.theoryRepoPath}', '${vars.mathRepoPath}'); $errors = @(); if (-not (Test-Path $browserEditor)) { $errors += \"BrowserEditor missing: $browserEditor\" }; if (-not (Get-Command code -ErrorAction SilentlyContinue)) { $errors += \"VS Code CLI missing (command: code)\" }; $repoPaths | ForEach-Object { if (-not (Test-Path $_)) { $errors += \"Repo path missing: $_\" } }; if ($errors.Count -gt 0) { Write-Host 'Launcher health check failed:'; $errors | ForEach-Object { Write-Host \" - $_\" }; exit 1 }; Write-Host 'Launcher health check passed.'"
+            }
+          ]
+        },
+        "Open active URL in BrowserEditor": {
+          "shell": "pwsh",
+          "steps": [
+            {
+              "run": "$url = (Get-Clipboard | Out-String).Trim(); if ([string]::IsNullOrWhiteSpace($url)) { $url = Read-Host 'Paste repository URL' }; if ([string]::IsNullOrWhiteSpace($url)) { Write-Host 'No URL provided.'; exit 1 }; $browserEditor = '${vars.browserEditorExe}'; $opened = $false; if (Test-Path -LiteralPath $browserEditor) { foreach ($attempt in 1..2) { try { Start-Process -FilePath $browserEditor -ArgumentList @($url) -ErrorAction Stop; $opened = $true; break } catch { if ($attempt -lt 2) { Start-Sleep -Milliseconds 500 } } } }; if (-not $opened) { Write-Warning 'BrowserEditor could not be started; opening the outer browser.'; Start-Process $url }"
+            }
+          ]
+        },
+        "Math3D - GitHub (BrowserEditor)": {
+          "shell": "pwsh",
+          "steps": [
+            {
+              "run": "$url = '${vars.math3dRepoUrl}'; $browserEditor = '${vars.browserEditorExe}'; try { if (-not (Test-Path -LiteralPath $browserEditor)) { throw 'BrowserEditor missing' }; Start-Process -FilePath $browserEditor -ArgumentList @($url) -ErrorAction Stop } catch { Write-Warning 'Opening Math3D in the outer browser.'; Start-Process $url }"
+            }
+          ]
+        },
+        "Math3D - GitHub (outer browser)": {
+          "shell": "pwsh",
+          "steps": [
+            {
+              "run": "Start-Process '${vars.math3dRepoUrl}'"
+            }
+          ]
+        },
+        "Math3D - Open in VS Code": {
+          "shell": "pwsh",
+          "cwd": "${vars.math3dRepoPath}",
+          "steps": [
+            {
+              "run": "Start-Process code -ArgumentList '.'"
+            }
+          ]
+        },
+        "Theory - GitHub (BrowserEditor)": {
+          "shell": "pwsh",
+          "steps": [
+            {
+              "run": "$url = '${vars.theoryRepoUrl}'; $browserEditor = '${vars.browserEditorExe}'; try { if (-not (Test-Path -LiteralPath $browserEditor)) { throw 'BrowserEditor missing' }; Start-Process -FilePath $browserEditor -ArgumentList @($url) -ErrorAction Stop } catch { Write-Warning 'Opening Theory in the outer browser.'; Start-Process $url }"
+            }
+          ]
+        },
+        "Theory - GitHub (outer browser)": {
+          "shell": "pwsh",
+          "steps": [
+            {
+              "run": "Start-Process '${vars.theoryRepoUrl}'"
+            }
+          ]
+        },
+        "Theory - Open in VS Code": {
+          "shell": "pwsh",
+          "cwd": "${vars.theoryRepoPath}",
+          "steps": [
+            {
+              "run": "Start-Process code -ArgumentList '.'"
+            }
+          ]
+        },
+        "Math - GitHub (BrowserEditor)": {
+          "shell": "pwsh",
+          "steps": [
+            {
+              "run": "$url = '${vars.mathRepoUrl}'; $browserEditor = '${vars.browserEditorExe}'; try { if (-not (Test-Path -LiteralPath $browserEditor)) { throw 'BrowserEditor missing' }; Start-Process -FilePath $browserEditor -ArgumentList @($url) -ErrorAction Stop } catch { Write-Warning 'Opening Math in the outer browser.'; Start-Process $url }"
+            }
+          ]
+        },
+        "Math - GitHub (outer browser)": {
+          "shell": "pwsh",
+          "steps": [
+            {
+              "run": "Start-Process '${vars.mathRepoUrl}'"
+            }
+          ]
+        },
+        "Math - Open in VS Code": {
+          "shell": "pwsh",
+          "cwd": "${vars.mathRepoPath}",
+          "steps": [
+            {
+              "run": "Start-Process code -ArgumentList '.'"
+            }
+          ]
+        }
+      },
+      "quickTasks": [
+        "Launcher health check",
+        "Open active URL in BrowserEditor",
+        "Math3D - GitHub (BrowserEditor)",
+        "Math3D - Open in VS Code",
+        "Math3D - GitHub (outer browser)",
+        "Theory - GitHub (BrowserEditor)",
+        "Theory - Open in VS Code",
+        "Theory - GitHub (outer browser)",
+        "Math - GitHub (BrowserEditor)",
+        "Math - Open in VS Code",
+        "Math - GitHub (outer browser)"
+      ]
+    }
+  ],
+  "workspaces": []
+}

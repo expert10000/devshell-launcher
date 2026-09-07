@@ -2555,3 +2555,12 @@
 .theme-daylight .project-sidebar-subtitle {
   color: #64748b;
 }
+.service-card { margin: 12px; padding: 14px; border: 1px solid #8e9cad66; border-radius: 14px; }
+.service-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.service-state { font-size: 12px; text-transform: capitalize; padding: 3px 8px; border-radius: 12px; background: #8899aa33; }
+.service-state.running { background: #24834a; color: white; }
+.service-state.blocked, .service-state.error { background: #a53628; color: white; }
+.service-detail { margin-top: 7px; font-size: 12px; overflow-wrap: anywhere; }
+.service-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+.service-actions button { border: 1px solid #8997a7; border-radius: 8px; padding: 5px 9px; cursor: pointer; }
+.service-actions button:disabled { opacity: .45; cursor: default; }

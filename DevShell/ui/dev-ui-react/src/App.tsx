@@ -14,6 +14,8 @@ import 'xterm/css/xterm.css'
 import './App.css'
 
 type BackendMessage = {
+  projectId?: string
+  port?: number
   type: string
   sessionId?: string
   clientId?: string
@@ -94,6 +96,8 @@ type WorkspaceTaskStep = {
 }
 
 type WorkspaceTask = {
+  servicePath?: string
+  serviceAction?: 'start' | 'stop' | 'restart' | 'open' | 'status'
   group?: string
   shell?: string
   cwd?: string
@@ -147,6 +151,8 @@ type ProjectLayout = {
 }
 
 type ProjectDefinition = {
+  service?: { name: string; python: string; port: number }
+  pythonEnvironment?: string
   id: string
   name: string
   root?: string
@@ -164,6 +170,8 @@ type ResolvedTaskStep = {
 }
 
 type ResolvedTask = {
+  servicePath?: string
+  serviceAction?: WorkspaceTask['serviceAction']
   key: string
   name: string
   projectId: string
@@ -402,6 +410,7 @@ const App = () => {
     }
   })
   const [taskProjectId, setTaskProjectId] = useState<string | null>(null)
+  const [serviceStatuses, setServiceStatuses] = useState<Record<string, { state: string; message: string }>>({})
   const [projectTaskMenuOpen, setProjectTaskMenuOpen] = useState(true)
   const [runAllSessions, setRunAllSessions] = useState(false)
   const [recentProjectIds, setRecentProjectIds] = useState<string[]>([])
@@ -768,6 +777,8 @@ const App = () => {
       dependsOn: merged.dependsOn ?? [],
       runInNewTab: merged.runInNewTab,
       focusTab: merged.focusTab,
+      serviceAction: merged.serviceAction,
+      servicePath: merged.servicePath,
     } as ResolvedTask
   }
 
@@ -902,6 +913,10 @@ const App = () => {
     sessionId: string,
     paneId: string
   ) => {
+    if (task.serviceAction) {
+      controlService(task.projectId, task.serviceAction, task.servicePath)
+      return
+    }
     const pane = findPaneById(paneId)
     const profileId = pane?.profileId ?? task.shell ?? selectedProfileId
     const project = projects.find((item) => item.id === task.projectId)
@@ -937,6 +952,10 @@ const App = () => {
     task: ResolvedTask,
     options?: { forceNewTab?: boolean; title?: string }
   ) => {
+    if (task.serviceAction) {
+      controlService(task.projectId, task.serviceAction, task.servicePath)
+      return
+    }
     const activePane = getActivePane()
     const targetProfileId = task.shell ?? selectedProfileId
     const resolvedProfileId = profiles.some((profile) => profile.id === targetProfileId)
@@ -1341,7 +1360,7 @@ const App = () => {
     }
 
     if (autoStart) {
-      startSessionForPane(paneId, profileId, overrides)
+      startSessionForPane(paneId, profileId, pane)
     }
 
     if (pane.taskId) {
@@ -1729,13 +1748,19 @@ const App = () => {
   }
 
   const pasteClipboardForPane = async (paneId: string) => {
+    const term = termRefs.current.get(paneId)
+    if (!term) {
+      return
+    }
     try {
       const text = await navigator.clipboard?.readText()
       if (text) {
-        handlePaneInput(paneId, text)
+        term.paste(text)
       }
     } catch {
       // Ignore clipboard failures (permissions, etc.).
+    } finally {
+      term.focus()
     }
   }
 
@@ -2947,8 +2972,45 @@ const App = () => {
     })
   }
 
+  const controlService = (projectId: string, action: NonNullable<WorkspaceTask['serviceAction']>, path?: string) => {
+    const key = `${activeWorkspaceProfileId}:${projectId}`
+    if (serviceStatuses[key]?.state === 'busy') return
+    if (action !== 'status') {
+      setServiceStatuses((current) => ({ ...current, [key]: { state: 'busy', message: `${action}…` } }))
+    }
+    postMessage({ type: 'service.control', projectId, action, path })
+  }
+
+  useEffect(() => {
+    if (!bridge || !activeWorkspaceProfileId) return
+    const receive = (event: MessageEvent) => {
+      const message = parseMessage(event)
+      if (message?.type !== 'service.status' || !message.projectId || message.profileId !== activeWorkspaceProfileId) return
+      const key = `${message.profileId}:${message.projectId}`
+      setServiceStatuses((current) => ({ ...current, [key]: {
+        state: message.state ?? 'error', message: message.message ?? '',
+      } }))
+    }
+    bridge.addEventListener('message', receive)
+    const poll = () => {
+      projects.filter((project) => project.service).forEach((project) => {
+        postMessage({ type: 'service.control', projectId: project.id, action: 'status' })
+      })
+    }
+    poll()
+    const timer = window.setInterval(poll, 5000)
+    return () => {
+      window.clearInterval(timer)
+      bridge.removeEventListener('message', receive)
+    }
+  }, [bridge, activeWorkspaceProfileId, projects])
+
   const handleWorkspaceTaskSelect = (task: ResolvedTask) => {
     setTaskMenuOpen(false)
+    if (task.serviceAction) {
+      controlService(task.projectId, task.serviceAction, task.servicePath)
+      return
+    }
     if (task.steps.length === 0) {
       window.alert('Task is missing steps.')
       return
@@ -2995,6 +3057,10 @@ const App = () => {
 
   const handleWorkspaceTaskRunInNewTab = (task: ResolvedTask) => {
     setTaskMenuOpen(false)
+    if (task.serviceAction) {
+      controlService(task.projectId, task.serviceAction, task.servicePath)
+      return
+    }
     if (task.steps.length === 0) {
       window.alert('Task is missing steps.')
       return
@@ -4655,6 +4721,25 @@ const App = () => {
               {panelProject ? `${panelProject.name} • ${panelTaskCount}` : 'Select a project'}
             </div>
           </div>
+          {panelProject?.service && (() => {
+            const service = panelProject.service
+            const status = serviceStatuses[`${activeWorkspaceProfileId}:${panelProject.id}`]
+            const state = status?.state ?? 'checking'
+            const busy = state === 'busy' || state === 'checking'
+            return (
+              <section className="service-card" aria-label={`${service.name} service controls`}>
+                <div className="service-heading"><strong>{service.name}</strong><span className={`service-state ${state}`}>{state}</span></div>
+                <div className="service-detail">Port {service.port}</div>
+                <div className="service-detail" role="status">{status?.message ?? 'Checking server…'}</div>
+                <div className="service-actions">
+                  <button className="task-run" disabled={busy || state === 'blocked'} onClick={() => controlService(panelProject.id, 'start')}>{state === 'running' ? 'Open' : 'Start'}</button>
+                  <button className="task-run" disabled={busy || state !== 'running'} onClick={() => controlService(panelProject.id, 'stop')}>Stop</button>
+                  <button className="task-run" disabled={busy || state === 'blocked'} onClick={() => controlService(panelProject.id, 'restart')}>Restart</button>
+                  <button className="task-run" disabled={busy} onClick={() => controlService(panelProject.id, 'status')}>Refresh</button>
+                </div>
+              </section>
+            )
+          })()}
           {panelProject && panelQuickTasks.length > 0 && (
             <div className="task-sidebar-quick">
               <div className="task-panel-section-title">Quick</div>

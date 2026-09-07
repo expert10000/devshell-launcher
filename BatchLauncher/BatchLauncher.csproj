@@ -60,5 +60,8 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="service_control.py" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 
 </Project>

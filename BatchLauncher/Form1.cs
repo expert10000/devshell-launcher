@@ -151,6 +151,7 @@ public partial class Form1 : Form
             "workspace.profile.openFolder" => HandleWorkspaceProfileOpenFolderAsync(),
             "tasks.request" => HandleTasksRequestAsync(),
             "task.run" => HandleTaskRunAsync(doc.RootElement),
+            "service.control" => HandleServiceControlAsync(doc.RootElement),
             "session.attach" => HandleSessionAttachAsync(doc.RootElement),
             "logging.start" => HandleLoggingStartAsync(doc.RootElement),
             "logging.stop" => HandleLoggingStopAsync(doc.RootElement),
@@ -683,7 +684,8 @@ public partial class Form1 : Form
             {
                 Cols = root.TryGetProperty("cols", out var colsElement) ? colsElement.GetInt32() : null,
                 Rows = root.TryGetProperty("rows", out var rowsElement) ? rowsElement.GetInt32() : null,
-                WorkingDirectory = root.TryGetProperty("cwd", out var cwdElement) ? cwdElement.GetString() : null
+                WorkingDirectory = root.TryGetProperty("cwd", out var cwdElement) ? cwdElement.GetString() : null,
+                Environment = GetProjectEnvironment(root.TryGetProperty("cwd", out var environmentCwd) ? environmentCwd.GetString() : null)
             };
 
             _terminalManager.StartSession(sessionId, profileId ?? "powershell", options);

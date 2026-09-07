@@ -24,6 +24,8 @@ public sealed class WorkspaceTerminalSettings
 
 public sealed class WorkspaceTask
 {
+    public string? ServiceAction { get; set; }
+    public string? ServicePath { get; set; }
     public string? Group { get; set; }
     public string? Shell { get; set; }
     public string? Cwd { get; set; }
@@ -41,6 +43,8 @@ public sealed class WorkspaceTaskStep
 
 public sealed class WorkspaceProject
 {
+    public WorkspaceService? Service { get; set; }
+    public string? PythonEnvironment { get; set; }
     public string Id { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? Root { get; set; }
@@ -50,6 +54,13 @@ public sealed class WorkspaceProject
     public Dictionary<string, WorkspaceTask>? Tasks { get; set; }
     public List<string>? QuickTasks { get; set; }
     public ProjectLayout? Layout { get; set; }
+}
+
+public sealed class WorkspaceService
+{
+    public string Name { get; set; } = "Jupyter Lab";
+    public string Python { get; set; } = string.Empty;
+    public int Port { get; set; } = 8889;
 }
 
 public sealed class WorkspaceLaunch

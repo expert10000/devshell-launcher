@@ -1,0 +1,2390 @@
+{
+  "source": "C:\\Users\\janko\\Downloads\\theory-dev-live\\examples\\python",
+  "files": [
+    {
+      "path": "ch02/differential_calculus_companion.py",
+      "sha256": "78ab158b59af0d0b8fbcb3734951cbdf12221d6655b7f426d201d72c5e960db7",
+      "bytes": 3996
+    },
+    {
+      "path": "ch03/vector_calculus_companion.py",
+      "sha256": "0dfd4eeeda31785883f273c58302708336952c721dcecbe8e5c84943fc9e28b6",
+      "bytes": 1950
+    },
+    {
+      "path": "ch04/dynamical_systems_companion.py",
+      "sha256": "36f9318b5e9a367846c7725dc7e797f7ccc19fcdb539e1bfff2c1545c884c962",
+      "bytes": 2017
+    },
+    {
+      "path": "ch05/complex_analysis_companion.py",
+      "sha256": "892cb729d495b6c0aee63506ef7e93df7ae9510a9e7615daab6cee4c095c7509",
+      "bytes": 2656
+    },
+    {
+      "path": "ch06/linear_algebra_hilbert_companion.py",
+      "sha256": "97a3c5147720693ee4464d8911a41bafef2444ff301ace2c1459e0dbfac6b426",
+      "bytes": 3991
+    },
+    {
+      "path": "ch06/README.md",
+      "sha256": "686401ef8ca7976b7d0aaba650a7f06b9bc134448acc24166751ca6a1f94d229",
+      "bytes": 700
+    },
+    {
+      "path": "ch06/requirements.txt",
+      "sha256": "a83a2a4ed7ab2e022b9b8a83cfa2b8cf52cc243006c597e8b96f90a8365590ac",
+      "bytes": 12
+    },
+    {
+      "path": "ch08/generate_companion.py",
+      "sha256": "ed4bbc88305361ee8440b1db818925771984b35eb8d8509745f1857cdb6d9f99",
+      "bytes": 10084
+    },
+    {
+      "path": "ch08/kinematics.py",
+      "sha256": "dd9b368964a5792b9e6b8a1cdb66d57a33045f9ab8379a2a566dc0b5efa3c961",
+      "bytes": 6139
+    },
+    {
+      "path": "ch08/README.md",
+      "sha256": "74a3e8590512a51ee0067f49adb8e6a1951c0b5a8fa27b97eb20d8370822ffe6",
+      "bytes": 1276
+    },
+    {
+      "path": "ch08/requirements.txt",
+      "sha256": "bde68ffcfb53dd010e2ca394340aee83803b9f8e90ecfb32b1c600cd4d3db081",
+      "bytes": 28
+    },
+    {
+      "path": "ch08/test_companion.py",
+      "sha256": "6feccd19507f7214d4d9b5e6575196e818ae3c4b28b2f073116532cf10390543",
+      "bytes": 2844
+    },
+    {
+      "path": "ch09/generate_companion.py",
+      "sha256": "2f008588eba03c4ae455516127be785e67154097d8fea0482a09174e834799a0",
+      "bytes": 10269
+    },
+    {
+      "path": "ch09/newtonian_dynamics.py",
+      "sha256": "0a569fb6e10a95b8a6f6bfbefc9a08247bd2d611f330a33434129959833a4a97",
+      "bytes": 8330
+    },
+    {
+      "path": "ch09/README.md",
+      "sha256": "aaf73ec3dda42134c21ede43174c043bf135e89a18c8d44dc46fc86af3c12cdb",
+      "bytes": 1281
+    },
+    {
+      "path": "ch09/requirements.txt",
+      "sha256": "bde68ffcfb53dd010e2ca394340aee83803b9f8e90ecfb32b1c600cd4d3db081",
+      "bytes": 28
+    },
+    {
+      "path": "ch09/test_companion.py",
+      "sha256": "4ecbd01535c036fe5c91e5dec9cf31927a90480c15e0387de42469a526db8418",
+      "bytes": 3418
+    },
+    {
+      "path": "ch10/generate_companion.py",
+      "sha256": "a7ba39cfa432e751ce820680b20da56377a6f33be4f33990bd7d0eb847da0d6e",
+      "bytes": 12990
+    },
+    {
+      "path": "ch10/lagrangian_dynamics.py",
+      "sha256": "b23809f7316a5746a48bc2e1d4e34b30114b6029d5a0814558d42596bbfe1847",
+      "bytes": 14649
+    },
+    {
+      "path": "ch10/README.md",
+      "sha256": "0696676d09f078522f6f811d1b7551b1d3be5cd715d7dccee4f4eec20cead7e1",
+      "bytes": 734
+    },
+    {
+      "path": "ch10/requirements.txt",
+      "sha256": "dc1835bba9994cf07e5f99fed55db5e2c77fd573c9e985901f8b33249f6ccd2b",
+      "bytes": 40
+    },
+    {
+      "path": "ch10/test_companion.py",
+      "sha256": "0ae5f914d8fb52e17a9fc881353700c661697c21cd74b5ac95e4bfbbdc9c7614",
+      "bytes": 6724
+    },
+    {
+      "path": "ch11/generate_companion.py",
+      "sha256": "e6bf4f0f04c004f024b8acedbb0f87dc71039eebdd4cacf212ca7349fbb76af1",
+      "bytes": 8089
+    },
+    {
+      "path": "ch11/hamiltonian_dynamics.py",
+      "sha256": "d7bd49c925506d372b45ba28667de8525a94001f5704f054754f64eba4b7215e",
+      "bytes": 9901
+    },
+    {
+      "path": "ch11/README.md",
+      "sha256": "824418f5b9309afe938a890b1612f688ef86b85bc37cce5ddda3c0baa2e2f6dd",
+      "bytes": 308
+    },
+    {
+      "path": "ch11/requirements.txt",
+      "sha256": "dd8b2713fa4dde137a4f57d71abe84b3b2e83e65fc48d1474170cb046303bbcf",
+      "bytes": 40
+    },
+    {
+      "path": "ch11/test_companion.py",
+      "sha256": "9d75097f8781cc1c962c7bfa1eae3acbdc6a027c3c710d03ed64c5f7ac540f88",
+      "bytes": 5648
+    },
+    {
+      "path": "ch12/classical_fields.py",
+      "sha256": "0bcfc00b1f8e91d541ccd442264d9ea58a238b893cf98f19d07311fc537f1120",
+      "bytes": 8743
+    },
+    {
+      "path": "ch12/generate_companion.py",
+      "sha256": "c34cfecca8e4ef725e731c5757a09544fe28b714c8269fca16bf92d139f23c87",
+      "bytes": 8331
+    },
+    {
+      "path": "ch12/README.md",
+      "sha256": "8908473e5f705f0a887aafb8331cb30a300716807347bc492b8bfbc5fe3c08d7",
+      "bytes": 403
+    },
+    {
+      "path": "ch12/requirements.txt",
+      "sha256": "c3481115a79ccb2f5dd621d426cafd5fb93d2cab54e314217ad058197884d3e8",
+      "bytes": 39
+    },
+    {
+      "path": "ch12/test_companion.py",
+      "sha256": "9e3a07bd08134c73bc07d40dc8b7dc44093ec66142b08cff61bfc4924bb80971",
+      "bytes": 5394
+    },
+    {
+      "path": "ch13/electrostatics.py",
+      "sha256": "2a41e7e86736f740560157f9bd15dbd910a198ed40c2b00ef602e7d7b9b05cb9",
+      "bytes": 2000
+    },
+    {
+      "path": "ch13/generate_companion.py",
+      "sha256": "c831e159f0460f7d175b28cab9aface915f9db91cbd14038612c3e10aab1b26e",
+      "bytes": 2974
+    },
+    {
+      "path": "ch13/test_electrostatics.py",
+      "sha256": "7117963a1b44c31cf5b920771897e130aed1ef1d0359f2d43e2ce7b289662976",
+      "bytes": 1660
+    },
+    {
+      "path": "ch14/bounded_electrostatics.py",
+      "sha256": "2a3950fdf06e231b20196602c9c1c85494aedd01a059ba47d5929b758acd3d00",
+      "bytes": 5071
+    },
+    {
+      "path": "ch14/generate_companion.py",
+      "sha256": "cb17fa634ba194b76e237689c95df77646728b54ffb83e4c3f1a8aded5bf7366",
+      "bytes": 3818
+    },
+    {
+      "path": "ch14/test_bounded_electrostatics.py",
+      "sha256": "6695e22f90ca65c117cc33be38a752731ca04fa34e4d685dacfb6719185a9c51",
+      "bytes": 2275
+    },
+    {
+      "path": "ch15/generate_figures.py",
+      "sha256": "9e77b74cff1d969fd7444e400bab7a54436714225f2c0e083a55992c4e615868",
+      "bytes": 4675
+    },
+    {
+      "path": "ch15/magnetostatics_companion.py",
+      "sha256": "9590cd31e627d31596932ca2f3c4d004a900d750d3f57fc9e0ad8dfad0340de1",
+      "bytes": 6835
+    },
+    {
+      "path": "ch15/test_magnetostatics_companion.py",
+      "sha256": "3439b835dc01c96a7b1da5fa006c4b8adb690ca8b58c832517f54d69374757b4",
+      "bytes": 3057
+    },
+    {
+      "path": "ch16/generate_figures.py",
+      "sha256": "fede39f657617b0aca7e105af0c1c58390ca50b80f14f0a3c19f4fe64eea3d18",
+      "bytes": 4902
+    },
+    {
+      "path": "ch16/maxwell_induction_companion.py",
+      "sha256": "8be92a1f8bea261f9b7ca263e8a24ed5de59ef87c23424c91404212ec6bef035",
+      "bytes": 8694
+    },
+    {
+      "path": "ch16/test_maxwell_induction_companion.py",
+      "sha256": "7497b9d2a474848615a4a3ce4452c6e6fad8a9e21ec0be9bc003e0a18d91e9a6",
+      "bytes": 3389
+    },
+    {
+      "path": "ch17/generate_figures.py",
+      "sha256": "b8ca985a24c383d176f3c3180e8a899c7e36511303535f0f1d3651468761ae02",
+      "bytes": 3824
+    },
+    {
+      "path": "ch17/test_waves_radiation_companion.py",
+      "sha256": "979c6f346c1b34b3bbc6acd552c3e491cf2d01f8aaf277bf009ed283f50c7bcb",
+      "bytes": 2814
+    },
+    {
+      "path": "ch17/waves_radiation_companion.py",
+      "sha256": "1041e62660452571c15bb1b010839ce217c8b703e7cf12b912413519aedb3e0f",
+      "bytes": 5539
+    },
+    {
+      "path": "ch19/classical_crisis_companion.py",
+      "sha256": "9d18700a91dbc97d535bd380f558ebb4b28ae40e8d8a795d8d2f1e0055e949eb",
+      "bytes": 6971
+    },
+    {
+      "path": "ch19/generate_figures.py",
+      "sha256": "b9e99311e1156f4dcfec0eefb740b39708fa9963ea876a65d6ada208f21e6644",
+      "bytes": 4523
+    },
+    {
+      "path": "ch19/test_classical_crisis_companion.py",
+      "sha256": "2c28ecad110596622e36b54045ba57c40a8d9b81b27543d9dcc6467483f20261",
+      "bytes": 2933
+    },
+    {
+      "path": "ch20/blackbody_companion.py",
+      "sha256": "9d4e921acdb4c16fd132ebc9eb9cad114888240d07f24d7626cd278659ecaf39",
+      "bytes": 10044
+    },
+    {
+      "path": "ch20/generate_figures.py",
+      "sha256": "6cec5f5227202a6c4689117c52d9b53de374791f16d8fa309da123fe1c037d33",
+      "bytes": 4794
+    },
+    {
+      "path": "ch20/test_blackbody_companion.py",
+      "sha256": "6736149a1c89568cf102da5b78a2c4493a496614896e31cc914fcc39d9f98537",
+      "bytes": 4722
+    },
+    {
+      "path": "ch21/generate_figures.py",
+      "sha256": "fba0e1d7343ba7dc4c43f23237b54895c172f6ca9f7f572e876ae1f53dd2e485",
+      "bytes": 5157
+    },
+    {
+      "path": "ch21/photon_evidence_companion.py",
+      "sha256": "8baf6c867d2c1f5f5a52a194149b295194e82d2ea9d2f2f9651cdf6396285925",
+      "bytes": 10657
+    },
+    {
+      "path": "ch21/test_photon_evidence_companion.py",
+      "sha256": "579e6460a414f9ca459e69cad6094b724e9a4afea05204342f09da01b7c81340",
+      "bytes": 5271
+    },
+    {
+      "path": "ch22/atomic_spectra_companion.py",
+      "sha256": "5ded52347902ecc871f38e77fc23bbcccbaf29581c38c448a9a80c367e340260",
+      "bytes": 9782
+    },
+    {
+      "path": "ch22/generate_figures.py",
+      "sha256": "f8feb708c3108f160e2332d998957573ad9630aafc5bd42c22f633e912616af2",
+      "bytes": 7584
+    },
+    {
+      "path": "ch22/test_atomic_spectra_companion.py",
+      "sha256": "60c49956934c9099759f18dbbd9b58f8976144d896522152e985bef649c70dc6",
+      "bytes": 4641
+    },
+    {
+      "path": "ch23/generate_figures.py",
+      "sha256": "a6394483f271049aa55b8389a1b53588fda949de7f7d75fbc686614293517107",
+      "bytes": 7429
+    },
+    {
+      "path": "ch23/test_wave_particle_companion.py",
+      "sha256": "f4244cfe77fc954a123d578003e6073a46c259a29f77dfa72bac08b00f0575bf",
+      "bytes": 6085
+    },
+    {
+      "path": "ch23/wave_particle_companion.py",
+      "sha256": "94feaaef6700571cf72163f5e6a8ce00b264baa668d5079aada50585b3735e54",
+      "bytes": 9709
+    },
+    {
+      "path": "ch24/generate_figures.py",
+      "sha256": "c619bb16b955e38e4618e7c66ccd840ade73a660b66c8031f49c0ddcb2cf35dc",
+      "bytes": 7429
+    },
+    {
+      "path": "ch24/schrodinger_companion.py",
+      "sha256": "814d120a2ff4779c5c32190ca7cbea699ae835258acc3ae38e25aea49dd3258f",
+      "bytes": 9195
+    },
+    {
+      "path": "ch24/test_schrodinger_companion.py",
+      "sha256": "a4f9afd9b5ee3fcf568ea990b0101466a05cfa0b0578d90981987e746b85f8c4",
+      "bytes": 7056
+    },
+    {
+      "path": "ch25/generate_figures.py",
+      "sha256": "3ccb14d957cfea09504795034829f2f4b6ef847177afc078c22ad567d3875c2e",
+      "bytes": 4723
+    },
+    {
+      "path": "ch25/operators_companion.py",
+      "sha256": "bedea21e9c416a575301a22e2a9eca8f966b920bb050438e365c9b88384d5702",
+      "bytes": 8927
+    },
+    {
+      "path": "ch25/test_operators_companion.py",
+      "sha256": "4d5fdbb7739fce8f59621e9cbdda1a0127e27204d2da623b149c71bbd6e23713",
+      "bytes": 5272
+    },
+    {
+      "path": "ch26/generate_figures.py",
+      "sha256": "94cad2651d0e9b7b3abe1fb5221e8daa2308861ea3a795f901773ffd09d1121d",
+      "bytes": 2951
+    },
+    {
+      "path": "ch26/hilbert_companion.py",
+      "sha256": "e8f713e48b1567f4b620bfd93e89a53dcdcbc674c1d9f38df9861cc7a1809c7d",
+      "bytes": 3364
+    },
+    {
+      "path": "ch26/test_hilbert_companion.py",
+      "sha256": "f913b7ade86c7906033f7d642b357579a3b215600d9a33ea6dfd9c69e22475b4",
+      "bytes": 3118
+    },
+    {
+      "path": "ch27/angular_momentum_companion.py",
+      "sha256": "07eb44c0e382578d00e6a7e760ecee8bc3e06552d5c9cc9674c7d3d24e171044",
+      "bytes": 3265
+    },
+    {
+      "path": "ch27/generate_figures.py",
+      "sha256": "019d40fe28308539260b6f800601064d1a7ff5d83cde7889b4a43171dba1f6e7",
+      "bytes": 2823
+    },
+    {
+      "path": "ch27/test_angular_momentum_companion.py",
+      "sha256": "d6ba1c287d5a48f3edbb5e7ec96057e8234441736d294083cfe32d8831ca8ca0",
+      "bytes": 3044
+    },
+    {
+      "path": "ch28/generate_figures.py",
+      "sha256": "1910c4fb2a8c7bdc88baa7b03f89b1599059dba6b004cf94ec2a862673245e83",
+      "bytes": 3221
+    },
+    {
+      "path": "ch28/hydrogen_companion.py",
+      "sha256": "07eab880f3a44fc19181ce06e22f9c85e252237b381652a54b060b429c99fa9b",
+      "bytes": 5128
+    },
+    {
+      "path": "ch28/test_hydrogen_companion.py",
+      "sha256": "61e1da24370465f31bf83164b83f190c0c858f5f1ba0df9fce5e84c3f5ef6bb4",
+      "bytes": 2515
+    },
+    {
+      "path": "ch29/generate_figures.py",
+      "sha256": "da3d7492e9aa83a63a08a452a7d90ff30f3a08965f507fc6665c8ab451b40038",
+      "bytes": 2489
+    },
+    {
+      "path": "ch29/many_particle_companion.py",
+      "sha256": "d8c6b9506c0c19a8c0256730525426c06cc6969b2037464ddfd9ca332e584728",
+      "bytes": 4652
+    },
+    {
+      "path": "ch29/test_many_particle_companion.py",
+      "sha256": "419d564b29cc5541656f3e25a36d9589b1c76fe8a9d64607b7c869f0184fe2a3",
+      "bytes": 2819
+    },
+    {
+      "path": "ch30/approximation_companion.py",
+      "sha256": "df2ae18d2e7f69a2b034f418bc01fcb7a82172bb2a9bea45b4d3bd275b908cd3",
+      "bytes": 3144
+    },
+    {
+      "path": "ch30/generate_figures.py",
+      "sha256": "d13f5deac186f226b9fb82a3946237cf3a82d948d06cd9a449c3d717fbe1f59a",
+      "bytes": 2383
+    },
+    {
+      "path": "ch30/test_approximation_companion.py",
+      "sha256": "c9afd2952f5f276c70050c13be88ed42d7751fb9efbeb88364a8860e92c2bf5a",
+      "bytes": 2961
+    },
+    {
+      "path": "ch31/generate_figures.py",
+      "sha256": "2387a00c2ba69bbe37970e2d7ca83fa8d66d2a9ca57ccb1fb06d39105ee54f86",
+      "bytes": 1439
+    },
+    {
+      "path": "ch31/scattering_companion.py",
+      "sha256": "f7ca2c0744ad0aae5a3804b52c058c9f2c3d391e2623be45b2f08f3c5c834d60",
+      "bytes": 1596
+    },
+    {
+      "path": "ch31/test_scattering_companion.py",
+      "sha256": "ea44bfab8c9e3f059920f13b8b632fe42a33fbac4a9d84fe21872672ed38bdd7",
+      "bytes": 2026
+    },
+    {
+      "path": "ch32/generate_figures.py",
+      "sha256": "4258e7a60a047af0599239937d72e1ef8a03b6aa144201c7927d1a13766468fe",
+      "bytes": 1762
+    },
+    {
+      "path": "ch32/quantum_statistics_companion.py",
+      "sha256": "8dfd84aab7876596f2a5b89f6257b6629e60954a508eda2a868fc027203904a4",
+      "bytes": 1291
+    },
+    {
+      "path": "ch32/test_quantum_statistics_companion.py",
+      "sha256": "e774cce84275333c72329b7d9854cdd3213485d10a3337fd2f7f15911a87ca5a",
+      "bytes": 2106
+    },
+    {
+      "path": "ch33/generate_figures.py",
+      "sha256": "ca5fbb08a02742a8ca9053624d9c322ede0dae9db63bf22f4a36e26733af991a",
+      "bytes": 1247
+    },
+    {
+      "path": "ch33/relativistic_quantum_companion.py",
+      "sha256": "d34fca3f42c1a35790016f4b75f153748388aca51eb462f74c43318aa2242bfa",
+      "bytes": 1347
+    },
+    {
+      "path": "ch33/test_relativistic_quantum_companion.py",
+      "sha256": "ae69d7dae10d17d7463fd5975473637af5755c87343f154cc1dec8ae7ec61036",
+      "bytes": 1617
+    },
+    {
+      "path": "ch34/generate_figures.py",
+      "sha256": "aa7b51b4ab3abe5f3e752092ef0eb14f2f760cd404aafb67eb55f21028f3bfee",
+      "bytes": 2801
+    },
+    {
+      "path": "ch34/qft_companion.py",
+      "sha256": "05ce9709bb27183f2d97c515b30b9b3debab69543ffac3a5510e417873de18d6",
+      "bytes": 2225
+    },
+    {
+      "path": "ch34/test_qft_companion.py",
+      "sha256": "da63b59c1ad71a010e4fe6abc8c8ebd485d8639429720b26fb7006efa5549852",
+      "bytes": 2284
+    },
+    {
+      "path": "ch35/generate_figures.py",
+      "sha256": "b16f7d2cc533473e30570b41ee5f43685f438280f2be61241064fb323b14feab",
+      "bytes": 2918
+    },
+    {
+      "path": "ch35/magnetic_fields_companion.py",
+      "sha256": "fb9872ecd928bae97e3a1fcc9834b72ccae160987ff85f292bf84852e1548d22",
+      "bytes": 2801
+    },
+    {
+      "path": "ch35/test_magnetic_fields_companion.py",
+      "sha256": "867df8c3476813e4682049b5de1c8e3b0677068e2247c293c2e1f0d5b246ed4b",
+      "bytes": 2912
+    },
+    {
+      "path": "ch36/generate_figures.py",
+      "sha256": "bcc2edf51f5c26f4fac1cedf557d358f7e03e8894bf97bcad27062e63f126656",
+      "bytes": 1902
+    },
+    {
+      "path": "ch36/landau_quantization_companion.py",
+      "sha256": "1763852ee3dba261043b3340898aea92501faabab740826f95a78a1e306b421f",
+      "bytes": 2580
+    },
+    {
+      "path": "ch36/test_landau_quantization_companion.py",
+      "sha256": "e29697d94f667371327cf5882781470b3fd473b8bbec903d9d4f118761c8b8c7",
+      "bytes": 2935
+    },
+    {
+      "path": "ch37/generate_figures.py",
+      "sha256": "ebb65a9b6882d94e3fa7f64c70696f84c030281925ca640d50deb804fe375944",
+      "bytes": 2450
+    },
+    {
+      "path": "ch37/integer_qhe_companion.py",
+      "sha256": "33859383744233ee8f3df0e139481853c09169102d192c0e092fe87952af2d86",
+      "bytes": 2451
+    },
+    {
+      "path": "ch37/test_integer_qhe_companion.py",
+      "sha256": "e6a1efd4e45d20ed9822c750773814e437f067d520dbeb6c25544220ec2f087d",
+      "bytes": 2577
+    },
+    {
+      "path": "ch38/edge_states_companion.py",
+      "sha256": "1d47efb662338343c5ac096928f7d2c8c4c356231223727df61d87acb93db645",
+      "bytes": 4580
+    },
+    {
+      "path": "ch38/generate_figures.py",
+      "sha256": "2a7bb7560b4c8422ce8b947232220b23584e7280490a764ee670dafd6d51b049",
+      "bytes": 2749
+    },
+    {
+      "path": "ch38/test_edge_states_companion.py",
+      "sha256": "45952e5c60a41936303fab07fe547cde6eebe183e0e23619e465de8c8b7de574",
+      "bytes": 2973
+    },
+    {
+      "path": "ch39/fractional_hall_companion.py",
+      "sha256": "21c6881be9f26d48ada37fda040672c8b1ad124bd300533ff317d2671ee69c2d",
+      "bytes": 4041
+    },
+    {
+      "path": "ch39/generate_figures.py",
+      "sha256": "6771311b50f2d29385de53962914aa4124680e91eac13d00fa18f73f0a3a70ee",
+      "bytes": 2684
+    },
+    {
+      "path": "ch39/test_fractional_hall_companion.py",
+      "sha256": "bac2805d3743e43a77d3f967cc788bf8dc19a12cea8f2512f4c69f5acfe34279",
+      "bytes": 2730
+    },
+    {
+      "path": "ch40/composite_fermions_anyons_companion.py",
+      "sha256": "35311d5a0382205b1d7e40c49d32de0e39ae00b0a58ac5b0449439240aea95de",
+      "bytes": 3548
+    },
+    {
+      "path": "ch40/generate_figures.py",
+      "sha256": "1c06701637a74dab6425367678baac7f7942d8d6ae668f32eeb1c77955d0de9d",
+      "bytes": 2950
+    },
+    {
+      "path": "ch40/test_composite_fermions_anyons_companion.py",
+      "sha256": "3c95f2aeeb0ae5ab948723f74ad8ea2a4afbe01e5f6320160d4ad53e57f46c95",
+      "bytes": 2546
+    },
+    {
+      "path": "ch41/generate_figures.py",
+      "sha256": "b6d9f2ef05fa0cff3a06e07a8a6b0391f1d93eb93f4ecbfdaefc5c9bf1d291ab",
+      "bytes": 2993
+    },
+    {
+      "path": "ch41/hall_experiments_metrology_companion.py",
+      "sha256": "6084f8fad2e9c7aa0f3baa98a5a7d238f3b7305172cbdf9cbefb70424111bc0f",
+      "bytes": 5969
+    },
+    {
+      "path": "ch41/test_hall_experiments_metrology_companion.py",
+      "sha256": "7cc4d5b7f1621b67c0c8186b7c8cfd943a5217ca06b9d018f04c987cb8415d5e",
+      "bytes": 3298
+    },
+    {
+      "path": "ch42/berry_geometry_companion.py",
+      "sha256": "ce7532c9aa6f15047480fce42a8f3d45643488368719fc9c37db7cab9da97222",
+      "bytes": 4562
+    },
+    {
+      "path": "ch42/berry_geometry_companion.wl",
+      "sha256": "fa5025f9070449c209033ef0cc81d280734cc7861886792c48c62cd33ffbea05",
+      "bytes": 665
+    },
+    {
+      "path": "ch42/generate_figures.py",
+      "sha256": "bfa90f953876ff0178c6bdc2cbf967404b5012bd9481045c09753644e5be9b58",
+      "bytes": 3916
+    },
+    {
+      "path": "ch42/test_berry_geometry_companion.py",
+      "sha256": "f38a3efbef284676107799ad2c57a77b43a99bbf50c358c54dd49300e86c3b22",
+      "bytes": 3376
+    },
+    {
+      "path": "ch43/chern_invariants_companion.py",
+      "sha256": "e4b65fbafbb04f20b15db0cccfbc56454157c753552955f8e012b68e613b8cf2",
+      "bytes": 4957
+    },
+    {
+      "path": "ch43/chern_invariants_companion.wl",
+      "sha256": "9238db0df4c5efaa90ffdb83f563b215f1749de890ee893e7d78aabe87cb71e8",
+      "bytes": 598
+    },
+    {
+      "path": "ch43/generate_figures.py",
+      "sha256": "d4c8332c6e293ef4b9df9b4f53f9f69da0864dbddd88831090c9cc75f090baac",
+      "bytes": 3593
+    },
+    {
+      "path": "ch43/test_chern_invariants_companion.py",
+      "sha256": "f1403cc2e4c5bc4cf2fe30ddcbca7a52582fa0d8c82cafa717200337b318a897",
+      "bytes": 3714
+    },
+    {
+      "path": "ch44/generate_figures.py",
+      "sha256": "86e060c2f6694e49fd20e1bf8880d756742f085ad0f4d7e8aa93e4b0f93b13cb",
+      "bytes": 4271
+    },
+    {
+      "path": "ch44/haldane_model_companion.py",
+      "sha256": "60c122e23c2713178324f4d873a7d48c4f2c63bea3464436584934ce1ff59302",
+      "bytes": 7156
+    },
+    {
+      "path": "ch44/haldane_model_companion.wl",
+      "sha256": "c4c061966b7d3f47cfbc0f939f6ae8ace46f15d325c8e323d6963a1dbe274011",
+      "bytes": 902
+    },
+    {
+      "path": "ch44/test_haldane_model_companion.py",
+      "sha256": "c36281fccbade39acdc3a8ddcc19573d7b02c245f3645dd4e87f7677c268c19e",
+      "bytes": 3357
+    },
+    {
+      "path": "ch45/generate_figures.py",
+      "sha256": "56c16742986d13e2e8e96145973d1baa8574e5137bc300bef4824d677fee028f",
+      "bytes": 3860
+    },
+    {
+      "path": "ch45/README.md",
+      "sha256": "a7a710f10cf93be882d0f49692729d531835b7c2f8e0efd2f7aab8c64702cde3",
+      "bytes": 541
+    },
+    {
+      "path": "ch45/test_topological_insulators_companion.py",
+      "sha256": "42f9d4f720b5a7ad858e86ffd63d2e8e04f3c7e30392955ab759f165215492f7",
+      "bytes": 3247
+    },
+    {
+      "path": "ch45/topological_insulators_companion.py",
+      "sha256": "1b5bc9a3c2dc129ba2860f0d8729ccae8e6ca342637258df0dc1631fcfaf7f8f",
+      "bytes": 6297
+    },
+    {
+      "path": "ch45/topological_insulators_companion.wl",
+      "sha256": "7886d85d6e228ed03a25f160b5e3e771e5cec4954da3f187651932963967dd02",
+      "bytes": 631
+    },
+    {
+      "path": "ch46/generate_figures.py",
+      "sha256": "f3c0f39399e58197107ed6f187807c09451cc94af6aff6d92c235a78af5cfc72",
+      "bytes": 3573
+    },
+    {
+      "path": "ch46/README.md",
+      "sha256": "58e3e0bc4fe150a2f93ce4944841598843e13d7e5ff17c5af7692b9f4aaa8087",
+      "bytes": 349
+    },
+    {
+      "path": "ch46/test_topological_superconductors_companion.py",
+      "sha256": "94222a2769f7ba147ce89eef288d6f7085884844e9b3c8cbb44c9b7638bf2024",
+      "bytes": 3202
+    },
+    {
+      "path": "ch46/topological_superconductors_companion.py",
+      "sha256": "d7bc519a4ce6e5946e45bfa9d59ce5f7f40cb7e4553067c7d80bc3f609a386b1",
+      "bytes": 6371
+    },
+    {
+      "path": "ch46/topological_superconductors_companion.wl",
+      "sha256": "02b8577fe327e111012b8e0a41455a5165ea90688f31967c0ce4f4fea5d4b553",
+      "bytes": 899
+    },
+    {
+      "path": "ch47/anyons_tqc_companion.py",
+      "sha256": "31568e3953492227cb0d37aa1b021b413b7b4bc34008430a74fa9efe930ba9d3",
+      "bytes": 5341
+    },
+    {
+      "path": "ch47/anyons_tqc_companion.wl",
+      "sha256": "239308dba2e2586046a1597485a86dd2a091d60d578ab51b029778aa9af5b4c0",
+      "bytes": 1111
+    },
+    {
+      "path": "ch47/generate_figures.py",
+      "sha256": "eef1ab26663dfd76dc648b5149069a44f585f3eed2d8b8476e64c6d031d8d018",
+      "bytes": 3918
+    },
+    {
+      "path": "ch47/README.md",
+      "sha256": "67d422501e857cd9475890bf788577fad0c3d0e4b7550acb7e7cbaacaf6c2c21",
+      "bytes": 332
+    },
+    {
+      "path": "ch47/test_anyons_tqc_companion.py",
+      "sha256": "02fc182b43982b51c67a62caaeac3d54e4bb39ca3ee963e71bf9caee37fa6d5b",
+      "bytes": 3511
+    },
+    {
+      "path": "ch48/generate_figures.py",
+      "sha256": "00f9d77ffead8584802e941ef674aaa526e300266ffae1666df0cd10b7365b4b",
+      "bytes": 3814
+    },
+    {
+      "path": "ch48/quantum_geometry_companion.py",
+      "sha256": "e9542c1f13f833a8b3f0d0307dd17c5f01ac1b8b62de904f428436135dd5ecba",
+      "bytes": 4567
+    },
+    {
+      "path": "ch48/quantum_geometry_companion.wl",
+      "sha256": "01c163d652073b9d8c0fd7e3e855a5e14eb10464c2888fdb1f339a794d0ccc0d",
+      "bytes": 1476
+    },
+    {
+      "path": "ch48/README.md",
+      "sha256": "0ee5ba3929d5bf1b14c93b94807c4db856e318fba86981d7a0261d1b29a1df27",
+      "bytes": 346
+    },
+    {
+      "path": "ch48/test_quantum_geometry_companion.py",
+      "sha256": "c1e0bc9255db050c44b7186c59932832dc2502478519d6f6d9d2a5f3fbb7a86e",
+      "bytes": 3553
+    },
+    {
+      "path": "ch49/correlated_matter_companion.py",
+      "sha256": "61431074ab2f8cdb7437e51129b48f5602c46bab1138514300bdf54f46104d03",
+      "bytes": 5980
+    },
+    {
+      "path": "ch49/correlated_matter_companion.wl",
+      "sha256": "bfc54ba5f2e2959a6e5f32fd5d5189f5853fff9dd33b030d27a49f30c119e10e",
+      "bytes": 1447
+    },
+    {
+      "path": "ch49/generate_figures.py",
+      "sha256": "fec63c137367c4baefd89bdfd25a86c21c4331a5d6389f1da111044c2d5c78a3",
+      "bytes": 3312
+    },
+    {
+      "path": "ch49/README.md",
+      "sha256": "5bf76d7e4de8c2b35289a20179378038bc1db1065545c14743587aa54784bf10",
+      "bytes": 596
+    },
+    {
+      "path": "ch49/test_correlated_matter_companion.py",
+      "sha256": "4a72f90a5058f07f7739f2c2d7191dca328f03ba688041d2722f261ac3535f4b",
+      "bytes": 3300
+    },
+    {
+      "path": "ch50/.pytest_cache/.gitignore",
+      "sha256": "3ed731b65d06150c138e2dadb0be0697550888a6b47eb8c45ecc9adba8b8e9bd",
+      "bytes": 37
+    },
+    {
+      "path": "ch50/.pytest_cache/CACHEDIR.TAG",
+      "sha256": "37dc88ef9a0abeddbe81053a6dd8fdfb13afb613045ea1eb4a5c815a74a3bde4",
+      "bytes": 191
+    },
+    {
+      "path": "ch50/.pytest_cache/README.md",
+      "sha256": "73fd6fccdd802c419a6b2d983d6c3173b7da97558ac4b589edec2dfe443db9ad",
+      "bytes": 302
+    },
+    {
+      "path": "ch50/.pytest_cache/v/cache/nodeids",
+      "sha256": "3f2d927985a00d04873eacc182ec2d434e37823b93098210afba0f6f5cbcaeb4",
+      "bytes": 1670
+    },
+    {
+      "path": "ch50/__pycache__/hamiltonian_model_comparison.cpython-311.pyc",
+      "sha256": "5eab94873d729d861d936f36f71bbeeef39bb378317f98842fb6a9488e34a6db",
+      "bytes": 12227
+    },
+    {
+      "path": "ch50/__pycache__/hamiltonian_model_comparison.cpython-313.pyc",
+      "sha256": "706504b8774d805b7e800bb5b0ce7c86f6cac7d44e07736039c6f94e1c5e5a1c",
+      "bytes": 11234
+    },
+    {
+      "path": "ch50/__pycache__/test_hamiltonian_model_comparison.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "7fcc5b27f0ddee7ce4a52082f61b5fe221a573bf54124c7ce93cdc5de2fd91fc",
+      "bytes": 29432
+    },
+    {
+      "path": "ch50/__pycache__/test_hamiltonian_model_comparison.cpython-313-pytest-9.0.2.pyc",
+      "sha256": "29152bf27d677ddcc400e7aaa4d33150fa09f611581990dfc8375cea46dd1c29",
+      "bytes": 26672
+    },
+    {
+      "path": "ch50/generate_figures.py",
+      "sha256": "6083c71f3cb3309219c7d6b72988f41d4311673d26bc0fdcec79907f2c585db7",
+      "bytes": 6081
+    },
+    {
+      "path": "ch50/hamiltonian_model_comparison.py",
+      "sha256": "c0177f52564156f4e671db7a3cf950d4b31e908f2a8b2a4b8fec66213be9066e",
+      "bytes": 6940
+    },
+    {
+      "path": "ch50/test_hamiltonian_model_comparison.py",
+      "sha256": "3fd253779a6f1f6b998d7b87004c49f6739f98fec48f08af52c4b48ec08ba366",
+      "bytes": 3854
+    },
+    {
+      "path": "ch51/.pytest_cache/.gitignore",
+      "sha256": "3ed731b65d06150c138e2dadb0be0697550888a6b47eb8c45ecc9adba8b8e9bd",
+      "bytes": 37
+    },
+    {
+      "path": "ch51/.pytest_cache/CACHEDIR.TAG",
+      "sha256": "37dc88ef9a0abeddbe81053a6dd8fdfb13afb613045ea1eb4a5c815a74a3bde4",
+      "bytes": 191
+    },
+    {
+      "path": "ch51/.pytest_cache/README.md",
+      "sha256": "73fd6fccdd802c419a6b2d983d6c3173b7da97558ac4b589edec2dfe443db9ad",
+      "bytes": 302
+    },
+    {
+      "path": "ch51/.pytest_cache/v/cache/nodeids",
+      "sha256": "ca0cc9990aa7908fa48ba32ff93bf5f32600ba313545ae2dc25dfa150c6bf9d8",
+      "bytes": 2864
+    },
+    {
+      "path": "ch51/__pycache__/bound_engineered_systems.cpython-311.pyc",
+      "sha256": "2ffdd181c6e88adf20f4b6a9c37380f1e1d3991f54375cc433458733077e8d28",
+      "bytes": 28191
+    },
+    {
+      "path": "ch51/__pycache__/bound_engineered_systems.cpython-313.pyc",
+      "sha256": "2aa8ce18ee42aadeff3dafe6c82df5c46369aa76f80544c08a7389b5d095e70f",
+      "bytes": 26724
+    },
+    {
+      "path": "ch51/__pycache__/test_bound_engineered_systems.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "fb222a4a3e89d839ce6bdfabd31cdcf1ed36676df5541c16b9ae4057a45f71d3",
+      "bytes": 66332
+    },
+    {
+      "path": "ch51/__pycache__/test_bound_engineered_systems.cpython-313-pytest-9.0.2.pyc",
+      "sha256": "5d4c7a99c37dbcbc78031053d83d5f8ec40798ef6723a3b1e4a1ce476bb0a0f3",
+      "bytes": 61007
+    },
+    {
+      "path": "ch51/bound_engineered_systems.py",
+      "sha256": "ffb5a2128d4596ecc534e0c2426d58127bacbee3092a722cb891fc2f8854effe",
+      "bytes": 16707
+    },
+    {
+      "path": "ch51/generate_figures.py",
+      "sha256": "d0ffe1aab725d8526a96477c8844f43ff4afc41046cf5c2b509f71e04329b03c",
+      "bytes": 9530
+    },
+    {
+      "path": "ch51/test_bound_engineered_systems.py",
+      "sha256": "558e54018f97f96833045ac69f25b288b37de746e93618d384e423c12395873b",
+      "bytes": 8225
+    },
+    {
+      "path": "ch52/.pytest_cache/.gitignore",
+      "sha256": "3ed731b65d06150c138e2dadb0be0697550888a6b47eb8c45ecc9adba8b8e9bd",
+      "bytes": 37
+    },
+    {
+      "path": "ch52/.pytest_cache/CACHEDIR.TAG",
+      "sha256": "37dc88ef9a0abeddbe81053a6dd8fdfb13afb613045ea1eb4a5c815a74a3bde4",
+      "bytes": 191
+    },
+    {
+      "path": "ch52/.pytest_cache/README.md",
+      "sha256": "73fd6fccdd802c419a6b2d983d6c3173b7da97558ac4b589edec2dfe443db9ad",
+      "bytes": 302
+    },
+    {
+      "path": "ch52/.pytest_cache/v/cache/nodeids",
+      "sha256": "92e87c7a3697bb75c5aae6f6399c6cff6a77be83d7a1667edbef2510ea5df68e",
+      "bytes": 4867
+    },
+    {
+      "path": "ch52/__pycache__/atomic_many_electron.cpython-311.pyc",
+      "sha256": "94fded3be18d0281729cad161a87b3dbacf6699c1610292696eb6b5418ad8a22",
+      "bytes": 11422
+    },
+    {
+      "path": "ch52/__pycache__/atomic_many_electron.cpython-313.pyc",
+      "sha256": "4930bf2d0dcf6e04fee989bcd7841e15f38e07c16d185a8f39a61eb061b30504",
+      "bytes": 10502
+    },
+    {
+      "path": "ch52/__pycache__/atomic_metrology.cpython-311.pyc",
+      "sha256": "a00755f2c1aa1a4ec5a82b4e7e41b166a0b4646b3487930b0833dba3327f81bc",
+      "bytes": 14391
+    },
+    {
+      "path": "ch52/__pycache__/atomic_metrology.cpython-313.pyc",
+      "sha256": "ebcc23c0000169884932acb5b99a8519bc784f94bed51d83211dcd21e9e55741",
+      "bytes": 13463
+    },
+    {
+      "path": "ch52/__pycache__/atomic_radiative.cpython-311.pyc",
+      "sha256": "2137a1bb5ee674019f3d46144eee91fccd99a0e86d18a67af99fb8459a917a84",
+      "bytes": 15610
+    },
+    {
+      "path": "ch52/__pycache__/atomic_radiative.cpython-313.pyc",
+      "sha256": "f88c269782996d9fbdbcee09631bb61e97dcd836f2e38bdeec57c3d7efe960c9",
+      "bytes": 14523
+    },
+    {
+      "path": "ch52/__pycache__/atomic_spectroscopy.cpython-311.pyc",
+      "sha256": "fc9102fec42e426e929421c01a8637222f49f41f2be6baa0417d24607d635771",
+      "bytes": 13728
+    },
+    {
+      "path": "ch52/__pycache__/atomic_spectroscopy.cpython-313.pyc",
+      "sha256": "1d1eac12c24e1ea5279957da610b5d4880e50f62e256cb7999f943ea0e0901af",
+      "bytes": 11873
+    },
+    {
+      "path": "ch52/__pycache__/test_atomic_many_electron.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "d7b47fc0b8a82afdbe796acfb44477e92365a3b3e43298910057d1894c4a9cc9",
+      "bytes": 31955
+    },
+    {
+      "path": "ch52/__pycache__/test_atomic_many_electron.cpython-313-pytest-9.0.2.pyc",
+      "sha256": "ab42d331a0605b1d6a7c58501c8fe6dd9ccf3862d6f874c9289bfcab3e2f4417",
+      "bytes": 29277
+    },
+    {
+      "path": "ch52/__pycache__/test_atomic_metrology.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "03d6d00a5ffef8add9ae5e800dba116ecb36ec43753eecc64194281c7d70ee3f",
+      "bytes": 28878
+    },
+    {
+      "path": "ch52/__pycache__/test_atomic_metrology.cpython-313-pytest-9.0.2.pyc",
+      "sha256": "9eff24c7753d59ea6b62300387173e3a39ff9f7e598351f3a168b76527ac35e8",
+      "bytes": 26428
+    },
+    {
+      "path": "ch52/__pycache__/test_atomic_radiative.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "c138ec4981950accc07d892e2cb220042116c078e685ace68726d16c23693b85",
+      "bytes": 24941
+    },
+    {
+      "path": "ch52/__pycache__/test_atomic_radiative.cpython-313-pytest-9.0.2.pyc",
+      "sha256": "fa590dfb29bdce763fb3a3cf69bf2166c7a6645404342d1169f9340662345613",
+      "bytes": 23290
+    },
+    {
+      "path": "ch52/__pycache__/test_atomic_spectroscopy.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "c06268799a899ca17e7d15d70bb6bbaeb90d5c5e6e2e447df3f2058b8b098296",
+      "bytes": 35305
+    },
+    {
+      "path": "ch52/__pycache__/test_atomic_spectroscopy.cpython-313-pytest-9.0.2.pyc",
+      "sha256": "d4adefd18cf007f21ef466fa854f3de44d2fbe88f45cac2327d840d71bd2832c",
+      "bytes": 32424
+    },
+    {
+      "path": "ch52/atomic_many_electron.py",
+      "sha256": "8ca82f5b4f1d9e049c0f7cb13896679fa65c7dee72a6003d8299f9fcaae2d04f",
+      "bytes": 7030
+    },
+    {
+      "path": "ch52/atomic_metrology.py",
+      "sha256": "e1ed8984dd9a440ca2db314326c870a79bb17916a83f1c5d1a4beab9d7c5627e",
+      "bytes": 8926
+    },
+    {
+      "path": "ch52/atomic_radiative.py",
+      "sha256": "6bcbb27fbfef70a9400f81b525278ae7a348b1fb72bdc982ebfa941092afc19e",
+      "bytes": 8267
+    },
+    {
+      "path": "ch52/atomic_spectroscopy.py",
+      "sha256": "3d59d2c832e9c3b81c64867bc2570d7fe7c73d0f95e87bbc7179c39eea2e0ede",
+      "bytes": 6958
+    },
+    {
+      "path": "ch52/generate_figures.py",
+      "sha256": "dc2b6c985ff3c8c74d411fc5ebd41fa4c130787ff93755c257bcfa90ed9bdc9a",
+      "bytes": 4243
+    },
+    {
+      "path": "ch52/generate_metrology_figures.py",
+      "sha256": "aaf21397a8df9e4b88dd1eb7e5dec4c11aab9cc3d2e677015e87e9905246aaf6",
+      "bytes": 7793
+    },
+    {
+      "path": "ch52/generate_radiative_figures.py",
+      "sha256": "0c8cadc7ea74d4d5b541f7672c80791ed726cfc4a2e3037e54bc320eb2be4a32",
+      "bytes": 6099
+    },
+    {
+      "path": "ch52/generate_spectroscopy_figures.py",
+      "sha256": "c0ecfbd3511e3aee3be1a0711b1c3f579bca01ebd3cdee4efb156e669f32529e",
+      "bytes": 4484
+    },
+    {
+      "path": "ch52/test_atomic_many_electron.py",
+      "sha256": "c99f16074ee452234c4132e1dc10f1232fac7a7da438e0abd72747b00c4491ce",
+      "bytes": 3698
+    },
+    {
+      "path": "ch52/test_atomic_metrology.py",
+      "sha256": "41de87548cbb626bcb4ed2ace8305c26f8db17ab78854bf70802ce51ce9c03a3",
+      "bytes": 3518
+    },
+    {
+      "path": "ch52/test_atomic_radiative.py",
+      "sha256": "5b10cef32892f52da02989870fe4746286312580784d7f6b0ec3e63559deebe0",
+      "bytes": 3082
+    },
+    {
+      "path": "ch52/test_atomic_spectroscopy.py",
+      "sha256": "f38bb91a1ab11ff6f2075c0cfee6e68364b1c2f764f4bfc3dcd997e695c07568",
+      "bytes": 3514
+    },
+    {
+      "path": "ch53/.pytest_cache/.gitignore",
+      "sha256": "3ed731b65d06150c138e2dadb0be0697550888a6b47eb8c45ecc9adba8b8e9bd",
+      "bytes": 37
+    },
+    {
+      "path": "ch53/.pytest_cache/CACHEDIR.TAG",
+      "sha256": "37dc88ef9a0abeddbe81053a6dd8fdfb13afb613045ea1eb4a5c815a74a3bde4",
+      "bytes": 191
+    },
+    {
+      "path": "ch53/.pytest_cache/README.md",
+      "sha256": "73fd6fccdd802c419a6b2d983d6c3173b7da97558ac4b589edec2dfe443db9ad",
+      "bytes": 302
+    },
+    {
+      "path": "ch53/.pytest_cache/v/cache/nodeids",
+      "sha256": "4aad274219fb6063c5f3171491e7c8e9de1dd5deee63c2fc19f5eb27608a8a61",
+      "bytes": 3523
+    },
+    {
+      "path": "ch53/__pycache__/gauge_quantitative.cpython-311.pyc",
+      "sha256": "ba9fc0aec9ebd8152586bdf05f4b2d41a349f6006b1a10964f4885d6733198e0",
+      "bytes": 32801
+    },
+    {
+      "path": "ch53/__pycache__/gauge_quantitative.cpython-313.pyc",
+      "sha256": "292b0c14a1b8b1e869c84df799c202d25d478c948b56640a105d7400cdbddef0",
+      "bytes": 30511
+    },
+    {
+      "path": "ch53/__pycache__/test_gauge_quantitative.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "6bbfb58498f647cad976d6598486c1fea7f22ab143a210286f54f712997fddef",
+      "bytes": 107275
+    },
+    {
+      "path": "ch53/__pycache__/test_gauge_quantitative.cpython-313-pytest-9.0.2.pyc",
+      "sha256": "06dbe369e96dc621153e664f1cfc39806925b01c8929fa05a69657fb31f1e637",
+      "bytes": 98924
+    },
+    {
+      "path": "ch53/gauge_quantitative.py",
+      "sha256": "c43a43cf1eaec2f1308f13cc97b5db595a2e68929ee12f2e5abdb5aa466b4cba",
+      "bytes": 17753
+    },
+    {
+      "path": "ch53/generate_gauge_figures.py",
+      "sha256": "49b5bccc8ac8ab2b27840101613fa4815a2764bbd711a68ed88c4f078bbc24cc",
+      "bytes": 10202
+    },
+    {
+      "path": "ch53/test_gauge_quantitative.py",
+      "sha256": "930ce319cce227e65345dac9a97830ef0c1bdc3815fd5c2415ecd6fffbdb0959",
+      "bytes": 10973
+    },
+    {
+      "path": "ch54/.pytest_cache/.gitignore",
+      "sha256": "3ed731b65d06150c138e2dadb0be0697550888a6b47eb8c45ecc9adba8b8e9bd",
+      "bytes": 37
+    },
+    {
+      "path": "ch54/.pytest_cache/CACHEDIR.TAG",
+      "sha256": "37dc88ef9a0abeddbe81053a6dd8fdfb13afb613045ea1eb4a5c815a74a3bde4",
+      "bytes": 191
+    },
+    {
+      "path": "ch54/.pytest_cache/README.md",
+      "sha256": "73fd6fccdd802c419a6b2d983d6c3173b7da97558ac4b589edec2dfe443db9ad",
+      "bytes": 302
+    },
+    {
+      "path": "ch54/.pytest_cache/v/cache/nodeids",
+      "sha256": "c0d5cf186e99a446f4dfe31c6cea4f30792d11fb9c44da010fef375d33636228",
+      "bytes": 7628
+    },
+    {
+      "path": "ch54/__pycache__/landau_hall_quantitative.cpython-311.pyc",
+      "sha256": "189dcf4e86358ec8e5d47659e217f4066b192096cc27d24adb3043fcdfb5e3b1",
+      "bytes": 114276
+    },
+    {
+      "path": "ch54/__pycache__/landau_hall_quantitative.cpython-313.pyc",
+      "sha256": "2349fd4253d02ab0b2518887200a289c5d0f21b905c33b5177041e0d9c00fdef",
+      "bytes": 94821
+    },
+    {
+      "path": "ch54/__pycache__/test_landau_hall_quantitative.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "415b911e353d45d945697ea077ced56d8e25cfc36be6e9125bd31d0fcc517652",
+      "bytes": 133520
+    },
+    {
+      "path": "ch54/__pycache__/test_landau_hall_quantitative.cpython-313-pytest-9.0.2.pyc",
+      "sha256": "75953640160f2d8d19d298173009fd5c25e1995aa3191ea87253eb05e120c4a6",
+      "bytes": 119742
+    },
+    {
+      "path": "ch54/generate_landau_hall_figures.py",
+      "sha256": "d6561d659181ff5a890a0ba933bfe70e39a6a6d0a190e25c1d3911e7dace8729",
+      "bytes": 16364
+    },
+    {
+      "path": "ch54/landau_hall_quantitative.py",
+      "sha256": "d856f64d02f6125227e45aee1cac7f130dee2108b37abf2ebb727f0b712de612",
+      "bytes": 61986
+    },
+    {
+      "path": "ch54/test_landau_hall_quantitative.py",
+      "sha256": "1445b6e6a0340cf1fdb70faef05f2f005d0650b8d726ae7a6a739acbfa98599a",
+      "bytes": 16810
+    },
+    {
+      "path": "ch55/.pytest_cache/.gitignore",
+      "sha256": "3ed731b65d06150c138e2dadb0be0697550888a6b47eb8c45ecc9adba8b8e9bd",
+      "bytes": 37
+    },
+    {
+      "path": "ch55/.pytest_cache/CACHEDIR.TAG",
+      "sha256": "37dc88ef9a0abeddbe81053a6dd8fdfb13afb613045ea1eb4a5c815a74a3bde4",
+      "bytes": 191
+    },
+    {
+      "path": "ch55/.pytest_cache/README.md",
+      "sha256": "73fd6fccdd802c419a6b2d983d6c3173b7da97558ac4b589edec2dfe443db9ad",
+      "bytes": 302
+    },
+    {
+      "path": "ch55/.pytest_cache/v/cache/nodeids",
+      "sha256": "2224825d6c05921a0217973b2b2e63690548783f73eb6282ce341a8c9cf9ca03",
+      "bytes": 8140
+    },
+    {
+      "path": "ch55/__pycache__/molecular_hamiltonians.cpython-311.pyc",
+      "sha256": "65caee1f12390092d1a0cfdbfc1b62971466fa06be6a02f5b33be5dbf80fb91a",
+      "bytes": 78335
+    },
+    {
+      "path": "ch55/__pycache__/molecular_hamiltonians.cpython-313.pyc",
+      "sha256": "d5b841c08e7500a049fa0e35952609c5713ac30801a0c78dc63ad0198039391f",
+      "bytes": 38933
+    },
+    {
+      "path": "ch55/__pycache__/test_molecular_hamiltonians.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "a0969b462fc0ea909ed12890c57114d22f189481e00b39cc0b74385f93902953",
+      "bytes": 298556
+    },
+    {
+      "path": "ch55/__pycache__/test_molecular_hamiltonians.cpython-313-pytest-9.0.2.pyc",
+      "sha256": "602b5832d9c54f7f8b2cf23bdccab111376dbe2a1901647be4e0fc3c4e1d0e5c",
+      "bytes": 143568
+    },
+    {
+      "path": "ch55/__pycache__/test_molecular_hamiltonians.cpython-313.pyc",
+      "sha256": "43d292ea9514554469c59dd75a7b43fdc238b0d55bc8c643c278276ec98f2037",
+      "bytes": 36780
+    },
+    {
+      "path": "ch55/molecular_hamiltonians.py",
+      "sha256": "b29e0e0d11bb5f5bdca7b8a187b868a34c0b1b8cd113a67560ba129ec80f6976",
+      "bytes": 41719
+    },
+    {
+      "path": "ch55/test_molecular_hamiltonians.py",
+      "sha256": "8325f98310050275bef95b96d0e48507263963fbf655d094d4b180aaf829e08b",
+      "bytes": 31883
+    },
+    {
+      "path": "ch56/__pycache__/floquet_quench_wavepacket_lab.cpython-311.pyc",
+      "sha256": "b0a7fdbaaa4cdf39e9fd579573b57231833d99074bc77d6d4b8e7762fd3fd736",
+      "bytes": 28776
+    },
+    {
+      "path": "ch56/__pycache__/frequency_localization_scaling_lab.cpython-311.pyc",
+      "sha256": "d05df211a55bcce33e9570cc585c32727f06257940a36cccfbe7924219581cc4",
+      "bytes": 20514
+    },
+    {
+      "path": "ch56/__pycache__/gauge_covariant_topology_lab.cpython-311.pyc",
+      "sha256": "f6b7e9e497576c02be11a2f10ebe03ff4c0aa5f40e935cdeccdba86e894ff701",
+      "bytes": 26839
+    },
+    {
+      "path": "ch56/__pycache__/kubo_disorder_scattering_lab.cpython-311.pyc",
+      "sha256": "6abef84866f338ad523302a64f6741a13e9b137188c668252199538417b7f537",
+      "bytes": 21490
+    },
+    {
+      "path": "ch56/__pycache__/periodic_band_lab.cpython-311.pyc",
+      "sha256": "e00125b41b874974cb2561187f9494cfcc9fbf6139c9d40e2bc4503dc1fc3991",
+      "bytes": 13554
+    },
+    {
+      "path": "ch56/__pycache__/polarization_pump_transport_lab.cpython-311.pyc",
+      "sha256": "9ead297c9ae7ce28f5da23cb34129a83970ec4614e013f6fa7e37d8557911892",
+      "bytes": 10759
+    },
+    {
+      "path": "ch56/__pycache__/spin_orbit_lattice_lab.cpython-311.pyc",
+      "sha256": "e388d7f56d0b84b3de0da3084de581cbbc4d058230b0ac15554950400520c801",
+      "bytes": 35861
+    },
+    {
+      "path": "ch56/__pycache__/test_floquet_quench_wavepacket_lab.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "f525b5b0da9013003462bb2d0497f68d6dd38cc662d3b552df07bba54f7bf9f6",
+      "bytes": 66462
+    },
+    {
+      "path": "ch56/__pycache__/test_frequency_localization_scaling_lab.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "edb45c17ab5f98e6b75812f14e5d89f0023d322ed449127c59eac99823ced0b6",
+      "bytes": 54046
+    },
+    {
+      "path": "ch56/__pycache__/test_gauge_covariant_topology_lab.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "3c7cc8caf711ce3c8bb8c67894566f40a4249cb90f6a6654d4ffb2f9fed01ce8",
+      "bytes": 69355
+    },
+    {
+      "path": "ch56/__pycache__/test_kubo_disorder_scattering_lab.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "8032d5399de804a45ddbf61bfa44d674d24c495d9ed616a8be432141411b91ff",
+      "bytes": 49290
+    },
+    {
+      "path": "ch56/__pycache__/test_periodic_band_lab.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "3d28823257968ae9a49a33216ebfe32613e1b3f5543d940dc35d2b1eebaf7dc8",
+      "bytes": 43631
+    },
+    {
+      "path": "ch56/__pycache__/test_polarization_pump_transport_lab.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "eb1dbb7837fbd7ca8d3e32bed3615410661fc4462e6ab880dd2c099739495d13",
+      "bytes": 52909
+    },
+    {
+      "path": "ch56/__pycache__/test_spin_orbit_lattice_lab.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "5aeeaddeb87d2042842951c463e4196f54ab82fa58760669e0b066712fbd2621",
+      "bytes": 90022
+    },
+    {
+      "path": "ch56/__pycache__/test_tight_binding_wannier_lab.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "4766bfbd5c25ed726e05766c744cdd6d42ffeb96e0c4361d6229b4c24b6790e6",
+      "bytes": 72082
+    },
+    {
+      "path": "ch56/__pycache__/test_two_dimensional_sublattice_lab.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "4147f24ff792ab4074601b42468e31abb8f4f624fdf13125930d6b56aa8e49a2",
+      "bytes": 64230
+    },
+    {
+      "path": "ch56/__pycache__/tight_binding_wannier_lab.cpython-311.pyc",
+      "sha256": "157e5f374e7d5037affe27cd934078e0ea6f7f94adf2143204f53321ffe0114d",
+      "bytes": 22652
+    },
+    {
+      "path": "ch56/__pycache__/two_dimensional_sublattice_lab.cpython-311.pyc",
+      "sha256": "22cca58fbc89c20115326bab27a9601483f909b2d54d7b0583a653de1e4d22a8",
+      "bytes": 23374
+    },
+    {
+      "path": "ch56/floquet_quench_wavepacket_lab.py",
+      "sha256": "4bc878fcc782436c604bc2bc6a0cabcab95678eb22e5920d03ea53ca11562402",
+      "bytes": 12290
+    },
+    {
+      "path": "ch56/frequency_localization_scaling_lab.py",
+      "sha256": "2ac0f03de9339166d34334cec10cd5247d533bf657f2eef31f6cd39780ac9e0e",
+      "bytes": 8624
+    },
+    {
+      "path": "ch56/gauge_covariant_topology_lab.py",
+      "sha256": "78458fe13bec9af0aa26b6b6b7cfa1d21103315805af90335831e0f99fa3754c",
+      "bytes": 13240
+    },
+    {
+      "path": "ch56/kubo_disorder_scattering_lab.py",
+      "sha256": "685bf7400adf3b2d426466afa357f20957ab7d883667e837418c06c3e0f343f0",
+      "bytes": 9090
+    },
+    {
+      "path": "ch56/periodic_band_lab.py",
+      "sha256": "44718ddd139414991e62147e082f6804e4557c376e51da8d23d8522c5914ab18",
+      "bytes": 7919
+    },
+    {
+      "path": "ch56/polarization_pump_transport_lab.py",
+      "sha256": "13f91872efee7e5a0a48f40ef688227008b7c1a2a9bc4c2bd3b31e3bd6d80cee",
+      "bytes": 4983
+    },
+    {
+      "path": "ch56/spin_orbit_lattice_lab.py",
+      "sha256": "8891aa0f745f069bc8eed466a38e565d976fcb284f7a7c1477d04001e93e9ba2",
+      "bytes": 17506
+    },
+    {
+      "path": "ch56/test_floquet_quench_wavepacket_lab.py",
+      "sha256": "0a41de6d5088af9756700240555bdb97e94fe1a963c3bceaed51adf575a19959",
+      "bytes": 5676
+    },
+    {
+      "path": "ch56/test_frequency_localization_scaling_lab.py",
+      "sha256": "b1dc9cbd64e4d446a2f8387a552c942913518e496b5746683ba1dd8e2f91bd8f",
+      "bytes": 5126
+    },
+    {
+      "path": "ch56/test_gauge_covariant_topology_lab.py",
+      "sha256": "5b1be36ac20626ed7fbcfb074f9c57994be9d153219760c4b5bb4a39a60b2f1b",
+      "bytes": 7545
+    },
+    {
+      "path": "ch56/test_kubo_disorder_scattering_lab.py",
+      "sha256": "b700a0e6dace9cdfae1ea5dd22d7ef6d6d7f1920b1ade5ae35d2ddf8196e31cf",
+      "bytes": 4611
+    },
+    {
+      "path": "ch56/test_periodic_band_lab.py",
+      "sha256": "859003934c1a36500de98a9c3fd05cbb07b3c79350d7b5390d764faa0dba04ad",
+      "bytes": 4381
+    },
+    {
+      "path": "ch56/test_polarization_pump_transport_lab.py",
+      "sha256": "6c5b0c96ec5a3d2b23576be4389a40098e0adc7d8cc4cd0c078a8c9703ac32ac",
+      "bytes": 4434
+    },
+    {
+      "path": "ch56/test_spin_orbit_lattice_lab.py",
+      "sha256": "dd846bbbc36b088a4d7c57505dd76bbf4d6ff7d72520040b75ab0cf1cff4d83e",
+      "bytes": 9989
+    },
+    {
+      "path": "ch56/test_tight_binding_wannier_lab.py",
+      "sha256": "997e6ebcf5771857dc363b1771968118f7931306618cd1fcab714cea76033e21",
+      "bytes": 8553
+    },
+    {
+      "path": "ch56/test_two_dimensional_sublattice_lab.py",
+      "sha256": "633f4fb2c162dabdc482e2a404fc0ac9a4e8f068467141f48654e366b96b8ca8",
+      "bytes": 6523
+    },
+    {
+      "path": "ch56/tight_binding_wannier_lab.py",
+      "sha256": "9cf13bebd303a432cdba06ad03d137f2044f5e9c203cad7a958d9110f1b8424e",
+      "bytes": 11734
+    },
+    {
+      "path": "ch56/two_dimensional_sublattice_lab.py",
+      "sha256": "f36f92396f00e6fa4275ed259b5ead38f7c100e3164086f422e8b39737af81f5",
+      "bytes": 11160
+    },
+    {
+      "path": "ch57/.pytest_cache/.gitignore",
+      "sha256": "3ed731b65d06150c138e2dadb0be0697550888a6b47eb8c45ecc9adba8b8e9bd",
+      "bytes": 37
+    },
+    {
+      "path": "ch57/.pytest_cache/CACHEDIR.TAG",
+      "sha256": "37dc88ef9a0abeddbe81053a6dd8fdfb13afb613045ea1eb4a5c815a74a3bde4",
+      "bytes": 191
+    },
+    {
+      "path": "ch57/.pytest_cache/README.md",
+      "sha256": "73fd6fccdd802c419a6b2d983d6c3173b7da97558ac4b589edec2dfe443db9ad",
+      "bytes": 302
+    },
+    {
+      "path": "ch57/.pytest_cache/v/cache/lastfailed",
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "bytes": 2
+    },
+    {
+      "path": "ch57/.pytest_cache/v/cache/nodeids",
+      "sha256": "0903943d84c83c30d79caa50a64d44e2ffe06a09c7a27316d2d19328ef5a2e58",
+      "bytes": 4615
+    },
+    {
+      "path": "ch57/__pycache__/ch57_quantitative_prefreeze.cpython-311.pyc",
+      "sha256": "6b6a338e42827d306c7edde3ae1eb1cdda9b1693da43b19ea2d05348e5a496b1",
+      "bytes": 24413
+    },
+    {
+      "path": "ch57/__pycache__/entanglement_frustration_lab.cpython-311.pyc",
+      "sha256": "2d308ab0df3db2cd5cd1738611bf0a6f37e6e05cce3132ab37d66f598302a269",
+      "bytes": 21278
+    },
+    {
+      "path": "ch57/__pycache__/entanglement_frustration_lab.cpython-313.pyc",
+      "sha256": "394955a1add5dd7c93c6c73b296449cef94cb1adfb325ba3e69947075ce59eb3",
+      "bytes": 17991
+    },
+    {
+      "path": "ch57/__pycache__/exchange_chain_lab.cpython-311.pyc",
+      "sha256": "756a0d5de0e4250ff628c1673eafae93f99d6662ee01b6930d33630ec3bb67f7",
+      "bytes": 14533
+    },
+    {
+      "path": "ch57/__pycache__/open_spin_dynamics.cpython-311.pyc",
+      "sha256": "09896e34d6068e91bb445811564c47cd341114de5ffb7a86f06bf6c2c087c656",
+      "bytes": 17381
+    },
+    {
+      "path": "ch57/__pycache__/spin_dynamics_response_lab.cpython-311.pyc",
+      "sha256": "9aad181b5b9c27c81d48c9e997f7a8636a9d58919be64f2a46ec3dd26a42b709",
+      "bytes": 18687
+    },
+    {
+      "path": "ch57/__pycache__/spin_exchange_lab.cpython-311.pyc",
+      "sha256": "3a718982c31d019a306e77e622c940c0b4fd3bc5ea60edad73c4e136c9024cce",
+      "bytes": 10907
+    },
+    {
+      "path": "ch57/__pycache__/spin_transport_collective.cpython-311.pyc",
+      "sha256": "f46f6224db3f9efaf5ece0c915d025794f0402de8052bed15bab2b0405b3530f",
+      "bytes": 20439
+    },
+    {
+      "path": "ch57/__pycache__/test_ch57_commit631_freeze.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "4ccdbd022089eca987963a0922a489842694b3291457a85621ff9f6c0db7e383",
+      "bytes": 6388
+    },
+    {
+      "path": "ch57/__pycache__/test_ch57_commit631_freeze.cpython-311.pyc",
+      "sha256": "e96732b38c5e4a993375a5a263c4b91462dd28246064521ea104f221d8217971",
+      "bytes": 3530
+    },
+    {
+      "path": "ch57/__pycache__/test_ch57_quantitative_prefreeze.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "f132766717fc19c4004a99434bf3f9582a0aa96afe49d6b3e5649b7c50614400",
+      "bytes": 48911
+    },
+    {
+      "path": "ch57/__pycache__/test_ch57_quantitative_prefreeze.cpython-311.pyc",
+      "sha256": "f8c5e6138133c8682b72b7ce58cbd5f8411ccbc86847dcfe822855601a462ade",
+      "bytes": 13979
+    },
+    {
+      "path": "ch57/__pycache__/test_entanglement_frustration_lab.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "26ecbddf0637a99e2dbae71ed0e85cfe3364b52cb075c9a8ad0da595599331a0",
+      "bytes": 106435
+    },
+    {
+      "path": "ch57/__pycache__/test_entanglement_frustration_lab.cpython-313-pytest-9.0.2.pyc",
+      "sha256": "ae42bc8ddba8aaf45ae2d6e996d9add24ef2c6164e1cf1166c7930b5af948a1c",
+      "bytes": 100931
+    },
+    {
+      "path": "ch57/__pycache__/test_exchange_chain_lab.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "e18deb27613cf787aab7a62ece1f54a5f6e9390b71ad60ad5ed1ffdd74de5f4f",
+      "bytes": 72407
+    },
+    {
+      "path": "ch57/__pycache__/test_open_spin_dynamics.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "cc181285b95a7b220ea44d0e1b0b46cf4ee920587792d4e53f9d00a6b432cc10",
+      "bytes": 34971
+    },
+    {
+      "path": "ch57/__pycache__/test_spin_dynamics_response_lab.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "70f9ea0894cc16d1a208a9a1ddc426ec5fa17a49ac64ad17f4f12d4bfe0115df",
+      "bytes": 120472
+    },
+    {
+      "path": "ch57/__pycache__/test_spin_exchange_lab.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "494391c8db702ba3b243b0b54849c20a7f0b69aa807154e9a0f9e9c5dfc78505",
+      "bytes": 52286
+    },
+    {
+      "path": "ch57/__pycache__/test_spin_transport_collective.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "4005284401bad9e74409f9175929017f9766f22dde1651c6793cb4a179a258ee",
+      "bytes": 37022
+    },
+    {
+      "path": "ch57/ch57_quantitative_prefreeze.py",
+      "sha256": "40d2a282e266497b015f5c503d7d98179b5cf2995cc2bb659b6309e04e8d6373",
+      "bytes": 10674
+    },
+    {
+      "path": "ch57/entanglement_frustration_lab.py",
+      "sha256": "6faa6666e04485ce4e8312f2a2932c74e257098d9c5ded6775265fe07192fdaa",
+      "bytes": 8043
+    },
+    {
+      "path": "ch57/exchange_chain_lab.py",
+      "sha256": "32d5a651ac2f903a4c83e12457816b6fd6a332e51797ea0596ebf144291749b1",
+      "bytes": 6050
+    },
+    {
+      "path": "ch57/generate_ch57_freeze_manifest.py",
+      "sha256": "2c48dc38bd3a4b6bac50912c6cb728543ab3939ade0d6a50b7e40631f766cb6f",
+      "bytes": 2743
+    },
+    {
+      "path": "ch57/open_spin_dynamics.py",
+      "sha256": "a2eeffb8266f970db509807829f0932c58712d39c3cef0efb668adff4462ce1a",
+      "bytes": 8014
+    },
+    {
+      "path": "ch57/qa_ch57_commit631.py",
+      "sha256": "be865d89e50efc473bbe2a338fcd55fae2406e4c73d85c967e3e2b9b8459e855",
+      "bytes": 2864
+    },
+    {
+      "path": "ch57/qa_commit630.py",
+      "sha256": "d85b3a99c64d82b69be1bad69bb833799715d0011229a959f2053d9e54e80eed",
+      "bytes": 1637
+    },
+    {
+      "path": "ch57/spin_dynamics_response_lab.py",
+      "sha256": "b7e12b4643f1323cf6a6f4267d658119e0f497e1712e8ff7fafdc142b8ba0401",
+      "bytes": 8055
+    },
+    {
+      "path": "ch57/spin_exchange_lab.py",
+      "sha256": "9ce8eb614be27f92b9b1ee7a2f6eafcd3a89f25dca899cb2329cdd05c3daa598",
+      "bytes": 3355
+    },
+    {
+      "path": "ch57/spin_transport_collective.py",
+      "sha256": "f7c262862034f5d084f4bbdb697a663d589142395b8f2c7b76d7abd8b9fe659c",
+      "bytes": 9795
+    },
+    {
+      "path": "ch57/test_ch57_commit631_freeze.py",
+      "sha256": "7a0cd0f12a40bd5ee80871e5ff010f62c8f7d2bd67e216c78a4b9268907ed514",
+      "bytes": 1665
+    },
+    {
+      "path": "ch57/test_ch57_quantitative_prefreeze.py",
+      "sha256": "43cade69fd87b766ae0eadcaa8f37102955953c9d29270a81d506b1eb15af3a5",
+      "bytes": 4519
+    },
+    {
+      "path": "ch57/test_entanglement_frustration_lab.py",
+      "sha256": "3840c698bbbc5b4b54168515c8d54aafd2423070598dbc5c0715a2c49b41bea3",
+      "bytes": 9261
+    },
+    {
+      "path": "ch57/test_exchange_chain_lab.py",
+      "sha256": "3425a1ee77817869a708ca138dcdd7cc78d87bd7ae2ff26b43711fcfc47891e4",
+      "bytes": 7059
+    },
+    {
+      "path": "ch57/test_open_spin_dynamics.py",
+      "sha256": "5935badf9a2d5928ffd7748228d87ddd05aa5ce4422945a1270051b7d544fde4",
+      "bytes": 3020
+    },
+    {
+      "path": "ch57/test_spin_dynamics_response_lab.py",
+      "sha256": "56d359114958813f5ab69b5db5f1f91ec405139f703da2f8ab63232dfe8cc27d",
+      "bytes": 7288
+    },
+    {
+      "path": "ch57/test_spin_exchange_lab.py",
+      "sha256": "35ed515ac3b466b082f433f8572048e8c461b25caff4884bd9dda56477a568ed",
+      "bytes": 3162
+    },
+    {
+      "path": "ch57/test_spin_transport_collective.py",
+      "sha256": "24be9309699a3ad3c7ff5a0bf905a2a62c77a6933033cee2b187a6581e7292b8",
+      "bytes": 3426
+    },
+    {
+      "path": "ch58/__pycache__/ch58_commit632_dynamics.cpython-311.pyc",
+      "sha256": "30c3004c10bbe5892fc84cc4858441a49754098644a05e42dc1482960c4e636e",
+      "bytes": 17437
+    },
+    {
+      "path": "ch58/__pycache__/ch58_commit633_control.cpython-311.pyc",
+      "sha256": "00c427a0cfa24f28f5e8023f231a13d99f13a0627fb4832e1d8481cafa403d6b",
+      "bytes": 30160
+    },
+    {
+      "path": "ch58/__pycache__/ch58_commit634_optimal_control.cpython-311.pyc",
+      "sha256": "43053bcfec3d88fd6c2e14f67133eeb1a0a19a70b4599cbe56a67286412d8ba9",
+      "bytes": 15468
+    },
+    {
+      "path": "ch58/__pycache__/ch58_commit635_calibration_validation.cpython-311.pyc",
+      "sha256": "ddc94a5851f53e060f6e0db56dc604d02f2e2233853b5594e76010438805e1bc",
+      "bytes": 12560
+    },
+    {
+      "path": "ch58/__pycache__/test_ch58_commit632_dynamics.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "9192e99a5160462cdd72357fcd196d518ba3e84d4bf946507c01e94de9bf0fe9",
+      "bytes": 49256
+    },
+    {
+      "path": "ch58/__pycache__/test_ch58_commit633_control.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "bc609fbcf1ce8673fab116cc8b541b1f8eee0bf3dd975dc5aa2d241cb15b9bf9",
+      "bytes": 49294
+    },
+    {
+      "path": "ch58/__pycache__/test_ch58_commit634_optimal_control.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "b9c0781e15f49efd726028c241b947de118754e56c85b78c92659ddf34ea24e8",
+      "bytes": 66506
+    },
+    {
+      "path": "ch58/__pycache__/test_ch58_commit635_calibration_validation.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "a01267def1c064084f8c040d636566eef7e070db8bc9db7006d7f0a7ef3dd24a",
+      "bytes": 48867
+    },
+    {
+      "path": "ch58/__pycache__/test_ch58_commit636_freeze.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "e5dea8f891fe37c30cc3701bce943661ab2eed12803f188d0d959c6a4f0baf47",
+      "bytes": 3712
+    },
+    {
+      "path": "ch58/__pycache__/test_ch58_commit636_freeze.cpython-311.pyc",
+      "sha256": "5dc3987c70c1522b019cb2fe6d7cc2e90298c987f30cb77532f865bff44a7f8e",
+      "bytes": 2099
+    },
+    {
+      "path": "ch58/__pycache__/test_two_level_launch.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "a195436f579e895b8789da111bf120a3f3c7a65f13d91f3c4f20ae6cbd66ec2e",
+      "bytes": 16590
+    },
+    {
+      "path": "ch58/__pycache__/two_level_launch.cpython-311.pyc",
+      "sha256": "cef1b484ef51e72a0f77e776a24b8f78ec9ac51d40b29ed633192e67276c94a6",
+      "bytes": 7111
+    },
+    {
+      "path": "ch58/ch58_commit632_dynamics.py",
+      "sha256": "fd8aa5e7ee47952179c945726c606e056eb71091d1b1c0bf1d82e1038bf7a158",
+      "bytes": 7620
+    },
+    {
+      "path": "ch58/ch58_commit633_control.py",
+      "sha256": "b490cf58ce890a5ca8c84d27b55086542d9e922b99256bb1c3eb73638199c593",
+      "bytes": 13319
+    },
+    {
+      "path": "ch58/ch58_commit634_optimal_control.py",
+      "sha256": "5fa2f029404372f5102d73738c26ed0e4b16fe49eed630453daae0ebfb9091ce",
+      "bytes": 5594
+    },
+    {
+      "path": "ch58/ch58_commit635_calibration_validation.py",
+      "sha256": "9678f833a632b2fad616df14814f24c5ae0312da42b9981356507cb52a1936a2",
+      "bytes": 4199
+    },
+    {
+      "path": "ch58/test_ch58_commit632_dynamics.py",
+      "sha256": "c4b147fcded67308d5c3458b4a677c8d9a6aaa1c0d96e425035002a2a0e305ad",
+      "bytes": 3603
+    },
+    {
+      "path": "ch58/test_ch58_commit633_control.py",
+      "sha256": "d0045a89b3682c09883b8323402e6301b3efeaa883af86356fdd5bdba43d9e61",
+      "bytes": 4056
+    },
+    {
+      "path": "ch58/test_ch58_commit634_optimal_control.py",
+      "sha256": "037a19410c25738fd5cf0b5fac0a11f6b9a0ee4386e8d9aecc3e8aeed0f6d7c0",
+      "bytes": 4293
+    },
+    {
+      "path": "ch58/test_ch58_commit635_calibration_validation.py",
+      "sha256": "3873c34d612c6b7b9a03a44ec2b3badf47e39e01518f67d5d883cafbe313ad16",
+      "bytes": 3045
+    },
+    {
+      "path": "ch58/test_ch58_commit636_freeze.py",
+      "sha256": "62a38508a5708fb8b0d7987a98e7aecd52b0f406cc91a49a933f68f10f6d2a88",
+      "bytes": 672
+    },
+    {
+      "path": "ch58/test_two_level_launch.py",
+      "sha256": "7dba6419cd435028c993447723f535253ab7a9a70c58ce4ce549ab80058ca6a6",
+      "bytes": 1683
+    },
+    {
+      "path": "ch58/two_level_launch.py",
+      "sha256": "028cfe399b3bf6c89bd8b3c7c13c641bc72be191c07d1cadcc9c588e507fe986",
+      "bytes": 2916
+    },
+    {
+      "path": "ch59/__pycache__/ch59_commit636_coupled_effective.cpython-311.pyc",
+      "sha256": "4fc3f360566c7eefe7c9120ce00bf2b1abee67a5d75ea18760577e1b7c6e661c",
+      "bytes": 9206
+    },
+    {
+      "path": "ch59/__pycache__/ch59_commit637_two_qubit_gates.cpython-311.pyc",
+      "sha256": "2ae7f47283bba6741f6fe5b913b2bef7be57b6e1072e96e54b8652d4e2c75368",
+      "bytes": 11299
+    },
+    {
+      "path": "ch59/__pycache__/ch59_commit638_effective_engineering.cpython-311.pyc",
+      "sha256": "7f97014c54179b18370add77dd9b30c25175bdb015685db3268ceb16c3d1a3fb",
+      "bytes": 9987
+    },
+    {
+      "path": "ch59/__pycache__/ch59_commit639_networks_prefreeze.cpython-311.pyc",
+      "sha256": "9ad08d17b8739a6d84f71a55a8d9d98ea11f9246ff79b453ad6cf3e30737d1bf",
+      "bytes": 11248
+    },
+    {
+      "path": "ch59/__pycache__/test_ch59_commit636_coupled_effective.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "576981c98e00a1cde230158e4ef99cf7abbcf8c6e153d0442104b1cd8558c32f",
+      "bytes": 37945
+    },
+    {
+      "path": "ch59/__pycache__/test_ch59_commit637_two_qubit_gates.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "1e77c5b68e7ec6fb12fea955f93845b6c5ae2c56644ea8a6aceaeec298137c27",
+      "bytes": 45162
+    },
+    {
+      "path": "ch59/__pycache__/test_ch59_commit638_effective_engineering.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "c840936e62343d53dbd859414e91f993fb3f23117d05a1aea7e6960a95920345",
+      "bytes": 39318
+    },
+    {
+      "path": "ch59/__pycache__/test_ch59_commit639_networks_prefreeze.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "16f025b070a28b1146e6f443319ab9907359e60e0d931655a6041f363eddf0a9",
+      "bytes": 35955
+    },
+    {
+      "path": "ch59/__pycache__/test_ch59_commit639_networks_prefreeze.cpython-311.pyc",
+      "sha256": "653d593be0e9d44d2961625e862610a9a23d42fdc533b5ffd2aed065bf743093",
+      "bytes": 8342
+    },
+    {
+      "path": "ch59/__pycache__/test_ch59_commit640_freeze.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "eb83b878b45227077d4fd2fa1edf888f86ebe0fd6e962ad0b04ce65aef02f24e",
+      "bytes": 4106
+    },
+    {
+      "path": "ch59/__pycache__/test_ch59_commit640_freeze.cpython-311.pyc",
+      "sha256": "ecdc45df9ebd86477e96d4c95bfa074c336ba674a7f8b0c8deb5e25397605ff4",
+      "bytes": 1678
+    },
+    {
+      "path": "ch59/ch59_commit636_coupled_effective.py",
+      "sha256": "e797cc97061923ee67b4d5b1afe9a7e363f86426b1e9afa93098cd699c3b6738",
+      "bytes": 2359
+    },
+    {
+      "path": "ch59/ch59_commit637_two_qubit_gates.py",
+      "sha256": "03580d74776e165e635cb1ae68e3fc1b85da8146d397630bee574893d537d9fe",
+      "bytes": 3877
+    },
+    {
+      "path": "ch59/ch59_commit638_effective_engineering.py",
+      "sha256": "f2061d5073009f23f4938812c066c2be899b8f5eab0fc048ba6178abed33fdcb",
+      "bytes": 2875
+    },
+    {
+      "path": "ch59/ch59_commit639_networks_prefreeze.py",
+      "sha256": "b8a6a687ced7cb51b09c3de9f8198f28b63bdbc84325cc933ace678545114e15",
+      "bytes": 3298
+    },
+    {
+      "path": "ch59/test_ch59_commit636_coupled_effective.py",
+      "sha256": "fb64900b257a4c313a1f4c8282f28d474eb1b6e14fece1ec81fa0d1696afa33d",
+      "bytes": 2266
+    },
+    {
+      "path": "ch59/test_ch59_commit637_two_qubit_gates.py",
+      "sha256": "a17dc24b398e1c7fb1edee79540c2eb4b3568c5299ad2658510d43268f4c01c8",
+      "bytes": 2736
+    },
+    {
+      "path": "ch59/test_ch59_commit638_effective_engineering.py",
+      "sha256": "836f7f6ab0e5cd7d8d3bbc8163f607a1fd50cddc6d58e87e54b58e6e616f5f2b",
+      "bytes": 2334
+    },
+    {
+      "path": "ch59/test_ch59_commit639_networks_prefreeze.py",
+      "sha256": "2fb0a986d757848153510396103938bf135b9efe3b17301c1cdb93b52befcc4c",
+      "bytes": 2386
+    },
+    {
+      "path": "ch59/test_ch59_commit640_freeze.py",
+      "sha256": "ebe5dcea275fef76da9a0bdb062aa7081e447fce11b47f06cdaf64ea5030541c",
+      "bytes": 651
+    },
+    {
+      "path": "ch60/__pycache__/ch60_commit640_open_foundations.cpython-311.pyc",
+      "sha256": "6d68de60e71fe11e7aa5c428db733c074376580db6507e90cc303d6daef9d8a5",
+      "bytes": 11269
+    },
+    {
+      "path": "ch60/__pycache__/ch60_commit641_lindblad.cpython-311.pyc",
+      "sha256": "9f8bfa5cf4e1c345c1502b68e41985e4537a945a6c277d9b3e20f5113c75e5c0",
+      "bytes": 11011
+    },
+    {
+      "path": "ch60/__pycache__/ch60_commit642_trajectories_nonmarkov.cpython-311.pyc",
+      "sha256": "e64675c56d9a8723b43a134377e05ce038a96cc0326c123804536cb5e034d5e0",
+      "bytes": 11679
+    },
+    {
+      "path": "ch60/__pycache__/error_channels.cpython-311.pyc",
+      "sha256": "4899dc0bf6f75123381d227bd758c37ab85f6640b922c665a885785a2dd8d6c5",
+      "bytes": 6745
+    },
+    {
+      "path": "ch60/__pycache__/open_system_control.cpython-311.pyc",
+      "sha256": "b9172e9ba28203dd6dc672199bf9e52c71c4e02e8656b55044f6349fed6aeada",
+      "bytes": 8666
+    },
+    {
+      "path": "ch60/__pycache__/test_ch60_commit640_open_foundations.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "41634bb8b87fa8a0a6865b25db5b459d414aa85b5c91f63b816b201e8a6f6222",
+      "bytes": 37273
+    },
+    {
+      "path": "ch60/__pycache__/test_ch60_commit641_lindblad.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "1aa554fb858ad2a24a010f87f4196ce735ca5ba30aa15798577f870ac1b7865d",
+      "bytes": 39296
+    },
+    {
+      "path": "ch60/__pycache__/test_ch60_commit642_trajectories_nonmarkov.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "ffef269914f79002fe59ca582b22261e91c738d312c7c09a2d42161472df800d",
+      "bytes": 35441
+    },
+    {
+      "path": "ch60/__pycache__/test_ch60_commit643_open_system_control.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "6be556a00f2218d6f95850b24b7294eaeb7ebda04b0bac18c197b312d2f91cd5",
+      "bytes": 23422
+    },
+    {
+      "path": "ch60/__pycache__/test_ch60_commit644_error_channels.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "db3973d64c984181178c4e2d9c48ced539affc7f03a6881d7dcfbf1c587f9ed4",
+      "bytes": 22563
+    },
+    {
+      "path": "ch60/__pycache__/test_ch60_commit645_freeze.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "3f42fe6e7bc60f672ee00b771b753dce7403137c9ee11cc90d89245ce30fd44a",
+      "bytes": 5171
+    },
+    {
+      "path": "ch60/__pycache__/test_ch60_commit645_freeze.cpython-311.pyc",
+      "sha256": "6fd89f0ca97d37045dbc2e725408a20ef38f2d795f55923b3a388eb3d0b4b5bb",
+      "bytes": 2023
+    },
+    {
+      "path": "ch60/ch60_commit640_open_foundations.py",
+      "sha256": "6129d37f145dd17b882ed4a4ab71a98185ee7b61466f5a754185cafbff506ea0",
+      "bytes": 3832
+    },
+    {
+      "path": "ch60/ch60_commit641_lindblad.py",
+      "sha256": "d1348caccc823f95bc36de3a7f09e3ae7609df808fdffe1896e8e808fe606690",
+      "bytes": 3398
+    },
+    {
+      "path": "ch60/ch60_commit642_trajectories_nonmarkov.py",
+      "sha256": "12f8749d468a54a27c4433ef26c179fa5157dd547c9ae1617580b737be9a4f33",
+      "bytes": 3958
+    },
+    {
+      "path": "ch60/error_channels.py",
+      "sha256": "af562394d673d66be79d8a987810349ab97274b576fe74656f796b3e01ddf6a5",
+      "bytes": 2801
+    },
+    {
+      "path": "ch60/generate_commit643_control_figures.py",
+      "sha256": "38b6e07a8c517b20e9b26881f7ae0b05feb260cf01fcd4ecf4281e1fa4ea4f0d",
+      "bytes": 2997
+    },
+    {
+      "path": "ch60/generate_commit644_noise_figures.py",
+      "sha256": "c75bb9d948c82c74a96bb5f8b38fdb492aebb1dc602b914125829aeec5b8b9ab",
+      "bytes": 2497
+    },
+    {
+      "path": "ch60/open_system_control.py",
+      "sha256": "230214a9bd2b69acca6bd462dcfaad55dd36ae3da3528c4c9fa625245d7c08b4",
+      "bytes": 3722
+    },
+    {
+      "path": "ch60/test_ch60_commit640_open_foundations.py",
+      "sha256": "951f9cc3f01c2f4ca57b04b47c93b139c988ac51281f740e7b37a1e655c8e098",
+      "bytes": 2563
+    },
+    {
+      "path": "ch60/test_ch60_commit641_lindblad.py",
+      "sha256": "fe5c17323455d9245a5d5ece488072d2ddc1ebb63645995160f7c9061dcfb3ed",
+      "bytes": 2620
+    },
+    {
+      "path": "ch60/test_ch60_commit642_trajectories_nonmarkov.py",
+      "sha256": "e38b1abe1873c053dacd68498b160c7002e82997faad4df184e6916d80f3d592",
+      "bytes": 2900
+    },
+    {
+      "path": "ch60/test_ch60_commit643_open_system_control.py",
+      "sha256": "1dab5897ae575cdd5a40b48ddd4207fcbf03d72d7168cc4de8c1fea53acd7e8c",
+      "bytes": 1306
+    },
+    {
+      "path": "ch60/test_ch60_commit644_error_channels.py",
+      "sha256": "39f5f8b133674c0ee57a46cafef7b8b770bd8ac8cce1406f8f26cb1f9f5ca75b",
+      "bytes": 1522
+    },
+    {
+      "path": "ch60/test_ch60_commit645_freeze.py",
+      "sha256": "9f1e8d2e5126cf1cb9622035f7b33eac3ef7797fcaf93bfc63294c0734f4460b",
+      "bytes": 660
+    },
+    {
+      "path": "ch61/__pycache__/bcs_mean_field.cpython-311.pyc",
+      "sha256": "62bcdce95256c906fd38918bacc10068ae9cc2b564c410f1dbd362d24f2f039e",
+      "bytes": 5123
+    },
+    {
+      "path": "ch61/__pycache__/bdg_josephson.cpython-311.pyc",
+      "sha256": "14cbba27b8aeadbafc57ae90f234564533d0c03a913b280f8120b9e11ab1b4ef",
+      "bytes": 3533
+    },
+    {
+      "path": "ch61/__pycache__/many_body_diagnostics.cpython-311.pyc",
+      "sha256": "ecf6ae1a0e19991b49940e65f32d3b44de1762f03b2667ce7e2905d505378ed8",
+      "bytes": 6149
+    },
+    {
+      "path": "ch61/__pycache__/many_body_launch.cpython-311.pyc",
+      "sha256": "2aefc2432123d5bd7bf6820c3edbf485889c71822cf732f5ee9d21c2ab8e570b",
+      "bytes": 8714
+    },
+    {
+      "path": "ch61/__pycache__/tensor_network_diagnostics.cpython-311.pyc",
+      "sha256": "17c3ef351bbe2e3b20f21e43d065b35e7c7c5e26c5063922c91bb4f4cf2d8cfd",
+      "bytes": 6337
+    },
+    {
+      "path": "ch61/__pycache__/test_ch61_commit645_many_body_launch.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "d24f4b310e0290457aa39a16d8304a927990249b75af867e8a34cb0316b819c0",
+      "bytes": 15476
+    },
+    {
+      "path": "ch61/__pycache__/test_ch61_commit646_bcs_mean_field.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "fc28fd77aafb338fd01245bb014e374b6002b6528137a8676cb99d2838aaf61e",
+      "bytes": 17026
+    },
+    {
+      "path": "ch61/__pycache__/test_ch61_commit647_bdg_josephson.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "9b183583e429e09b4f3adb8654e7d7f553e1f3c5845c9bd8b065717ffc7e726b",
+      "bytes": 15999
+    },
+    {
+      "path": "ch61/__pycache__/test_ch61_commit648_many_body_diagnostics.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "ee20818b1990f13449c916ad1c482abf52dd6db27abd0fa2b78fb0694b3a2a4a",
+      "bytes": 20388
+    },
+    {
+      "path": "ch61/__pycache__/test_ch61_commit649_topological_superconductivity.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "92c7740234f9dce2dcddd7c1b71bd089fdbc3f4db5850e431acf0abd6b7013ea",
+      "bytes": 18020
+    },
+    {
+      "path": "ch61/__pycache__/test_ch61_commit650_tensor_network_diagnostics.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "b093f6809244247a14f69eca63a3b07bbffdf660e59fed7bd8c3008dbcee3f70",
+      "bytes": 19234
+    },
+    {
+      "path": "ch61/__pycache__/test_ch61_commit651_thermal_nonequilibrium.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "15eb6b79815159484dbd8cfcbdd9cf30cdd81f5f0df70e2d2b6ab695de2799e6",
+      "bytes": 15884
+    },
+    {
+      "path": "ch61/__pycache__/test_ch61_commit652_freeze.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "c612c7b68bb1b1ba3f981f987298b70ef93614964bbb9434f644fdc643b54a91",
+      "bytes": 3172
+    },
+    {
+      "path": "ch61/__pycache__/test_ch61_commit652_freeze.cpython-311.pyc",
+      "sha256": "533d06c82d52fcc003a12e24d755b42dad9abff183a1542c101dd22b4c531a03",
+      "bytes": 2158
+    },
+    {
+      "path": "ch61/__pycache__/thermal_nonequilibrium.cpython-311.pyc",
+      "sha256": "2764e7be31dde5376c35cf17b06322a9b3f29cb93497cba9a4febbc14b1cb6fa",
+      "bytes": 7614
+    },
+    {
+      "path": "ch61/__pycache__/topological_superconductivity.cpython-311.pyc",
+      "sha256": "def9e6a1106580e0764d83844c71496871c1856de1143ed24dd741c4b4e7cb8b",
+      "bytes": 6638
+    },
+    {
+      "path": "ch61/bcs_mean_field.py",
+      "sha256": "23f4aca5884854c8964502dea2bb880e437f24888c8c9e6e40ad76f3a67d042e",
+      "bytes": 1676
+    },
+    {
+      "path": "ch61/bdg_josephson.py",
+      "sha256": "cea964550371f0a9d10bdfa2c0bd5025d7606515c99e346754aaba77eb559aa1",
+      "bytes": 1040
+    },
+    {
+      "path": "ch61/generate_commit645_many_body_figures.py",
+      "sha256": "e0a31dc75a78f72e4e446bacc57a3bdb1da4e78535638abd384112a82f031c08",
+      "bytes": 2734
+    },
+    {
+      "path": "ch61/generate_commit646_bcs_figures.py",
+      "sha256": "883e937971a96fa92aa02892b547d0d533ecb23921724f6357cfefe6e52f732e",
+      "bytes": 2506
+    },
+    {
+      "path": "ch61/generate_commit647_bdg_figures.py",
+      "sha256": "088223342d2c2c9f7c3cbf6a3a94936ce328b5d36c8471aec13da228a73a4e98",
+      "bytes": 2264
+    },
+    {
+      "path": "ch61/generate_commit648_many_body_diagnostics_figures.py",
+      "sha256": "2d20fa3ea08ebf53c33e29f09f0aa952c8378b2f0ddfe0619286c59234ecb33b",
+      "bytes": 3098
+    },
+    {
+      "path": "ch61/generate_commit649_topological_superconductivity_figures.py",
+      "sha256": "4a6202a638ab995a4162e5c6784afee1dbd9b6f89309213336a6d4158ddd5dd6",
+      "bytes": 3415
+    },
+    {
+      "path": "ch61/generate_commit650_tensor_network_figures.py",
+      "sha256": "844789bad5e3a36b6d3c818f44459b0b2c79f0aa9287642ca168ab49d6b53cf3",
+      "bytes": 2420
+    },
+    {
+      "path": "ch61/generate_commit651_thermal_nonequilibrium_figures.py",
+      "sha256": "80939eb04600a860f202ee5cb2e8697c9badfb13233f622228462bdab653ff71",
+      "bytes": 3157
+    },
+    {
+      "path": "ch61/many_body_diagnostics.py",
+      "sha256": "c1c00fb4bc5b99c1c9fc0bd0375882a671f01656a026d15a7f94945f1758f0ad",
+      "bytes": 1736
+    },
+    {
+      "path": "ch61/many_body_launch.py",
+      "sha256": "e1a766ba2e6660b9505bb6164b302ae1adc9e8768a4f886b7679666ed90ca2e1",
+      "bytes": 3133
+    },
+    {
+      "path": "ch61/tensor_network_diagnostics.py",
+      "sha256": "2f9a4492312d07707d9eaa4469c92e981b6237c0443daaa4b41527e64bb6183f",
+      "bytes": 2078
+    },
+    {
+      "path": "ch61/test_ch61_commit645_many_body_launch.py",
+      "sha256": "87208b6b45b7dfe42487f516fc118c9db01dff45a4481626483c134e0b612789",
+      "bytes": 981
+    },
+    {
+      "path": "ch61/test_ch61_commit646_bcs_mean_field.py",
+      "sha256": "189d7b390f3b249250e15381f44aefa6dca5a7973d37c2ad945d10ffdd5dbf1b",
+      "bytes": 927
+    },
+    {
+      "path": "ch61/test_ch61_commit647_bdg_josephson.py",
+      "sha256": "94424e1fd477c23fcc2655045dba449ae0b18e93095e687efcf9a117e700d4da",
+      "bytes": 865
+    },
+    {
+      "path": "ch61/test_ch61_commit648_many_body_diagnostics.py",
+      "sha256": "ef9686690efe4d18dc22bea11a19733525ec4797c67923a5ae94f7ca16aa5301",
+      "bytes": 1020
+    },
+    {
+      "path": "ch61/test_ch61_commit649_topological_superconductivity.py",
+      "sha256": "9886cf47d97c2c3b8b9ab573f8fa35ccef41f7ee607fdf7e13332deea6c0d425",
+      "bytes": 1014
+    },
+    {
+      "path": "ch61/test_ch61_commit650_tensor_network_diagnostics.py",
+      "sha256": "9240c0d8c28fbfd3acb958c2bed5237a09bbe992222cabb699aa28e970519946",
+      "bytes": 1175
+    },
+    {
+      "path": "ch61/test_ch61_commit651_thermal_nonequilibrium.py",
+      "sha256": "67cb59db8ced94978f81a47c8ce8fcb2c6fb0ceb92754db3e8108b219393eedb",
+      "bytes": 1050
+    },
+    {
+      "path": "ch61/test_ch61_commit652_freeze.py",
+      "sha256": "44c143a5d77f111b349837c09cbda5126d626cecf7f92d295284dcf11820eab7",
+      "bytes": 855
+    },
+    {
+      "path": "ch61/thermal_nonequilibrium.py",
+      "sha256": "289dcd49e45657de58bb924bc1fd90648032bd0d60a4bcb29ed6e721eaf02e6a",
+      "bytes": 2351
+    },
+    {
+      "path": "ch61/topological_superconductivity.py",
+      "sha256": "26f9fdf419d9a362e9180eaf68468a476e8558b12fd17c0f966e6120d992aff8",
+      "bytes": 2247
+    },
+    {
+      "path": "ch62/__pycache__/crystalline_higher_order.cpython-311.pyc",
+      "sha256": "61a76bbe31a8338bfcaac7483513483531bd93fd0ec766c8c0581017f3532c58",
+      "bytes": 3588
+    },
+    {
+      "path": "ch62/__pycache__/disorder_real_space_topology.cpython-311.pyc",
+      "sha256": "4c48a791d2834c3d4ab7dc1fa74336b415308831c77acf8cbbceb02d80347a4f",
+      "bytes": 8916
+    },
+    {
+      "path": "ch62/__pycache__/geometric_topology_launch.cpython-311.pyc",
+      "sha256": "440a15ceaed553541fbc2f5971c977159edfad995273552a25c5a6708d3bcfc9",
+      "bytes": 2753
+    },
+    {
+      "path": "ch62/__pycache__/interacting_topology.cpython-311.pyc",
+      "sha256": "feb55c5f705873b7cd1ad1066aecc5be52d774bb036ccf07bc2ae3fcae123c23",
+      "bytes": 4415
+    },
+    {
+      "path": "ch62/__pycache__/symmetry_topology_semimetals.cpython-311.pyc",
+      "sha256": "ea4b8be50bc9407a413227905d8867a4ccc5bc05bbf131d0f95dec0e6b1a4fbc",
+      "bytes": 3759
+    },
+    {
+      "path": "ch62/__pycache__/test_ch62_commit652_geometric_topology_launch.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "72bf831ab817557922aaa1331fc51d66fe30694d77911cc666c4d0dd03de9a23",
+      "bytes": 13270
+    },
+    {
+      "path": "ch62/__pycache__/test_ch62_commit653_topological_band_models.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "654265d1cfed144d8b7c5c89a5764ae379dd270bf416ffcea0339358f004e014",
+      "bytes": 15640
+    },
+    {
+      "path": "ch62/__pycache__/test_ch62_commit654_symmetry_topology_semimetals.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "7bf8c501c4ebbdc53a03e243b518f74722748e77a8be56c7ad962a9790da3ded",
+      "bytes": 14723
+    },
+    {
+      "path": "ch62/__pycache__/test_ch62_commit655_crystalline_higher_order.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "acc75899a96da7fd6759311619b7f371eac4dbe9b2644d5eec0bd8be20aa5af2",
+      "bytes": 13648
+    },
+    {
+      "path": "ch62/__pycache__/test_ch62_commit656_disorder_real_space.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "9ea404ebcac28f03da8fbed58c0732d6a52e0478df8c57d4eed328d154d6224c",
+      "bytes": 20801
+    },
+    {
+      "path": "ch62/__pycache__/test_ch62_commit657_interacting_topology.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "1d0728ab7b740f59220d18b60039493a1b37ca1125d4903062d917e0714cf728",
+      "bytes": 19938
+    },
+    {
+      "path": "ch62/__pycache__/test_ch62_commit659_hamiltonian_atlas.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "54c468d9c6047e44ec6e17b7598da9d28fb6306870aae1843366b6e865500788",
+      "bytes": 3877
+    },
+    {
+      "path": "ch62/__pycache__/test_ch62_commit660_reference_visuals.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "e7d260537111ed7574a699cd40f4e39c397e07eaecc00658b71a04aeb7a30e56",
+      "bytes": 2765
+    },
+    {
+      "path": "ch62/__pycache__/test_ch62_commit661_freeze.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "c9e8ba8860b65ac5a30aabd1bca1b70c5736ee7adff46eea7ccdee2fdf43f0f8",
+      "bytes": 619
+    },
+    {
+      "path": "ch62/__pycache__/test_ch62_commit661_freeze.cpython-311.pyc",
+      "sha256": "d74f4223d11a1bcf555f2519057dd6ee7d113b422beeb72a0a4591acf8d6e108",
+      "bytes": 484
+    },
+    {
+      "path": "ch62/__pycache__/test_ch62_commit662_v2_integration.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "84075c204e2b5104ce2a74eed32b7bd1219400c79849eabe17382e87fcdaee1b",
+      "bytes": 6777
+    },
+    {
+      "path": "ch62/__pycache__/test_ch62_commit663_freeze.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "b4e5a3461d65303f1f735951c5d329900766689ac84a6bf9eea423232bfacf54",
+      "bytes": 592
+    },
+    {
+      "path": "ch62/__pycache__/test_ch62_commit663_freeze.cpython-311.pyc",
+      "sha256": "aef81beac178cbf90baeb3f180e5fe0510a61d763c975eab13d770a2b0d1d980",
+      "bytes": 457
+    },
+    {
+      "path": "ch62/__pycache__/test_ch62_commit664_designed_panels.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "710933f8a98a18bed8e346a3cddd63fe4c488f22755a68d685a3aaa22cc17c8e",
+      "bytes": 3212
+    },
+    {
+      "path": "ch62/__pycache__/test_ch62_commit665_designed_conceptual_panels.cpython-311-pytest-9.1.1.pyc",
+      "sha256": "5e6a34fa7fd75f8b5b755d6a8d3b01d2a9122e0bec351e60f8be811fb24461e6",
+      "bytes": 3344
+    },
+    {
+      "path": "ch62/__pycache__/topological_band_models.cpython-311.pyc",
+      "sha256": "afd1a2f2ca85022b9ac9dff8951c8648a342c5f7c2d390a3fc88fde476f77d59",
+      "bytes": 7394
+    },
+    {
+      "path": "ch62/crystalline_higher_order.py",
+      "sha256": "a214dc84b0c0fd3003deaafcfbe459f97a197b69dbe08e2445df093cb0f5e21e",
+      "bytes": 1024
+    },
+    {
+      "path": "ch62/disorder_real_space_topology.py",
+      "sha256": "5f2d52cbb9695f94e20e114e13c6cf89cc2fdcfa07da766ad55ff03e428bffa3",
+      "bytes": 2342
+    },
+    {
+      "path": "ch62/generate_commit652_geometric_topology_figures.py",
+      "sha256": "b1146b5b1118fa0bd1effeb923e52bcd0fb174e4a7ede3668411a0f903b33c2c",
+      "bytes": 1852
+    },
+    {
+      "path": "ch62/generate_commit653_topological_band_figures.py",
+      "sha256": "cf5c7b74298600f9581823355165bbfe03d7f30cfb449a60be158a2833deec33",
+      "bytes": 2662
+    },
+    {
+      "path": "ch62/generate_commit654_symmetry_topology_figures.py",
+      "sha256": "b033d8422fedc977546ad7a4a587f9c085f236776abaccf7df3b4ee0f5ff6a41",
+      "bytes": 2354
+    },
+    {
+      "path": "ch62/generate_commit655_crystalline_visuals.py",
+      "sha256": "becf0209e3536c188a6b760bdb7059aab662124028469c2ed3137c6d4a4a2194",
+      "bytes": 5773
+    },
+    {
+      "path": "ch62/generate_commit656_disorder_realspace_figures.py",
+      "sha256": "80141255ccc17a19045ed8871dfc7d934a75fcc4cacc4c8023c51e220e21a171",
+      "bytes": 3416
+    },
+    {
+      "path": "ch62/generate_commit657_interacting_topology_visuals.py",
+      "sha256": "2c31ba275d6a8348d8b581b3a0cdc1b1a4c398d98eb2920efe8e80c8687ec61b",
+      "bytes": 6318
+    },
+    {
+      "path": "ch62/generate_commit658_crystal_hamiltonian_visuals.py",
+      "sha256": "e70fa941f7983fd720d75700e26db6064a2767d1bd6c5c31df65280dd0e4924e",
+      "bytes": 8061
+    },
+    {
+      "path": "ch62/generate_commit659_hamiltonian_atlas.py",
+      "sha256": "c9a038496a012473d5014d02cd84eabf3a3a83d9a0b754d9da6f44fee3bbd8f3",
+      "bytes": 10479
+    },
+    {
+      "path": "ch62/generate_commit660_reference_visuals.py",
+      "sha256": "2bfbaa2d91e7f77802b7a0040f173103e192a3c85ab068d3a04d82128fc10e6d",
+      "bytes": 6461
+    },
+    {
+      "path": "ch62/generate_commit664_designed_hamiltonian_panels.py",
+      "sha256": "5d68c3d8790a2ee3f90063cad62ac73d99cbac42bad0334644436d567ede6084",
+      "bytes": 9667
+    },
+    {
+      "path": "ch62/generate_commit665_designed_conceptual_panels.py",
+      "sha256": "33775a5dfc26567744ad015c6fdcaf7cedba9e1f9b8a39fc3262b3063a8c340e",
+      "bytes": 10820
+    },
+    {
+      "path": "ch62/generate_commit666_visual_qa_figures.py",
+      "sha256": "96d4710f0be60cced620bdf8d83ee5ca64221d2b0d909dffe92fd4faf7780b51",
+      "bytes": 4816
+    },
+    {
+      "path": "ch62/generate_commit677_release_visuals.py",
+      "sha256": "407ee6551375d67d956668b1f55c0ac3234a89282bcde351ad6f8a760e314e45",
+      "bytes": 28572
+    },
+    {
+      "path": "ch62/geometric_topology_launch.py",
+      "sha256": "5f1da47b95cf67645d4c4293f97d38cd8345b9c5968d9195f4d85b116092ff3d",
+      "bytes": 993
+    },
+    {
+      "path": "ch62/interacting_topology.py",
+      "sha256": "d29e3bacd5650113df1295376bcf2e1c30eb1c11ffc0b1c182e37d8447b3b3c3",
+      "bytes": 1206
+    },
+    {
+      "path": "ch62/symmetry_topology_semimetals.py",
+      "sha256": "6ee502c30e52789fce38e562d622e949f734ce0482cf64210636c266b27bfc5b",
+      "bytes": 1220
+    },
+    {
+      "path": "ch62/test_ch62_commit652_geometric_topology_launch.py",
+      "sha256": "bf63158ac5397e40813b4aa6a5ba7b5654865b885411afa436aab220f0bccad5",
+      "bytes": 721
+    },
+    {
+      "path": "ch62/test_ch62_commit653_topological_band_models.py",
+      "sha256": "aa48e77007ac860168a7cdb1c3d7fa8398ce426b7dbdd589aa86efbd72fecef6",
+      "bytes": 864
+    },
+    {
+      "path": "ch62/test_ch62_commit654_symmetry_topology_semimetals.py",
+      "sha256": "b404d2b466ac52993887185ca0969c1556aa39538f508fae1c082d98ef48047f",
+      "bytes": 796
+    },
+    {
+      "path": "ch62/test_ch62_commit655_crystalline_higher_order.py",
+      "sha256": "7085eee567af93f7320f1d1fc9fcd52333d062bfb0363aa0f88216ba2bad97ea",
+      "bytes": 828
+    },
+    {
+      "path": "ch62/test_ch62_commit656_disorder_real_space.py",
+      "sha256": "d7b187677c5c2ba6f0f3dd4d23e52e9f8b7e5ea3389f88a48223d50707f66250",
+      "bytes": 946
+    },
+    {
+      "path": "ch62/test_ch62_commit657_interacting_topology.py",
+      "sha256": "06d4bfe904b4ba977d88cb100a05672d2c5712ce642b5eec9b51f49ac25e6cbb",
+      "bytes": 1052
+    },
+    {
+      "path": "ch62/test_ch62_commit659_hamiltonian_atlas.py",
+      "sha256": "1d79926bb362c0256565a56fd2ef9f621ca2da46b2c2d8c53613efcf455ad8c5",
+      "bytes": 518
+    },
+    {
+      "path": "ch62/test_ch62_commit660_reference_visuals.py",
+      "sha256": "449fa75737f78c46c38feac1836ca772b30ccffebaec51ea86ab50ec95ba6c10",
+      "bytes": 565
+    },
+    {
+      "path": "ch62/test_ch62_commit661_freeze.py",
+      "sha256": "8c26f360b77ca169e19a784c409417b7528be6773c01182f44bf3911df9b5eeb",
+      "bytes": 199
+    },
+    {
+      "path": "ch62/test_ch62_commit662_v2_integration.py",
+      "sha256": "268c57926ab4adcf189e74f9962f989c103b01ca957a8dff96493d72501efd20",
+      "bytes": 1096
+    },
+    {
+      "path": "ch62/test_ch62_commit663_freeze.py",
+      "sha256": "409ec8d67f9205ef29c961f0462543479fb858f5d45c6ef00214746092f0674e",
+      "bytes": 172
+    },
+    {
+      "path": "ch62/test_ch62_commit664_designed_panels.py",
+      "sha256": "3f0383ec335dd4596f8f2bb2b34b7be88c3faa8fcc6be40a2969bf104b37e055",
+      "bytes": 475
+    },
+    {
+      "path": "ch62/test_ch62_commit665_designed_conceptual_panels.py",
+      "sha256": "9871e587b511548c4f4ce7fc48111c0543a991874b43417f5aa9dd400ddbdd0b",
+      "bytes": 596
+    },
+    {
+      "path": "ch62/topological_band_models.py",
+      "sha256": "f236c5c842a0fec1a8a3c21c38c65676a8c14850efadc7b2e0c84bad456d237f",
+      "bytes": 2346
+    }
+  ]
+}

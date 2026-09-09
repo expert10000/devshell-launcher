@@ -72,7 +72,7 @@ def stop(root, port):
     raise RuntimeError('Jupyter has not released its port yet. Check its terminals and retry.')
 
 
-def start(root, port, lab_path=None):
+def start(root, port, lab_path=None, *, open_browser=True):
     target_path = None
     if lab_path:
         target = (Path(root) / lab_path).resolve()
@@ -106,6 +106,8 @@ def start(root, port, lab_path=None):
     # Use the discovered token, including when reusing an existing authenticated server.
     route = '/lab/tree/' + urllib.parse.quote(target_path, safe='/') if target_path else '/lab'
     url = server['url'].rstrip('/') + route + '?' + urllib.parse.urlencode({'token': server.get('token', '')})
+    if not open_browser:
+        return {'state': 'running', 'message': 'Ready in DevShell', 'url': url}
     webbrowser.open(url)
     return {'state': 'running', 'message': 'Ready — opened Jupyter Lab'}
 
@@ -116,6 +118,7 @@ def main():
     parser.add_argument('--root', required=True)
     parser.add_argument('--port', type=int, required=True)
     parser.add_argument('--path', help='File or folder to open, relative to the workspace root')
+    parser.add_argument('--no-open', action='store_true', help='Return the authenticated URL to the native browser host')
     args = parser.parse_args()
     try:
         if not Path(args.root).is_dir():
@@ -130,7 +133,7 @@ def main():
                 if result['state'] != 'stopped':
                     print(json.dumps(result))
                     return
-            result = start(args.root, args.port, args.path)
+            result = start(args.root, args.port, args.path, open_browser=not args.no_open)
         print(json.dumps(result))
     except Exception as error:
         print(json.dumps({'state': 'error', 'message': str(error)}))

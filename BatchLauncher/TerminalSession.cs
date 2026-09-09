@@ -180,11 +180,6 @@ public sealed class TerminalSession : IDisposable
         Dictionary<string, string>? baseEnv,
         Dictionary<string, string>? overrides)
     {
-        if (baseEnv == null && overrides == null)
-        {
-            return null;
-        }
-
         var merged = baseEnv != null
             ? new Dictionary<string, string>(baseEnv, StringComparer.OrdinalIgnoreCase)
             : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -197,6 +192,7 @@ public sealed class TerminalSession : IDisposable
             }
         }
 
+        merged["DEVSHELL_TOOLS"] = Path.Combine(AppContext.BaseDirectory, "tools");
         return merged;
     }
 

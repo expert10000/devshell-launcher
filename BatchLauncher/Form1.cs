@@ -32,6 +32,7 @@ public partial class Form1 : Form
     public Form1()
     {
         InitializeComponent();
+        InitializeBrowserHost();
         _workspaceProfiles = WorkspaceProfileStore.GetProfiles();
         var selectedWorkspaceProfile =
             WorkspaceProfileStore.ResolveInitialProfile(_workspaceProfiles);
@@ -152,6 +153,8 @@ public partial class Form1 : Form
             "tasks.request" => HandleTasksRequestAsync(),
             "task.run" => HandleTaskRunAsync(doc.RootElement),
             "service.control" => HandleServiceControlAsync(doc.RootElement),
+            "browser.open" => HandleBrowserOpenAsync(doc.RootElement),
+            "browser.toggle" => HandleBrowserToggleAsync(),
             "dashboard.request" => HandleDashboardRequestAsync(),
             "session.attach" => HandleSessionAttachAsync(doc.RootElement),
             "logging.start" => HandleLoggingStartAsync(doc.RootElement),
@@ -261,6 +264,7 @@ public partial class Form1 : Form
             return;
         }
 
+        if (_activeWorkspaceProfileId != profile.Id) ResetBrowserPane();
         _workspace = workspace;
         _scriptsPath = profile.Path;
         _activeWorkspaceProfileId = profile.Id;

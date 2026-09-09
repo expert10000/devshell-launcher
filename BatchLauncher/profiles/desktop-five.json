@@ -3,8 +3,14 @@
   "globals": {
     "defaultShell": "pwsh",
     "vars": {
-      "browserEditorExe": "C:\\Users\\janko\\Documents\\BROWSERAI\\Browser-AI\\bin\\Debug Stable APIs\\net8.0-windows\\BrowserAI.exe",
-      "jupyterPython": "C:\\Users\\janko\\.venvs\\devshell-jupyter\\Scripts\\python.exe"
+      "browserEditorExe": "G:\\master\\Browser-AI\\bin\\Debug Stable APIs\\net8.0-windows\\BrowserAI.exe",
+      "jupyterPython": "G:\\master\\.venvs\\devshell-jupyter\\Scripts\\python.exe",
+      "nodeDirectory": "G:\\master\\.tools\\node24\\node_modules\\node\\bin",
+      "math3dEnvironment": "G:\\master\\.conda\\math3d-cgal",
+      "math3dPython": "G:\\master\\.conda\\math3d-cgal\\python.exe",
+      "basePython": "G:\\master\\.conda\\math3d-cgal\\python.exe",
+      "npmCli": "G:\\master\\.tools\\node24\\node_modules\\npm\\bin\\npm-cli.js",
+      "npmDirectory": "G:\\master\\.tools\\node24"
     },
     "terminal": {
       "fontSize": 14,
@@ -16,16 +22,17 @@
     {
       "id": "github",
       "name": "GitHub Repos",
-      "root": "C:\\Users\\janko\\Documents",
+      "root": "G:\\master",
       "vars": {
-        "math3dRepoPath": "C:\\Math3D",
+        "math3dRepoPath": "G:\\master\\Math3D",
         "math3dRepoUrl": "https://github.com/expert10000/Math3D",
-        "theoryRepoPath": "C:\\Users\\janko\\Documents\\theory",
+        "theoryRepoPath": "G:\\master\\theory",
         "theoryRepoUrl": "https://github.com/expert10000/theory",
-        "mathRepoPath": "C:\\Users\\janko\\Documents\\MATH\\math",
+        "mathRepoPath": "G:\\master\\math",
         "mathRepoUrl": "https://github.com/expert10000/math",
-        "devshellRepoPath": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher",
-        "devshellRepoUrl": "https://github.com/expert10000/devshell-launcher"
+        "devshellRepoPath": "G:\\master\\devshell-launcher",
+        "devshellRepoUrl": "https://github.com/expert10000/devshell-launcher",
+        "browserRepoPath": "G:\\master\\Browser-AI"
       },
       "layout": {
         "type": "tabs",
@@ -165,7 +172,7 @@
         "DevShell - Build": {
           "steps": [
             {
-              "run": "npm --prefix DevShell/ui/dev-ui-react run build; if ($LASTEXITCODE -eq 0) { dotnet build BatchLauncher/BatchLauncher.csproj --configuration Debug }"
+              "run": "& '${vars.nodeDirectory}\\node.exe' '${vars.npmCli}' --prefix DevShell/ui/dev-ui-react run build; if ($LASTEXITCODE -eq 0) { dotnet build BatchLauncher/BatchLauncher.csproj --configuration Debug }"
             }
           ],
           "cwd": "${vars.devshellRepoPath}",
@@ -195,7 +202,7 @@
         "Math3D - Run": {
           "steps": [
             {
-              "run": "npm run dev"
+              "run": "$env:MATH3D_PYTHON = '${vars.math3dPython}'; $env:PATH = '${vars.nodeDirectory};${vars.math3dEnvironment};${vars.math3dEnvironment}\\Library\\bin;${vars.math3dEnvironment}\\Scripts;' + $env:PATH; & '${vars.nodeDirectory}\\node.exe' '${vars.npmCli}' run dev"
             }
           ],
           "cwd": "${vars.math3dRepoPath}",
@@ -205,7 +212,7 @@
         "Math3D - Build": {
           "steps": [
             {
-              "run": "npm run build:core"
+              "run": "& { $ErrorActionPreference = 'Stop'; $env:MATH3D_PYTHON = '${vars.math3dPython}'; $env:PATH = '${vars.nodeDirectory};${vars.math3dEnvironment};${vars.math3dEnvironment}\\Library\\bin;${vars.math3dEnvironment}\\Scripts;' + $env:PATH; $logDir = Join-Path '${vars.math3dRepoPath}' '.devshell-logs'; New-Item -ItemType Directory -Force -Path $logDir | Out-Null; $log = Join-Path $logDir ('build-' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff') + '.txt'); Start-Transcript -Path $log -Force; try { Set-Location -LiteralPath '${vars.math3dRepoPath}'; Write-Host ('[build] Started: ' + (Get-Date -Format o)); Write-Host ('[build] Directory: ' + (Get-Location).Path); Write-Host '[build] Command: node npm-cli.js run build:core (main + renderer)'; Write-Host ('[build] Log: ' + $log); $PSNativeCommandUseErrorActionPreference = $false; & '${vars.nodeDirectory}\\node.exe' '${vars.npmCli}' run build:core; $buildExit = $LASTEXITCODE; if ($buildExit -ne 0) { throw ('Build exited with code ' + $buildExit) }; Write-Host '[build] SUCCEEDED' -ForegroundColor Green } catch { Write-Host ('[build] FAILED: ' + $_.Exception.Message) -ForegroundColor Red; throw } finally { Write-Host ('[build] Finished: ' + (Get-Date -Format o)); Stop-Transcript; Write-Host ('[build] Saved output: ' + $log) } }"
             }
           ],
           "cwd": "${vars.math3dRepoPath}",
@@ -221,6 +228,35 @@
           "cwd": "${vars.devshellRepoPath}",
           "runInNewTab": true,
           "shell": "pwsh"
+        },
+        "Master - Pull All Repositories": {
+          "shell": "pwsh",
+          "cwd": "G:\\master",
+          "steps": [
+            {
+              "run": "& 'G:\\master\\devshell-launcher\\tools\\Update-MasterRepos.ps1'"
+            }
+          ],
+          "runInNewTab": true
+        },
+        "BrowserEditor - Build": {
+          "shell": "pwsh",
+          "cwd": "G:\\master\\Browser-AI",
+          "steps": [
+            {
+              "run": "dotnet build BrowserAI.csproj --configuration 'Debug Stable APIs'"
+            }
+          ],
+          "runInNewTab": true
+        },
+        "BrowserEditor - Run": {
+          "shell": "pwsh",
+          "cwd": "G:\\master\\Browser-AI",
+          "steps": [
+            {
+              "run": "Start-Process 'G:\\master\\Browser-AI\\bin\\Debug Stable APIs\\net8.0-windows\\BrowserAI.exe'"
+            }
+          ]
         },
         "Math3D - GitHub (DevShell)": {
           "url": "${vars.math3dRepoUrl}",
@@ -248,6 +284,7 @@
         "Theory - GitHub (DevShell)",
         "Math - GitHub (DevShell)",
         "DevShell - GitHub (DevShell)",
+        "Master - Pull All Repositories",
         "Launcher health check",
         "Open active URL in BrowserEditor",
         "Math3D - GitHub (BrowserEditor)",
@@ -292,6 +329,13 @@
           "runTask": "DevShell - Run",
           "id": "devshell",
           "path": "${vars.devshellRepoPath}"
+        },
+        {
+          "runTask": "BrowserEditor - Run",
+          "id": "browsereditor",
+          "buildTask": "BrowserEditor - Build",
+          "path": "G:\\master\\Browser-AI",
+          "name": "BrowserEditor"
         }
       ],
       "requiredTools": [
@@ -301,12 +345,20 @@
         "code",
         "latexmk",
         "${vars.browserEditorExe}"
-      ]
+      ],
+      "bootstrap": {
+        "steps": [
+          {
+            "run": "$env:PATH = '${vars.nodeDirectory};${vars.npmDirectory};' + $env:PATH"
+          }
+        ],
+        "shell": "pwsh"
+      }
     },
     {
       "id": "jupyter-studio",
       "name": "Jupyter Studio",
-      "root": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
+      "root": "G:\\master\\devshell-launcher\\JupyterWorkspace",
       "pinned": true,
       "layout": {
         "type": "tabs",
@@ -314,36 +366,36 @@
           {
             "title": "Jupyter Lab Server",
             "profileId": "pwsh",
-            "cwd": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
+            "cwd": "G:\\master\\devshell-launcher\\JupyterWorkspace",
             "taskId": "Jupyter - Start Lab",
             "autoRun": false
           },
           {
             "title": "Notebook Workspace",
             "profileId": "pwsh",
-            "cwd": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\notebooks",
+            "cwd": "G:\\master\\devshell-launcher\\JupyterWorkspace\\notebooks",
             "taskId": "Jupyter - Environment Check",
             "autoRun": false
           },
           {
             "title": "Theory Python",
             "profileId": "pwsh",
-            "cwd": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\theory",
+            "cwd": "G:\\master\\devshell-launcher\\JupyterWorkspace\\theory",
             "autoRun": false
           }
         ]
       },
       "tasks": {
         "Jupyter - Open Guide": {
-          "cwd": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
+          "cwd": "G:\\master\\devshell-launcher\\JupyterWorkspace",
           "steps": [
             {
-              "run": "Start-Process \"C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\guide.html\""
+              "run": "Start-Process \"G:\\master\\devshell-launcher\\JupyterWorkspace\\guide.html\""
             }
           ]
         },
         "Jupyter - Environment Check": {
-          "cwd": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
+          "cwd": "G:\\master\\devshell-launcher\\JupyterWorkspace",
           "steps": [
             {
               "run": "& '${vars.jupyterPython}' -c \"import jupyterlab, notebook, numpy, pandas, matplotlib, sympy, ipywidgets; print('JupyterLab', jupyterlab.__version__)\""
@@ -351,10 +403,10 @@
           ]
         },
         "Jupyter - Install Environment": {
-          "cwd": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
+          "cwd": "G:\\master\\devshell-launcher\\JupyterWorkspace",
           "steps": [
             {
-              "run": "& '${vars.jupyterPython}' -m pip install -r requirements.txt"
+              "run": "if (-not (Test-Path '${vars.jupyterPython}')) { & '${vars.basePython}' -m venv 'G:\\master\\.venvs\\devshell-jupyter'; if ($LASTEXITCODE -ne 0) { throw 'Environment creation failed' } }; & '${vars.jupyterPython}' -m pip install -r requirements.txt psutil"
             }
           ]
         },
@@ -369,39 +421,31 @@
           "serviceAction": "open"
         },
         "Jupyter - Open Start Here": {
-          "cwd": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\notebooks",
-          "steps": [
-            {
-              "run": "Start-Process \"http://localhost:8889/lab/tree/notebooks/00_start_here.ipynb\""
-            }
-          ]
+          "servicePath": "notebooks/00_start_here.ipynb",
+          "steps": [],
+          "serviceAction": "open",
+          "shell": "pwsh"
         },
         "Jupyter - Open Data Exploration": {
-          "cwd": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\notebooks",
-          "steps": [
-            {
-              "run": "Start-Process \"http://localhost:8889/lab/tree/notebooks/01_data_exploration.ipynb\""
-            }
-          ]
+          "servicePath": "notebooks/01_data_exploration.ipynb",
+          "steps": [],
+          "serviceAction": "open",
+          "shell": "pwsh"
         },
         "Jupyter - Open Math3D Vectors": {
-          "cwd": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\notebooks",
-          "steps": [
-            {
-              "run": "Start-Process \"http://localhost:8889/lab/tree/notebooks/02_math3d_vectors.ipynb\""
-            }
-          ]
+          "servicePath": "notebooks/02_math3d_vectors.ipynb",
+          "steps": [],
+          "serviceAction": "open",
+          "shell": "pwsh"
         },
         "Jupyter - Open Symbolic Mathematics": {
-          "cwd": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\notebooks",
-          "steps": [
-            {
-              "run": "Start-Process \"http://localhost:8889/lab/tree/notebooks/03_symbolic_mathematics.ipynb\""
-            }
-          ]
+          "servicePath": "notebooks/03_symbolic_mathematics.ipynb",
+          "steps": [],
+          "serviceAction": "open",
+          "shell": "pwsh"
         },
         "Jupyter - List Servers": {
-          "cwd": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
+          "cwd": "G:\\master\\devshell-launcher\\JupyterWorkspace",
           "steps": [
             {
               "run": "& '${vars.jupyterPython}' -m jupyter server list"
@@ -414,7 +458,7 @@
           "serviceAction": "stop"
         },
         "Jupyter - Open Workspace in VS Code": {
-          "cwd": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
+          "cwd": "G:\\master\\devshell-launcher\\JupyterWorkspace",
           "steps": [
             {
               "run": "Start-Process code -ArgumentList \".\""
@@ -440,19 +484,19 @@
         },
         "Theory - Check Environment": {
           "shell": "pwsh",
-          "cwd": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\theory",
+          "cwd": "G:\\master\\devshell-launcher\\JupyterWorkspace\\theory",
           "steps": [
             {
-              "run": "python -c \"import numpy, matplotlib, sympy, scipy, pytest; print('Theory environment ready')\""
+              "run": "& '${vars.jupyterPython}' -c \"import numpy, matplotlib, sympy, scipy, pytest; print('Theory environment ready')\""
             }
           ]
         },
         "Theory - Install Dependencies": {
           "shell": "pwsh",
-          "cwd": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\theory",
+          "cwd": "G:\\master\\devshell-launcher\\JupyterWorkspace\\theory",
           "steps": [
             {
-              "run": "python -m pip install -r requirements.txt"
+              "run": "& '${vars.jupyterPython}' -m pip install -r requirements.txt"
             }
           ]
         }
@@ -476,17 +520,17 @@
         "Jupyter - List Servers",
         "Jupyter - Open Workspace in VS Code"
       ],
-      "pythonEnvironment": "C:\\Users\\janko\\.venvs\\devshell-jupyter",
+      "pythonEnvironment": "G:\\master\\.venvs\\devshell-jupyter",
       "service": {
         "python": "${vars.jupyterPython}",
-        "port": 8889,
+        "port": 8890,
         "name": "Jupyter Lab"
       },
       "bootstrap": {
         "shell": "pwsh",
         "steps": [
           {
-            "run": "$env:VIRTUAL_ENV = 'C:\\Users\\janko\\.venvs\\devshell-jupyter'; $env:PATH = \"$env:VIRTUAL_ENV\\Scripts;\" + (($env:PATH -split ';' | Where-Object { $_ -ne \"$env:VIRTUAL_ENV\\Scripts\" }) -join ';')"
+            "run": "$env:VIRTUAL_ENV = 'G:\\master\\.venvs\\devshell-jupyter'; $env:PATH = \"$env:VIRTUAL_ENV\\Scripts;\" + (($env:PATH -split ';' | Where-Object { $_ -ne \"$env:VIRTUAL_ENV\\Scripts\" }) -join ';')"
           }
         ]
       },
@@ -498,7 +542,8 @@
         "sympy",
         "scipy",
         "pytest",
-        "ipywidgets"
+        "ipywidgets",
+        "psutil"
       ]
     }
   ],

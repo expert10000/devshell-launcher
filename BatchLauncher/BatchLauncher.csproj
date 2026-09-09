@@ -62,6 +62,7 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="service_control.py" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\tools\Sync-Repository.ps1" Link="tools\Sync-Repository.ps1" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

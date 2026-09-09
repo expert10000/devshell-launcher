@@ -135,9 +135,27 @@
               "run": "Start-Process code -ArgumentList '.'"
             }
           ]
+        },
+        "Math3D - GitHub (DevShell)": {
+          "url": "${vars.math3dRepoUrl}",
+          "type": "browser",
+          "group": "Math3D"
+        },
+        "Theory - GitHub (DevShell)": {
+          "url": "${vars.theoryRepoUrl}",
+          "type": "browser",
+          "group": "Theory"
+        },
+        "Math - GitHub (DevShell)": {
+          "url": "${vars.mathRepoUrl}",
+          "type": "browser",
+          "group": "Math"
         }
       },
       "quickTasks": [
+        "Math3D - GitHub (DevShell)",
+        "Theory - GitHub (DevShell)",
+        "Math - GitHub (DevShell)",
         "Launcher health check",
         "Open active URL in BrowserEditor",
         "Math3D - GitHub (BrowserEditor)",

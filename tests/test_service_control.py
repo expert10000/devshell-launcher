@@ -28,10 +28,17 @@ with tempfile.TemporaryDirectory(prefix='devshell-service-test-') as root:
         assert service.start(root, port)['state'] == 'running'
         assert service.find_server(root, port)['pid'] == first['pid']
         assert len(opened) == 2
+        embedded = service.start(root, port, open_browser=False)
+        assert embedded['state'] == 'running'
+        assert first['token'] in embedded['url']
+        assert len(opened) == 2, 'Embedded navigation must not launch an external browser'
         notebook = Path(root) / 'example notebook.ipynb'
         notebook.write_text('{}', encoding='utf-8')
         assert service.start(root, port, notebook.name)['state'] == 'running'
         assert '/lab/tree/example%20notebook.ipynb?' in opened[-1]
+        embedded_notebook = service.start(root, port, notebook.name, open_browser=False)
+        assert '/lab/tree/example%20notebook.ipynb?' in embedded_notebook['url']
+        assert len(opened) == 3
         assert service.find_server(root, port)['pid'] == first['pid']
         try:
             service.start(root, port, '../outside.ipynb')

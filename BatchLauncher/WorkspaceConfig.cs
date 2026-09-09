@@ -24,6 +24,8 @@ public sealed class WorkspaceTerminalSettings
 
 public sealed class WorkspaceTask
 {
+    public string? Type { get; set; }
+    public string? Url { get; set; }
     public string? ServiceAction { get; set; }
     public string? ServicePath { get; set; }
     public string? Group { get; set; }

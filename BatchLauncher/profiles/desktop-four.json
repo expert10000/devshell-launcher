@@ -3,8 +3,12 @@
   "globals": {
     "defaultShell": "pwsh",
     "vars": {
-      "browserEditorExe": "C:\\Users\\janko\\Documents\\BROWSERAI\\Browser-AI\\bin\\Debug Stable APIs\\net8.0-windows\\BrowserAI.exe",
-      "jupyterPython": "C:\\Users\\janko\\.venvs\\devshell-jupyter\\Scripts\\python.exe"
+      "browserEditorExe": "G:\\BrowserProject\\bin\\Debug\\net8.0-windows\\BrowserAI.exe",
+      "jupyterPython": "C:\\Users\\janko\\.venvs\\devshell-jupyter\\Scripts\\python.exe",
+      "nodeDirectory": "C:\\Users\\janko\\AppData\\Local\\DevShellLauncher\\runtime\\node_modules\\node\\bin",
+      "math3dEnvironment": "C:\\Users\\janko\\anaconda3\\envs\\math3d-cgal",
+      "math3dPython": "C:\\Users\\janko\\anaconda3\\envs\\math3d-cgal\\python.exe",
+      "basePython": "C:\\Users\\janko\\anaconda3\\python.exe"
     },
     "terminal": {
       "fontSize": 14,
@@ -16,15 +20,15 @@
     {
       "id": "github",
       "name": "GitHub Repos",
-      "root": "C:\\Users\\janko\\Documents",
+      "root": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL",
       "vars": {
-        "math3dRepoPath": "C:\\Math3D",
+        "math3dRepoPath": "G:\\Function-viewer-2026-02-05\\Math3D",
         "math3dRepoUrl": "https://github.com/expert10000/Math3D",
-        "theoryRepoPath": "C:\\Users\\janko\\Documents\\theory",
+        "theoryRepoPath": "C:\\Users\\janko\\OneDrive\\Desktop\\THEORY",
         "theoryRepoUrl": "https://github.com/expert10000/theory",
-        "mathRepoPath": "C:\\Users\\janko\\Documents\\MATH\\math",
+        "mathRepoPath": "C:\\Users\\janko\\OneDrive\\Dokumenty\\MATH",
         "mathRepoUrl": "https://github.com/expert10000/math",
-        "devshellRepoPath": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher",
+        "devshellRepoPath": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher",
         "devshellRepoUrl": "https://github.com/expert10000/devshell-launcher"
       },
       "layout": {
@@ -195,7 +199,7 @@
         "Math3D - Run": {
           "steps": [
             {
-              "run": "npm run dev"
+              "run": "$env:MATH3D_PYTHON = '${vars.math3dPython}'; $env:PATH = '${vars.nodeDirectory};${vars.math3dEnvironment};${vars.math3dEnvironment}\\Library\\bin;${vars.math3dEnvironment}\\Scripts;' + $env:PATH; npm run dev"
             }
           ],
           "cwd": "${vars.math3dRepoPath}",
@@ -205,7 +209,7 @@
         "Math3D - Build": {
           "steps": [
             {
-              "run": "npm run build:core"
+              "run": "$env:MATH3D_PYTHON = '${vars.math3dPython}'; $env:PATH = '${vars.nodeDirectory};${vars.math3dEnvironment};${vars.math3dEnvironment}\\Library\\bin;${vars.math3dEnvironment}\\Scripts;' + $env:PATH; npm run build:core"
             }
           ],
           "cwd": "${vars.math3dRepoPath}",
@@ -301,12 +305,20 @@
         "code",
         "latexmk",
         "${vars.browserEditorExe}"
-      ]
+      ],
+      "bootstrap": {
+        "steps": [
+          {
+            "run": "$env:PATH = '${vars.nodeDirectory};' + $env:PATH"
+          }
+        ],
+        "shell": "pwsh"
+      }
     },
     {
       "id": "jupyter-studio",
       "name": "Jupyter Studio",
-      "root": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
+      "root": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
       "pinned": true,
       "layout": {
         "type": "tabs",
@@ -314,36 +326,36 @@
           {
             "title": "Jupyter Lab Server",
             "profileId": "pwsh",
-            "cwd": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
+            "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
             "taskId": "Jupyter - Start Lab",
             "autoRun": false
           },
           {
             "title": "Notebook Workspace",
             "profileId": "pwsh",
-            "cwd": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\notebooks",
+            "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\notebooks",
             "taskId": "Jupyter - Environment Check",
             "autoRun": false
           },
           {
             "title": "Theory Python",
             "profileId": "pwsh",
-            "cwd": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\theory",
+            "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\theory",
             "autoRun": false
           }
         ]
       },
       "tasks": {
         "Jupyter - Open Guide": {
-          "cwd": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
           "steps": [
             {
-              "run": "Start-Process \"C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\guide.html\""
+              "run": "Start-Process \"C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\guide.html\""
             }
           ]
         },
         "Jupyter - Environment Check": {
-          "cwd": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
           "steps": [
             {
               "run": "& '${vars.jupyterPython}' -c \"import jupyterlab, notebook, numpy, pandas, matplotlib, sympy, ipywidgets; print('JupyterLab', jupyterlab.__version__)\""
@@ -351,10 +363,10 @@
           ]
         },
         "Jupyter - Install Environment": {
-          "cwd": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
           "steps": [
             {
-              "run": "& '${vars.jupyterPython}' -m pip install -r requirements.txt"
+              "run": "if (-not (Test-Path '${vars.jupyterPython}')) { & '${vars.basePython}' -m venv 'C:\\Users\\janko\\.venvs\\devshell-jupyter'; if ($LASTEXITCODE -ne 0) { throw 'Environment creation failed' } }; & '${vars.jupyterPython}' -m pip install -r requirements.txt psutil"
             }
           ]
         },
@@ -369,39 +381,31 @@
           "serviceAction": "open"
         },
         "Jupyter - Open Start Here": {
-          "cwd": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\notebooks",
-          "steps": [
-            {
-              "run": "Start-Process \"http://localhost:8889/lab/tree/notebooks/00_start_here.ipynb\""
-            }
-          ]
+          "servicePath": "notebooks/00_start_here.ipynb",
+          "steps": [],
+          "serviceAction": "open",
+          "shell": "pwsh"
         },
         "Jupyter - Open Data Exploration": {
-          "cwd": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\notebooks",
-          "steps": [
-            {
-              "run": "Start-Process \"http://localhost:8889/lab/tree/notebooks/01_data_exploration.ipynb\""
-            }
-          ]
+          "servicePath": "notebooks/01_data_exploration.ipynb",
+          "steps": [],
+          "serviceAction": "open",
+          "shell": "pwsh"
         },
         "Jupyter - Open Math3D Vectors": {
-          "cwd": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\notebooks",
-          "steps": [
-            {
-              "run": "Start-Process \"http://localhost:8889/lab/tree/notebooks/02_math3d_vectors.ipynb\""
-            }
-          ]
+          "servicePath": "notebooks/02_math3d_vectors.ipynb",
+          "steps": [],
+          "serviceAction": "open",
+          "shell": "pwsh"
         },
         "Jupyter - Open Symbolic Mathematics": {
-          "cwd": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\notebooks",
-          "steps": [
-            {
-              "run": "Start-Process \"http://localhost:8889/lab/tree/notebooks/03_symbolic_mathematics.ipynb\""
-            }
-          ]
+          "servicePath": "notebooks/03_symbolic_mathematics.ipynb",
+          "steps": [],
+          "serviceAction": "open",
+          "shell": "pwsh"
         },
         "Jupyter - List Servers": {
-          "cwd": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
           "steps": [
             {
               "run": "& '${vars.jupyterPython}' -m jupyter server list"
@@ -414,7 +418,7 @@
           "serviceAction": "stop"
         },
         "Jupyter - Open Workspace in VS Code": {
-          "cwd": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace",
           "steps": [
             {
               "run": "Start-Process code -ArgumentList \".\""
@@ -440,19 +444,19 @@
         },
         "Theory - Check Environment": {
           "shell": "pwsh",
-          "cwd": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\theory",
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\theory",
           "steps": [
             {
-              "run": "python -c \"import numpy, matplotlib, sympy, scipy, pytest; print('Theory environment ready')\""
+              "run": "& '${vars.jupyterPython}' -c \"import numpy, matplotlib, sympy, scipy, pytest; print('Theory environment ready')\""
             }
           ]
         },
         "Theory - Install Dependencies": {
           "shell": "pwsh",
-          "cwd": "C:\\Users\\janko\\Documents\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\theory",
+          "cwd": "C:\\Users\\janko\\OneDrive\\Desktop\\DEVSHELL\\devshell-launcher\\JupyterWorkspace\\theory",
           "steps": [
             {
-              "run": "python -m pip install -r requirements.txt"
+              "run": "& '${vars.jupyterPython}' -m pip install -r requirements.txt"
             }
           ]
         }
@@ -498,7 +502,8 @@
         "sympy",
         "scipy",
         "pytest",
-        "ipywidgets"
+        "ipywidgets",
+        "psutil"
       ]
     }
   ],

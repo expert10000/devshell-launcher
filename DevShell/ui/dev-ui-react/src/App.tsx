@@ -99,6 +99,8 @@ type WorkspaceTaskStep = {
 }
 
 type WorkspaceTask = {
+  type?: 'browser'
+  url?: string
   servicePath?: string
   serviceAction?: 'start' | 'stop' | 'restart' | 'open' | 'status'
   group?: string
@@ -179,6 +181,8 @@ type RepositoryStatus = { projectId: string; id: string; path: string; branch?: 
 type HealthCheck = { name: string; state: string; detail: string }
 
 type ResolvedTask = {
+  type?: 'browser'
+  url?: string
   servicePath?: string
   serviceAction?: WorkspaceTask['serviceAction']
   key: string
@@ -341,6 +345,23 @@ const normalizeProfileList = (profiles: TerminalProfile[]) =>
 
 const App = () => {
   const termRefs = useRef<Map<string, Terminal>>(new Map())
+  const pendingTerminalOutput = useRef<Map<string, string>>(new Map())
+  const writePaneOutput = (paneId: string, data: string) => {
+    const terminal = termRefs.current.get(paneId)
+    if (terminal) {
+      terminal.write(data)
+    } else {
+      // Keep startup messages until React has mounted the terminal host.
+      const pending = (pendingTerminalOutput.current.get(paneId) ?? '') + data
+      pendingTerminalOutput.current.set(paneId, pending.slice(-1024 * 1024))
+    }
+  }
+  const forgetPaneOutput = (paneId: string) => {
+    pendingTerminalOutput.current.delete(paneId)
+    for (const [sessionId, mappedPaneId] of sessionToPane.current) {
+      if (mappedPaneId === paneId) sessionToPane.current.delete(sessionId)
+    }
+  }
   const fitRefs = useRef<Map<string, FitAddon>>(new Map())
   const searchRefs = useRef<Map<string, SearchAddon>>(new Map())
   const hostRefs = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -792,6 +813,8 @@ const App = () => {
       focusTab: merged.focusTab,
       serviceAction: merged.serviceAction,
       servicePath: merged.servicePath,
+      type: merged.type,
+      url: merged.url ? expandVariables(merged.url, context) : undefined,
     } as ResolvedTask
   }
 
@@ -926,6 +949,10 @@ const App = () => {
     sessionId: string,
     paneId: string
   ) => {
+    if (task.type === 'browser') {
+      postMessage({ type: 'browser.open', url: task.url })
+      return
+    }
     if (task.serviceAction) {
       controlService(task.projectId, task.serviceAction, task.servicePath)
       return
@@ -954,9 +981,7 @@ const App = () => {
       return
     }
 
-    termRefs.current
-      .get(paneId)
-      ?.writeln(`\r\n[task] ${task.name} (${task.group})`)
+    writePaneOutput(paneId, `\r\n[task] ${task.name} (${task.group})\r\n`)
 
     queueTaskSteps(sessionId, profileId, plan, { delayMs: delay })
   }
@@ -965,6 +990,10 @@ const App = () => {
     task: ResolvedTask,
     options?: { forceNewTab?: boolean; title?: string }
   ) => {
+    if (task.type === 'browser') {
+      postMessage({ type: 'browser.open', url: task.url })
+      return
+    }
     if (task.serviceAction) {
       controlService(task.projectId, task.serviceAction, task.servicePath)
       return
@@ -1472,6 +1501,7 @@ const App = () => {
       paneToSession.current.delete(pane.id)
       termRefs.current.get(pane.id)?.dispose()
       termRefs.current.delete(pane.id)
+      forgetPaneOutput(pane.id)
       fitRefs.current.delete(pane.id)
       searchRefs.current.delete(pane.id)
       hostRefs.current.delete(pane.id)
@@ -1510,6 +1540,7 @@ const App = () => {
         paneToSession.current.delete(pane.id)
         termRefs.current.get(pane.id)?.dispose()
         termRefs.current.delete(pane.id)
+        forgetPaneOutput(pane.id)
         fitRefs.current.delete(pane.id)
         searchRefs.current.delete(pane.id)
         hostRefs.current.delete(pane.id)
@@ -1566,6 +1597,7 @@ const App = () => {
     paneToSession.current.delete(pane.id)
     termRefs.current.get(pane.id)?.dispose()
     termRefs.current.delete(pane.id)
+    forgetPaneOutput(pane.id)
     fitRefs.current.delete(pane.id)
     searchRefs.current.delete(pane.id)
     hostRefs.current.delete(pane.id)
@@ -2110,7 +2142,7 @@ const App = () => {
             sendResize(paneId)
           }
 
-          termRefs.current.get(paneId)?.writeln(`\r\n[ready] ${paneId}`)
+          writePaneOutput(paneId, `\r\n[ready] ${paneId}\r\n`)
 
           const pane = findPaneById(paneId)
           if (pane?.cwd) {
@@ -2150,7 +2182,7 @@ const App = () => {
           if (!paneId) {
             return
           }
-          termRefs.current.get(paneId)?.write(message.data ?? '')
+          writePaneOutput(paneId, message.data ?? '')
           break
         }
         case 'exit': {
@@ -2161,7 +2193,9 @@ const App = () => {
           if (!paneId) {
             return
           }
-          sessionToPane.current.delete(message.sessionId)
+          // Retain routing until the pane closes: the output reader can deliver
+          // the final build messages after the process exit notification.
+          writePaneOutput(paneId, `\r\n[process exited with code ${message.code ?? 0}]\r\n`)
           paneToSession.current.delete(paneId)
           pendingTasks.current.delete(paneId)
           setTabs((current) =>
@@ -2244,7 +2278,7 @@ const App = () => {
           if (!paneId) {
             return
           }
-          termRefs.current.get(paneId)?.writeln(`\r\n[error] ${message.message ?? 'unknown error'}`)
+          writePaneOutput(paneId, `\r\n[error] ${message.message ?? 'unknown error'}\r\n`)
           setTabs((current) =>
             current.map((tab) => ({
               ...tab,
@@ -2619,6 +2653,11 @@ const App = () => {
         }
 
         termRefs.current.set(pane.id, term)
+        const pendingOutput = pendingTerminalOutput.current.get(pane.id)
+        if (pendingOutput) {
+          term.write(pendingOutput)
+          pendingTerminalOutput.current.delete(pane.id)
+        }
         fitRefs.current.set(pane.id, fitAddon)
         searchRefs.current.set(pane.id, searchAddon)
         })
@@ -3026,13 +3065,13 @@ const App = () => {
     if (task) { setRepositoriesView(false); handleWorkspaceTaskRunInNewTab(task) }
   }
 
-  const controlService = (projectId: string, action: NonNullable<WorkspaceTask['serviceAction']>, path?: string) => {
+  const controlService = (projectId: string, action: NonNullable<WorkspaceTask['serviceAction']>, path?: string, target?: 'external') => {
     const key = `${activeWorkspaceProfileId}:${projectId}`
     if (serviceStatuses[key]?.state === 'busy') return
     if (action !== 'status') {
       setServiceStatuses((current) => ({ ...current, [key]: { state: 'busy', message: `${action}…` } }))
     }
-    postMessage({ type: 'service.control', projectId, action, path })
+    postMessage({ type: 'service.control', projectId, action, path, target })
   }
 
   useEffect(() => {
@@ -3061,6 +3100,10 @@ const App = () => {
 
   const handleWorkspaceTaskSelect = (task: ResolvedTask) => {
     setTaskMenuOpen(false)
+    if (task.type === 'browser') {
+      postMessage({ type: 'browser.open', url: task.url })
+      return
+    }
     if (task.serviceAction) {
       controlService(task.projectId, task.serviceAction, task.servicePath)
       return
@@ -3111,6 +3154,10 @@ const App = () => {
 
   const handleWorkspaceTaskRunInNewTab = (task: ResolvedTask) => {
     setTaskMenuOpen(false)
+    if (task.type === 'browser') {
+      postMessage({ type: 'browser.open', url: task.url })
+      return
+    }
     if (task.serviceAction) {
       controlService(task.projectId, task.serviceAction, task.servicePath)
       return
@@ -4100,6 +4147,9 @@ const App = () => {
         <aside className="project-sidebar">
           <div className="project-sidebar-header">
             <div className="project-sidebar-title">Projects</div>
+            <button className="project-filter" title="Show or hide the browser without closing its page" onClick={() => postMessage({ type: 'browser.toggle' })}>
+              Show/hide browser
+            </button>
             <div className="workspace-profile-control">
               <label className="workspace-profile-label" htmlFor="workspace-profile-select">
                 Configuration
@@ -4818,6 +4868,7 @@ const App = () => {
                   <button className="task-run" disabled={busy || state !== 'running'} onClick={() => controlService(panelProject.id, 'stop')}>Stop</button>
                   <button className="task-run" disabled={busy || state === 'blocked'} onClick={() => controlService(panelProject.id, 'restart')}>Restart</button>
                   <button className="task-run" disabled={busy} onClick={() => controlService(panelProject.id, 'status')}>Refresh</button>
+                  <button className="task-run" disabled={busy || state === 'blocked'} onClick={() => controlService(panelProject.id, 'open', undefined, 'external')}>Open externally</button>
                 </div>
               </section>
             )

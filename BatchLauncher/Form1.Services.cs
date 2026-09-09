@@ -43,6 +43,8 @@ public partial class Form1
         var projectId = payload.GetProperty("projectId").GetString();
         var action = payload.GetProperty("action").GetString() ?? "status";
         var labPath = payload.TryGetProperty("path", out var pathElement) ? pathElement.GetString() : null;
+        var openExternally = payload.TryGetProperty("target", out var targetElement) &&
+            targetElement.GetString() == "external";
         if (action is not ("status" or "start" or "stop" or "restart" or "open")) return;
         var profileId = _activeWorkspaceProfileId;
         var project = _workspace.Projects?.FirstOrDefault(item => item.Id == projectId);
@@ -52,6 +54,7 @@ public partial class Form1
         else await _serviceGate.WaitAsync();
         try
         {
+            if (profileId != _activeWorkspaceProfileId) return;
             if (action != "status")
                 SendMessage(new { type = "service.status", projectId, profileId, state = "busy", message = action + "…", port = project.Service.Port });
             var start = new ProcessStartInfo(ExpandProjectValue(project, project.Service.Python))
@@ -64,6 +67,7 @@ public partial class Form1
             foreach (var argument in new[] { Path.Combine(AppContext.BaseDirectory, "service_control.py"), action,
                          "--root", ExpandProjectValue(project, project.Root ?? ""), "--port", project.Service.Port.ToString() })
                 start.ArgumentList.Add(argument);
+            if (!openExternally) start.ArgumentList.Add("--no-open");
             if (!string.IsNullOrWhiteSpace(labPath))
             {
                 start.ArgumentList.Add("--path");
@@ -84,6 +88,12 @@ public partial class Form1
             await errorTask; // Drain stderr without exposing server URLs or tokens.
             if (process.ExitCode != 0) throw new InvalidOperationException("Service controller failed. Check the configured Python environment.");
             using var result = JsonDocument.Parse(output);
+            if (!openExternally && profileId == _activeWorkspaceProfileId &&
+                result.RootElement.TryGetProperty("url", out var urlElement))
+            {
+                var url = urlElement.GetString();
+                if (url != null) await ShowBrowserAsync(url, profileId);
+            }
             SendMessage(new { type = "service.status", projectId, profileId,
                 state = result.RootElement.GetProperty("state").GetString(),
                 message = result.RootElement.GetProperty("message").GetString(), port = project.Service.Port });

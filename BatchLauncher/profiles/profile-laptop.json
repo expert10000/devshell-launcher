@@ -1,0 +1,553 @@
+{
+  "version": 2,
+  "globals": {
+    "defaultShell": "pwsh",
+    "vars": {
+      "browserEditorExe": "D:\\masters\\Browser-AI\\bin\\Debug Stable APIs\\net8.0-windows\\BrowserAI.exe",
+      "jupyterPython": "D:\\masters\\.venvs\\devshell-jupyter\\Scripts\\python.exe",
+      "nodeDirectory": "D:\\masters\\.tools\\node24\\node_modules\\node\\bin",
+      "math3dEnvironment": "D:\\masters\\.conda\\math3d-cgal",
+      "math3dPython": "D:\\masters\\.conda\\math3d-cgal\\python.exe",
+      "basePython": "D:\\masters\\.conda\\math3d-cgal\\python.exe",
+      "npmCli": "D:\\masters\\.tools\\node24\\node_modules\\npm\\bin\\npm-cli.js",
+      "npmDirectory": "D:\\masters\\.tools\\node24"
+    },
+    "terminal": {
+      "fontSize": 14,
+      "scrollback": 5000
+    }
+  },
+  "templates": {},
+  "projects": [
+    {
+      "id": "github",
+      "name": "GitHub Repos",
+      "root": "D:\\masters",
+      "vars": {
+        "math3dRepoPath": "D:\\masters\\Math3D",
+        "math3dRepoUrl": "https://github.com/expert10000/Math3D",
+        "theoryRepoPath": "D:\\masters\\theory",
+        "theoryRepoUrl": "https://github.com/expert10000/theory",
+        "mathRepoPath": "D:\\masters\\math",
+        "mathRepoUrl": "https://github.com/expert10000/math",
+        "devshellRepoPath": "D:\\masters\\devshell-launcher",
+        "devshellRepoUrl": "https://github.com/expert10000/devshell-launcher",
+        "browserRepoPath": "D:\\masters\\Browser-AI"
+      },
+      "layout": {
+        "type": "tabs",
+        "items": [
+          {
+            "title": "Math3D",
+            "profileId": "pwsh",
+            "cwd": "${vars.math3dRepoPath}"
+          },
+          {
+            "title": "Theory",
+            "profileId": "pwsh",
+            "cwd": "${vars.theoryRepoPath}"
+          },
+          {
+            "title": "Math",
+            "profileId": "pwsh",
+            "cwd": "${vars.mathRepoPath}"
+          },
+          {
+            "title": "DevShell",
+            "profileId": "pwsh",
+            "cwd": "${vars.devshellRepoPath}",
+            "autoRun": false
+          }
+        ]
+      },
+      "tasks": {
+        "Launcher health check": {
+          "shell": "pwsh",
+          "steps": [
+            {
+              "run": "$browserEditor = '${vars.browserEditorExe}'; $repoPaths = @('${vars.math3dRepoPath}', '${vars.theoryRepoPath}', '${vars.mathRepoPath}', '${vars.devshellRepoPath}'); $errors = @(); if (-not (Test-Path $browserEditor)) { $errors += \"BrowserEditor missing: $browserEditor\" }; if (-not (Get-Command code -ErrorAction SilentlyContinue)) { $errors += \"VS Code CLI missing (command: code)\" }; $repoPaths | ForEach-Object { if (-not (Test-Path $_)) { $errors += \"Repo path missing: $_\" } }; if ($errors.Count -gt 0) { Write-Host 'Launcher health check failed:'; $errors | ForEach-Object { Write-Host \" - $_\" }; exit 1 }; Write-Host 'Launcher health check passed.'"
+            }
+          ]
+        },
+        "Open active URL in BrowserEditor": {
+          "shell": "pwsh",
+          "steps": [
+            {
+              "run": "$url = (Get-Clipboard | Out-String).Trim(); if ([string]::IsNullOrWhiteSpace($url)) { $url = Read-Host 'Paste repository URL' }; if ([string]::IsNullOrWhiteSpace($url)) { Write-Host 'No URL provided.'; exit 1 }; $browserEditor = '${vars.browserEditorExe}'; $opened = $false; if (Test-Path -LiteralPath $browserEditor) { foreach ($attempt in 1..2) { try { Start-Process -FilePath $browserEditor -ArgumentList @($url) -ErrorAction Stop; $opened = $true; break } catch { if ($attempt -lt 2) { Start-Sleep -Milliseconds 500 } } } }; if (-not $opened) { Write-Warning 'BrowserEditor could not be started; opening the outer browser.'; Start-Process $url }"
+            }
+          ]
+        },
+        "Math3D - GitHub (BrowserEditor)": {
+          "shell": "pwsh",
+          "steps": [
+            {
+              "run": "$url = '${vars.math3dRepoUrl}'; $browserEditor = '${vars.browserEditorExe}'; try { if (-not (Test-Path -LiteralPath $browserEditor)) { throw 'BrowserEditor missing' }; Start-Process -FilePath $browserEditor -ArgumentList @($url) -ErrorAction Stop } catch { Write-Warning 'Opening Math3D in the outer browser.'; Start-Process $url }"
+            }
+          ]
+        },
+        "Math3D - GitHub (outer browser)": {
+          "shell": "pwsh",
+          "steps": [
+            {
+              "run": "Start-Process '${vars.math3dRepoUrl}'"
+            }
+          ]
+        },
+        "Math3D - Open in VS Code": {
+          "shell": "pwsh",
+          "cwd": "${vars.math3dRepoPath}",
+          "steps": [
+            {
+              "run": "Start-Process code -ArgumentList '.'"
+            }
+          ]
+        },
+        "Theory - GitHub (BrowserEditor)": {
+          "shell": "pwsh",
+          "steps": [
+            {
+              "run": "$url = '${vars.theoryRepoUrl}'; $browserEditor = '${vars.browserEditorExe}'; try { if (-not (Test-Path -LiteralPath $browserEditor)) { throw 'BrowserEditor missing' }; Start-Process -FilePath $browserEditor -ArgumentList @($url) -ErrorAction Stop } catch { Write-Warning 'Opening Theory in the outer browser.'; Start-Process $url }"
+            }
+          ]
+        },
+        "Theory - GitHub (outer browser)": {
+          "shell": "pwsh",
+          "steps": [
+            {
+              "run": "Start-Process '${vars.theoryRepoUrl}'"
+            }
+          ]
+        },
+        "Theory - Open in VS Code": {
+          "shell": "pwsh",
+          "cwd": "${vars.theoryRepoPath}",
+          "steps": [
+            {
+              "run": "Start-Process code -ArgumentList '.'"
+            }
+          ]
+        },
+        "Math - GitHub (BrowserEditor)": {
+          "shell": "pwsh",
+          "steps": [
+            {
+              "run": "$url = '${vars.mathRepoUrl}'; $browserEditor = '${vars.browserEditorExe}'; try { if (-not (Test-Path -LiteralPath $browserEditor)) { throw 'BrowserEditor missing' }; Start-Process -FilePath $browserEditor -ArgumentList @($url) -ErrorAction Stop } catch { Write-Warning 'Opening Math in the outer browser.'; Start-Process $url }"
+            }
+          ]
+        },
+        "Math - GitHub (outer browser)": {
+          "shell": "pwsh",
+          "steps": [
+            {
+              "run": "Start-Process '${vars.mathRepoUrl}'"
+            }
+          ]
+        },
+        "Math - Open in VS Code": {
+          "shell": "pwsh",
+          "cwd": "${vars.mathRepoPath}",
+          "steps": [
+            {
+              "run": "Start-Process code -ArgumentList '.'"
+            }
+          ]
+        },
+        "DevShell - Open in VS Code": {
+          "shell": "pwsh",
+          "cwd": "${vars.devshellRepoPath}",
+          "steps": [
+            {
+              "run": "code ."
+            }
+          ]
+        },
+        "DevShell - GitHub": {
+          "shell": "pwsh",
+          "steps": [
+            {
+              "run": "Start-Process '${vars.devshellRepoUrl}'"
+            }
+          ]
+        },
+        "DevShell - Build": {
+          "steps": [
+            {
+              "run": "& '${vars.nodeDirectory}\\node.exe' '${vars.npmCli}' --prefix DevShell/ui/dev-ui-react run build; if ($LASTEXITCODE -eq 0) { dotnet build BatchLauncher/BatchLauncher.csproj --configuration Debug }"
+            }
+          ],
+          "cwd": "${vars.devshellRepoPath}",
+          "runInNewTab": true,
+          "shell": "pwsh"
+        },
+        "Theory - Build PDF": {
+          "steps": [
+            {
+              "run": "latexmk -pdf main.tex"
+            }
+          ],
+          "cwd": "${vars.theoryRepoPath}",
+          "runInNewTab": true,
+          "shell": "pwsh"
+        },
+        "Theory - Open PDF": {
+          "steps": [
+            {
+              "run": "if (Test-Path 'build/main.pdf') { Start-Process 'build/main.pdf' } else { Write-Error 'Build the PDF first.' }"
+            }
+          ],
+          "cwd": "${vars.theoryRepoPath}",
+          "runInNewTab": true,
+          "shell": "pwsh"
+        },
+        "Math3D - Run": {
+          "steps": [
+            {
+              "run": "$env:MATH3D_PYTHON = '${vars.math3dPython}'; $env:PATH = '${vars.nodeDirectory};${vars.math3dEnvironment};${vars.math3dEnvironment}\\Library\\bin;${vars.math3dEnvironment}\\Scripts;' + $env:PATH; & '${vars.nodeDirectory}\\node.exe' '${vars.npmCli}' run dev"
+            }
+          ],
+          "cwd": "${vars.math3dRepoPath}",
+          "runInNewTab": true,
+          "shell": "pwsh"
+        },
+        "Math3D - Build": {
+          "steps": [
+            {
+              "run": "& { $ErrorActionPreference = 'Stop'; $env:MATH3D_PYTHON = '${vars.math3dPython}'; $env:PATH = '${vars.nodeDirectory};${vars.math3dEnvironment};${vars.math3dEnvironment}\\Library\\bin;${vars.math3dEnvironment}\\Scripts;' + $env:PATH; $logDir = Join-Path '${vars.math3dRepoPath}' '.devshell-logs'; New-Item -ItemType Directory -Force -Path $logDir | Out-Null; $log = Join-Path $logDir ('build-' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff') + '.txt'); Start-Transcript -Path $log -Force; try { Set-Location -LiteralPath '${vars.math3dRepoPath}'; Write-Host ('[build] Started: ' + (Get-Date -Format o)); Write-Host ('[build] Directory: ' + (Get-Location).Path); Write-Host '[build] Command: node npm-cli.js run build:core (main + renderer)'; Write-Host ('[build] Log: ' + $log); $PSNativeCommandUseErrorActionPreference = $false; & '${vars.nodeDirectory}\\node.exe' '${vars.npmCli}' run build:core; $buildExit = $LASTEXITCODE; if ($buildExit -ne 0) { throw ('Build exited with code ' + $buildExit) }; Write-Host '[build] SUCCEEDED' -ForegroundColor Green } catch { Write-Host ('[build] FAILED: ' + $_.Exception.Message) -ForegroundColor Red; throw } finally { Write-Host ('[build] Finished: ' + (Get-Date -Format o)); Stop-Transcript; Write-Host ('[build] Saved output: ' + $log) } }"
+            }
+          ],
+          "cwd": "${vars.math3dRepoPath}",
+          "runInNewTab": true,
+          "shell": "pwsh"
+        },
+        "DevShell - Run": {
+          "steps": [
+            {
+              "run": "Start-Process 'BatchLauncher/bin/Debug/net8.0-windows/BatchLauncher.exe'"
+            }
+          ],
+          "cwd": "${vars.devshellRepoPath}",
+          "runInNewTab": true,
+          "shell": "pwsh"
+        },
+        "Master - Pull All Repositories": {
+          "shell": "pwsh",
+          "cwd": "D:\\masters",
+          "steps": [
+            {
+              "run": "& 'D:\\masters\\devshell-launcher\\tools\\Update-MasterRepos.ps1'"
+            }
+          ],
+          "runInNewTab": true
+        },
+        "BrowserEditor - Build": {
+          "shell": "pwsh",
+          "cwd": "D:\\masters\\Browser-AI",
+          "steps": [
+            {
+              "run": "dotnet build BrowserAI.csproj --configuration 'Debug Stable APIs'"
+            }
+          ],
+          "runInNewTab": true
+        },
+        "BrowserEditor - Run": {
+          "shell": "pwsh",
+          "cwd": "D:\\masters\\Browser-AI",
+          "steps": [
+            {
+              "run": "Start-Process 'D:\\masters\\Browser-AI\\bin\\Debug Stable APIs\\net8.0-windows\\BrowserAI.exe'"
+            }
+          ]
+        },
+        "Math3D - GitHub (DevShell)": {
+          "url": "${vars.math3dRepoUrl}",
+          "type": "browser",
+          "group": "Math3D"
+        },
+        "Theory - GitHub (DevShell)": {
+          "url": "${vars.theoryRepoUrl}",
+          "type": "browser",
+          "group": "Theory"
+        },
+        "Math - GitHub (DevShell)": {
+          "url": "${vars.mathRepoUrl}",
+          "type": "browser",
+          "group": "Math"
+        },
+        "DevShell - GitHub (DevShell)": {
+          "url": "${vars.devshellRepoUrl}",
+          "type": "browser",
+          "group": "DevShell"
+        }
+      },
+      "quickTasks": [
+        "Math3D - GitHub (DevShell)",
+        "Theory - GitHub (DevShell)",
+        "Math - GitHub (DevShell)",
+        "DevShell - GitHub (DevShell)",
+        "Master - Pull All Repositories",
+        "Launcher health check",
+        "Open active URL in BrowserEditor",
+        "Math3D - GitHub (BrowserEditor)",
+        "Math3D - Open in VS Code",
+        "Math3D - GitHub (outer browser)",
+        "Theory - GitHub (BrowserEditor)",
+        "Theory - Open in VS Code",
+        "Theory - GitHub (outer browser)",
+        "Math - GitHub (BrowserEditor)",
+        "Math - Open in VS Code",
+        "Math - GitHub (outer browser)",
+        "DevShell - Open in VS Code",
+        "DevShell - GitHub"
+      ],
+      "pinned": true,
+      "repositories": [
+        {
+          "name": "Math3D",
+          "buildTask": "Math3D - Build",
+          "runTask": "Math3D - Run",
+          "id": "math3d",
+          "path": "${vars.math3dRepoPath}"
+        },
+        {
+          "name": "Theory",
+          "buildTask": "Theory - Build PDF",
+          "id": "theory",
+          "runTask": "Theory - Open PDF",
+          "path": "${vars.theoryRepoPath}",
+          "runLabel": "Open PDF"
+        },
+        {
+          "name": "Math",
+          "runTask": "Math - Open in VS Code",
+          "id": "math",
+          "path": "${vars.mathRepoPath}",
+          "runLabel": "Open"
+        },
+        {
+          "name": "DevShell",
+          "buildTask": "DevShell - Build",
+          "runTask": "DevShell - Run",
+          "id": "devshell",
+          "path": "${vars.devshellRepoPath}"
+        },
+        {
+          "runTask": "BrowserEditor - Run",
+          "id": "browsereditor",
+          "buildTask": "BrowserEditor - Build",
+          "path": "D:\\masters\\Browser-AI",
+          "name": "BrowserEditor"
+        }
+      ],
+      "requiredTools": [
+        "node",
+        "npm",
+        "dotnet",
+        "code",
+        "latexmk",
+        "${vars.browserEditorExe}"
+      ],
+      "bootstrap": {
+        "steps": [
+          {
+            "run": "$env:PATH = '${vars.nodeDirectory};${vars.npmDirectory};' + $env:PATH"
+          }
+        ],
+        "shell": "pwsh"
+      }
+    },
+    {
+      "id": "jupyter-studio",
+      "name": "Jupyter Studio",
+      "root": "D:\\masters\\devshell-launcher\\JupyterWorkspace",
+      "pinned": true,
+      "layout": {
+        "type": "tabs",
+        "items": [
+          {
+            "title": "Jupyter Lab Server",
+            "profileId": "pwsh",
+            "cwd": "D:\\masters\\devshell-launcher\\JupyterWorkspace",
+            "taskId": "Jupyter - Start Lab",
+            "autoRun": false
+          },
+          {
+            "title": "Notebook Workspace",
+            "profileId": "pwsh",
+            "cwd": "D:\\masters\\devshell-launcher\\JupyterWorkspace\\notebooks",
+            "taskId": "Jupyter - Environment Check",
+            "autoRun": false
+          },
+          {
+            "title": "Theory Python",
+            "profileId": "pwsh",
+            "cwd": "D:\\masters\\devshell-launcher\\JupyterWorkspace\\theory",
+            "autoRun": false
+          }
+        ]
+      },
+      "tasks": {
+        "Jupyter - Open Guide": {
+          "cwd": "D:\\masters\\devshell-launcher\\JupyterWorkspace",
+          "steps": [
+            {
+              "run": "Start-Process \"D:\\masters\\devshell-launcher\\JupyterWorkspace\\guide.html\""
+            }
+          ]
+        },
+        "Jupyter - Environment Check": {
+          "cwd": "D:\\masters\\devshell-launcher\\JupyterWorkspace",
+          "steps": [
+            {
+              "run": "& '${vars.jupyterPython}' -c \"import jupyterlab, notebook, numpy, pandas, matplotlib, sympy, ipywidgets; print('JupyterLab', jupyterlab.__version__)\""
+            }
+          ]
+        },
+        "Jupyter - Install Environment": {
+          "cwd": "D:\\masters\\devshell-launcher\\JupyterWorkspace",
+          "steps": [
+            {
+              "run": "if (-not (Test-Path '${vars.jupyterPython}')) { & '${vars.basePython}' -m venv 'D:\\masters\\.venvs\\devshell-jupyter'; if ($LASTEXITCODE -ne 0) { throw 'Environment creation failed' } }; & '${vars.jupyterPython}' -m pip install -r requirements.txt psutil"
+            }
+          ]
+        },
+        "Jupyter - Start Lab": {
+          "shell": "pwsh",
+          "steps": [],
+          "serviceAction": "start"
+        },
+        "Jupyter - Open Lab": {
+          "shell": "pwsh",
+          "steps": [],
+          "serviceAction": "open"
+        },
+        "Jupyter - Open Start Here": {
+          "servicePath": "notebooks/00_start_here.ipynb",
+          "steps": [],
+          "serviceAction": "open",
+          "shell": "pwsh"
+        },
+        "Jupyter - Open Data Exploration": {
+          "servicePath": "notebooks/01_data_exploration.ipynb",
+          "steps": [],
+          "serviceAction": "open",
+          "shell": "pwsh"
+        },
+        "Jupyter - Open Math3D Vectors": {
+          "servicePath": "notebooks/02_math3d_vectors.ipynb",
+          "steps": [],
+          "serviceAction": "open",
+          "shell": "pwsh"
+        },
+        "Jupyter - Open Symbolic Mathematics": {
+          "servicePath": "notebooks/03_symbolic_mathematics.ipynb",
+          "steps": [],
+          "serviceAction": "open",
+          "shell": "pwsh"
+        },
+        "Jupyter - List Servers": {
+          "cwd": "D:\\masters\\devshell-launcher\\JupyterWorkspace",
+          "steps": [
+            {
+              "run": "& '${vars.jupyterPython}' -m jupyter server list"
+            }
+          ]
+        },
+        "Jupyter - Stop Lab": {
+          "shell": "pwsh",
+          "steps": [],
+          "serviceAction": "stop"
+        },
+        "Jupyter - Open Workspace in VS Code": {
+          "cwd": "D:\\masters\\devshell-launcher\\JupyterWorkspace",
+          "steps": [
+            {
+              "run": "Start-Process code -ArgumentList \".\""
+            }
+          ]
+        },
+        "Jupyter - Restart Lab": {
+          "shell": "pwsh",
+          "steps": [],
+          "serviceAction": "restart"
+        },
+        "Theory - Open Index": {
+          "steps": [],
+          "shell": "pwsh",
+          "serviceAction": "open",
+          "servicePath": "theory/INDEX.ipynb"
+        },
+        "Theory - Browse Python": {
+          "steps": [],
+          "shell": "pwsh",
+          "serviceAction": "open",
+          "servicePath": "theory/examples/python"
+        },
+        "Theory - Check Environment": {
+          "shell": "pwsh",
+          "cwd": "D:\\masters\\devshell-launcher\\JupyterWorkspace\\theory",
+          "steps": [
+            {
+              "run": "& '${vars.jupyterPython}' -c \"import numpy, matplotlib, sympy, scipy, pytest; print('Theory environment ready')\""
+            }
+          ]
+        },
+        "Theory - Install Dependencies": {
+          "shell": "pwsh",
+          "cwd": "D:\\masters\\devshell-launcher\\JupyterWorkspace\\theory",
+          "steps": [
+            {
+              "run": "& '${vars.jupyterPython}' -m pip install -r requirements.txt"
+            }
+          ]
+        }
+      },
+      "quickTasks": [
+        "Jupyter - Start Lab",
+        "Jupyter - Stop Lab",
+        "Jupyter - Restart Lab",
+        "Jupyter - Open Lab",
+        "Theory - Open Index",
+        "Theory - Browse Python",
+        "Theory - Check Environment",
+        "Theory - Install Dependencies",
+        "Jupyter - Open Guide",
+        "Jupyter - Environment Check",
+        "Jupyter - Install Environment",
+        "Jupyter - Open Start Here",
+        "Jupyter - Open Data Exploration",
+        "Jupyter - Open Math3D Vectors",
+        "Jupyter - Open Symbolic Mathematics",
+        "Jupyter - List Servers",
+        "Jupyter - Open Workspace in VS Code"
+      ],
+      "pythonEnvironment": "D:\\masters\\.venvs\\devshell-jupyter",
+      "service": {
+        "python": "${vars.jupyterPython}",
+        "port": 8890,
+        "name": "Jupyter Lab"
+      },
+      "bootstrap": {
+        "shell": "pwsh",
+        "steps": [
+          {
+            "run": "$env:VIRTUAL_ENV = 'D:\\masters\\.venvs\\devshell-jupyter'; $env:PATH = \"$env:VIRTUAL_ENV\\Scripts;\" + (($env:PATH -split ';' | Where-Object { $_ -ne \"$env:VIRTUAL_ENV\\Scripts\" }) -join ';')"
+          }
+        ]
+      },
+      "pythonModules": [
+        "jupyterlab",
+        "numpy",
+        "pandas",
+        "matplotlib",
+        "sympy",
+        "scipy",
+        "pytest",
+        "ipywidgets",
+        "psutil"
+      ]
+    }
+  ],
+  "workspaces": []
+}
+
+

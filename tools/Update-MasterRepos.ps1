@@ -1,4 +1,4 @@
-param([string]$Root = 'G:\master')
+param([string]$Root = 'D:\masters')
 $ErrorActionPreference = 'Stop'
 $repositories = [ordered]@{
     'Math3D' = 'https://github.com/expert10000/Math3D.git'
@@ -15,3 +15,4 @@ foreach ($entry in $repositories.GetEnumerator()) {
 }
 if ($failures.Count) { throw ('Repositories needing attention: ' + ($failures -join ', ')) }
 Write-Host 'All master repositories updated.'
+

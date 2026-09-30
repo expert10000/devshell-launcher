@@ -3,7 +3,8 @@
   "globals": {
     "defaultShell": "pwsh",
     "vars": {
-      "browserEditorExe": "G:\\BrowserProject\\bin\\Debug\\net8.0-windows\\BrowserAI.exe"
+      "browserEditorExe": "G:\\BrowserProject\\bin\\Debug\\net8.0-windows\\BrowserAI.exe",
+      "workRoot": "G:\\work"
     },
     "terminal": {
       "fontSize": 14,
@@ -877,7 +878,184 @@
       "quickTasks": [
         "Math3D build + dev"
       ]
+    },
+    {
+      "id": "github-new-project",
+      "name": "GitHub: New Project",
+      "root": "${vars.workRoot}\\github-new-project",
+      "layout": {
+        "type": "tabs",
+        "items": [
+          {
+            "title": "Project shell",
+            "profileId": "pwsh",
+            "cwd": "${vars.workRoot}\\github-new-project",
+            "taskId": "Open shell"
+          }
+        ]
+      },
+      "tasks": {
+        "Open shell": {
+          "cwd": "${vars.workRoot}\\github-new-project",
+          "steps": [
+            {
+              "run": "Write-Output \"Ready for new project work\""
+            }
+          ]
+        },
+        "Open in VS Code": {
+          "cwd": "${vars.workRoot}\\github-new-project",
+          "steps": [
+            { "run": "Start-Process code -ArgumentList '.'" }
+          ]
+        },
+        "Run project": {
+          "cwd": "${vars.workRoot}\\github-new-project",
+          "steps": [
+            {
+              "run": "Write-Output \"Set this task command in scripts.json (example: npm run dev / dotnet run / python app.py)\""
+            }
+          ]
+        }
+      },
+      "quickTasks": [
+        "Open shell",
+        "Open in VS Code",
+        "Run project"
+      ]
+    },
+    {
+      "id": "github-repos-starter",
+      "name": "GitHub Repos Starter",
+      "root": "${vars.workRoot}\\github-repos",
+      "vars": {
+        "repoUrl": "https://github.com/owner/repo.git",
+        "repoName": "repo"
+      },
+      "layout": {
+        "type": "split",
+        "direction": "vertical",
+        "panes": [
+          {
+            "type": "tabs",
+            "items": [
+              {
+                "title": "GitHub Repos",
+                "profileId": "pwsh",
+                "cwd": "${vars.workRoot}\\github-repos",
+                "taskId": "Shell in repos"
+              },
+              {
+                "title": "Last Repo Shell",
+                "profileId": "pwsh",
+                "cwd": "${vars.workRoot}\\github-repos\\${vars.repoName}",
+                "taskId": "Open last repo"
+              }
+            ]
+          }
+        ]
+      },
+      "tasks": {
+        "Shell in repos": {
+          "cwd": "${vars.workRoot}\\github-repos",
+          "steps": [
+            { "run": "Write-Output \"Use GitHub Repos Starter tasks to clone and launch new repos.\""},
+            { "run": "Get-ChildItem" }
+          ]
+        },
+        "Clone repo": {
+          "cwd": "${vars.workRoot}\\github-repos",
+          "steps": [
+            {
+              "run": "if (Test-Path \"${vars.repoName}\") { git -C \"${vars.repoName}\" pull } else { git clone \"${vars.repoUrl}\" \"${vars.repoName}\" }"
+            }
+          ]
+        },
+        "Open last repo": {
+          "cwd": "${vars.workRoot}\\github-repos",
+          "steps": [
+            {
+              "run": "Set-Location \"${vars.repoName}\"; Write-Output \"Opened ${vars.repoName}\""
+            }
+          ]
+        },
+        "Open in VS Code": {
+          "cwd": "${vars.workRoot}\\github-repos\\${vars.repoName}",
+          "steps": [
+            { "run": "Start-Process code -ArgumentList '.'" }
+          ]
+        },
+        "Run from package.json": {
+          "group": "Run",
+          "cwd": "${vars.workRoot}\\github-repos\\${vars.repoName}",
+          "dependsOn": [
+            "Install frontend deps"
+          ],
+          "steps": [
+            { "run": "npm install" },
+            { "run": "npm run dev" }
+          ]
+        },
+        "Install frontend deps": {
+          "group": "Run",
+          "cwd": "${vars.workRoot}\\github-repos\\${vars.repoName}",
+          "steps": [
+            { "run": "npm install" }
+          ]
+        },
+        "Run backend .NET": {
+          "group": "Run",
+          "cwd": "${vars.workRoot}\\github-repos\\${vars.repoName}",
+          "steps": [
+            { "run": "dotnet restore" },
+            { "run": "dotnet run" }
+          ]
+        },
+        "Run backend Python": {
+          "group": "Run",
+          "cwd": "${vars.workRoot}\\github-repos\\${vars.repoName}",
+          "steps": [
+            { "run": "python -m venv .venv; . .\\.venv\\Scripts\\Activate.ps1; python -m pip install -r requirements.txt; python app.py" }
+          ]
+        }
+      },
+      "quickTasks": [
+        "Shell in repos",
+        "Clone repo",
+        "Open in VS Code"
+      ]
     }
   ],
-  "workspaces": []
+  "workspaces": [
+    {
+      "id": "github-repos-starter-launch",
+      "name": "GitHub Repos Starter",
+      "projectId": "github-repos-starter",
+      "openTabs": [
+        {
+          "task": "Shell in repos",
+          "title": "Repos shell"
+        },
+        {
+          "task": "Open in VS Code",
+          "title": "Starter VS Code"
+        }
+      ]
+    },
+    {
+      "id": "github-new-project-start",
+      "name": "Start GitHub New Project",
+      "projectId": "github-new-project",
+      "openTabs": [
+        {
+          "task": "Open shell",
+          "title": "Shell"
+        },
+        {
+          "task": "Open in VS Code",
+          "title": "VS Code"
+        }
+      ]
+    }
+  ]
 }

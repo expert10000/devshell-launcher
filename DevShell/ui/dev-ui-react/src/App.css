@@ -2593,3 +2593,11 @@
 .repositories-page .repo-files { max-height: 260px; overflow-y: auto; }
 .theme-daylight .repositories-page { background: #f9fcff; color: #182638; }
 .theme-daylight .repositories-page .repo-card { background: white; }
+.repo-run-after { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-top: 16px; }
+.repo-job-status { display: flex; align-items: center; gap: 6px; margin-top: 12px; font-size: 13px; text-transform: capitalize; }
+.repo-job-status.failed { color: #d85645; }
+.repo-job-status.succeeded { color: #2c9b59; }
+.job-spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid #8c9bab66; border-top-color: #39a9df; border-radius: 50%; animation: job-spin 1s linear infinite; }
+@keyframes job-spin { to { transform: rotate(360deg); } }
+.repository-log-dialog { width: min(1000px, 92vw); }
+.repository-log { height: 48vh; overflow: auto; padding: 16px; background: #111a24; color: #dce8f5; font: 13px/1.5 Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; border-radius: 10px; }

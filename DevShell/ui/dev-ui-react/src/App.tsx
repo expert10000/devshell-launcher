@@ -14,6 +14,8 @@ import 'xterm/css/xterm.css'
 import './App.css'
 
 type BackendMessage = {
+  jobs?: RepositoryJob[]
+  key?: string
   repositories?: RepositoryStatus[]
   checks?: HealthCheck[]
   checkedAt?: string
@@ -179,6 +181,7 @@ type ResolvedTaskStep = {
 
 type RepositoryStatus = { projectId: string; id: string; path: string; branch?: string; upstream?: string; ahead?: number; behind?: number; changed: number; files: string[]; error?: string }
 type HealthCheck = { name: string; state: string; detail: string }
+type RepositoryJob = { key: string; state: string; buildState: string; exitCode?: number; log: string; logPath: string }
 
 type ResolvedTask = {
   type?: 'browser'
@@ -441,6 +444,10 @@ const App = () => {
   })
   const [taskProjectId, setTaskProjectId] = useState<string | null>(null)
   const [dashboard, setDashboard] = useState<BackendMessage | null>(null)
+  const [repositoryJobs, setRepositoryJobs] = useState<RepositoryJob[]>([])
+  const [runAfterBuild, setRunAfterBuild] = useState<Record<string, boolean>>({})
+  const [jobErrors, setJobErrors] = useState<Record<string, string>>({})
+  const [logJobKey, setLogJobKey] = useState<string | null>(null)
   const [repositoriesView, setRepositoriesView] = useState(true)
   const [healthOpen, setHealthOpen] = useState(false)
   const [dashboardLoading, setDashboardLoading] = useState(false)
@@ -3059,11 +3066,28 @@ const App = () => {
     return () => { clearInterval(timer); bridge.removeEventListener('message', receive) }
   }, [bridge, activeWorkspaceProfileId, projects])
 
-  const runRepositoryAction = (project: ProjectDefinition, taskName?: string) => {
-    if (!taskName) return
-    const task = resolveWorkspaceTask(project, taskName)
-    if (task) { setRepositoriesView(false); handleWorkspaceTaskRunInNewTab(task) }
+  const repositoryAction = (projectId: string, repositoryId: string, action: 'build' | 'run' | 'stop' | 'log') => {
+    const key = `${activeWorkspaceProfileId}:${projectId}:${repositoryId}`
+    setJobErrors((current) => ({ ...current, [key]: '' }))
+    if (action === 'build' || action === 'run') {
+      setRepositoryJobs((current) => [...current.filter((job) => job.key !== key), { key, state: 'queued', buildState: action === 'build' ? 'queued' : 'not-run', log: '', logPath: '' }])
+    }
+    postMessage({ type: 'repository.job', projectId, repositoryId, action, runAfter: runAfterBuild[key] ?? false })
   }
+
+  useEffect(() => {
+    if (!bridge) return
+    const receive = (event: MessageEvent) => {
+      const message = parseMessage(event)
+      if (message?.type === 'repository.jobs') setRepositoryJobs(message.jobs ?? [])
+      if (message?.type === 'repository.job.error' && message.key) setJobErrors((current) => ({ ...current, [message.key!]: message.message ?? 'Action failed' }))
+    }
+    bridge.addEventListener('message', receive)
+    const poll = () => postMessage({ type: 'repository.job', action: 'status' })
+    poll()
+    const timer = window.setInterval(poll, 1000)
+    return () => { clearInterval(timer); bridge.removeEventListener('message', receive) }
+  }, [bridge])
 
   const controlService = (projectId: string, action: NonNullable<WorkspaceTask['serviceAction']>, path?: string, target?: 'external') => {
     const key = `${activeWorkspaceProfileId}:${projectId}`
@@ -4580,6 +4604,9 @@ const App = () => {
               <div className="service-heading"><h2>{project.name}</h2><button className="project-filter" disabled={dashboardLoading} onClick={refreshDashboard}>{dashboardLoading ? 'Checking…' : 'Refresh'}</button></div>
               <p className="service-detail">Upstream counts use the last fetch. Updated {dashboard?.checkedAt ? new Date(dashboard.checkedAt).toLocaleTimeString() : '—'}.</p>
               <div className="repository-grid">{project.repositories?.map((repo) => {
+                const jobKey = `${activeWorkspaceProfileId}:${project.id}:${repo.id}`
+                const job = repositoryJobs.find((item) => item.key === jobKey)
+                const busy = job && ['queued', 'building', 'running'].includes(job.state)
                 const status = dashboard?.repositories?.find((item) => item.projectId === project.id && item.id === repo.id)
                 return <article className="repo-card" key={repo.id}>
                   <h3>{repo.name}</h3><div className="repo-path">{status?.path ?? repo.path}</div>
@@ -4589,9 +4616,14 @@ const App = () => {
                     {status.files.length > 0 && <details><summary>Changed files</summary><ul className="repo-files">{status.files.map((file) => <li key={file}>{file}</li>)}</ul>{status.changed > status.files.length && <p>Showing first {status.files.length} files.</p>}</details>}
                   </>}
                   <div className="service-actions">
-                    <button disabled={!repo.buildTask || !status || !!status.error} title={repo.buildTask ?? 'No build command configured for this repository'} onClick={() => runRepositoryAction(project, repo.buildTask)}>Build</button>
-                    <button disabled={!repo.runTask || !status || !!status.error} title={repo.runTask ?? 'No run command configured'} onClick={() => runRepositoryAction(project, repo.runTask)}>{repo.runLabel ?? 'Run'}</button>
+                    <button disabled={busy || !repo.buildTask || !status || !!status.error} title={repo.buildTask ?? 'No build command configured for this repository'} onClick={() => repositoryAction(project.id, repo.id, 'build')}>Build</button>
+                    <button disabled={busy || !repo.runTask || !status || !!status.error} title={repo.runTask ?? 'No run command configured'} onClick={() => repositoryAction(project.id, repo.id, 'run')}>{repo.runLabel ?? 'Run'}</button>
+                    <button disabled={!busy} onClick={() => repositoryAction(project.id, repo.id, 'stop')}>Stop</button>
+                    <button disabled={!job} onClick={() => setLogJobKey(jobKey)}>Logs</button>
                   </div>
+                  {repo.buildTask && repo.runTask && <label className="repo-run-after"><input type="checkbox" checked={runAfterBuild[jobKey] ?? false} disabled={busy} onChange={(event) => setRunAfterBuild((current) => ({ ...current, [jobKey]: event.target.checked }))} /> {repo.runLabel === 'Open PDF' ? 'Open PDF after successful build' : 'Run after successful build'}</label>}
+                  {job && <div className={`repo-job-status ${job.state}`} role="status">{busy && <span className="job-spinner" />} {job.state} · Build: {job.buildState}{job.exitCode != null ? ` · Exit ${job.exitCode}` : ''}</div>}
+                  {jobErrors[jobKey] && <p className="check-error">{jobErrors[jobKey]}</p>}
                   {!repo.buildTask && <div className="service-detail">Build: not configured</div>}
                 </article>
               })}</div>
@@ -5301,6 +5333,15 @@ const App = () => {
         </div>
       )}
 
+      {logJobKey && <div className="project-editor-overlay" onClick={() => setLogJobKey(null)}>
+        <section className="health-dialog repository-log-dialog" role="dialog" aria-modal="true" aria-label="Repository logs" onClick={(event) => event.stopPropagation()}>
+          <div className="service-heading"><h2>Repository logs</h2><button onClick={() => setLogJobKey(null)}>Close</button></div>
+          <p>Latest output · full logs are saved on disk.</p>
+          <pre className="repository-log">{repositoryJobs.find((job) => job.key === logJobKey)?.log || 'Waiting for output…'}</pre>
+          <div className="repo-path">{repositoryJobs.find((job) => job.key === logJobKey)?.logPath}</div>
+          <button onClick={() => { const parts = logJobKey.split(':'); if (parts[0] === activeWorkspaceProfileId) repositoryAction(parts[1], parts[2], 'log') }}>Open full log</button>
+        </section>
+      </div>}
       {healthOpen && <div className="project-editor-overlay" onClick={() => setHealthOpen(false)}>
         <section className="health-dialog" role="dialog" aria-modal="true" aria-label="Profile health check" onClick={(event) => event.stopPropagation()}>
           <div className="service-heading"><h2>Profile health check</h2><button onClick={() => setHealthOpen(false)}>Close</button></div>

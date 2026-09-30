@@ -269,7 +269,12 @@
           "buildTask": "Math3D - Build",
           "runTask": "Math3D - Run",
           "id": "math3d",
-          "path": "${vars.math3dRepoPath}"
+          "path": "${vars.math3dRepoPath}",
+          "url": "https://github.com/expert10000/Math3D.git",
+          "requiredTools": [
+            "node",
+            "npm"
+          ]
         },
         {
           "name": "Theory",
@@ -277,21 +282,37 @@
           "id": "theory",
           "runTask": "Theory - Open PDF",
           "path": "${vars.theoryRepoPath}",
-          "runLabel": "Open PDF"
+          "runLabel": "Open PDF",
+          "url": "https://github.com/expert10000/theory.git",
+          "requiredTools": [
+            "latexmk"
+          ]
         },
         {
           "name": "Math",
           "runTask": "Math - Open in VS Code",
           "id": "math",
           "path": "${vars.mathRepoPath}",
-          "runLabel": "Open"
+          "runLabel": "Open",
+          "url": "https://github.com/expert10000/math.git",
+          "requiredTools": []
         },
         {
           "name": "DevShell",
           "buildTask": "DevShell - Build",
           "runTask": "DevShell - Run",
           "id": "devshell",
-          "path": "${vars.devshellRepoPath}"
+          "path": "${vars.devshellRepoPath}",
+          "url": "https://github.com/expert10000/devshell-launcher.git",
+          "requiredTools": [
+            "node",
+            "npm",
+            "dotnet"
+          ],
+          "dependencyFolders": [
+            "BatchLauncher",
+            "DevShell/ui/dev-ui-react"
+          ]
         }
       ],
       "requiredTools": [

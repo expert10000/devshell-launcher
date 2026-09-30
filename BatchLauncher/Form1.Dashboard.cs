@@ -5,10 +5,11 @@ namespace BatchLauncher;
 public partial class Form1
 {
     private readonly SemaphoreSlim _dashboardGate = new(1, 1);
+    private bool _dashboardPending;
 
     private async Task HandleDashboardRequestAsync()
     {
-        if (!await _dashboardGate.WaitAsync(0)) return;
+        if (!await _dashboardGate.WaitAsync(0)) { _dashboardPending = true; return; }
         var profileId = _activeWorkspaceProfileId;
         var projects = _workspace.Projects?.ToList() ?? new();
         var globals = new Dictionary<string, string>(_workspace.Globals?.Vars ?? new());
@@ -39,6 +40,24 @@ public partial class Form1
                     checks.Add(new(repo.Name + " repository", status.Error == null ? "ok" : "error", status.Error ?? status.Path));
                     foreach (var task in new[] { repo.BuildTask, repo.RunTask }.Where(task => task != null))
                         if (project.Tasks?.ContainsKey(task!) != true) checks.Add(new(repo.Name + " action", "error", $"Missing task: {task}"));
+                    var toolPaths = new Dictionary<string, string>();
+                    if (globals.TryGetValue("nodeDirectory", out var nodeDirectory)) toolPaths["node"] = Path.Combine(nodeDirectory, "node.exe");
+                    if (globals.TryGetValue("npmCli", out var npmCli)) toolPaths["npm"] = npmCli;
+                    checks.AddRange(await RepositoryEnvironment.Inspect(project.Id, repo.Id, Expand(project, repo.Path),
+                        (repo.RequiredTools ?? new()).Select(tool => Expand(project, tool)),
+                        repo.PythonEnvironment == null ? null : Expand(project, repo.PythonEnvironment), repo.PythonModules, toolPaths));
+                    foreach (var folder in repo.DependencyFolders ?? new())
+                    {
+                        var root = Path.GetFullPath(Expand(project, repo.Path)).TrimEnd(Path.DirectorySeparatorChar);
+                        var dependencyPath = Path.GetFullPath(Path.Combine(root, folder));
+                        if (!dependencyPath.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                        {
+                            checks.Add(new("Dependency folder", "error", "Must be inside the repository: " + folder, project.Id, repo.Id));
+                            continue;
+                        }
+                        checks.AddRange((await RepositoryEnvironment.Inspect(project.Id, repo.Id, dependencyPath, Array.Empty<string>(), toolPaths: toolPaths))
+                            .Select(check => check with { Name = folder + " · " + check.Name }));
+                    }
                 }
                 if (project.PythonEnvironment != null)
                 {
@@ -83,6 +102,7 @@ public partial class Form1
         {
             SendMessage(new { type = "dashboard.result", profileId, repositories, checks, checkedAt = DateTimeOffset.Now.ToString("O") });
             _dashboardGate.Release();
+            if (_dashboardPending) { _dashboardPending = false; _ = HandleDashboardRequestAsync(); }
         }
     }
 }

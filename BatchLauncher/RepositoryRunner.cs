@@ -4,7 +4,7 @@ using System.Text;
 namespace BatchLauncher;
 
 public sealed record RepositoryCommand(string Shell, string Script, string Cwd);
-public sealed record RepositoryJobStatus(string Key, string State, string BuildState, int? ExitCode, string Log, string LogPath);
+public sealed record RepositoryJobStatus(string Key, string State, string BuildState, int? ExitCode, string Log, string LogPath, string Action);
 
 public sealed class RepositoryRunner : IDisposable
 {
@@ -16,11 +16,13 @@ public sealed class RepositoryRunner : IDisposable
         public string State = "queued", BuildState = "not-run", LogPath = "";
         public int? ExitCode;
         public volatile bool Active = true;
+        public string Action = "run";
+        public readonly TaskCompletionSource<RepositoryJobStatus> Completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
     private readonly Dictionary<string, Job> _jobs = new();
     private readonly object _sync = new();
     private bool _disposed;
-    public bool Start(string key, RepositoryCommand? build, RepositoryCommand? run, string logDirectory)
+    public bool Start(string key, RepositoryCommand? build, RepositoryCommand? run, string logDirectory, string? action = null)
     {
         Job job;
         lock (_sync)
@@ -28,19 +30,28 @@ public sealed class RepositoryRunner : IDisposable
             if (_disposed) throw new ObjectDisposedException(nameof(RepositoryRunner));
             if (_jobs.TryGetValue(key, out var previous) && previous.Active) return false;
             Directory.CreateDirectory(logDirectory);
-            job = new Job { LogPath = Path.Combine(logDirectory, $"repo-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.log") };
-            if (build == null && previous != null) job.BuildState = previous.BuildState;
+            job = new Job { Action = action ?? (build != null ? "build" : "run"), LogPath = Path.Combine(logDirectory, $"repo-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.log") };
+            if (build == null && previous != null && (action == null || action is "run" or "fetch")) job.BuildState = previous.BuildState;
             _jobs[key] = job;
         }
-        _ = Task.Run(() => Execute(job, build, run));
+        _ = Task.Run(async () =>
+        {
+            await Execute(job, build, run);
+            lock (job.Sync) job.Completion.TrySetResult(Status(key, job));
+        });
         return true;
     }
     public List<RepositoryJobStatus> Snapshot()
     {
         lock (_sync) return _jobs.Select(pair =>
         {
-            lock (pair.Value.Sync) return new RepositoryJobStatus(pair.Key, pair.Value.State, pair.Value.BuildState, pair.Value.ExitCode, pair.Value.Log.ToString(), pair.Value.LogPath);
+            lock (pair.Value.Sync) return Status(pair.Key, pair.Value);
         }).ToList();
+    }
+    private static RepositoryJobStatus Status(string key, Job job) => new(key, job.State, job.BuildState, job.ExitCode, job.Log.ToString(), job.LogPath, job.Action);
+    public Task<RepositoryJobStatus> Completion(string key)
+    {
+        lock (_sync) return _jobs[key].Completion.Task;
     }
     public void Stop(string key)
     {
@@ -65,7 +76,7 @@ public sealed class RepositoryRunner : IDisposable
                 if (command == null) continue;
                 job.Cancellation.Token.ThrowIfCancellationRequested();
                 lock (job.Sync) { job.State = phase; if (phase == "building") job.BuildState = "building"; }
-                Append($"[{DateTime.Now:T}] {phase} — {command.Cwd}");
+                Append($"[{DateTime.Now:T}] {job.Action}: {phase} — {command.Cwd}");
                 var start = new ProcessStartInfo(command.Shell) { WorkingDirectory = command.Cwd, UseShellExecute = false, CreateNoWindow = true,
                     RedirectStandardOutput = true, RedirectStandardError = true, RedirectStandardInput = true };
                 foreach (var arg in new[] { "-NoLogo", "-NoProfile", "-NonInteractive", "-OutputFormat", "Text", "-EncodedCommand", Convert.ToBase64String(Encoding.Unicode.GetBytes("[Console]::ReadLine() | Out-Null\n" + command.Script)) }) start.ArgumentList.Add(arg);

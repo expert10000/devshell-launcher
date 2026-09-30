@@ -169,7 +169,7 @@
         "DevShell - Build": {
           "steps": [
             {
-              "run": "npm --prefix DevShell/ui/dev-ui-react run build; if ($LASTEXITCODE -eq 0) { dotnet build BatchLauncher/BatchLauncher.csproj --configuration Debug }"
+              "run": "npm --prefix DevShell/ui/dev-ui-react run build; if ($LASTEXITCODE -eq 0) { dotnet build BatchLauncher/BatchLauncher.csproj --configuration Debug --output BatchLauncher/bin/Managed }"
             }
           ],
           "cwd": "${vars.devshellRepoPath}",
@@ -219,7 +219,7 @@
         "DevShell - Run": {
           "steps": [
             {
-              "run": "Start-Process 'BatchLauncher/bin/Debug/net8.0-windows/BatchLauncher.exe'"
+              "run": "if (-not (Test-Path 'BatchLauncher/bin/Managed/BatchLauncher.exe')) { throw 'Build DevShell first.' }; Start-Process 'BatchLauncher/bin/Managed/BatchLauncher.exe' -Wait"
             }
           ],
           "cwd": "${vars.devshellRepoPath}",
@@ -273,7 +273,12 @@
           "buildTask": "Math3D - Build",
           "runTask": "Math3D - Run",
           "id": "math3d",
-          "path": "${vars.math3dRepoPath}"
+          "path": "${vars.math3dRepoPath}",
+          "url": "https://github.com/expert10000/Math3D.git",
+          "requiredTools": [
+            "node",
+            "npm"
+          ]
         },
         {
           "name": "Theory",
@@ -281,21 +286,37 @@
           "id": "theory",
           "runTask": "Theory - Open PDF",
           "path": "${vars.theoryRepoPath}",
-          "runLabel": "Open PDF"
+          "runLabel": "Open PDF",
+          "url": "https://github.com/expert10000/theory.git",
+          "requiredTools": [
+            "latexmk"
+          ]
         },
         {
           "name": "Math",
           "runTask": "Math - Open in VS Code",
           "id": "math",
           "path": "${vars.mathRepoPath}",
-          "runLabel": "Open"
+          "runLabel": "Open",
+          "url": "https://github.com/expert10000/math.git",
+          "requiredTools": []
         },
         {
           "name": "DevShell",
           "buildTask": "DevShell - Build",
           "runTask": "DevShell - Run",
           "id": "devshell",
-          "path": "${vars.devshellRepoPath}"
+          "path": "${vars.devshellRepoPath}",
+          "url": "https://github.com/expert10000/devshell-launcher.git",
+          "requiredTools": [
+            "node",
+            "npm",
+            "dotnet"
+          ],
+          "dependencyFolders": [
+            "BatchLauncher",
+            "DevShell/ui/dev-ui-react"
+          ]
         }
       ],
       "requiredTools": [

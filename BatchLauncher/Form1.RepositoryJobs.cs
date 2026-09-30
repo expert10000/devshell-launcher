@@ -6,6 +6,16 @@ namespace BatchLauncher;
 public partial class Form1
 {
     private readonly RepositoryRunner _repositoryRunner = new();
+    private RepositoryUpdateQueue? _repositoryUpdates;
+    private RepositoryUpdateQueue RepositoryUpdates => _repositoryUpdates ??= new(_repositoryRunner);
+    private static string RepositoryLogDirectory => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DevShellLauncher", "repository-logs");
+    private RepositoryCommand CreateGitCommand(WorkspaceProject project, WorkspaceRepository repo, string action)
+    {
+        var shell = _profiles.FirstOrDefault(profile => profile.Id == "pwsh") ?? throw new InvalidOperationException("PowerShell profile missing.");
+        if (!_terminalManager.TryResolveProfileCommand(shell, out var command)) throw new InvalidOperationException("PowerShell is unavailable.");
+        return RepositoryGitCommand.Create(command.Application, Path.Combine(AppContext.BaseDirectory, "tools", "Sync-Repository.ps1"),
+            ExpandProjectValue(project, repo.Path), repo.Url == null ? null : ExpandProjectValue(project, repo.Url), action, AppContext.BaseDirectory);
+    }
     private RepositoryCommand CreateRepositoryCommand(WorkspaceProject project, string taskName, string cwd)
     {
         var script = new StringBuilder("$ErrorActionPreference = 'Stop'\n$PSNativeCommandUseErrorActionPreference = $true\ntry {\n");
@@ -48,6 +58,27 @@ public partial class Form1
     {
         var action = payload.GetProperty("action").GetString();
         if (action == "status") { SendRepositoryJobs(); return Task.CompletedTask; }
+        if (action is "update-all" or "stop-all")
+        {
+            try
+            {
+                if (action == "stop-all") RepositoryUpdates.Stop();
+                else
+                {
+                    var profileId = _activeWorkspaceProfileId;
+                    var items = (_workspace.Projects ?? new()).SelectMany(project => (project.Repositories ?? new()).Select(repo =>
+                        new RepositoryUpdateItem($"{profileId}:{project.Id}:{repo.Id}", repo.Name, () => CreateGitCommand(project, repo, "sync")))).ToList();
+                    // Resolve commands on the UI thread, since shell profiles belong to the form.
+                    var commands = new Dictionary<string, RepositoryCommand>();
+                    var errors = new Dictionary<string, Exception>();
+                    foreach (var item in items) { try { commands[item.Key] = item.Command(); } catch (Exception error) { errors[item.Key] = error; } }
+                    RepositoryUpdates.Start(profileId!, items.Select(item => item with { Command = () => commands.TryGetValue(item.Key, out var command) ? command : throw errors[item.Key] }).ToList(), RepositoryLogDirectory);
+                }
+            }
+            catch (Exception error) { SendMessage(new { type = "repository.job.error", key = $"{_activeWorkspaceProfileId}:update-all", message = error.Message }); }
+            SendRepositoryJobs();
+            return Task.CompletedTask;
+        }
         var projectId = payload.GetProperty("projectId").GetString();
         var repositoryId = payload.GetProperty("repositoryId").GetString();
         var key = $"{_activeWorkspaceProfileId}:{projectId}:{repositoryId}";
@@ -60,20 +91,22 @@ public partial class Form1
                 if (job != null && File.Exists(job.LogPath))
                     System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(job.LogPath) { UseShellExecute = true });
             }
-            else if (action is "build" or "run")
+            else if (action is "build" or "run" or "fetch" or "pull" or "clone")
             {
+                if (RepositoryUpdates.Owns(key)) throw new InvalidOperationException("This repository is reserved by Update All. Stop the queue before starting another action.");
                 var project = _workspace.Projects?.FirstOrDefault(p => p.Id == projectId) ?? throw new InvalidOperationException("Project not found.");
                 var repo = project.Repositories?.FirstOrDefault(r => r.Id == repositoryId) ?? throw new InvalidOperationException("Repository not found.");
                 var cwd = ExpandProjectValue(project, repo.Path);
                 var build = action == "build" ? CreateRepositoryCommand(project, repo.BuildTask ?? throw new InvalidOperationException("Build is not configured."), cwd) : null;
-                var runAfter = payload.TryGetProperty("runAfter", out var value) && value.GetBoolean();
-                var run = action == "run" || runAfter ? CreateRepositoryCommand(project, repo.RunTask ?? throw new InvalidOperationException("Run is not configured."), cwd) : null;
-                _repositoryRunner.Start(key, build, run, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DevShellLauncher", "repository-logs"));
+                var runAfter = action == "build" && payload.TryGetProperty("runAfter", out var value) && value.GetBoolean();
+                var run = action is "fetch" or "pull" or "clone" ? CreateGitCommand(project, repo, action)
+                    : action == "run" || runAfter ? CreateRepositoryCommand(project, repo.RunTask ?? throw new InvalidOperationException("Run is not configured."), cwd) : null;
+                if (!_repositoryRunner.Start(key, build, run, RepositoryLogDirectory, action)) throw new InvalidOperationException("A repository job is already running.");
             }
         }
         catch (Exception error) { SendMessage(new { type = "repository.job.error", key, message = error.Message }); }
         SendRepositoryJobs();
         return Task.CompletedTask;
     }
-    private void SendRepositoryJobs() => SendMessage(new { type = "repository.jobs", jobs = _repositoryRunner.Snapshot() });
+    private void SendRepositoryJobs() => SendMessage(new { type = "repository.jobs", jobs = _repositoryRunner.Snapshot(), batches = _repositoryUpdates?.Snapshot() ?? new() });
 }

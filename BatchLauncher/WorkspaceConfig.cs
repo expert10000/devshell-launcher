@@ -70,6 +70,11 @@ public sealed class WorkspaceService
 
 public sealed class WorkspaceRepository
 {
+    public string? Url { get; set; }
+    public List<string>? RequiredTools { get; set; }
+    public string? PythonEnvironment { get; set; }
+    public List<string>? PythonModules { get; set; }
+    public List<string>? DependencyFolders { get; set; }
     public string Id { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Path { get; set; } = string.Empty;

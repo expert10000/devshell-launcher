@@ -2601,3 +2601,12 @@
 @keyframes job-spin { to { transform: rotate(360deg); } }
 .repository-log-dialog { width: min(1000px, 92vw); }
 .repository-log { height: 48vh; overflow: auto; padding: 16px; background: #111a24; color: #dce8f5; font: 13px/1.5 Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; border-radius: 10px; }
+.repository-toolbar { display: flex; flex-wrap: wrap; gap: 8px; }
+.repository-update-panel { margin-bottom: 20px; padding: 16px; border: 1px solid #8997a755; border-radius: 12px; background: #ffffff05; }
+.repository-update-panel progress { width: 100%; height: 10px; margin: 12px 0 4px; accent-color: var(--accent); }
+.repository-update-results { list-style: none; padding: 0; margin: 12px 0 0; }
+.repository-update-results li { display: grid; grid-template-columns: minmax(90px, 1fr) minmax(70px, 1fr) minmax(120px, 3fr); gap: 10px; padding: 8px 0; border-bottom: 1px solid #8997a744; overflow-wrap: anywhere; }
+.repository-environment { margin-top: 12px; }
+.repository-environment summary { cursor: pointer; }
+.repository-environment .health-row p { white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .repository-update-results li { grid-template-columns: 1fr; gap: 4px; } }

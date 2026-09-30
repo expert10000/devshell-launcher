@@ -824,6 +824,7 @@ public partial class Form1 : Form
 
     private void StopAllSessions()
     {
+        _repositoryUpdates?.Dispose();
         _repositoryRunner.Dispose();
         _terminalManager.Dispose();
         foreach (var stream in _fileTransfers.Values)

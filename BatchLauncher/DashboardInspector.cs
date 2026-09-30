@@ -4,7 +4,7 @@ namespace BatchLauncher;
 
 public sealed record RepositoryStatus(string ProjectId, string Id, string Path, string? Branch,
     string? Upstream, int? Ahead, int? Behind, int Changed, List<string> Files, string? Error);
-public sealed record HealthCheck(string Name, string State, string Detail);
+public sealed record HealthCheck(string Name, string State, string Detail, string? ProjectId = null, string? RepositoryId = null);
 
 public static class DashboardInspector
 {

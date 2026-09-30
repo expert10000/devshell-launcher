@@ -15,6 +15,7 @@ import './App.css'
 
 type BackendMessage = {
   jobs?: RepositoryJob[]
+  batches?: RepositoryUpdateStatus[]
   key?: string
   repositories?: RepositoryStatus[]
   checks?: HealthCheck[]
@@ -158,7 +159,7 @@ type ProjectLayout = {
 }
 
 type ProjectDefinition = {
-  repositories?: { id: string; name: string; path: string; buildTask?: string; runTask?: string; runLabel?: string }[]
+  repositories?: { id: string; name: string; path: string; url?: string; requiredTools?: string[]; pythonEnvironment?: string; pythonModules?: string[]; dependencyFolders?: string[]; buildTask?: string; runTask?: string; runLabel?: string }[]
   requiredTools?: string[]
   pythonModules?: string[]
   service?: { name: string; python: string; port: number }
@@ -180,8 +181,9 @@ type ResolvedTaskStep = {
 }
 
 type RepositoryStatus = { projectId: string; id: string; path: string; branch?: string; upstream?: string; ahead?: number; behind?: number; changed: number; files: string[]; error?: string }
-type HealthCheck = { name: string; state: string; detail: string }
-type RepositoryJob = { key: string; state: string; buildState: string; exitCode?: number; log: string; logPath: string }
+type HealthCheck = { name: string; state: string; detail: string; projectId?: string; repositoryId?: string }
+type RepositoryJob = { key: string; state: string; buildState: string; exitCode?: number; log: string; logPath: string; action?: string }
+type RepositoryUpdateStatus = { profileId: string; state: string; completed: number; total: number; results: { key: string; name: string; state: string; detail: string }[] }
 
 type ResolvedTask = {
   type?: 'browser'
@@ -445,6 +447,8 @@ const App = () => {
   const [taskProjectId, setTaskProjectId] = useState<string | null>(null)
   const [dashboard, setDashboard] = useState<BackendMessage | null>(null)
   const [repositoryJobs, setRepositoryJobs] = useState<RepositoryJob[]>([])
+  const [updateBatches, setUpdateBatches] = useState<RepositoryUpdateStatus[]>([])
+  const previousRepositoryJobs = useRef<RepositoryJob[]>([])
   const [runAfterBuild, setRunAfterBuild] = useState<Record<string, boolean>>({})
   const [jobErrors, setJobErrors] = useState<Record<string, string>>({})
   const [logJobKey, setLogJobKey] = useState<string | null>(null)
@@ -3066,20 +3070,38 @@ const App = () => {
     return () => { clearInterval(timer); bridge.removeEventListener('message', receive) }
   }, [bridge, activeWorkspaceProfileId, projects])
 
-  const repositoryAction = (projectId: string, repositoryId: string, action: 'build' | 'run' | 'stop' | 'log') => {
+  const repositoryAction = (projectId: string, repositoryId: string, action: 'build' | 'run' | 'stop' | 'log' | 'fetch' | 'pull' | 'clone') => {
     const key = `${activeWorkspaceProfileId}:${projectId}:${repositoryId}`
     setJobErrors((current) => ({ ...current, [key]: '' }))
-    if (action === 'build' || action === 'run') {
-      setRepositoryJobs((current) => [...current.filter((job) => job.key !== key), { key, state: 'queued', buildState: action === 'build' ? 'queued' : 'not-run', log: '', logPath: '' }])
+    if (['build', 'run', 'fetch', 'pull', 'clone'].includes(action)) {
+      setRepositoryJobs((current) => [...current.filter((job) => job.key !== key), { key, state: 'queued', buildState: action === 'build' ? 'queued' : 'not-run', action, log: '', logPath: '' }])
     }
     postMessage({ type: 'repository.job', projectId, repositoryId, action, runAfter: runAfterBuild[key] ?? false })
+  }
+  const updateBatch = updateBatches.find((batch) => batch.profileId === activeWorkspaceProfileId)
+  const anyUpdateBusy = updateBatches.some((batch) => ['running', 'starting'].includes(batch.state))
+  const updateAll = () => {
+    if (!activeWorkspaceProfileId) return
+    setJobErrors((current) => ({ ...current, [`${activeWorkspaceProfileId}:update-all`]: '' }))
+    const total = projects.reduce((count, project) => count + (project.repositories?.length ?? 0), 0)
+    setUpdateBatches((current) => [...current.filter((batch) => batch.profileId !== activeWorkspaceProfileId), { profileId: activeWorkspaceProfileId, state: 'starting', completed: 0, total, results: [] }])
+    postMessage({ type: 'repository.job', action: 'update-all' })
   }
 
   useEffect(() => {
     if (!bridge) return
     const receive = (event: MessageEvent) => {
       const message = parseMessage(event)
-      if (message?.type === 'repository.jobs') setRepositoryJobs(message.jobs ?? [])
+      if (message?.type === 'repository.jobs') {
+        const jobs = message.jobs ?? []
+        const gitFinished = jobs.some((job) => ['fetch', 'pull', 'clone', 'update'].includes(job.action ?? '')
+          && ['succeeded', 'failed', 'stopped'].includes(job.state)
+          && previousRepositoryJobs.current.find((previous) => previous.key === job.key)?.state !== job.state)
+        previousRepositoryJobs.current = jobs
+        setRepositoryJobs(jobs)
+        setUpdateBatches(message.batches ?? [])
+        if (gitFinished) postMessage({ type: 'dashboard.request' })
+      }
       if (message?.type === 'repository.job.error' && message.key) setJobErrors((current) => ({ ...current, [message.key!]: message.message ?? 'Action failed' }))
     }
     bridge.addEventListener('message', receive)
@@ -4598,7 +4620,15 @@ const App = () => {
         </div>
       </header>
       {repositoriesView && <main className="repositories-page" aria-label="Repositories">
-        <div className="repositories-title"><div><h1>Repositories</h1><p>Your repositories, build actions, and working changes.</p></div><button className="action ghost" onClick={() => { setHealthOpen(true); refreshDashboard() }}>Profile health</button></div>
+        <div className="repositories-title"><div><h1>Repositories</h1><p>Your repositories, build actions, and working changes.</p></div><div className="repository-toolbar"><button className="action" disabled={anyUpdateBusy || !projects.some((project) => project.repositories?.length) || repositoryJobs.some((job) => job.key.startsWith(`${activeWorkspaceProfileId}:`) && ['queued', 'building', 'running'].includes(job.state))} onClick={updateAll}>Update All</button><button className="action ghost" onClick={() => { setHealthOpen(true); refreshDashboard() }}>Environment checks</button></div></div>
+        {jobErrors[`${activeWorkspaceProfileId}:update-all`] && <p className="check-error" role="alert">{jobErrors[`${activeWorkspaceProfileId}:update-all`]}</p>}
+        {anyUpdateBusy && !updateBatch && <p role="status">Update All is running in another profile.</p>}
+        {updateBatch && <section className="repository-update-panel" aria-label="Update All progress">
+          <div className="service-heading"><strong role="status">Update All: {updateBatch.state} · {updateBatch.completed}/{updateBatch.total}</strong><button disabled={!['running', 'starting'].includes(updateBatch.state)} onClick={() => postMessage({ type: 'repository.job', action: 'stop-all' })}>Stop Update All</button></div>
+          <progress value={updateBatch.completed} max={updateBatch.total} aria-label="Repositories completed" />
+          <p className="service-detail">Missing repositories are cloned; existing repositories use fast-forward pulls. Repositories with local changes are reported for attention.</p>
+          <ul className="repository-update-results">{updateBatch.results.map((result) => <li key={result.key}><strong>{result.name}</strong><span className={['failed', 'stopped'].includes(result.state) ? 'check-error' : result.state === 'succeeded' ? 'check-ok' : ''}>{result.state}</span><span>{result.detail}</span></li>)}</ul>
+        </section>}
         {projects.filter((project) => project.repositories?.length).map((project) => (
             <section key={project.id} className="repo-dashboard" aria-label="Repository dashboard">
               <div className="service-heading"><h2>{project.name}</h2><button className="project-filter" disabled={dashboardLoading} onClick={refreshDashboard}>{dashboardLoading ? 'Checking…' : 'Refresh'}</button></div>
@@ -4607,7 +4637,11 @@ const App = () => {
                 const jobKey = `${activeWorkspaceProfileId}:${project.id}:${repo.id}`
                 const job = repositoryJobs.find((item) => item.key === jobKey)
                 const busy = job && ['queued', 'building', 'running'].includes(job.state)
+                const reserved = updateBatches.some((batch) => batch.state === 'running' && batch.results.some((result) => result.key === jobKey))
+                const disabled = busy || reserved
                 const status = dashboard?.repositories?.find((item) => item.projectId === project.id && item.id === repo.id)
+                const environment = dashboard?.checks?.filter((check) => check.projectId === project.id && check.repositoryId === repo.id) ?? []
+                const environmentIssues = environment.filter((check) => check.state !== 'ok').length
                 return <article className="repo-card" key={repo.id}>
                   <h3>{repo.name}</h3><div className="repo-path">{status?.path ?? repo.path}</div>
                   <div className="service-detail">{status?.branch ?? (status?.error ? 'Unavailable' : 'Checking…')}</div>
@@ -4616,14 +4650,18 @@ const App = () => {
                     {status.files.length > 0 && <details><summary>Changed files</summary><ul className="repo-files">{status.files.map((file) => <li key={file}>{file}</li>)}</ul>{status.changed > status.files.length && <p>Showing first {status.files.length} files.</p>}</details>}
                   </>}
                   <div className="service-actions">
-                    <button disabled={busy || !repo.buildTask || !status || !!status.error} title={repo.buildTask ?? 'No build command configured for this repository'} onClick={() => repositoryAction(project.id, repo.id, 'build')}>Build</button>
-                    <button disabled={busy || !repo.runTask || !status || !!status.error} title={repo.runTask ?? 'No run command configured'} onClick={() => repositoryAction(project.id, repo.id, 'run')}>{repo.runLabel ?? 'Run'}</button>
+                    <button disabled={disabled || !status || !!status.error} title="Fetch remote changes and refresh ahead/behind counts" onClick={() => repositoryAction(project.id, repo.id, 'fetch')}>Fetch</button>
+                    <button disabled={disabled || !status || !!status.error || status.changed > 0 || !status.upstream || status.branch === '(detached)'} title={status?.changed ? 'Commit or stash local changes before pulling' : !status?.upstream ? 'A tracking branch is required' : 'Pull the current tracking branch, fast-forward only'} onClick={() => repositoryAction(project.id, repo.id, 'pull')}>Pull</button>
+                    <button disabled={disabled || !repo.url || !status?.error} title={!repo.url ? 'Configure this repository’s URL to enable Clone' : !status?.error ? 'This repository already exists' : `Clone ${repo.url}`} onClick={() => repositoryAction(project.id, repo.id, 'clone')}>Clone</button>
+                    <button disabled={disabled || !repo.buildTask || !status || !!status.error} title={repo.buildTask ?? 'No build command configured for this repository'} onClick={() => repositoryAction(project.id, repo.id, 'build')}>Build</button>
+                    <button disabled={disabled || !repo.runTask || !status || !!status.error} title={repo.runTask ?? 'No run command configured'} onClick={() => repositoryAction(project.id, repo.id, 'run')}>{repo.runLabel ?? 'Run'}</button>
                     <button disabled={!busy} onClick={() => repositoryAction(project.id, repo.id, 'stop')}>Stop</button>
                     <button disabled={!job} onClick={() => setLogJobKey(jobKey)}>Logs</button>
                   </div>
-                  {repo.buildTask && repo.runTask && <label className="repo-run-after"><input type="checkbox" checked={runAfterBuild[jobKey] ?? false} disabled={busy} onChange={(event) => setRunAfterBuild((current) => ({ ...current, [jobKey]: event.target.checked }))} /> {repo.runLabel === 'Open PDF' ? 'Open PDF after successful build' : 'Run after successful build'}</label>}
-                  {job && <div className={`repo-job-status ${job.state}`} role="status">{busy && <span className="job-spinner" />} {job.state} · Build: {job.buildState}{job.exitCode != null ? ` · Exit ${job.exitCode}` : ''}</div>}
+                  {repo.buildTask && repo.runTask && <label className="repo-run-after"><input type="checkbox" checked={runAfterBuild[jobKey] ?? false} disabled={disabled} onChange={(event) => setRunAfterBuild((current) => ({ ...current, [jobKey]: event.target.checked }))} /> {repo.runLabel === 'Open PDF' ? 'Open PDF after successful build' : 'Run after successful build'}</label>}
+                  {job && <div className={`repo-job-status ${job.state}`} role="status">{busy && <span className="job-spinner" />} {job.action ?? 'Job'}: {job.state}{['build', 'run'].includes(job.action ?? '') && ` · Build: ${job.buildState}`}{job.exitCode != null ? ` · Exit ${job.exitCode}` : ''}</div>}
                   {jobErrors[jobKey] && <p className="check-error">{jobErrors[jobKey]}</p>}
+                  <details className="repository-environment"><summary className={environmentIssues ? 'check-error' : 'check-ok'}>Environment: {environment.length ? environmentIssues ? `${environmentIssues} need attention` : 'ready' : 'checking…'}</summary>{environment.map((check, index) => <div className="health-row" key={index}><strong>{check.state === 'ok' ? 'OK' : 'Needs attention'} · {check.name}</strong><p>{check.detail}</p></div>)}</details>
                   {!repo.buildTask && <div className="service-detail">Build: not configured</div>}
                 </article>
               })}</div>

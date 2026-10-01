@@ -7,12 +7,15 @@ public partial class Form1
 {
     private readonly RepositoryRunner _repositoryRunner = new();
     private readonly Dictionary<string, string> _repositoryActionPaths = new();
+    private readonly HashSet<string> _repositoryChangesPaths = new(StringComparer.OrdinalIgnoreCase);
     private bool _repositoryBrowserEventsHooked;
     private RepositoryUpdateQueue? _repositoryUpdates;
     private RepositoryUpdateQueue RepositoryUpdates => _repositoryUpdates ??= new(_repositoryRunner);
     private static string RepositoryLogDirectory => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DevShellLauncher", "repository-logs");
     private RepositoryCommand CreateGitCommand(WorkspaceProject project, WorkspaceRepository repo, string action)
     {
+        if (_repositoryChangesPaths.Contains(Path.GetFullPath(ExpandProjectValue(project, repo.Path)).TrimEnd('\\', '/')))
+            throw new InvalidOperationException("This checkout is busy in the Changes panel. Retry after it finishes.");
         _repositoryActionPaths[$"{_activeWorkspaceProfileId}:{project.Id}:{repo.Id}"] = Path.GetFullPath(ExpandProjectValue(project, repo.Path)).TrimEnd('\\', '/');
         var shell = _profiles.FirstOrDefault(profile => profile.Id == "pwsh") ?? throw new InvalidOperationException("PowerShell profile missing.");
         if (!_terminalManager.TryResolveProfileCommand(shell, out var command)) throw new InvalidOperationException("PowerShell is unavailable.");
@@ -62,6 +65,7 @@ public partial class Form1
     private Task HandleRepositoryJobAsync(JsonElement payload)
     {
         var action = payload.GetProperty("action").GetString();
+        if (action is "changes" or "file-diff" or "stage" or "unstage") return HandleRepositoryChangesAsync(payload, action);
         if (action == "status") { SendRepositoryJobs(); return Task.CompletedTask; }
         if (action is "update-all" or "stop-all")
         {
@@ -156,6 +160,7 @@ public partial class Form1
     private void EnsureRepositoryIdle(string key, string path)
     {
         path = Path.GetFullPath(path).TrimEnd('\\', '/');
+        if (_repositoryChangesPaths.Contains(path)) throw new InvalidOperationException("This checkout is busy in the Changes panel.");
         if (RepositoryUpdates.Owns(key) || _repositoryActionPaths.Any(pair => pair.Value.Equals(path, StringComparison.OrdinalIgnoreCase) && RepositoryUpdates.Owns(pair.Key)))
             throw new InvalidOperationException("This checkout is reserved by Update All. Stop the queue before starting another action.");
         if (_repositoryRunner.Snapshot().Any(job => job.State is "queued" or "building" or "running" &&

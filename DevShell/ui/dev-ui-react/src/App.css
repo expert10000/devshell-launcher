@@ -2627,3 +2627,17 @@
 .repository-strip-details ul { padding-left: 18px; }
 .theme-daylight .repository-strip { background: linear-gradient(115deg, #ffffff, #eef8fb); }
 @media (max-width: 900px) { .repository-strip { padding: 8px; } .repository-strip-actions span { width: 100%; margin-left: 0; } }
+
+.changes-dialog { width: min(1120px, 94vw); font-size: 14px; }
+.changes-dialog h2 { margin: 0; }
+.changes-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 18px 0; }
+.changes-columns > section { min-width: 0; padding: 14px; border: 1px solid #8997a755; border-radius: 10px; }
+.changes-columns h3 { margin-top: 0; }
+.changes-files { list-style: none; padding: 0; max-height: 28vh; overflow-y: auto; }
+.changes-files li { display: flex; gap: 8px; align-items: start; margin: 7px 0; }
+.changes-files input { flex: 0 0 auto; margin-top: 9px; }
+.changes-files button { min-width: 0; flex: 1; text-align: left; overflow-wrap: anywhere; background: #8997a70c; color: inherit; }
+.changes-files code { display: inline-block; min-width: 18px; font-weight: bold; color: #17718a; }
+.changes-dialog button:disabled { opacity: .45; cursor: default; }
+.changes-diff { height: 30vh; white-space: pre; overflow-wrap: normal; }
+@media (max-width: 720px) { .changes-columns { grid-template-columns: 1fr; gap: 10px; } }

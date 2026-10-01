@@ -24,18 +24,34 @@ Implementation does not imply runtime verification. Browser/workflow changes sti
 
 ### Group 1: Repositories as first-class objects
 
-Status: in progress. Begin with a read-only repository detail/action slice.
+Status: implemented, with focused backend and Playwright checks passed. Remaining write-action and edge-case verification is listed below; Group 1 is not yet fully signed off.
 
-- [ ] Show latest commit hash, subject, author, and timestamp.
-- [ ] Show fetch/push remotes and linked worktrees, including detached/locked/prunable state.
-- [ ] Add Diff and History actions with captured output, cancellation, and no external Git diff helpers.
-- [ ] Add Open GitHub using the embedded browser.
-- [ ] Add a compact repository strip for the selected project above its workspace.
-- [ ] Add repository selection for multi-repository projects, including Jupyter workspaces with an actual Git root.
-- [ ] Add explicit Commit/Push flows with selected/staged files, commit-message entry, destination preview, and confirmation.
+- [x] Show latest commit hash, subject, author, and timestamp.
+- [x] Show fetch/push remotes and linked worktrees, including detached/locked/prunable state.
+- [x] Add Diff and History actions with captured output, cancellation, and no external Git diff helpers.
+- [x] Add Open GitHub using the embedded browser.
+- [x] Add a compact repository strip for the selected project above its workspace.
+- [x] Add repository selection for multi-repository projects, including Jupyter workspaces with an actual Git root.
+- [x] Add explicit Commit/Push flows with selected/staged files, commit-message entry, destination preview, and confirmation.
+- [x] Add a Changes panel with separate working/staged file lists, per-file previews, and Stage selected / Unstage selected.
+- [x] Keep partial staging visible on both sides; preserve working edits when unstaging; never stage everything or discard edits automatically.
 - [ ] Validate clean/dirty, unborn/detached, missing-root, multiple-remote, Unicode-path, and worktree cases.
+- [ ] Verify actual Commit/Push execution and push-confirmation cancellation against disposable local repositories, including stale-preview rejection.
+- [ ] Verify launcher exit/restart after native Git confirmation dialogs are dismissed.
 
 Acceptance: repository state and read-only inspection are available without leaving DevShell; write actions are deliberate, scoped, and never silently stash, reset, force-push, or commit unrelated files. Partial metadata failures must not disable existing Build/Run actions.
+
+Delivered and checked on 2026-10-01:
+
+- Git dashboard checks passed: clean/no-upstream state, rename and Unicode paths, diverged counts, detached HEAD, invalid roots, and missing tools.
+- Managed job checks passed: successful Build/Run sequencing, failed-build gating, captured logs, duplicate prevention, Stop, and owned child-process lifecycle.
+- New `tests/RepositoryChangesChecks` passed: selective staging, preservation of edits on unstage, unborn HEAD, partial staging, Unicode, renames, deletions, stale-index rejection, literal pathspecs, path-escape rejection, binary previews, and active-operation blocking.
+- Playwright checks against the actual launcher and a disposable repository passed: working/staged diffs, selected staging into the real index, partial staging on both sides, unstaging without losing edits, and untracked text previews.
+- Playwright also checked the narrow Changes layout, the five-repository selector, Theory selection, expanded remotes/worktrees, and Jupyter's containing-repository strip.
+- Native Commit preview showed only the staged file, disabled submission for an empty message, and was cancelled without creating a commit. This does not verify successful Commit/Push execution.
+- Fixed the Changes handler's request-lifetime failure by cloning its JSON payload before asynchronous Git checks; rebuilt and retested the affected UI flow.
+- Frontend and launcher builds succeeded. No application tests committed or pushed changes to the user's repositories; write tests used disposable fixtures.
+- Theory's configured GitHub URL matches its Git remote. Authenticated GitHub metadata confirmed it is private; the embedded browser requires an interactive sign-in with an account that has access. No URL correction or credential injection was made.
 
 ### Group 2: Browser and mixed workspace tabs
 
@@ -123,4 +139,12 @@ Acceptance: common workspace operations stay discoverable and portable without m
 
 ## Immediate next slice
 
-Start Group 1 with last-commit/remotes/worktrees metadata and Diff/History/Open GitHub actions on existing repository cards. Use existing managed job logs for read-only inspection until Group 2 provides center Diff/Logs tabs. Keep Commit/Push and the compact selected-project strip as subsequent slices, not hidden side effects of this one.
+Next feature: start Group 2 with workspace Logs and Diff tabs, using the existing managed-job output and file previews rather than adding another modal or terminal transcript.
+
+- Introduce typed workspace tabs while preserving existing terminal sessions, splits, and profile switching.
+- Open job Logs in a persistent workspace tab with live output, exit status, and the existing full-log action.
+- Open read-only file Diff tabs with repository, file, and staged/working-side identity; leave staging and commit confirmation in the Changes flow.
+- Restore tab descriptors per profile, not captured log/diff contents or authentication tokens. Reopening must not execute Git writes or replay task commands.
+- Then integrate Browser/Jupyter tab selection with the existing native browser pane before attempting to move or recreate WebView controls in the center workspace.
+
+Before Group 1 sign-off, finish the remaining isolated Commit/Push and multiple-remote/worktree checks above. Do not treat implementation checkmarks as proof that every edge case has been exercised.

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { RepositoryChangesPanel } from './RepositoryChangesPanel'
 
 type Repo = { id: string; name: string; path: string; url?: string }
 type Status = { projectId: string; id: string; path: string; branch?: string; upstream?: string; ahead?: number; behind?: number; changed: number; error?: string;
@@ -14,6 +15,7 @@ export function RepositoryStrip({ project, profileId, statuses, jobs, errors, re
   jobs: Job[]; errors: Record<string, string>; reservedKeys: Set<string>; onAction: (repoId: string, action: Action) => void
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [changesId, setChangesId] = useState<string | null>(null)
   const repos = project.repositories ?? []
   const selected = repos.find((repo) => repo.id === selectedId) ?? repos[0]
   const statusOf = (repo: Repo) => statuses.find((status) => status.projectId === project.id && status.id === repo.id)
@@ -34,6 +36,7 @@ export function RepositoryStrip({ project, profileId, statuses, jobs, errors, re
       </button>)}
     </div>
     <div className="repository-strip-actions">
+      <button disabled={blocked || unavailable} onClick={() => setChangesId(selected.id)}>Changes</button>
       <button disabled={blocked || unavailable} onClick={() => onAction(selected.id, 'diff')}>Diff</button>
       <button disabled={blocked || unavailable || detached} title="Preview and commit staged files only" onClick={() => onAction(selected.id, 'commit')}>Commit</button>
       <button disabled={blocked || unavailable || detached || !status?.upstream || !!status?.changed} title={status?.changed ? 'Commit or stash local changes first' : 'Fast-forward pull only'} onClick={() => onAction(selected.id, 'pull')}>Pull</button>
@@ -53,5 +56,7 @@ export function RepositoryStrip({ project, profileId, statuses, jobs, errors, re
       <strong>Worktrees</strong><ul>{status?.worktrees?.map((worktree) => <li key={worktree.path}>{worktree.path} · {worktree.bare ? 'bare' : worktree.detached ? 'detached HEAD' : worktree.branch ?? 'No branch'}{worktree.head ? ` · ${worktree.head.slice(0, 8)}` : ''}{worktree.locked ? ' · locked' : ''}{worktree.prunable ? ' · prunable' : ''}</li>)}</ul>
       {status?.metadataErrors?.map((error) => <p key={error}>{error}</p>)}
     </details>
+    {changesId && profileId && <RepositoryChangesPanel key={`${profileId}:${project.id}:${changesId}`} profileId={profileId} projectId={project.id} repositoryId={changesId}
+      name={repos.find((repo) => repo.id === changesId)?.name ?? changesId} blocked={blocked} onClose={() => setChangesId(null)} onCommit={() => onAction(changesId, 'commit')} />}
   </section>
 }

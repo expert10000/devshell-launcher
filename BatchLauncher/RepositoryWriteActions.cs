@@ -36,7 +36,7 @@ internal static class RepositoryWriteActions
             if (!string.IsNullOrEmpty(await Read("diff", "--name-only", "--diff-filter=U", "-z")))
                 throw new InvalidOperationException("Resolve unmerged files before committing.");
             var files = (await Read("diff", "--cached", "--name-only", "-z")).Split('\0', StringSplitOptions.RemoveEmptyEntries);
-            if (files.Length == 0) throw new InvalidOperationException("No staged changes. Stage the intended files in VS Code or a terminal first; DevShell never stages everything automatically.");
+            if (files.Length == 0) throw new InvalidOperationException("No staged changes. Open Changes and stage the intended files first; DevShell never stages everything automatically.");
             var index = await Read("ls-files", "--stage", "-z");
             return new(path, branch, head, Hash(index), files.Take(200).ToList(), files.Length);
         }

@@ -159,7 +159,7 @@ type ProjectLayout = {
 }
 
 type ProjectDefinition = {
-  repositories?: { id: string; name: string; path: string; url?: string; requiredTools?: string[]; pythonEnvironment?: string; pythonModules?: string[]; dependencyFolders?: string[]; buildTask?: string; runTask?: string; runLabel?: string }[]
+  repositories?: { id: string; name: string; path: string; url?: string; requiredTools?: string[]; pythonEnvironment?: string; pythonModules?: string[]; dependencyFolders?: string[]; buildTask?: string; runTask?: string; runLabel?: string; browserUrl?: string; readyUrls?: string[]; readyTimeoutSeconds?: number; browserBuildTask?: string; browserRunTask?: string }[]
   requiredTools?: string[]
   pythonModules?: string[]
   service?: { name: string; python: string; port: number }
@@ -182,7 +182,7 @@ type ResolvedTaskStep = {
 
 type RepositoryStatus = { projectId: string; id: string; path: string; branch?: string; upstream?: string; ahead?: number; behind?: number; changed: number; files: string[]; error?: string }
 type HealthCheck = { name: string; state: string; detail: string; projectId?: string; repositoryId?: string }
-type RepositoryJob = { key: string; state: string; buildState: string; exitCode?: number; log: string; logPath: string; action?: string }
+type RepositoryJob = { key: string; state: string; buildState: string; exitCode?: number; log: string; logPath: string; action?: string; browserState?: string; browserUrl?: string }
 type RepositoryUpdateStatus = { profileId: string; state: string; completed: number; total: number; results: { key: string; name: string; state: string; detail: string }[] }
 
 type ResolvedTask = {
@@ -3070,11 +3070,11 @@ const App = () => {
     return () => { clearInterval(timer); bridge.removeEventListener('message', receive) }
   }, [bridge, activeWorkspaceProfileId, projects])
 
-  const repositoryAction = (projectId: string, repositoryId: string, action: 'build' | 'run' | 'stop' | 'log' | 'fetch' | 'pull' | 'clone') => {
+  const repositoryAction = (projectId: string, repositoryId: string, action: 'build' | 'run' | 'stop' | 'log' | 'fetch' | 'pull' | 'clone' | 'launch') => {
     const key = `${activeWorkspaceProfileId}:${projectId}:${repositoryId}`
     setJobErrors((current) => ({ ...current, [key]: '' }))
     if (['build', 'run', 'fetch', 'pull', 'clone'].includes(action)) {
-      setRepositoryJobs((current) => [...current.filter((job) => job.key !== key), { key, state: 'queued', buildState: action === 'build' ? 'queued' : 'not-run', action, log: '', logPath: '' }])
+      setRepositoryJobs((current) => [...current.filter((job) => job.key !== key), { key, state: 'queued', buildState: action === 'build' || action === 'launch' ? 'queued' : 'not-run', action, log: '', logPath: '' }])
     }
     postMessage({ type: 'repository.job', projectId, repositoryId, action, runAfter: runAfterBuild[key] ?? false })
   }
@@ -4655,6 +4655,7 @@ const App = () => {
                     <button disabled={disabled || !repo.url || !status?.error} title={!repo.url ? 'Configure this repository’s URL to enable Clone' : !status?.error ? 'This repository already exists' : `Clone ${repo.url}`} onClick={() => repositoryAction(project.id, repo.id, 'clone')}>Clone</button>
                     <button disabled={disabled || !repo.buildTask || !status || !!status.error} title={repo.buildTask ?? 'No build command configured for this repository'} onClick={() => repositoryAction(project.id, repo.id, 'build')}>Build</button>
                     <button disabled={disabled || !repo.runTask || !status || !!status.error} title={repo.runTask ?? 'No run command configured'} onClick={() => repositoryAction(project.id, repo.id, 'run')}>{repo.runLabel ?? 'Run'}</button>
+                    {repo.browserUrl && <button disabled={disabled || !(repo.browserBuildTask ?? repo.buildTask) || !(repo.browserRunTask ?? repo.runTask) || !status || !!status.error} title="Build the web app, start its server, and open it in DevShell only when ready" onClick={() => repositoryAction(project.id, repo.id, 'launch')}>Build + Run + Open</button>}
                     <button disabled={!busy} onClick={() => repositoryAction(project.id, repo.id, 'stop')}>Stop</button>
                     <button disabled={!job} onClick={() => setLogJobKey(jobKey)}>Logs</button>
                   </div>
@@ -4663,6 +4664,7 @@ const App = () => {
                   {jobErrors[jobKey] && <p className="check-error">{jobErrors[jobKey]}</p>}
                   <details className="repository-environment"><summary className={environmentIssues ? 'check-error' : 'check-ok'}>Environment: {environment.length ? environmentIssues ? `${environmentIssues} need attention` : 'ready' : 'checking…'}</summary>{environment.map((check, index) => <div className="health-row" key={index}><strong>{check.state === 'ok' ? 'OK' : 'Needs attention'} · {check.name}</strong><p>{check.detail}</p></div>)}</details>
                   {!repo.buildTask && <div className="service-detail">Build: not configured</div>}
+                  {job?.browserState && job.browserState !== 'not-requested' && <div className="service-detail" role="status">Browser: {job.browserState}{job.browserUrl ? ` · ${job.browserUrl}` : ''}</div>}
                 </article>
               })}</div>
             </section>

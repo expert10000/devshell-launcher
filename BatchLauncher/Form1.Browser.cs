@@ -23,6 +23,7 @@ public partial class Form1
         Controls.Remove(webView);
         _browserHost.Panel1.Controls.Add(webView);
         Controls.Add(_browserHost);
+        Shown += async (_, _) => await RestoreBrowserWorkspaceAsync();
     }
 
     private Task HandleBrowserToggleAsync()
@@ -36,6 +37,7 @@ public partial class Form1
     private void HideBrowserPane()
     {
         if (_browserHost.Panel2Collapsed) return;
+        _browserPane?.SetWorkspaceVisible(false);
         var length = _browserHost.Orientation == Orientation.Vertical ? _browserHost.Width : _browserHost.Height;
         if (length > 0) _browserSplitRatio = (double)_browserHost.SplitterDistance / length;
         _browserHost.Panel2Collapsed = true;
@@ -70,17 +72,15 @@ public partial class Form1
             {
                 pane = new BrowserPane();
                 _browserPane = pane;
-                pane.CloseRequested += (_, _) => ResetBrowserPane();
+                pane.CloseRequested += (_, _) => { pane.SetWorkspaceVisible(false); ResetBrowserPane(); };
                 pane.HideRequested += (_, _) => HideBrowserPane();
                 _browserHost.Panel2.Controls.Add(pane);
-                var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(profileId)));
-                var storage = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "DevShellLauncher", "browser", key);
-                await pane.InitializeAsync(storage);
+                await pane.InitializeAsync(BrowserStoragePath(profileId));
             }
             pane = _browserPane;
             if (pane == null || pane.IsDisposed || profileId != _activeWorkspaceProfileId) return;
-            if (url != null) pane.Navigate(url);
+            pane.SetWorkspaceVisible(!_browserHost.Panel2Collapsed);
+            if (url != null) await pane.OpenTabAsync(url);
             if (!_browserHost.Panel2Collapsed) pane.Focus();
         }
         catch (Exception) when (IsDisposed || profileId != _activeWorkspaceProfileId || pane?.IsDisposed == true)
@@ -101,5 +101,19 @@ public partial class Form1
         _browserPane = null;
         pane?.Dispose();
         _browserHost.Panel2Collapsed = true;
+    }
+
+    private static string BrowserStoragePath(string profileId)
+    {
+        var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(profileId)));
+        return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DevShellLauncher", "browser", key);
+    }
+
+    private async Task RestoreBrowserWorkspaceAsync()
+    {
+        var profileId = _activeWorkspaceProfileId;
+        if (!BrowserWorkspaceStore.Load(Path.Combine(BrowserStoragePath(profileId), "tabs.json")).Visible) return;
+        try { await ShowBrowserAsync(null, profileId); }
+        catch (Exception error) { System.Diagnostics.Trace.WriteLine("Could not restore browser workspace: " + error.Message); }
     }
 }

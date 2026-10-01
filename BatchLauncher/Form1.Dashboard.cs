@@ -38,7 +38,7 @@ public partial class Form1
                     var status = await DashboardInspector.Inspect(project.Id, repo.Id, Expand(project, repo.Path));
                     repositories.Add(status);
                     checks.Add(new(repo.Name + " repository", status.Error == null ? "ok" : "error", status.Error ?? status.Path));
-                    foreach (var task in new[] { repo.BuildTask, repo.RunTask }.Where(task => task != null))
+                    foreach (var task in new[] { repo.BuildTask, repo.RunTask, repo.BrowserBuildTask, repo.BrowserRunTask }.Where(task => task != null))
                         if (project.Tasks?.ContainsKey(task!) != true) checks.Add(new(repo.Name + " action", "error", $"Missing task: {task}"));
                     var toolPaths = new Dictionary<string, string>();
                     if (globals.TryGetValue("nodeDirectory", out var nodeDirectory)) toolPaths["node"] = Path.Combine(nodeDirectory, "node.exe");

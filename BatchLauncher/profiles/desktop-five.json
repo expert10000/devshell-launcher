@@ -277,6 +277,26 @@
           "url": "${vars.devshellRepoUrl}",
           "type": "browser",
           "group": "DevShell"
+        },
+        "Math3D - Build Web": {
+          "steps": [
+            {
+              "run": "$env:MATH3D_PYTHON = '${vars.math3dPython}'; $env:PATH = '${vars.nodeDirectory};${vars.math3dEnvironment};${vars.math3dEnvironment}\\Library\\bin;${vars.math3dEnvironment}\\Scripts;' + $env:PATH; & '${vars.nodeDirectory}\\node.exe' '${vars.npmCli}' run build:web"
+            }
+          ],
+          "cwd": "${vars.math3dRepoPath}",
+          "runInNewTab": true,
+          "shell": "pwsh"
+        },
+        "Math3D - Run Web": {
+          "steps": [
+            {
+              "run": "$env:MATH3D_PYTHON = '${vars.math3dPython}'; $env:PATH = '${vars.nodeDirectory};${vars.math3dEnvironment};${vars.math3dEnvironment}\\Library\\bin;${vars.math3dEnvironment}\\Scripts;' + $env:PATH; & '${vars.nodeDirectory}\\node.exe' '${vars.npmCli}' exec -- concurrently --kill-others-on-fail \"npm run dev:web:proxy\" \"npm --prefix renderer run dev -- --host 127.0.0.1 --port 5180 --strictPort\""
+            }
+          ],
+          "cwd": "${vars.math3dRepoPath}",
+          "runInNewTab": true,
+          "shell": "pwsh"
         }
       },
       "quickTasks": [
@@ -309,12 +329,26 @@
           "path": "${vars.math3dRepoPath}",
           "url": "https://github.com/expert10000/Math3D.git",
           "pythonEnvironment": "${vars.math3dPython}",
-          "pythonModules": ["numpy", "scipy", "sympy", "vtk"],
-          "dependencyFolders": ["renderer"],
+          "pythonModules": [
+            "numpy",
+            "scipy",
+            "sympy",
+            "vtk"
+          ],
+          "dependencyFolders": [
+            "renderer"
+          ],
           "requiredTools": [
             "node",
             "npm"
-          ]
+          ],
+          "browserBuildTask": "Math3D - Build Web",
+          "browserRunTask": "Math3D - Run Web",
+          "browserUrl": "http://127.0.0.1:5180",
+          "readyUrls": [
+            "http://127.0.0.1:8787/api/worker/cgal/health"
+          ],
+          "readyTimeoutSeconds": 120
         },
         {
           "name": "Theory",

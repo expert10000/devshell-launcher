@@ -271,6 +271,7 @@ public partial class Form1 : Form
         _activeWorkspaceProfileId = profile.Id;
         WorkspaceProfileStore.SaveSelection(profile.Id);
         SendWorkspaceProfileChanged();
+        _ = RestoreBrowserWorkspaceAsync();
     }
 
     private void RefreshWorkspaceProfiles()

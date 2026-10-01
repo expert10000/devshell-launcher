@@ -6,6 +6,7 @@ namespace BatchLauncher;
 public partial class Form1
 {
     private readonly RepositoryRunner _repositoryRunner = new();
+    private bool _repositoryBrowserEventsHooked;
     private RepositoryUpdateQueue? _repositoryUpdates;
     private RepositoryUpdateQueue RepositoryUpdates => _repositoryUpdates ??= new(_repositoryRunner);
     private static string RepositoryLogDirectory => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DevShellLauncher", "repository-logs");
@@ -91,22 +92,51 @@ public partial class Form1
                 if (job != null && File.Exists(job.LogPath))
                     System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(job.LogPath) { UseShellExecute = true });
             }
-            else if (action is "build" or "run" or "fetch" or "pull" or "clone")
+            else if (action is "build" or "run" or "fetch" or "pull" or "clone" or "launch")
             {
                 if (RepositoryUpdates.Owns(key)) throw new InvalidOperationException("This repository is reserved by Update All. Stop the queue before starting another action.");
                 var project = _workspace.Projects?.FirstOrDefault(p => p.Id == projectId) ?? throw new InvalidOperationException("Project not found.");
                 var repo = project.Repositories?.FirstOrDefault(r => r.Id == repositoryId) ?? throw new InvalidOperationException("Repository not found.");
                 var cwd = ExpandProjectValue(project, repo.Path);
-                var build = action == "build" ? CreateRepositoryCommand(project, repo.BuildTask ?? throw new InvalidOperationException("Build is not configured."), cwd) : null;
+                var build = action is "build" or "launch" ? CreateRepositoryCommand(project,
+                    (action == "launch" ? repo.BrowserBuildTask ?? repo.BuildTask : repo.BuildTask) ?? throw new InvalidOperationException("Build is not configured."), cwd) : null;
                 var runAfter = action == "build" && payload.TryGetProperty("runAfter", out var value) && value.GetBoolean();
                 var run = action is "fetch" or "pull" or "clone" ? CreateGitCommand(project, repo, action)
-                    : action == "run" || runAfter ? CreateRepositoryCommand(project, repo.RunTask ?? throw new InvalidOperationException("Run is not configured."), cwd) : null;
-                if (!_repositoryRunner.Start(key, build, run, RepositoryLogDirectory, action)) throw new InvalidOperationException("A repository job is already running.");
+                    : action is "run" or "launch" || runAfter ? CreateRepositoryCommand(project,
+                        (action == "launch" ? repo.BrowserRunTask ?? repo.RunTask : repo.RunTask) ?? throw new InvalidOperationException("Run is not configured."), cwd) : null;
+                RepositoryBrowserLaunch? browser = null;
+                if (action == "launch")
+                {
+                    var url = ExpandProjectValue(project, repo.BrowserUrl ?? throw new InvalidOperationException("Browser URL is not configured."));
+                    browser = new(url, (repo.ReadyUrls ?? new()).Select(value => ExpandProjectValue(project, value)).ToArray(), repo.ReadyTimeoutSeconds);
+                    if (!_repositoryBrowserEventsHooked)
+                    {
+                        _repositoryRunner.BrowserReady += OnRepositoryBrowserReady;
+                        _repositoryBrowserEventsHooked = true;
+                    }
+                }
+                if (!_repositoryRunner.Start(key, build, run, RepositoryLogDirectory, action, browser)) throw new InvalidOperationException("A repository job is already running.");
             }
         }
         catch (Exception error) { SendMessage(new { type = "repository.job.error", key, message = error.Message }); }
         SendRepositoryJobs();
         return Task.CompletedTask;
+    }
+    private void OnRepositoryBrowserReady(string key, string url)
+    {
+        if (IsDisposed || !IsHandleCreated) return;
+        try
+        {
+            BeginInvoke(new Action(async () =>
+            {
+                if (IsDisposed || !key.StartsWith(_activeWorkspaceProfileId + ":", StringComparison.Ordinal) ||
+                    !_repositoryRunner.Snapshot().Any(job => job.Key == key && job.State == "running" && job.BrowserState == "ready" && job.BrowserUrl == url)) return;
+                try { await ShowBrowserAsync(url, _activeWorkspaceProfileId); }
+                catch (Exception error) { if (!IsDisposed) SendMessage(new { type = "repository.job.error", key, message = "App is ready, but the browser could not open: " + error.Message }); }
+                if (!IsDisposed) SendRepositoryJobs();
+            }));
+        }
+        catch (InvalidOperationException) when (IsDisposed || Disposing) { }
     }
     private void SendRepositoryJobs() => SendMessage(new { type = "repository.jobs", jobs = _repositoryRunner.Snapshot(), batches = _repositoryUpdates?.Snapshot() ?? new() });
 }

@@ -81,6 +81,11 @@ public sealed class WorkspaceRepository
     public string? BuildTask { get; set; }
     public string? RunTask { get; set; }
     public string? RunLabel { get; set; }
+    public string? BrowserUrl { get; set; }
+    public List<string>? ReadyUrls { get; set; }
+    public int ReadyTimeoutSeconds { get; set; } = 120;
+    public string? BrowserBuildTask { get; set; }
+    public string? BrowserRunTask { get; set; }
 }
 
 public sealed class WorkspaceLaunch

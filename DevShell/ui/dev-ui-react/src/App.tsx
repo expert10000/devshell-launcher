@@ -7,6 +7,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from 'react'
 import { Terminal } from 'xterm'
+import { RepositoryStrip } from './RepositoryStrip'
 import { FitAddon } from 'xterm-addon-fit'
 import { SearchAddon } from 'xterm-addon-search'
 import { WebLinksAddon } from 'xterm-addon-web-links'
@@ -180,7 +181,7 @@ type ResolvedTaskStep = {
   cwd?: string
 }
 
-type RepositoryStatus = { projectId: string; id: string; path: string; branch?: string; upstream?: string; ahead?: number; behind?: number; changed: number; files: string[]; error?: string }
+type RepositoryStatus = { projectId: string; id: string; path: string; branch?: string; upstream?: string; ahead?: number; behind?: number; changed: number; files: string[]; error?: string; lastCommit?: { hash: string; subject: string; author: string; timestamp: string }; remotes?: { name: string; url: string; direction: string }[]; worktrees?: { path: string; branch?: string; head?: string; detached: boolean; locked: boolean; prunable: boolean; bare: boolean }[]; metadataErrors?: string[] }
 type HealthCheck = { name: string; state: string; detail: string; projectId?: string; repositoryId?: string }
 type RepositoryJob = { key: string; state: string; buildState: string; exitCode?: number; log: string; logPath: string; action?: string; browserState?: string; browserUrl?: string }
 type RepositoryUpdateStatus = { profileId: string; state: string; completed: number; total: number; results: { key: string; name: string; state: string; detail: string }[] }
@@ -3070,12 +3071,13 @@ const App = () => {
     return () => { clearInterval(timer); bridge.removeEventListener('message', receive) }
   }, [bridge, activeWorkspaceProfileId, projects])
 
-  const repositoryAction = (projectId: string, repositoryId: string, action: 'build' | 'run' | 'stop' | 'log' | 'fetch' | 'pull' | 'clone' | 'launch') => {
+  const repositoryAction = (projectId: string, repositoryId: string, action: 'build' | 'run' | 'stop' | 'log' | 'fetch' | 'pull' | 'clone' | 'launch' | 'diff' | 'history' | 'github' | 'commit' | 'push') => {
     const key = `${activeWorkspaceProfileId}:${projectId}:${repositoryId}`
     setJobErrors((current) => ({ ...current, [key]: '' }))
-    if (['build', 'run', 'fetch', 'pull', 'clone'].includes(action)) {
+    if (['build', 'run', 'fetch', 'pull', 'clone', 'diff', 'history', 'commit', 'push'].includes(action)) {
       setRepositoryJobs((current) => [...current.filter((job) => job.key !== key), { key, state: 'queued', buildState: action === 'build' || action === 'launch' ? 'queued' : 'not-run', action, log: '', logPath: '' }])
     }
+    if (action === 'diff' || action === 'history') setLogJobKey(key);
     postMessage({ type: 'repository.job', projectId, repositoryId, action, runAfter: runAfterBuild[key] ?? false })
   }
   const updateBatch = updateBatches.find((batch) => batch.profileId === activeWorkspaceProfileId)
@@ -3094,7 +3096,7 @@ const App = () => {
       const message = parseMessage(event)
       if (message?.type === 'repository.jobs') {
         const jobs = message.jobs ?? []
-        const gitFinished = jobs.some((job) => ['fetch', 'pull', 'clone', 'update'].includes(job.action ?? '')
+        const gitFinished = jobs.some((job) => ['fetch', 'pull', 'clone', 'update', 'commit', 'push'].includes(job.action ?? '')
           && ['succeeded', 'failed', 'stopped'].includes(job.state)
           && previousRepositoryJobs.current.find((previous) => previous.key === job.key)?.state !== job.state)
         previousRepositoryJobs.current = jobs
@@ -4648,8 +4650,17 @@ const App = () => {
                   {status?.error ? <p className="check-error">{status.error}</p> : status && <>
                     <div className="service-detail">{status.changed} changed · {status.upstream ? `${status.ahead ?? '—'} ahead / ${status.behind ?? '—'} behind ${status.upstream}` : 'No tracking branch'}</div>
                     {status.files.length > 0 && <details><summary>Changed files</summary><ul className="repo-files">{status.files.map((file) => <li key={file}>{file}</li>)}</ul>{status.changed > status.files.length && <p>Showing first {status.files.length} files.</p>}</details>}
+                    {status.lastCommit && <div className="service-detail"><strong>Latest {status.lastCommit.hash.slice(0, 8)}</strong> · {status.lastCommit.subject}<div>{status.lastCommit.author} · {new Date(status.lastCommit.timestamp).toLocaleString()}</div></div>}
+                    {!!status.remotes?.length && <details><summary>Remotes ({new Set(status.remotes.map((remote) => remote.name)).size})</summary><ul className="repo-files">{status.remotes.map((remote, index) => <li key={`${remote.name}:${remote.direction}:${index}`}><strong>{remote.name} ({remote.direction})</strong><div className="repo-path">{remote.url}</div></li>)}</ul></details>}
+                    {!!status.worktrees?.length && <details><summary>Worktrees ({status.worktrees.length})</summary><ul className="repo-files">{status.worktrees.map((worktree) => <li key={worktree.path}><div className="repo-path">{worktree.path}</div><span>{worktree.bare ? 'bare' : worktree.detached ? 'detached HEAD' : worktree.branch ?? 'No branch'}{worktree.head ? ` · ${worktree.head.slice(0, 8)}` : ''}{worktree.locked ? ' · locked' : ''}{worktree.prunable ? ' · prunable' : ''}</span></li>)}</ul></details>}
+                    {!!status.metadataErrors?.length && <p className="service-detail" role="status">Some details are unavailable: {status.metadataErrors.join(' ')}</p>}
                   </>}
                   <div className="service-actions">
+                    <button disabled={disabled || !status || !!status.error} title="View unstaged/staged patches and untracked filenames in Logs" onClick={() => repositoryAction(project.id, repo.id, 'diff')}>Diff</button>
+                    <button disabled={disabled || !status || !!status.error || !status.lastCommit} title="View the latest 50 local commits in Logs" onClick={() => repositoryAction(project.id, repo.id, 'history')}>History</button>
+                    <button disabled={!repo.url && !status?.remotes?.length} title="Open the repository in an embedded browser tab" onClick={() => repositoryAction(project.id, repo.id, 'github')}>GitHub</button>
+                    <button disabled={disabled || !status || !!status.error || status.branch === '(detached)'} title="Preview and commit staged changes only" onClick={() => repositoryAction(project.id, repo.id, 'commit')}>Commit</button>
+                    <button disabled={disabled || !status || !!status.error || !status.upstream || status.branch === '(detached)'} title="Confirm destination before pushing without force" onClick={() => repositoryAction(project.id, repo.id, 'push')}>Push</button>
                     <button disabled={disabled || !status || !!status.error} title="Fetch remote changes and refresh ahead/behind counts" onClick={() => repositoryAction(project.id, repo.id, 'fetch')}>Fetch</button>
                     <button disabled={disabled || !status || !!status.error || status.changed > 0 || !status.upstream || status.branch === '(detached)'} title={status?.changed ? 'Commit or stash local changes before pulling' : !status?.upstream ? 'A tracking branch is required' : 'Pull the current tracking branch, fast-forward only'} onClick={() => repositoryAction(project.id, repo.id, 'pull')}>Pull</button>
                     <button disabled={disabled || !repo.url || !status?.error} title={!repo.url ? 'Configure this repository’s URL to enable Clone' : !status?.error ? 'This repository already exists' : `Clone ${repo.url}`} onClick={() => repositoryAction(project.id, repo.id, 'clone')}>Clone</button>
@@ -4672,6 +4683,10 @@ const App = () => {
         {!projects.some((project) => project.repositories?.length) && <p>No repositories configured in this profile.</p>}
       </main>}
       <main className="terminal-pane" style={{ display: repositoriesView ? 'none' : undefined }}>
+        {panelProject && <RepositoryStrip key={`${activeWorkspaceProfileId}:${panelProject.id}`} project={panelProject} profileId={activeWorkspaceProfileId}
+          statuses={dashboard?.repositories ?? []} jobs={repositoryJobs} errors={jobErrors}
+          reservedKeys={new Set(updateBatches.filter((batch) => batch.state === 'running').flatMap((batch) => batch.results.map((result) => result.key)))}
+          onAction={(repoId, action) => action === 'log' ? setLogJobKey(`${activeWorkspaceProfileId}:${panelProject.id}:${repoId}`) : repositoryAction(panelProject.id, repoId, action)} />}
         <div
           className="terminal-frame"
           onDragOver={(event) => {

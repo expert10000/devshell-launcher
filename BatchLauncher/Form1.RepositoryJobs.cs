@@ -6,14 +6,18 @@ namespace BatchLauncher;
 public partial class Form1
 {
     private readonly RepositoryRunner _repositoryRunner = new();
+    private readonly Dictionary<string, string> _repositoryActionPaths = new();
     private bool _repositoryBrowserEventsHooked;
     private RepositoryUpdateQueue? _repositoryUpdates;
     private RepositoryUpdateQueue RepositoryUpdates => _repositoryUpdates ??= new(_repositoryRunner);
     private static string RepositoryLogDirectory => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DevShellLauncher", "repository-logs");
     private RepositoryCommand CreateGitCommand(WorkspaceProject project, WorkspaceRepository repo, string action)
     {
+        _repositoryActionPaths[$"{_activeWorkspaceProfileId}:{project.Id}:{repo.Id}"] = Path.GetFullPath(ExpandProjectValue(project, repo.Path)).TrimEnd('\\', '/');
         var shell = _profiles.FirstOrDefault(profile => profile.Id == "pwsh") ?? throw new InvalidOperationException("PowerShell profile missing.");
         if (!_terminalManager.TryResolveProfileCommand(shell, out var command)) throw new InvalidOperationException("PowerShell is unavailable.");
+        if (action is "diff" or "history")
+            return RepositoryGitCommand.CreateInspection(command.Application, ExpandProjectValue(project, repo.Path), action, AppContext.BaseDirectory);
         return RepositoryGitCommand.Create(command.Application, Path.Combine(AppContext.BaseDirectory, "tools", "Sync-Repository.ps1"),
             ExpandProjectValue(project, repo.Path), repo.Url == null ? null : ExpandProjectValue(project, repo.Url), action, AppContext.BaseDirectory);
     }
@@ -83,6 +87,8 @@ public partial class Form1
         var projectId = payload.GetProperty("projectId").GetString();
         var repositoryId = payload.GetProperty("repositoryId").GetString();
         var key = $"{_activeWorkspaceProfileId}:{projectId}:{repositoryId}";
+        if (action == "github") return OpenRepositoryGithubAsync(projectId, repositoryId, key);
+        if (action is "commit" or "push") return HandleRepositoryWriteAsync(projectId, repositoryId, key, action);
         try
         {
             if (action == "stop") _repositoryRunner.Stop(key);
@@ -92,16 +98,18 @@ public partial class Form1
                 if (job != null && File.Exists(job.LogPath))
                     System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(job.LogPath) { UseShellExecute = true });
             }
-            else if (action is "build" or "run" or "fetch" or "pull" or "clone" or "launch")
+            else if (action is "build" or "run" or "fetch" or "pull" or "clone" or "launch" or "diff" or "history")
             {
                 if (RepositoryUpdates.Owns(key)) throw new InvalidOperationException("This repository is reserved by Update All. Stop the queue before starting another action.");
                 var project = _workspace.Projects?.FirstOrDefault(p => p.Id == projectId) ?? throw new InvalidOperationException("Project not found.");
                 var repo = project.Repositories?.FirstOrDefault(r => r.Id == repositoryId) ?? throw new InvalidOperationException("Repository not found.");
                 var cwd = ExpandProjectValue(project, repo.Path);
+                EnsureRepositoryIdle(key, cwd);
+                _repositoryActionPaths[key] = Path.GetFullPath(cwd).TrimEnd('\\', '/');
                 var build = action is "build" or "launch" ? CreateRepositoryCommand(project,
                     (action == "launch" ? repo.BrowserBuildTask ?? repo.BuildTask : repo.BuildTask) ?? throw new InvalidOperationException("Build is not configured."), cwd) : null;
                 var runAfter = action == "build" && payload.TryGetProperty("runAfter", out var value) && value.GetBoolean();
-                var run = action is "fetch" or "pull" or "clone" ? CreateGitCommand(project, repo, action)
+                var run = action is "fetch" or "pull" or "clone" or "diff" or "history" ? CreateGitCommand(project, repo, action)
                     : action is "run" or "launch" || runAfter ? CreateRepositoryCommand(project,
                         (action == "launch" ? repo.BrowserRunTask ?? repo.RunTask : repo.RunTask) ?? throw new InvalidOperationException("Run is not configured."), cwd) : null;
                 RepositoryBrowserLaunch? browser = null;
@@ -121,6 +129,63 @@ public partial class Form1
         catch (Exception error) { SendMessage(new { type = "repository.job.error", key, message = error.Message }); }
         SendRepositoryJobs();
         return Task.CompletedTask;
+    }
+    private async Task OpenRepositoryGithubAsync(string? projectId, string? repositoryId, string key)
+    {
+        try
+        {
+            var project = _workspace.Projects?.FirstOrDefault(item => item.Id == projectId) ?? throw new InvalidOperationException("Project not found.");
+            var repo = project.Repositories?.FirstOrDefault(item => item.Id == repositoryId) ?? throw new InvalidOperationException("Repository not found.");
+            var url = repo.Url == null ? null : ExpandProjectValue(project, repo.Url);
+            if (url == null)
+            {
+                var status = await DashboardInspector.Inspect(project.Id, repo.Id, ExpandProjectValue(project, repo.Path));
+                url = (status.Remotes.FirstOrDefault(remote => remote.Name == "origin" && remote.Direction == "fetch")
+                    ?? status.Remotes.FirstOrDefault(remote => remote.Direction == "fetch"))?.Url;
+            }
+            if (url == null) throw new InvalidOperationException("Repository has no remote URL.");
+            if (url.StartsWith("git@", StringComparison.Ordinal) && url.Contains(':')) url = "https://" + url[4..].Replace(':', '/');
+            if (Uri.TryCreate(url, UriKind.Absolute, out var ssh) && ssh.Scheme == "ssh") url = new UriBuilder("https", ssh.Host) { Path = ssh.AbsolutePath }.Uri.AbsoluteUri;
+            if (!BrowserPane.IsWebUrl(url)) throw new InvalidOperationException("Configure an HTTP or HTTPS repository URL to open it in DevShell.");
+            var target = new UriBuilder(url) { Query = "", Fragment = "" };
+            if (target.Path.EndsWith(".git", StringComparison.OrdinalIgnoreCase)) target.Path = target.Path[..^4];
+            await ShowBrowserAsync(target.Uri.AbsoluteUri, _activeWorkspaceProfileId);
+        }
+        catch (Exception error) { if (!IsDisposed) SendMessage(new { type = "repository.job.error", key, message = error.Message }); }
+    }
+    private void EnsureRepositoryIdle(string key, string path)
+    {
+        path = Path.GetFullPath(path).TrimEnd('\\', '/');
+        if (RepositoryUpdates.Owns(key) || _repositoryActionPaths.Any(pair => pair.Value.Equals(path, StringComparison.OrdinalIgnoreCase) && RepositoryUpdates.Owns(pair.Key)))
+            throw new InvalidOperationException("This checkout is reserved by Update All. Stop the queue before starting another action.");
+        if (_repositoryRunner.Snapshot().Any(job => job.State is "queued" or "building" or "running" &&
+            (job.Key == key || _repositoryActionPaths.TryGetValue(job.Key, out var other) && other.Equals(path, StringComparison.OrdinalIgnoreCase))))
+            throw new InvalidOperationException("This checkout already has an active job, possibly in another project/profile.");
+    }
+
+    private async Task HandleRepositoryWriteAsync(string? projectId, string? repositoryId, string key, string action)
+    {
+        var profileId = _activeWorkspaceProfileId;
+        try
+        {
+            var project = _workspace.Projects?.FirstOrDefault(item => item.Id == projectId) ?? throw new InvalidOperationException("Project not found.");
+            var repo = project.Repositories?.FirstOrDefault(item => item.Id == repositoryId) ?? throw new InvalidOperationException("Repository not found.");
+            var path = ExpandProjectValue(project, repo.Path);
+            EnsureRepositoryIdle(key, path);
+            var preview = await RepositoryWriteActions.Preview(path, action);
+            if (IsDisposed || profileId != _activeWorkspaceProfileId) return;
+            string? message = null;
+            if (action == "commit") { message = RepositoryWriteConfirmation.ConfirmCommit(this, preview); if (message == null) return; }
+            else if (!RepositoryWriteConfirmation.ConfirmPush(this, preview)) return;
+            EnsureRepositoryIdle(key, path);
+            var shell = _profiles.FirstOrDefault(item => item.Id == "pwsh") ?? throw new InvalidOperationException("PowerShell profile missing.");
+            if (!_terminalManager.TryResolveProfileCommand(shell, out var command)) throw new InvalidOperationException("PowerShell is unavailable.");
+            var write = RepositoryWriteActions.CreateCommand(command.Application, Path.Combine(AppContext.BaseDirectory, "tools", "Manage-Repository.ps1"), preview, action, message);
+            _repositoryActionPaths[key] = preview.Path;
+            if (!_repositoryRunner.Start(key, null, write, RepositoryLogDirectory, action)) throw new InvalidOperationException("A repository job is already running.");
+        }
+        catch (Exception error) { if (!IsDisposed) SendMessage(new { type = "repository.job.error", key, message = error.Message }); }
+        finally { if (!IsDisposed) SendRepositoryJobs(); }
     }
     private void OnRepositoryBrowserReady(string key, string url)
     {

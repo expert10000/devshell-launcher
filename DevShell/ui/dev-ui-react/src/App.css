@@ -1009,6 +1009,7 @@
 
 .terminal-pane {
   display: flex;
+  flex-direction: column;
   align-items: stretch;
   min-width: 0;
   min-height: 0;
@@ -2610,3 +2611,19 @@
 .repository-environment summary { cursor: pointer; }
 .repository-environment .health-row p { white-space: pre-wrap; overflow-wrap: anywhere; }
 @media (max-width: 600px) { .repository-update-results li { grid-template-columns: 1fr; gap: 4px; } }
+
+.repository-strip { flex: 0 0 auto; margin-bottom: 10px; padding: 10px 12px; border: 1px solid #8997a755; border-radius: 12px; background: linear-gradient(115deg, #ffffff08, #32b9d508); font-size: 12px; min-width: 0; max-height: 38vh; overflow-y: auto; }
+.repository-strip-selector { display: flex; gap: 7px; overflow-x: auto; padding-bottom: 5px; }
+.repository-strip-selector button { display: flex; flex-direction: column; gap: 3px; flex-shrink: 0; text-align: left; color: inherit; background: transparent; border: 1px solid #8997a755; border-radius: 8px; padding: 6px 9px; cursor: pointer; }
+.repository-strip-selector button[aria-pressed="true"] { border-color: #35a9c5; background: #35a9c51a; }
+.repository-strip-selector span { opacity: .8; white-space: nowrap; }
+.repository-strip-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 5px; }
+.repository-strip-actions button { color: inherit; background: #8997a712; border: 1px solid #8997a766; padding: 4px 8px; border-radius: 6px; cursor: pointer; }
+.repository-strip-actions button:disabled { opacity: .4; cursor: default; }
+.repository-strip-actions span { margin-left: auto; text-transform: capitalize; }
+.repository-strip-details { margin-top: 7px; overflow-wrap: anywhere; }
+.repository-strip-details summary { cursor: pointer; opacity: .75; }
+.repository-strip-details .repo-path { margin: 8px 0; }
+.repository-strip-details ul { padding-left: 18px; }
+.theme-daylight .repository-strip { background: linear-gradient(115deg, #ffffff, #eef8fb); }
+@media (max-width: 900px) { .repository-strip { padding: 8px; } .repository-strip-actions span { width: 100%; margin-left: 0; } }

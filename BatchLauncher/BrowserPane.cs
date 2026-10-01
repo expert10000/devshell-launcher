@@ -7,7 +7,15 @@ namespace BatchLauncher;
 // Web content never receives the launcher's message bridge or host objects.
 internal sealed class BrowserPane : UserControl
 {
-    private readonly WebView2 _view = new() { Dock = DockStyle.Fill };
+    private readonly WebView2 _view = new() { Dock = DockStyle.Fill, Visible = false };
+    private readonly Label _welcome = new()
+    {
+        Dock = DockStyle.Fill,
+        Text = "Browser\r\n\r\nEnter a URL above, or open a GitHub or Jupyter task in DevShell.",
+        TextAlign = ContentAlignment.MiddleCenter,
+        BackColor = Color.FromArgb(245, 239, 226),
+        ForeColor = Color.FromArgb(23, 33, 43)
+    };
     private readonly ToolStrip _navigation = new() { GripStyle = ToolStripGripStyle.Hidden, Dock = DockStyle.Top };
     private readonly ToolStripTextBox _address = new() { AutoSize = false, Width = 240 };
     private readonly ToolStripButton _back = new("Back") { Enabled = false };
@@ -32,6 +40,7 @@ internal sealed class BrowserPane : UserControl
         var statusBar = new StatusStrip();
         statusBar.Items.Add(_status);
         Controls.Add(_view);
+        Controls.Add(_welcome);
         Controls.Add(statusBar);
         Controls.Add(_navigation);
         _address.AccessibleName = "Browser address";
@@ -93,7 +102,7 @@ internal sealed class BrowserPane : UserControl
             e.Handled = true;
             if (IsWebUrl(e.Uri)) Navigate(e.Uri);
         };
-        core.NavigateToString("<!doctype html><html><body style='font:18px Georgia;padding:40px;background:#f5efe2;color:#17212b'><h1>Browser</h1><p>Enter a URL above, or open a GitHub or Jupyter task in DevShell.</p></body></html>");
+        _status.Text = "Ready. Enter a URL or open a browser task.";
     }
 
     internal static bool IsWebUrl(string value) =>
@@ -103,6 +112,8 @@ internal sealed class BrowserPane : UserControl
     public void Navigate(string url)
     {
         if (!IsWebUrl(url)) throw new ArgumentException("Enter a valid HTTP or HTTPS URL.");
+        _welcome.Visible = false;
+        _view.Visible = true;
         var uri = new Uri(url);
         var token = uri.Query.TrimStart('?').Split('&').FirstOrDefault(part =>
             part.StartsWith("token=", StringComparison.OrdinalIgnoreCase));

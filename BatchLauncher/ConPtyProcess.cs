@@ -12,6 +12,7 @@ internal sealed class ConPtyProcess : IDisposable
     private const int WaitObject0 = 0x00000000;
     private const int WaitTimeout = 0x00000102;
     private const int CreateUnicodeEnvironment = 0x00000400;
+    private const int StartfUseStdHandles = 0x00000100;
 
     public IntPtr PseudoConsole { get; private set; }
     public SafeFileHandle InputWrite { get; }
@@ -53,10 +54,12 @@ internal sealed class ConPtyProcess : IDisposable
             throw new InvalidOperationException($"CreatePipe failed: {Marshal.GetLastWin32Error()}");
         }
 
+        // Keep the pseudoconsole's pipe ends alive until CreateProcess has
+        // attached its client; closing them earlier can lose the connection.
+        using var inputReadLease = ptyInputRead;
+        using var outputWriteLease = ptyOutputWrite;
         var size = new COORD((short)cols, (short)rows);
         var hr = CreatePseudoConsole(size, ptyInputRead, ptyOutputWrite, 0, out var pseudoConsole);
-        ptyInputRead.Dispose();
-        ptyOutputWrite.Dispose();
 
         if (hr != 0)
         {
@@ -67,6 +70,9 @@ internal sealed class ConPtyProcess : IDisposable
 
         var startupInfo = new STARTUPINFOEX();
         startupInfo.StartupInfo.cb = Marshal.SizeOf<STARTUPINFOEX>();
+        // Null standard handles force the client to attach to ConPTY instead of
+        // duplicating this GUI process's redirected stdin/stdout/stderr handles.
+        startupInfo.StartupInfo.dwFlags = StartfUseStdHandles;
 
         var attributeSize = IntPtr.Zero;
         InitializeProcThreadAttributeList(IntPtr.Zero, 1, 0, ref attributeSize);
@@ -74,8 +80,10 @@ internal sealed class ConPtyProcess : IDisposable
         startupInfo.lpAttributeList = Marshal.AllocHGlobal(attributeSize);
         if (!InitializeProcThreadAttributeList(startupInfo.lpAttributeList, 1, 0, ref attributeSize))
         {
+            var error = Marshal.GetLastWin32Error();
+            Marshal.FreeHGlobal(startupInfo.lpAttributeList);
             CleanupFailedStart(pseudoConsole, inputWrite, outputRead);
-            throw new InvalidOperationException($"InitializeProcThreadAttributeList failed: {Marshal.GetLastWin32Error()}");
+            throw new InvalidOperationException($"InitializeProcThreadAttributeList failed: {error}");
         }
 
         if (!UpdateProcThreadAttribute(
@@ -87,10 +95,11 @@ internal sealed class ConPtyProcess : IDisposable
                 IntPtr.Zero,
                 IntPtr.Zero))
         {
+            var error = Marshal.GetLastWin32Error();
             DeleteProcThreadAttributeList(startupInfo.lpAttributeList);
             Marshal.FreeHGlobal(startupInfo.lpAttributeList);
             CleanupFailedStart(pseudoConsole, inputWrite, outputRead);
-            throw new InvalidOperationException($"UpdateProcThreadAttribute failed: {Marshal.GetLastWin32Error()}");
+            throw new InvalidOperationException($"UpdateProcThreadAttribute failed: {error}");
         }
 
         var commandLine = string.IsNullOrWhiteSpace(arguments)
@@ -109,6 +118,7 @@ internal sealed class ConPtyProcess : IDisposable
             workingDirectory,
             ref startupInfo,
             out var processInfo);
+        var createError = Marshal.GetLastWin32Error();
 
         DeleteProcThreadAttributeList(startupInfo.lpAttributeList);
         Marshal.FreeHGlobal(startupInfo.lpAttributeList);
@@ -117,7 +127,7 @@ internal sealed class ConPtyProcess : IDisposable
         if (!created)
         {
             CleanupFailedStart(pseudoConsole, inputWrite, outputRead);
-            throw new InvalidOperationException($"CreateProcess failed: {Marshal.GetLastWin32Error()}");
+            throw new InvalidOperationException($"CreateProcess failed: {createError}");
         }
 
         return new ConPtyProcess(
@@ -250,7 +260,7 @@ internal sealed class ConPtyProcess : IDisposable
         }
     }
 
-    [StructLayout(LayoutKind.Sequential)]
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private struct STARTUPINFO
     {
         public int cb;
@@ -273,7 +283,7 @@ internal sealed class ConPtyProcess : IDisposable
         public IntPtr hStdError;
     }
 
-    [StructLayout(LayoutKind.Sequential)]
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private struct STARTUPINFOEX
     {
         public STARTUPINFO StartupInfo;

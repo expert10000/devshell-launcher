@@ -182,7 +182,7 @@
         "Theory - Build PDF": {
           "steps": [
             {
-              "run": "latexmk -pdf main.tex"
+              "run": "& '${vars.devshellRepoPath}\\tools\\Build-Theory.ps1' -RepositoryPath '${vars.theoryRepoPath}'"
             }
           ],
           "cwd": "${vars.theoryRepoPath}",

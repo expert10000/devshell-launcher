@@ -21,11 +21,13 @@ public static class DashboardInspector
         return null;
     }
 
-    public static async Task<(int Code, string Output, string Error)> Run(string executable, IEnumerable<string> arguments)
+    public static async Task<(int Code, string Output, string Error)> Run(string executable, IEnumerable<string> arguments,
+        IReadOnlyDictionary<string, string>? environment = null)
     {
         var start = new ProcessStartInfo(executable) { UseShellExecute = false, CreateNoWindow = true,
             RedirectStandardOutput = true, RedirectStandardError = true };
         foreach (var argument in arguments) start.ArgumentList.Add(argument);
+        foreach (var pair in environment ?? new Dictionary<string, string>()) start.Environment[pair.Key] = pair.Value;
         using var process = Process.Start(start) ?? throw new InvalidOperationException($"Cannot run {executable}");
         var output = process.StandardOutput.ReadToEndAsync();
         var error = process.StandardError.ReadToEndAsync();

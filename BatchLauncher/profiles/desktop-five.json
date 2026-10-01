@@ -182,7 +182,7 @@
         "Theory - Build PDF": {
           "steps": [
             {
-              "run": "latexmk -pdf main.tex"
+              "run": "& '${vars.devshellRepoPath}\\tools\\Build-Theory.ps1' -RepositoryPath '${vars.theoryRepoPath}'"
             }
           ],
           "cwd": "${vars.theoryRepoPath}",
@@ -308,6 +308,9 @@
           "id": "math3d",
           "path": "${vars.math3dRepoPath}",
           "url": "https://github.com/expert10000/Math3D.git",
+          "pythonEnvironment": "${vars.math3dPython}",
+          "pythonModules": ["numpy", "scipy", "sympy", "vtk"],
+          "dependencyFolders": ["renderer"],
           "requiredTools": [
             "node",
             "npm"

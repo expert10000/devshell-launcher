@@ -57,9 +57,25 @@ public static class RepositoryEnvironment
                 else
                 {
                     Add("Python environment", "ok", python);
+                    var prefix = Path.GetDirectoryName(python)!;
+                    if (Path.GetFileName(prefix).Equals("Scripts", StringComparison.OrdinalIgnoreCase))
+                        prefix = Path.GetDirectoryName(prefix)!;
+                    Dictionary<string, string>? nativeEnvironment = null;
+                    if (Directory.Exists(Path.Combine(prefix, "conda-meta")))
+                    {
+                        // Conda's compiled packages require its DLL folders, as
+                        // they do when this environment is activated in a shell.
+                        nativeEnvironment = new()
+                        {
+                            ["CONDA_PREFIX"] = prefix,
+                            ["PATH"] = string.Join(";", new[] { prefix, Path.Combine(prefix, "Library", "mingw-w64", "bin"),
+                                Path.Combine(prefix, "Library", "usr", "bin"), Path.Combine(prefix, "Library", "bin"),
+                                Path.Combine(prefix, "Scripts"), Environment.GetEnvironmentVariable("PATH") ?? "" })
+                        };
+                    }
                     var modules = JsonSerializer.Serialize(pythonModules ?? new());
                     var code = "import importlib,json,sys; [importlib.import_module(m) for m in json.loads(sys.argv[1])]; print('Configured modules import successfully.')";
-                    var result = await DashboardInspector.Run(python, new[] { "-c", code, modules });
+                    var result = await DashboardInspector.Run(python, new[] { "-c", code, modules }, nativeEnvironment);
                     Add("Python modules", result.Code == 0 ? "ok" : "error", result.Code == 0 ? result.Output.Trim() : result.Error.Trim());
                     if (File.Exists(requirements))
                     {
@@ -82,7 +98,7 @@ print('Missing or incompatible: ' + ', '.join(missing) if missing else 'Requirem
 if skipped: print('Additional requirement entries need manual verification: ' + ', '.join(skipped))
 sys.exit(1 if missing else 2 if skipped else 0)
 """;
-                        result = await DashboardInspector.Run(python, new[] { "-c", requirementCheck, requirements });
+                        result = await DashboardInspector.Run(python, new[] { "-c", requirementCheck, requirements }, nativeEnvironment);
                         Add("Python requirements", result.Code == 0 ? "ok" : result.Code == 2 ? "warning" : "error",
                             (result.Output + result.Error).Trim() + (result.Code == 0 ? "" : $"\nInstall with: & '{python.Replace("'", "''")}' -m pip install -r requirements.txt (in {path})."));
                     }

@@ -72,7 +72,10 @@ export function RepositoryChangesPanel({ profileId, projectId, repositoryId, nam
         <section aria-label="Working tree files"><h3>Changes ({working.length})</h3>{fileList(working, 'working')}{!pending && !working.length && <p>No working-tree changes.</p>}<button disabled={locked || !workingSelection.length || workingSelection.length > 200} onClick={() => request('stage', { token: snapshot?.token, paths: workingSelection })}>Stage selected ({workingSelection.length})</button></section>
         <section aria-label="Staged files"><h3>Staged ({staged.length})</h3>{fileList(staged, 'staged')}{!pending && !staged.length && <p>No staged changes.</p>}<button disabled={locked || !stagedSelection.length || stagedSelection.length > 200} onClick={() => request('unstage', { token: snapshot?.token, paths: stagedSelection })}>Unstage selected ({stagedSelection.length})</button></section>
       </div>
-      {diff && <section aria-label="File diff"><h3>{diff.path} ({diff.side === 'staged' ? 'staged' : 'working tree'})</h3><pre className="repository-log changes-diff">{diff.text}</pre>{diff.truncated && <p>Preview truncated at 240 KB. Use VS Code for the complete file.</p>}</section>}
+      {diff && <section aria-label="File diff"><h3>{diff.path} ({diff.side === 'staged' ? 'staged' : 'working tree'})</h3><button disabled={pending} onClick={() => {
+        window.dispatchEvent(new CustomEvent('devshell.workspace.open', { detail: { profileId, kind: 'diff', projectId, repositoryId, filePath: diff.path, side: diff.side } }))
+        onClose()
+      }}>Open in workspace Diff tab</button><pre className="repository-log changes-diff">{diff.text}</pre>{diff.truncated && <p>Preview truncated at 240 KB. Use VS Code for the complete file.</p>}</section>}
     </section>
   </div>
 }

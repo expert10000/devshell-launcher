@@ -37,14 +37,14 @@ export function RepositoryStrip({ project, profileId, statuses, jobs, errors, re
     </div>
     <div className="repository-strip-actions">
       <button disabled={blocked || unavailable} onClick={() => setChangesId(selected.id)}>Changes</button>
-      <button disabled={blocked || unavailable} onClick={() => onAction(selected.id, 'diff')}>Diff</button>
+      <button disabled={unavailable} onClick={() => onAction(selected.id, 'diff')}>Diff</button>
       <button disabled={blocked || unavailable || detached} title="Preview and commit staged files only" onClick={() => onAction(selected.id, 'commit')}>Commit</button>
       <button disabled={blocked || unavailable || detached || !status?.upstream || !!status?.changed} title={status?.changed ? 'Commit or stash local changes first' : 'Fast-forward pull only'} onClick={() => onAction(selected.id, 'pull')}>Pull</button>
       <button disabled={blocked || unavailable || detached || !status?.upstream} title="Confirm destination and push this commit without force" onClick={() => onAction(selected.id, 'push')}>Push</button>
       <button disabled={blocked || unavailable || !status?.lastCommit} onClick={() => onAction(selected.id, 'history')}>History</button>
       <button disabled={!selected.url && !status?.remotes?.length} onClick={() => onAction(selected.id, 'github')}>Open GitHub</button>
       <button disabled={blocked || unavailable} title="Refresh remote references; counts otherwise use the last fetch" onClick={() => onAction(selected.id, 'fetch')}>Fetch</button>
-      <button disabled={!job} onClick={() => onAction(selected.id, 'log')}>Logs</button>
+      <button onClick={() => onAction(selected.id, 'log')}>Logs</button>
       {job && <span role="status">{job.action ?? 'Job'}: {job.state}</span>}
     </div>
     {errors[key] && <p className="check-error" role="alert">{errors[key]}</p>}

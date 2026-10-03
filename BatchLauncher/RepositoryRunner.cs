@@ -98,8 +98,11 @@ public sealed class RepositoryRunner : IDisposable
                 lock (job.Sync) { job.State = phase; if (phase == "building") job.BuildState = "building"; }
                 Append($"[{DateTime.Now:T}] {job.Action}: {phase} — {command.Cwd}");
                 var start = new ProcessStartInfo(command.Shell) { WorkingDirectory = command.Cwd, UseShellExecute = false, CreateNoWindow = true,
-                    RedirectStandardOutput = true, RedirectStandardError = true, RedirectStandardInput = true };
-                foreach (var arg in new[] { "-NoLogo", "-NoProfile", "-NonInteractive", "-OutputFormat", "Text", "-EncodedCommand", Convert.ToBase64String(Encoding.Unicode.GetBytes("[Console]::ReadLine() | Out-Null\n" + command.Script)) }) start.ArgumentList.Add(arg);
+                    RedirectStandardOutput = true, RedirectStandardError = true, RedirectStandardInput = true,
+                    StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8, StandardInputEncoding = Encoding.UTF8 };
+                // Match native tools, PowerShell pipelines, and the redirected readers to the UTF-8 log file.
+                const string outputPreamble = "$global:OutputEncoding = [Console]::InputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)\n[Console]::ReadLine() | Out-Null\n";
+                foreach (var arg in new[] { "-NoLogo", "-NoProfile", "-NonInteractive", "-OutputFormat", "Text", "-EncodedCommand", Convert.ToBase64String(Encoding.Unicode.GetBytes(outputPreamble + command.Script)) }) start.ArgumentList.Add(arg);
                 using var owned = new OwnedProcessJob();
                 using var process = Process.Start(start) ?? throw new InvalidOperationException("Could not launch repository action.");
                 try { owned.Add(process); } catch { if (!process.HasExited) process.Kill(true); throw; }

@@ -1,0 +1,121 @@
+import { useEffect, useRef, useState } from 'react'
+import type { WorkspaceViewTab } from './useWorkspaceTabs'
+
+type Project = { id: string; name: string; repositories?: { id: string; name: string }[] }
+type Job = { key: string; state: string; buildState: string; exitCode?: number; log: string; logPath: string; action?: string }
+type Bridge = { postMessage: (message: unknown) => void; addEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void; removeEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void }
+type ChangedFile = { path: string; staged: boolean; unstaged: boolean; conflicted: boolean }
+type Snapshot = { path: string; files: ChangedFile[]; blockedReason?: string }
+type Diff = { path: string; side: string; text: string; truncated: boolean }
+
+export function workspaceTabTitle(tab: WorkspaceViewTab, projects: Project[]) {
+  const project = projects.find(item => item.id === tab.projectId)
+  const repo = project?.repositories?.find(item => item.id === tab.repositoryId)
+  if (tab.kind === 'logs') return `${repo?.name ?? 'Repository'} Logs`
+  if (tab.kind === 'diff') return `${repo?.name ?? 'Repository'} Diff`
+  if (tab.kind === 'jupyter') return `${project?.name ?? 'Jupyter'}${tab.servicePath ? ` / ${tab.servicePath.split('/').at(-1)}` : ''}`
+  try { return `${repo?.name ?? new URL(tab.url ?? '').hostname} Browser` } catch { return 'Browser' }
+}
+
+export function WorkspaceTabButtons({ tabs, activeId, projects, onSelect, onClose }: { tabs: WorkspaceViewTab[]; activeId: string | null; projects: Project[]; onSelect: (id: string) => void; onClose: (id: string) => void }) {
+  return <>{tabs.map(tab => <div key={tab.id} className={`workspace-tab-entry ${activeId === tab.id ? 'active' : ''}`}>
+    <button className={`tab ${activeId === tab.id ? 'active' : ''}`} role="tab" aria-selected={activeId === tab.id} onClick={() => onSelect(tab.id)} title={workspaceTabTitle(tab, projects)}><span className={`workspace-tab-kind ${tab.kind}`}>{tab.kind}</span><span>{workspaceTabTitle(tab, projects)}</span></button>
+    <button className="workspace-tab-close" aria-label={`Close ${workspaceTabTitle(tab, projects)}`} title="Close view only; running jobs and browser pages are not stopped" onClick={() => onClose(tab.id)}>x</button>
+  </div>)}</>
+}
+
+function LogsView({ job, error, onStop, onFullLog, onRefresh }: { job?: Job; error?: string; onStop: () => void; onFullLog: () => void; onRefresh: () => void }) {
+  const [follow, setFollow] = useState(true); const output = useRef<HTMLPreElement>(null)
+  useEffect(() => { if (follow && output.current) output.current.scrollTop = output.current.scrollHeight }, [job?.log, follow])
+  const running = !!job && ['queued', 'building', 'running'].includes(job.state)
+  return <>
+    <div className="workspace-view-toolbar"><strong role="status">{job ? `${job.action ?? 'Job'}: ${job.state}${job.exitCode != null ? ` / exit ${job.exitCode}` : ''}` : 'No job in this launcher session'}</strong><div className="service-actions">
+      <label><input type="checkbox" checked={follow} onChange={event => setFollow(event.target.checked)} /> Follow output</label>
+      <button onClick={onRefresh}>Refresh</button><button disabled={!running} onClick={onStop}>Stop</button><button disabled={!job?.logPath} onClick={onFullLog}>Open full log</button>
+    </div></div>
+    {error && <p className="check-error" role="alert">{error}</p>}
+    <pre ref={output} className="workspace-output" tabIndex={0} aria-label="Job output">{job?.log || (job ? 'Waiting for output...' : 'This tab remembers the repository, not a job or its output. Nothing was restarted. Run a repository action to view its live output here.')}</pre>
+    {job?.logPath && <p className="workspace-view-caption">{job.logPath} / closing this tab does not stop the job.</p>}
+  </>
+}
+
+function DiffView({ tab, profileId, bridge, active, busy, onChange }: { tab: WorkspaceViewTab; profileId: string; bridge: Bridge | null; active: boolean; busy: boolean; onChange: (changes: Pick<WorkspaceViewTab, 'filePath' | 'side'>) => void }) {
+  const [snapshot, setSnapshot] = useState<Snapshot>(); const [diff, setDiff] = useState<Diff>()
+  const [filePath, setFilePath] = useState(tab.filePath ?? ''); const [side, setSide] = useState<'working' | 'staged'>(tab.side ?? 'working')
+  const [pending, setPending] = useState(false); const [error, setError] = useState('')
+  const current = useRef<{ id: string; action: string; filePath?: string; side?: 'working' | 'staged' }>({ id: '', action: '' })
+  const timeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const latest = useRef({ tab, onChange }); latest.current = { tab, onChange }
+  function request(action: 'changes' | 'file-diff', path?: string, targetSide?: 'working' | 'staged') {
+    if (!bridge) { setError('Diff previews require the DevShell desktop app.'); return }
+    clearTimeout(timeout.current)
+    const id = crypto.randomUUID(); current.current = { id, action, filePath: path, side: targetSide }
+    setPending(true); setError(''); setDiff(undefined)
+    timeout.current = setTimeout(() => { current.current.id = ''; setPending(false); setError('Git timed out. Refresh to retry.') }, 65000)
+    bridge.postMessage({ type: 'repository.job', action, profileId, projectId: tab.projectId, repositoryId: tab.repositoryId, requestId: id, path, side: targetSide })
+  }
+  useEffect(() => {
+    if (!bridge) return
+    const receive = (event: MessageEvent) => {
+      let message: { type?: string; profileId?: string; requestId?: string; snapshot?: Snapshot; diff?: Diff; error?: string }
+      try { message = typeof event.data === 'string' ? JSON.parse(event.data) : event.data } catch { return }
+      if (message?.type !== 'repository.changes' || message.profileId !== profileId || message.requestId !== current.current.id) return
+      clearTimeout(timeout.current); setPending(false)
+      if (message.error) { setError(message.error); return }
+      if (message.snapshot) setSnapshot(message.snapshot)
+      if (message.diff) { setDiff(message.diff); return }
+      if (current.current.action === 'changes' && message.snapshot) {
+        const desired = latest.current.tab.filePath
+        const selected = message.snapshot.files.find(file => file.path === desired) ?? message.snapshot.files[0]
+        if (!selected) { setFilePath(''); setDiff(undefined); return }
+        const targetSide = latest.current.tab.side ?? (selected.unstaged ? 'working' : 'staged')
+        setFilePath(selected.path); setSide(targetSide); latest.current.onChange({ filePath: selected.path, side: targetSide })
+        request('file-diff', selected.path, targetSide)
+      }
+    }
+    bridge.addEventListener('message', receive)
+    if (!tab.restored && active && !busy) request('changes')
+    return () => { clearTimeout(timeout.current); current.current.id = ''; bridge.removeEventListener('message', receive) }
+  }, [bridge, profileId, tab.id])
+  useEffect(() => {
+    if (!active || busy || pending || !tab.filePath || tab.filePath === filePath && (tab.side ?? 'working') === side) return
+    setFilePath(tab.filePath); setSide(tab.side ?? 'working')
+    request('file-diff', tab.filePath, tab.side ?? 'working')
+  }, [tab.filePath, tab.side, active, busy, pending])
+  function choose(path: string, targetSide: 'working' | 'staged') {
+    setFilePath(path); setSide(targetSide); onChange({ filePath: path, side: targetSide }); if (path) request('file-diff', path, targetSide)
+  }
+  return <>
+    <div className="workspace-view-toolbar"><div className="workspace-diff-controls">
+      <label>File <select aria-label="Diff file" value={filePath} disabled={pending || busy || !snapshot?.files.length} onChange={event => choose(event.target.value, side)}><option value="">Select a changed file</option>{snapshot?.files.map(file => <option key={file.path} value={file.path}>{file.path}{file.conflicted ? ' (conflict)' : ''}{file.staged ? ' [staged]' : ''}{file.unstaged ? ' [working]' : ''}</option>)}</select></label>
+      <label>Compare <select aria-label="Diff side" value={side} disabled={pending || busy} onChange={event => choose(filePath, event.target.value as 'working' | 'staged')}><option value="working">Working tree vs index</option><option value="staged">Staged vs HEAD</option></select></label>
+      <button disabled={pending || busy} onClick={() => request('changes')}>{pending ? 'Reading Git...' : 'Refresh'}</button>
+    </div><span className="workspace-view-caption">Read-only / no staging, commits, or task execution</span></div>
+    {snapshot && <p className="workspace-view-caption">{snapshot.path} / {snapshot.files.length} changed files</p>}
+    {busy && <p role="status">This checkout has an active job or Update All reservation. Refresh is available when it finishes.</p>}
+    {error && <p className="check-error" role="alert">{error}</p>}
+    <pre className="workspace-output workspace-diff-output" tabIndex={0} aria-label="File diff">{diff?.text ?? (pending ? 'Reading current Git state...' : snapshot ? snapshot.files.length ? 'Select a file and comparison side.' : 'Clean checkout: no changed files.' : 'Restored descriptor only. Click Refresh to read the current changes; no command was replayed.')}</pre>
+    {diff?.truncated && <p className="workspace-view-caption">Preview truncated at 240 KB. Use VS Code for the full diff.</p>}
+  </>
+}
+
+export function WorkspaceViews({ tabs, activeId, profileId, projects, jobs, errors, reservedKeys, bridge, onChange, onClose }: {
+  tabs: WorkspaceViewTab[]; activeId: string | null; profileId: string; projects: Project[]; jobs: Job[]; errors: Record<string, string>; reservedKeys: Set<string>; bridge: Bridge | null;
+  onChange: (id: string, changes: Pick<WorkspaceViewTab, 'filePath' | 'side'>) => void; onClose: (id: string) => void
+}) {
+  function repositoryAction(tab: WorkspaceViewTab, action: string) { bridge?.postMessage({ type: 'repository.job', projectId: tab.projectId, repositoryId: tab.repositoryId, action }) }
+  return <div className="workspace-content" style={{ display: activeId ? undefined : 'none' }}>{tabs.map(tab => {
+    const key = `${profileId}:${tab.projectId}:${tab.repositoryId}`; const job = jobs.find(item => item.key === key)
+    const busy = reservedKeys.has(key) || !!job && ['queued', 'building', 'running'].includes(job.state)
+    return <section key={tab.id} role="tabpanel" aria-label={workspaceTabTitle(tab, projects)} className="workspace-view" style={{ display: activeId === tab.id ? undefined : 'none' }}>
+      <header className="workspace-view-heading"><div><span className={`workspace-tab-kind ${tab.kind}`}>{tab.kind}</span><h2>{workspaceTabTitle(tab, projects)}</h2></div><button onClick={() => onClose(tab.id)}>Close tab</button></header>
+      {tab.kind === 'logs' && <LogsView job={job} error={errors[key]} onStop={() => repositoryAction(tab, 'stop')} onFullLog={() => repositoryAction(tab, 'log')} onRefresh={() => bridge?.postMessage({ type: 'repository.job', action: 'status' })} />}
+      {tab.kind === 'diff' && <DiffView tab={tab} profileId={profileId} bridge={bridge} active={activeId === tab.id} busy={busy} onChange={changes => onChange(tab.id, changes)} />}
+      {(tab.kind === 'browser' || tab.kind === 'jupyter') && <div className="workspace-browser-entry"><h3>{tab.kind === 'jupyter' ? 'Jupyter in the native browser pane' : 'Browser page in the native pane'}</h3><p>{tab.kind === 'jupyter' ? tab.servicePath ?? 'JupyterLab workspace' : tab.url}</p>
+        <p>Workspace navigation is linked to the existing browser pane. Restoring this entry does not navigate, start a service, or replay a task.</p>
+        <button onClick={() => tab.kind === 'jupyter' ? bridge?.postMessage({ type: 'service.control', projectId: tab.projectId, action: 'open', path: tab.servicePath }) : bridge?.postMessage({ type: 'browser.open', projectId: tab.projectId, url: tab.url })}>{tab.kind === 'jupyter' ? 'Open Jupyter' : 'Open / focus browser page'}</button>
+        <p className="workspace-view-caption">Use Show/hide browser to toggle the native pane. Closing this workspace entry does not close the page.{tab.kind === 'browser' ? ' Saved links omit credentials, query strings, and fragments; use the original task when parameters are required.' : ' Notebook access is reopened through the service controller; authentication URLs are never stored here.'}</p>
+      </div>}
+    </section>
+  })}</div>
+}

@@ -92,7 +92,7 @@ public partial class Form1
                 result.RootElement.TryGetProperty("url", out var urlElement))
             {
                 var url = urlElement.GetString();
-                if (url != null) await ShowBrowserAsync(url, profileId);
+                if (url != null) await ShowBrowserAsync(url, profileId, "jupyter", project.Id, servicePath: labPath);
             }
             SendMessage(new { type = "service.status", projectId, profileId,
                 state = result.RootElement.GetProperty("state").GetString(),

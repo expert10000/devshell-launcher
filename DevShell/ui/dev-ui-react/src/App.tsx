@@ -8,6 +8,8 @@ import {
 } from 'react'
 import { Terminal } from 'xterm'
 import { RepositoryStrip } from './RepositoryStrip'
+import { useWorkspaceTabs } from './useWorkspaceTabs'
+import { WorkspaceTabButtons, WorkspaceViews } from './WorkspaceViews'
 import { FitAddon } from 'xterm-addon-fit'
 import { SearchAddon } from 'xterm-addon-search'
 import { WebLinksAddon } from 'xterm-addon-web-links'
@@ -452,7 +454,6 @@ const App = () => {
   const previousRepositoryJobs = useRef<RepositoryJob[]>([])
   const [runAfterBuild, setRunAfterBuild] = useState<Record<string, boolean>>({})
   const [jobErrors, setJobErrors] = useState<Record<string, string>>({})
-  const [logJobKey, setLogJobKey] = useState<string | null>(null)
   const [repositoriesView, setRepositoriesView] = useState(true)
   const [healthOpen, setHealthOpen] = useState(false)
   const [dashboardLoading, setDashboardLoading] = useState(false)
@@ -482,6 +483,10 @@ const App = () => {
   const hostResizeRafs = useRef<Map<string, number>>(new Map())
 
   const bridge = useMemo(getBridge, [])
+  const workspaceViews = useWorkspaceTabs(activeWorkspaceProfileId, bridge, (tab) => {
+    setRepositoriesView(false)
+    if (tab.projectId) { setActiveProjectId(tab.projectId); setTaskProjectId(tab.projectId) }
+  })
 
   useEffect(() => {
     autoFitRef.current = autoFit
@@ -962,7 +967,7 @@ const App = () => {
     paneId: string
   ) => {
     if (task.type === 'browser') {
-      postMessage({ type: 'browser.open', url: task.url })
+      postMessage({ type: 'browser.open', url: task.url, projectId: task.projectId })
       return
     }
     if (task.serviceAction) {
@@ -1003,7 +1008,7 @@ const App = () => {
     options?: { forceNewTab?: boolean; title?: string }
   ) => {
     if (task.type === 'browser') {
-      postMessage({ type: 'browser.open', url: task.url })
+      postMessage({ type: 'browser.open', url: task.url, projectId: task.projectId })
       return
     }
     if (task.serviceAction) {
@@ -1451,6 +1456,7 @@ const App = () => {
 
     setTabs((current) => [...current, newTab])
     if (options?.focus !== false) {
+      workspaceViews.clearActive()
       setRepositoriesView(false)
       setActiveTabId(newTab.id)
     }
@@ -2751,6 +2757,7 @@ const App = () => {
 
       if (event.ctrlKey && event.key.toLowerCase() === 'w') {
         event.preventDefault()
+        if (workspaceViews.activeId && !repositoriesView) { workspaceViews.close(workspaceViews.activeId); return }
         if (repositoriesView) {
           setRepositoriesView(false)
           return
@@ -2853,7 +2860,7 @@ const App = () => {
 
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [tabs, activeTabId, selectedProfileId, repositoriesView])
+  }, [tabs, activeTabId, selectedProfileId, repositoriesView, workspaceViews.activeId, workspaceViews.tabs])
 
   const workspacePaletteCommands: PaletteCommand[] = isWorkspaceV2
     ? (workspace.workspaces ?? []).map((entry) => ({
@@ -3043,13 +3050,13 @@ const App = () => {
   }
 
   useEffect(() => {
-    if (repositoriesView) return
+    if (repositoriesView || workspaceViews.activeId) return
     const timer = window.setTimeout(() => {
       const pane = getActivePane()
       if (pane) { sendResize(pane.id); termRefs.current.get(pane.id)?.focus() }
     }, 0)
     return () => clearTimeout(timer)
-  }, [repositoriesView, activeTabId])
+  }, [repositoriesView, activeTabId, workspaceViews.activeId])
 
   const refreshDashboard = () => {
     setDashboardLoading(true)
@@ -3073,11 +3080,13 @@ const App = () => {
 
   const repositoryAction = (projectId: string, repositoryId: string, action: 'build' | 'run' | 'stop' | 'log' | 'fetch' | 'pull' | 'clone' | 'launch' | 'diff' | 'history' | 'github' | 'commit' | 'push') => {
     const key = `${activeWorkspaceProfileId}:${projectId}:${repositoryId}`
+    if (action === 'diff') { workspaceViews.open({ kind: 'diff', projectId, repositoryId }); return }
+    if (action === 'log') { workspaceViews.open({ kind: 'logs', projectId, repositoryId }); return }
     setJobErrors((current) => ({ ...current, [key]: '' }))
     if (['build', 'run', 'fetch', 'pull', 'clone', 'diff', 'history', 'commit', 'push'].includes(action)) {
       setRepositoryJobs((current) => [...current.filter((job) => job.key !== key), { key, state: 'queued', buildState: action === 'build' || action === 'launch' ? 'queued' : 'not-run', action, log: '', logPath: '' }])
     }
-    if (action === 'diff' || action === 'history') setLogJobKey(key);
+    if (['build', 'run', 'launch', 'history', 'fetch', 'pull', 'clone'].includes(action)) workspaceViews.open({ kind: 'logs', projectId, repositoryId })
     postMessage({ type: 'repository.job', projectId, repositoryId, action, runAfter: runAfterBuild[key] ?? false })
   }
   const updateBatch = updateBatches.find((batch) => batch.profileId === activeWorkspaceProfileId)
@@ -3149,7 +3158,7 @@ const App = () => {
   const handleWorkspaceTaskSelect = (task: ResolvedTask) => {
     setTaskMenuOpen(false)
     if (task.type === 'browser') {
-      postMessage({ type: 'browser.open', url: task.url })
+      postMessage({ type: 'browser.open', url: task.url, projectId: task.projectId })
       return
     }
     if (task.serviceAction) {
@@ -3203,7 +3212,7 @@ const App = () => {
   const handleWorkspaceTaskRunInNewTab = (task: ResolvedTask) => {
     setTaskMenuOpen(false)
     if (task.type === 'browser') {
-      postMessage({ type: 'browser.open', url: task.url })
+      postMessage({ type: 'browser.open', url: task.url, projectId: task.projectId })
       return
     }
     if (task.serviceAction) {
@@ -4302,12 +4311,12 @@ const App = () => {
               )}
             </div>
             <div className="tab-strip">
-              <button className={`tab ${repositoriesView ? 'active' : ''}`} onClick={() => setRepositoriesView(true)} aria-pressed={repositoriesView}>Repositories</button>
+              <button className={`tab ${repositoriesView ? 'active' : ''}`} onClick={() => { workspaceViews.clearActive(); setRepositoriesView(true) }} aria-pressed={repositoriesView}>Repositories</button>
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
-                  className={`tab ${!repositoriesView && activeTabId === tab.id ? 'active' : ''}`}
-                  onClick={() => { setRepositoriesView(false); setActiveTabId(tab.id) }}
+                  className={`tab ${!repositoriesView && !workspaceViews.activeId && activeTabId === tab.id ? 'active' : ''}`}
+                  onClick={() => { workspaceViews.clearActive(); setRepositoriesView(false); setActiveTabId(tab.id) }}
                   onDoubleClick={() => {
                     setEditingTabId(tab.id)
                     setEditingTitle(tab.title)
@@ -4349,6 +4358,7 @@ const App = () => {
                   </span>
                 </button>
               ))}
+              <WorkspaceTabButtons tabs={workspaceViews.tabs} activeId={repositoriesView ? null : workspaceViews.activeId} projects={projects} onSelect={workspaceViews.select} onClose={workspaceViews.close} />
             </div>
             <div className="actions">
               <div className="quick-shell-actions">
@@ -4649,14 +4659,14 @@ const App = () => {
                   <div className="service-detail">{status?.branch ?? (status?.error ? 'Unavailable' : 'Checking…')}</div>
                   {status?.error ? <p className="check-error">{status.error}</p> : status && <>
                     <div className="service-detail">{status.changed} changed · {status.upstream ? `${status.ahead ?? '—'} ahead / ${status.behind ?? '—'} behind ${status.upstream}` : 'No tracking branch'}</div>
-                    {status.files.length > 0 && <details><summary>Changed files</summary><ul className="repo-files">{status.files.map((file) => <li key={file}>{file}</li>)}</ul>{status.changed > status.files.length && <p>Showing first {status.files.length} files.</p>}</details>}
+                    {status.files.length > 0 && <details><summary>Changed files</summary><ul className="repo-files">{status.files.map((file) => <li key={file}><button onClick={() => workspaceViews.open({ kind: 'diff', projectId: project.id, repositoryId: repo.id, filePath: file })}>{file}</button></li>)}</ul>{status.changed > status.files.length && <p>Showing first {status.files.length} files.</p>}</details>}
                     {status.lastCommit && <div className="service-detail"><strong>Latest {status.lastCommit.hash.slice(0, 8)}</strong> · {status.lastCommit.subject}<div>{status.lastCommit.author} · {new Date(status.lastCommit.timestamp).toLocaleString()}</div></div>}
                     {!!status.remotes?.length && <details><summary>Remotes ({new Set(status.remotes.map((remote) => remote.name)).size})</summary><ul className="repo-files">{status.remotes.map((remote, index) => <li key={`${remote.name}:${remote.direction}:${index}`}><strong>{remote.name} ({remote.direction})</strong><div className="repo-path">{remote.url}</div></li>)}</ul></details>}
                     {!!status.worktrees?.length && <details><summary>Worktrees ({status.worktrees.length})</summary><ul className="repo-files">{status.worktrees.map((worktree) => <li key={worktree.path}><div className="repo-path">{worktree.path}</div><span>{worktree.bare ? 'bare' : worktree.detached ? 'detached HEAD' : worktree.branch ?? 'No branch'}{worktree.head ? ` · ${worktree.head.slice(0, 8)}` : ''}{worktree.locked ? ' · locked' : ''}{worktree.prunable ? ' · prunable' : ''}</span></li>)}</ul></details>}
                     {!!status.metadataErrors?.length && <p className="service-detail" role="status">Some details are unavailable: {status.metadataErrors.join(' ')}</p>}
                   </>}
                   <div className="service-actions">
-                    <button disabled={disabled || !status || !!status.error} title="View unstaged/staged patches and untracked filenames in Logs" onClick={() => repositoryAction(project.id, repo.id, 'diff')}>Diff</button>
+                    <button disabled={!status || !!status.error} title="Open a read-only workspace Diff tab" onClick={() => repositoryAction(project.id, repo.id, 'diff')}>Diff</button>
                     <button disabled={disabled || !status || !!status.error || !status.lastCommit} title="View the latest 50 local commits in Logs" onClick={() => repositoryAction(project.id, repo.id, 'history')}>History</button>
                     <button disabled={!repo.url && !status?.remotes?.length} title="Open the repository in an embedded browser tab" onClick={() => repositoryAction(project.id, repo.id, 'github')}>GitHub</button>
                     <button disabled={disabled || !status || !!status.error || status.branch === '(detached)'} title="Preview and commit staged changes only" onClick={() => repositoryAction(project.id, repo.id, 'commit')}>Commit</button>
@@ -4668,7 +4678,7 @@ const App = () => {
                     <button disabled={disabled || !repo.runTask || !status || !!status.error} title={repo.runTask ?? 'No run command configured'} onClick={() => repositoryAction(project.id, repo.id, 'run')}>{repo.runLabel ?? 'Run'}</button>
                     {repo.browserUrl && <button disabled={disabled || !(repo.browserBuildTask ?? repo.buildTask) || !(repo.browserRunTask ?? repo.runTask) || !status || !!status.error} title="Build the web app, start its server, and open it in DevShell only when ready" onClick={() => repositoryAction(project.id, repo.id, 'launch')}>Build + Run + Open</button>}
                     <button disabled={!busy} onClick={() => repositoryAction(project.id, repo.id, 'stop')}>Stop</button>
-                    <button disabled={!job} onClick={() => setLogJobKey(jobKey)}>Logs</button>
+                    <button onClick={() => repositoryAction(project.id, repo.id, 'log')}>Logs</button>
                   </div>
                   {repo.buildTask && repo.runTask && <label className="repo-run-after"><input type="checkbox" checked={runAfterBuild[jobKey] ?? false} disabled={disabled} onChange={(event) => setRunAfterBuild((current) => ({ ...current, [jobKey]: event.target.checked }))} /> {repo.runLabel === 'Open PDF' ? 'Open PDF after successful build' : 'Run after successful build'}</label>}
                   {job && <div className={`repo-job-status ${job.state}`} role="status">{busy && <span className="job-spinner" />} {job.action ?? 'Job'}: {job.state}{['build', 'run'].includes(job.action ?? '') && ` · Build: ${job.buildState}`}{job.exitCode != null ? ` · Exit ${job.exitCode}` : ''}</div>}
@@ -4686,9 +4696,13 @@ const App = () => {
         {panelProject && <RepositoryStrip key={`${activeWorkspaceProfileId}:${panelProject.id}`} project={panelProject} profileId={activeWorkspaceProfileId}
           statuses={dashboard?.repositories ?? []} jobs={repositoryJobs} errors={jobErrors}
           reservedKeys={new Set(updateBatches.filter((batch) => batch.state === 'running').flatMap((batch) => batch.results.map((result) => result.key)))}
-          onAction={(repoId, action) => action === 'log' ? setLogJobKey(`${activeWorkspaceProfileId}:${panelProject.id}:${repoId}`) : repositoryAction(panelProject.id, repoId, action)} />}
+          onAction={(repoId, action) => repositoryAction(panelProject.id, repoId, action)} />}
+        {workspaceViews.error && <p className="check-error" role="alert">{workspaceViews.error}</p>}
+        {activeWorkspaceProfileId && <WorkspaceViews key={activeWorkspaceProfileId} tabs={workspaceViews.tabs} activeId={workspaceViews.activeId} profileId={activeWorkspaceProfileId} projects={projects}
+          jobs={repositoryJobs} errors={jobErrors} bridge={bridge} reservedKeys={new Set(updateBatches.filter(batch => batch.state === 'running').flatMap(batch => batch.results.map(result => result.key)))} onChange={workspaceViews.update} onClose={workspaceViews.close} />}
         <div
           className="terminal-frame"
+          style={{ display: workspaceViews.activeId ? 'none' : undefined }}
           onDragOver={(event) => {
             event.preventDefault()
             setDragActive(true)
@@ -5388,15 +5402,6 @@ const App = () => {
         </div>
       )}
 
-      {logJobKey && <div className="project-editor-overlay" onClick={() => setLogJobKey(null)}>
-        <section className="health-dialog repository-log-dialog" role="dialog" aria-modal="true" aria-label="Repository logs" onClick={(event) => event.stopPropagation()}>
-          <div className="service-heading"><h2>Repository logs</h2><button onClick={() => setLogJobKey(null)}>Close</button></div>
-          <p>Latest output · full logs are saved on disk.</p>
-          <pre className="repository-log">{repositoryJobs.find((job) => job.key === logJobKey)?.log || 'Waiting for output…'}</pre>
-          <div className="repo-path">{repositoryJobs.find((job) => job.key === logJobKey)?.logPath}</div>
-          <button onClick={() => { const parts = logJobKey.split(':'); if (parts[0] === activeWorkspaceProfileId) repositoryAction(parts[1], parts[2], 'log') }}>Open full log</button>
-        </section>
-      </div>}
       {healthOpen && <div className="project-editor-overlay" onClick={() => setHealthOpen(false)}>
         <section className="health-dialog" role="dialog" aria-modal="true" aria-label="Profile health check" onClick={(event) => event.stopPropagation()}>
           <div className="service-heading"><h2>Profile health check</h2><button onClick={() => setHealthOpen(false)}>Close</button></div>

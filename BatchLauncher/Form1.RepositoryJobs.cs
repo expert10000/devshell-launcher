@@ -136,6 +136,7 @@ public partial class Form1
     }
     private async Task OpenRepositoryGithubAsync(string? projectId, string? repositoryId, string key)
     {
+        var profileId = _activeWorkspaceProfileId;
         try
         {
             var project = _workspace.Projects?.FirstOrDefault(item => item.Id == projectId) ?? throw new InvalidOperationException("Project not found.");
@@ -153,7 +154,7 @@ public partial class Form1
             if (!BrowserPane.IsWebUrl(url)) throw new InvalidOperationException("Configure an HTTP or HTTPS repository URL to open it in DevShell.");
             var target = new UriBuilder(url) { Query = "", Fragment = "" };
             if (target.Path.EndsWith(".git", StringComparison.OrdinalIgnoreCase)) target.Path = target.Path[..^4];
-            await ShowBrowserAsync(target.Uri.AbsoluteUri, _activeWorkspaceProfileId);
+            await ShowBrowserAsync(target.Uri.AbsoluteUri, profileId, "browser", project.Id, repo.Id);
         }
         catch (Exception error) { if (!IsDisposed) SendMessage(new { type = "repository.job.error", key, message = error.Message }); }
     }
@@ -201,7 +202,8 @@ public partial class Form1
             {
                 if (IsDisposed || !key.StartsWith(_activeWorkspaceProfileId + ":", StringComparison.Ordinal) ||
                     !_repositoryRunner.Snapshot().Any(job => job.Key == key && job.State == "running" && job.BrowserState == "ready" && job.BrowserUrl == url)) return;
-                try { await ShowBrowserAsync(url, _activeWorkspaceProfileId); }
+                var parts = key.Split(':');
+                try { await ShowBrowserAsync(url, _activeWorkspaceProfileId, "browser", parts.Length > 1 ? parts[1] : null, parts.Length > 2 ? parts[2] : null); }
                 catch (Exception error) { if (!IsDisposed) SendMessage(new { type = "repository.job.error", key, message = "App is ready, but the browser could not open: " + error.Message }); }
                 if (!IsDisposed) SendRepositoryJobs();
             }));

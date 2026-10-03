@@ -47,12 +47,14 @@ public partial class Form1
     private Task HandleBrowserOpenAsync(JsonElement message)
     {
         var url = message.TryGetProperty("url", out var value) ? value.GetString() : null;
+        var projectId = message.TryGetProperty("projectId", out var project) ? project.GetString() : null;
         if (url != null && !BrowserPane.IsWebUrl(url))
             throw new ArgumentException("Browser tasks require an HTTP or HTTPS URL.");
-        return ShowBrowserAsync(url, _activeWorkspaceProfileId);
+        return ShowBrowserAsync(url, _activeWorkspaceProfileId, "browser", projectId);
     }
 
-    private async Task ShowBrowserAsync(string? url, string profileId)
+    private async Task ShowBrowserAsync(string? url, string profileId, string? workspaceKind = null,
+        string? projectId = null, string? repositoryId = null, string? servicePath = null)
     {
         await _browserGate.WaitAsync();
         BrowserPane? pane = null;
@@ -80,7 +82,13 @@ public partial class Form1
             pane = _browserPane;
             if (pane == null || pane.IsDisposed || profileId != _activeWorkspaceProfileId) return;
             pane.SetWorkspaceVisible(!_browserHost.Panel2Collapsed);
-            if (url != null) await pane.OpenTabAsync(url);
+            if (url != null)
+            {
+                await pane.OpenTabAsync(url);
+                if (profileId == _activeWorkspaceProfileId && !IsDisposed && !pane.IsDisposed)
+                    SendMessage(new { type = "workspace.browser.opened", profileId, kind = workspaceKind ?? "browser", projectId, repositoryId,
+                        servicePath, url = workspaceKind == "jupyter" ? null : WorkspaceTabsStore.CleanWebUrl(url) });
+            }
             if (!_browserHost.Panel2Collapsed) pane.Focus();
         }
         catch (Exception) when (IsDisposed || profileId != _activeWorkspaceProfileId || pane?.IsDisposed == true)

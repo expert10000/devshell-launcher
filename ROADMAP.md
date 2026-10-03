@@ -1,6 +1,6 @@
 # DevShell workspace roadmap
 
-Updated: 2026-10-01
+Updated: 2026-10-03
 
 ## Direction
 
@@ -55,11 +55,16 @@ Delivered and checked on 2026-10-01:
 
 ### Group 2: Browser and mixed workspace tabs
 
-Status: browser-tab foundation implemented; mixed center workspace pending.
+Status: browser-tab foundation and workspace Logs/Diff/navigation slice implemented. New workspace-tab changes are not yet rebuilt or runtime-tested.
 
 - [x] Separate browser pages with New/Close tab and navigation controls.
 - [x] Restore browser tabs and visibility per profile without persisting URL authentication tokens.
 - [x] Open ready local applications from repository launch actions.
+- [x] Add persistent workspace Logs tabs with current-session output, job status, Stop, and Open full log; closing a view does not stop the job.
+- [x] Add read-only workspace Diff tabs with file selection, working/staged comparison, Refresh, and opening a preview from Changes.
+- [x] Restore validated tab descriptors per profile without saving log/diff contents or replaying jobs, Git writes, or service startup.
+- [x] Link browser/Jupyter openings into workspace navigation while keeping the existing native browser pane and authenticated service controller.
+- [ ] Build and test the new slice: live output/Stop, side switching/Refresh, terminal preservation, profile restoration/isolation, and browser/Jupyter navigation.
 - [ ] Unify center tab types: Terminal, Browser, Jupyter, Diff, Markdown, Files, and Logs.
 - [ ] Add Copy URL, DevTools, project URL shortcuts, and device-size presets.
 - [ ] Let service records advertise Open actions once healthy.
@@ -139,7 +144,7 @@ Acceptance: common workspace operations stay discoverable and portable without m
 
 ## Immediate next slice
 
-Next feature: start Group 2 with workspace Logs and Diff tabs, using the existing managed-job output and file previews rather than adding another modal or terminal transcript.
+Next: build and verify the implemented Group 2 Logs/Diff/navigation slice before moving native WebView controls into the center workspace.
 
 - Introduce typed workspace tabs while preserving existing terminal sessions, splits, and profile switching.
 - Open job Logs in a persistent workspace tab with live output, exit status, and the existing full-log action.

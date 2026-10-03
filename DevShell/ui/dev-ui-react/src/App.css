@@ -1534,6 +1534,8 @@
   justify-content: space-between;
   gap: 8px;
 }
+.folder-row.folder-pdf-entry { border-color: #bb653344; background: linear-gradient(110deg, #bb65330d, #8997a709); }
+.folder-pdf-entry .workspace-tab-kind { flex-shrink: 0; }
 
 .folder-row.folder-up {
   background: rgba(9, 14, 22, 0.75);
@@ -2674,5 +2676,12 @@
 .theme-daylight .workspace-view { color: #182638; background: linear-gradient(125deg, #fbfdff, #eff6fa); }
 .theme-daylight .workspace-tab-kind.logs { color: #176b54; }
 .theme-daylight .workspace-tab-kind.diff { color: #8b5916; }
+.workspace-tab-kind.pdf { color: #eeae89; background: #bb65331f; }
+.theme-daylight .workspace-tab-kind.pdf { color: #965022; }
+.workspace-pdf-entry { overflow-y: auto; max-width: 850px; line-height: 1.7; }
+.workspace-pdf-controls { justify-content: flex-start; }
+.workspace-pdf-controls input { width: 90px; color: inherit; background: #8997a719; border: 1px solid #8997a755; border-radius: 7px; padding: 7px; }
+.workspace-pdf-controls select { max-width: min(460px, 70vw); }
+.workspace-pdf-help { margin-top: 24px; padding: 18px; border: 1px solid #8997a733; border-radius: 12px; background: #8997a70a; }
 .theme-daylight .workspace-tab-kind.browser, .theme-daylight .workspace-tab-kind.jupyter { color: #225c83; }
 @media (max-width: 720px) { .workspace-view { padding: 12px; } .workspace-view-heading h2 { font-size: 15px; } .workspace-diff-controls, .workspace-diff-controls label { width: 100%; } .workspace-diff-controls select { max-width: 100%; min-width: 0; flex: 1; } }

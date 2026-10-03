@@ -162,7 +162,7 @@ type ProjectLayout = {
 }
 
 type ProjectDefinition = {
-  repositories?: { id: string; name: string; path: string; url?: string; requiredTools?: string[]; pythonEnvironment?: string; pythonModules?: string[]; dependencyFolders?: string[]; buildTask?: string; runTask?: string; runLabel?: string; browserUrl?: string; readyUrls?: string[]; readyTimeoutSeconds?: number; browserBuildTask?: string; browserRunTask?: string }[]
+  repositories?: { id: string; name: string; path: string; url?: string; requiredTools?: string[]; pythonEnvironment?: string; pythonModules?: string[]; dependencyFolders?: string[]; buildTask?: string; runTask?: string; runLabel?: string; pdfPath?: string; pdfDirectory?: string; pdfOpenTask?: string; browserUrl?: string; readyUrls?: string[]; readyTimeoutSeconds?: number; browserBuildTask?: string; browserRunTask?: string }[]
   requiredTools?: string[]
   pythonModules?: string[]
   service?: { name: string; python: string; port: number }
@@ -308,7 +308,8 @@ type FolderNavState = {
 type FolderEntry = {
   name: string
   path: string
-  kind?: 'drive' | 'folder'
+  kind?: 'drive' | 'folder' | 'pdf'
+  pdfTarget?: { projectId: string; repositoryId: string; filePath: string }
 }
 
 type FolderListing = {
@@ -961,11 +962,22 @@ const App = () => {
     return delay
   }
 
+  function openWorkspacePdfTask(task: ResolvedTask) {
+    const repo = projects.find(project => project.id === task.projectId)?.repositories?.find(item => item.pdfPath && item.runTask === task.name || item.pdfDirectory && item.pdfOpenTask === task.name)
+    if (!repo) return false
+    if (repo.pdfDirectory && task.name === repo.pdfOpenTask) {
+      workspaceViews.open({ kind: 'pdf', projectId: task.projectId, repositoryId: repo.id, page: 1 }); return true
+    }
+    postMessage({ type: 'workspace.pdf', profileId: activeWorkspaceProfileId, projectId: task.projectId, repositoryId: repo.id, action: 'open' })
+    return true
+  }
+
   const runWorkspaceTaskInSession = (
     task: ResolvedTask,
     sessionId: string,
     paneId: string
   ) => {
+    if (openWorkspacePdfTask(task)) return
     if (task.type === 'browser') {
       postMessage({ type: 'browser.open', url: task.url, projectId: task.projectId })
       return
@@ -1007,6 +1019,7 @@ const App = () => {
     task: ResolvedTask,
     options?: { forceNewTab?: boolean; title?: string }
   ) => {
+    if (openWorkspacePdfTask(task)) return
     if (task.type === 'browser') {
       postMessage({ type: 'browser.open', url: task.url, projectId: task.projectId })
       return
@@ -1194,6 +1207,14 @@ const App = () => {
       error: undefined,
     }))
     postMessage({ type: 'folder.request', sessionId: pane.sessionId, path })
+  }
+
+  const openFolderPdf = (entry: FolderEntry) => {
+    const target = entry.pdfTarget
+    if (!target || !activeWorkspaceProfileId) return
+    setFolderPickerOpen(false)
+    workspaceViews.open({ kind: 'pdf', ...target, page: 1 })
+    postMessage({ type: 'workspace.pdf', profileId: activeWorkspaceProfileId, ...target, page: 1, action: 'open' })
   }
 
   const openFolderInExplorer = (paneId: string) => {
@@ -3082,6 +3103,11 @@ const App = () => {
     const key = `${activeWorkspaceProfileId}:${projectId}:${repositoryId}`
     if (action === 'diff') { workspaceViews.open({ kind: 'diff', projectId, repositoryId }); return }
     if (action === 'log') { workspaceViews.open({ kind: 'logs', projectId, repositoryId }); return }
+    const repo = projects.find(project => project.id === projectId)?.repositories?.find(item => item.id === repositoryId)
+    if (action === 'run' && repo?.pdfPath) {
+      setJobErrors(current => ({ ...current, [key]: '' }))
+      postMessage({ type: 'workspace.pdf', profileId: activeWorkspaceProfileId, projectId, repositoryId, action: 'open' }); return
+    }
     setJobErrors((current) => ({ ...current, [key]: '' }))
     if (['build', 'run', 'fetch', 'pull', 'clone', 'diff', 'history', 'commit', 'push'].includes(action)) {
       setRepositoryJobs((current) => [...current.filter((job) => job.key !== key), { key, state: 'queued', buildState: action === 'build' || action === 'launch' ? 'queued' : 'not-run', action, log: '', logPath: '' }])
@@ -3157,6 +3183,7 @@ const App = () => {
 
   const handleWorkspaceTaskSelect = (task: ResolvedTask) => {
     setTaskMenuOpen(false)
+    if (openWorkspacePdfTask(task)) return
     if (task.type === 'browser') {
       postMessage({ type: 'browser.open', url: task.url, projectId: task.projectId })
       return
@@ -3211,6 +3238,7 @@ const App = () => {
 
   const handleWorkspaceTaskRunInNewTab = (task: ResolvedTask) => {
     setTaskMenuOpen(false)
+    if (openWorkspacePdfTask(task)) return
     if (task.type === 'browser') {
       postMessage({ type: 'browser.open', url: task.url, projectId: task.projectId })
       return
@@ -4674,13 +4702,14 @@ const App = () => {
                     <button disabled={disabled || !status || !!status.error} title="Fetch remote changes and refresh ahead/behind counts" onClick={() => repositoryAction(project.id, repo.id, 'fetch')}>Fetch</button>
                     <button disabled={disabled || !status || !!status.error || status.changed > 0 || !status.upstream || status.branch === '(detached)'} title={status?.changed ? 'Commit or stash local changes before pulling' : !status?.upstream ? 'A tracking branch is required' : 'Pull the current tracking branch, fast-forward only'} onClick={() => repositoryAction(project.id, repo.id, 'pull')}>Pull</button>
                     <button disabled={disabled || !repo.url || !status?.error} title={!repo.url ? 'Configure this repository’s URL to enable Clone' : !status?.error ? 'This repository already exists' : `Clone ${repo.url}`} onClick={() => repositoryAction(project.id, repo.id, 'clone')}>Clone</button>
-                    <button disabled={disabled || !repo.buildTask || !status || !!status.error} title={repo.buildTask ?? 'No build command configured for this repository'} onClick={() => repositoryAction(project.id, repo.id, 'build')}>Build</button>
-                    <button disabled={disabled || !repo.runTask || !status || !!status.error} title={repo.runTask ?? 'No run command configured'} onClick={() => repositoryAction(project.id, repo.id, 'run')}>{repo.runLabel ?? 'Run'}</button>
+                    <button disabled={disabled || !repo.buildTask || !status || !!status.error} title={repo.buildTask ?? 'No build command configured for this repository'} onClick={() => repositoryAction(project.id, repo.id, 'build')}>{repo.pdfDirectory ? 'Build PDFs' : 'Build'}</button>
+                    <button disabled={disabled || !(repo.pdfPath || repo.runTask) || !status || !!status.error} title={repo.pdfPath ? 'Open the build output in a workspace PDF tab' : repo.runTask ?? 'No run command configured'} onClick={() => repositoryAction(project.id, repo.id, 'run')}>{repo.pdfPath ? 'Open PDF' : repo.runLabel ?? 'Run'}</button>
+                    {repo.pdfDirectory && <button disabled={!status || !!status.error} title="Choose a volume or edition from the collected build PDFs" onClick={() => workspaceViews.open({ kind: 'pdf', projectId: project.id, repositoryId: repo.id, page: 1 })}>Open PDF</button>}
                     {repo.browserUrl && <button disabled={disabled || !(repo.browserBuildTask ?? repo.buildTask) || !(repo.browserRunTask ?? repo.runTask) || !status || !!status.error} title="Build the web app, start its server, and open it in DevShell only when ready" onClick={() => repositoryAction(project.id, repo.id, 'launch')}>Build + Run + Open</button>}
                     <button disabled={!busy} onClick={() => repositoryAction(project.id, repo.id, 'stop')}>Stop</button>
                     <button onClick={() => repositoryAction(project.id, repo.id, 'log')}>Logs</button>
                   </div>
-                  {repo.buildTask && repo.runTask && <label className="repo-run-after"><input type="checkbox" checked={runAfterBuild[jobKey] ?? false} disabled={disabled} onChange={(event) => setRunAfterBuild((current) => ({ ...current, [jobKey]: event.target.checked }))} /> {repo.runLabel === 'Open PDF' ? 'Open PDF after successful build' : 'Run after successful build'}</label>}
+                  {repo.buildTask && (repo.runTask || repo.pdfPath || repo.pdfDirectory) && <label className="repo-run-after"><input type="checkbox" checked={runAfterBuild[jobKey] ?? false} disabled={disabled} onChange={(event) => setRunAfterBuild((current) => ({ ...current, [jobKey]: event.target.checked }))} /> {repo.pdfDirectory ? 'Show PDF selector after successful build' : repo.pdfPath ? 'Open PDF after successful build' : 'Run after successful build'}</label>}
                   {job && <div className={`repo-job-status ${job.state}`} role="status">{busy && <span className="job-spinner" />} {job.action ?? 'Job'}: {job.state}{['build', 'run'].includes(job.action ?? '') && ` · Build: ${job.buildState}`}{job.exitCode != null ? ` · Exit ${job.exitCode}` : ''}</div>}
                   {jobErrors[jobKey] && <p className="check-error">{jobErrors[jobKey]}</p>}
                   <details className="repository-environment"><summary className={environmentIssues ? 'check-error' : 'check-ok'}>Environment: {environment.length ? environmentIssues ? `${environmentIssues} need attention` : 'ready' : 'checking…'}</summary>{environment.map((check, index) => <div className="health-row" key={index}><strong>{check.state === 'ok' ? 'OK' : 'Needs attention'} · {check.name}</strong><p>{check.detail}</p></div>)}</details>
@@ -5070,7 +5099,7 @@ const App = () => {
             <div className="folder-picker-header">
               <div>
                 <div className="folder-picker-title">
-                  Change directory
+                  Folders and PDFs
                 </div>
               </div>
               <div className="folder-picker-actions">
@@ -5212,7 +5241,7 @@ const App = () => {
             )}
             {folderPickerTab === 'browse' && (
               <div className="folder-section">
-                <div className="folder-section-title">Folders</div>
+                <div className="folder-section-title">Folders and PDF documents</div>
                 <div className="folder-location">
                   <span className="folder-location-path">
                     {folderBrowsePath || 'Drives'}
@@ -5244,7 +5273,7 @@ const App = () => {
                 </div>
                 <div className="folder-list">
                   {folderListingLoading && (
-                    <div className="folder-empty">Loading folders...</div>
+                    <div className="folder-empty">Loading folders and PDFs...</div>
                   )}
                   {!folderListingLoading && folderListingError && (
                     <div className="folder-empty">{folderListingError}</div>
@@ -5262,16 +5291,19 @@ const App = () => {
                     folderEntries.map((entry) => (
                       <button
                         key={entry.path}
-                        className="folder-row folder-entry"
-                        onClick={() => applyFolderChange(folderPickerPane.id, entry.path)}
+                        className={`folder-row folder-entry ${entry.kind === 'pdf' ? 'folder-pdf-entry' : ''}`}
+                        disabled={entry.kind === 'pdf' && !entry.pdfTarget}
+                        title={entry.kind === 'pdf' ? entry.pdfTarget ? 'Open in workspace PDF viewer without changing the terminal directory' : 'Add this folder as a project repository to open its PDFs here' : entry.path}
+                        onClick={() => entry.kind === 'pdf' ? openFolderPdf(entry) : applyFolderChange(folderPickerPane.id, entry.path)}
                       >
                         <span className="folder-entry-name">{entry.name}</span>
+                        {entry.kind === 'pdf' && <span className="workspace-tab-kind pdf">PDF</span>}
                       </button>
                     ))}
                   {!folderListingLoading &&
                     !folderListingError &&
                     folderEntries.length === 0 && (
-                      <div className="folder-empty">No subfolders</div>
+                      <div className="folder-empty">No subfolders or PDFs</div>
                     )}
                 </div>
               </div>

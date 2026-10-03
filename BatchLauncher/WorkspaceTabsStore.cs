@@ -21,6 +21,7 @@ internal sealed class WorkspaceViewTab
     public string? Side { get; set; }
     public string? Url { get; set; }
     public string? ServicePath { get; set; }
+    public int? Page { get; set; }
 }
 
 internal static class WorkspaceTabsStore
@@ -41,7 +42,7 @@ internal static class WorkspaceTabsStore
         return new UriBuilder(uri) { UserName = "", Password = "", Query = "", Fragment = "" }.Uri.AbsoluteUri;
     }
 
-    private static bool IsRelativePath(string? path) => path != null && path.Length <= 2048 &&
+    internal static bool IsRelativePath(string? path) => path != null && path.Length <= 2048 &&
         !Path.IsPathRooted(path) && !path.Contains('\\') && !path.Contains(':') && !path.Contains('\0') &&
         !path.Split('/').Any(part => part is "." or ".." || part.Equals(".git", StringComparison.OrdinalIgnoreCase));
 
@@ -60,6 +61,13 @@ internal static class WorkspaceTabsStore
                 if (!identities.Add(identity)) continue;
                 result.Tabs.Add(new() { Id = tab.Id, Kind = tab.Kind, ProjectId = project.Id, RepositoryId = repo.Id,
                     FilePath = tab.Kind == "diff" ? tab.FilePath : null, Side = tab.Kind == "diff" ? tab.Side == "staged" ? "staged" : "working" : null });
+            }
+            else if (tab.Kind == "pdf")
+            {
+                if (repo == null || (tab.FilePath == null ? repo.PdfDirectory == null : !PdfFile.IsRelativePdf(tab.FilePath))) continue;
+                if (!identities.Add("pdf:" + project!.Id + ":" + repo.Id + ":" + tab.FilePath)) continue;
+                result.Tabs.Add(new() { Id = tab.Id, Kind = "pdf", ProjectId = project.Id, RepositoryId = repo.Id,
+                    FilePath = tab.FilePath, Page = Math.Clamp(tab.Page ?? 1, 1, 1000000) });
             }
             else if (tab.Kind == "jupyter")
             {

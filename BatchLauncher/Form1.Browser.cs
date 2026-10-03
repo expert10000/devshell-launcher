@@ -29,7 +29,10 @@ public partial class Form1
     private Task HandleBrowserToggleAsync()
     {
         if (_browserHost.Panel2Collapsed)
+        {
+            if (_pdfPaneActive && _pdfPane != null) { ExpandBrowserHost(); return Task.CompletedTask; }
             return ShowBrowserAsync(null, _activeWorkspaceProfileId);
+        }
         HideBrowserPane();
         return Task.CompletedTask;
     }
@@ -53,6 +56,17 @@ public partial class Form1
         return ShowBrowserAsync(url, _activeWorkspaceProfileId, "browser", projectId);
     }
 
+    private void ExpandBrowserHost()
+    {
+        if (!_browserHost.Panel2Collapsed) return;
+        _browserHost.Orientation = ClientSize.Width < 1100 ? Orientation.Horizontal : Orientation.Vertical;
+        _browserHost.Panel2Collapsed = false;
+        var length = _browserHost.Orientation == Orientation.Vertical ? _browserHost.Width : _browserHost.Height;
+        var min = _browserHost.Panel1MinSize;
+        var max = Math.Max(min, length - _browserHost.SplitterWidth - _browserHost.Panel2MinSize);
+        _browserHost.SplitterDistance = Math.Clamp((int)(length * _browserSplitRatio), min, max);
+    }
+
     private async Task ShowBrowserAsync(string? url, string profileId, string? workspaceKind = null,
         string? projectId = null, string? repositoryId = null, string? servicePath = null)
     {
@@ -61,15 +75,7 @@ public partial class Form1
         try
         {
             if (IsDisposed || profileId != _activeWorkspaceProfileId) return;
-            if (_browserHost.Panel2Collapsed)
-            {
-                _browserHost.Orientation = ClientSize.Width < 1100 ? Orientation.Horizontal : Orientation.Vertical;
-                _browserHost.Panel2Collapsed = false;
-                var length = _browserHost.Orientation == Orientation.Vertical ? _browserHost.Width : _browserHost.Height;
-                var min = _browserHost.Panel1MinSize;
-                var max = Math.Max(min, length - _browserHost.SplitterWidth - _browserHost.Panel2MinSize);
-                _browserHost.SplitterDistance = Math.Clamp((int)(length * _browserSplitRatio), min, max);
-            }
+            ExpandBrowserHost();
             if (_browserPane == null)
             {
                 pane = new BrowserPane();
@@ -81,6 +87,9 @@ public partial class Form1
             }
             pane = _browserPane;
             if (pane == null || pane.IsDisposed || profileId != _activeWorkspaceProfileId) return;
+            _pdfPaneActive = false;
+            if (_pdfPane != null) _pdfPane.Visible = false;
+            pane.Visible = true; pane.BringToFront();
             pane.SetWorkspaceVisible(!_browserHost.Panel2Collapsed);
             if (url != null)
             {
@@ -108,6 +117,7 @@ public partial class Form1
         var pane = _browserPane;
         _browserPane = null;
         pane?.Dispose();
+        _pdfPane?.Dispose(); _pdfPane = null; _pdfPaneActive = false;
         _browserHost.Panel2Collapsed = true;
     }
 

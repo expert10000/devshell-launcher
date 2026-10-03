@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { WorkspaceViewTab } from './useWorkspaceTabs'
+import { PdfWorkspaceView } from './PdfWorkspaceView'
 
-type Project = { id: string; name: string; repositories?: { id: string; name: string }[] }
+type Project = { id: string; name: string; repositories?: { id: string; name: string; pdfDirectory?: string }[] }
 type Job = { key: string; state: string; buildState: string; exitCode?: number; log: string; logPath: string; action?: string }
 type Bridge = { postMessage: (message: unknown) => void; addEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void; removeEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void }
 type ChangedFile = { path: string; staged: boolean; unstaged: boolean; conflicted: boolean }
@@ -13,6 +14,7 @@ export function workspaceTabTitle(tab: WorkspaceViewTab, projects: Project[]) {
   const repo = project?.repositories?.find(item => item.id === tab.repositoryId)
   if (tab.kind === 'logs') return `${repo?.name ?? 'Repository'} Logs`
   if (tab.kind === 'diff') return `${repo?.name ?? 'Repository'} Diff`
+  if (tab.kind === 'pdf') return `${repo?.name ?? 'Document'} / ${tab.filePath?.split('/').at(-1) ?? 'PDF selector'}`
   if (tab.kind === 'jupyter') return `${project?.name ?? 'Jupyter'}${tab.servicePath ? ` / ${tab.servicePath.split('/').at(-1)}` : ''}`
   try { return `${repo?.name ?? new URL(tab.url ?? '').hostname} Browser` } catch { return 'Browser' }
 }
@@ -101,7 +103,7 @@ function DiffView({ tab, profileId, bridge, active, busy, onChange }: { tab: Wor
 
 export function WorkspaceViews({ tabs, activeId, profileId, projects, jobs, errors, reservedKeys, bridge, onChange, onClose }: {
   tabs: WorkspaceViewTab[]; activeId: string | null; profileId: string; projects: Project[]; jobs: Job[]; errors: Record<string, string>; reservedKeys: Set<string>; bridge: Bridge | null;
-  onChange: (id: string, changes: Pick<WorkspaceViewTab, 'filePath' | 'side'>) => void; onClose: (id: string) => void
+  onChange: (id: string, changes: Pick<WorkspaceViewTab, 'filePath' | 'side' | 'page'>) => void; onClose: (id: string) => void
 }) {
   function repositoryAction(tab: WorkspaceViewTab, action: string) { bridge?.postMessage({ type: 'repository.job', projectId: tab.projectId, repositoryId: tab.repositoryId, action }) }
   return <div className="workspace-content" style={{ display: activeId ? undefined : 'none' }}>{tabs.map(tab => {
@@ -111,6 +113,7 @@ export function WorkspaceViews({ tabs, activeId, profileId, projects, jobs, erro
       <header className="workspace-view-heading"><div><span className={`workspace-tab-kind ${tab.kind}`}>{tab.kind}</span><h2>{workspaceTabTitle(tab, projects)}</h2></div><button onClick={() => onClose(tab.id)}>Close tab</button></header>
       {tab.kind === 'logs' && <LogsView job={job} error={errors[key]} onStop={() => repositoryAction(tab, 'stop')} onFullLog={() => repositoryAction(tab, 'log')} onRefresh={() => bridge?.postMessage({ type: 'repository.job', action: 'status' })} />}
       {tab.kind === 'diff' && <DiffView tab={tab} profileId={profileId} bridge={bridge} active={activeId === tab.id} busy={busy} onChange={changes => onChange(tab.id, changes)} />}
+      {tab.kind === 'pdf' && <PdfWorkspaceView tab={tab} profileId={profileId} bridge={bridge} job={job} directory={projects.find(project => project.id === tab.projectId)?.repositories?.find(repo => repo.id === tab.repositoryId)?.pdfDirectory} onPage={page => onChange(tab.id, { page })} />}
       {(tab.kind === 'browser' || tab.kind === 'jupyter') && <div className="workspace-browser-entry"><h3>{tab.kind === 'jupyter' ? 'Jupyter in the native browser pane' : 'Browser page in the native pane'}</h3><p>{tab.kind === 'jupyter' ? tab.servicePath ?? 'JupyterLab workspace' : tab.url}</p>
         <p>Workspace navigation is linked to the existing browser pane. Restoring this entry does not navigate, start a service, or replay a task.</p>
         <button onClick={() => tab.kind === 'jupyter' ? bridge?.postMessage({ type: 'service.control', projectId: tab.projectId, action: 'open', path: tab.servicePath }) : bridge?.postMessage({ type: 'browser.open', projectId: tab.projectId, url: tab.url })}>{tab.kind === 'jupyter' ? 'Open Jupyter' : 'Open / focus browser page'}</button>

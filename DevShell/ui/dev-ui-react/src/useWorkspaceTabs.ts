@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 
 export type WorkspaceViewTab = {
-  id: string; kind: 'logs' | 'diff' | 'browser' | 'jupyter'; projectId?: string; repositoryId?: string;
-  filePath?: string; side?: 'working' | 'staged'; url?: string; servicePath?: string; restored?: boolean
+  id: string; kind: 'logs' | 'diff' | 'browser' | 'jupyter' | 'pdf'; projectId?: string; repositoryId?: string;
+  filePath?: string; side?: 'working' | 'staged'; url?: string; servicePath?: string; page?: number; restored?: boolean
 }
 export type WorkspaceTabInput = Omit<WorkspaceViewTab, 'id' | 'restored'>
 type Bridge = { postMessage: (data: unknown) => void; addEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void; removeEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void }
 type State = { profileId: string | null; ready: boolean; tabs: WorkspaceViewTab[]; activeId: string | null; error: string }
 
 function identity(tab: WorkspaceTabInput) {
+  if (tab.kind === 'pdf') return `pdf:${tab.projectId}:${tab.repositoryId}:${tab.filePath}`
   return tab.kind === 'browser' ? `browser:${tab.url}` : tab.kind === 'jupyter' ? `jupyter:${tab.projectId}:${tab.servicePath ?? ''}` : `${tab.kind}:${tab.projectId}:${tab.repositoryId}`
 }
 
@@ -25,7 +26,7 @@ export function useWorkspaceTabs(profileId: string | null, bridge: Bridge | null
     current.current = next; setState(next)
     if (next.ready && next.profileId === profileId) bridge?.postMessage({ type: 'workspace.tabs', action: 'save', profileId,
       state: { version: 1, activeId: next.activeId, tabs: next.tabs.map(tab => ({ id: tab.id, kind: tab.kind, projectId: tab.projectId, repositoryId: tab.repositoryId,
-        filePath: tab.filePath, side: tab.side, url: cleanUrl(tab.url), servicePath: tab.servicePath })) } })
+        filePath: tab.filePath, side: tab.side, url: cleanUrl(tab.url), servicePath: tab.servicePath, page: tab.page })) } })
   }
   function open(input: WorkspaceTabInput) {
     const previous = current.current
@@ -49,7 +50,7 @@ export function useWorkspaceTabs(profileId: string | null, bridge: Bridge | null
     let loaded = false
     const queued: WorkspaceTabInput[] = []
     const receive = (event: MessageEvent) => {
-      let message: { type?: string; profileId?: string; requestId?: string; message?: string; state?: { version?: number; tabs?: WorkspaceViewTab[]; activeId?: string }; kind?: WorkspaceViewTab['kind']; projectId?: string; repositoryId?: string; url?: string; servicePath?: string }
+      let message: { type?: string; profileId?: string; requestId?: string; message?: string; state?: { version?: number; tabs?: WorkspaceViewTab[]; activeId?: string }; kind?: WorkspaceViewTab['kind']; projectId?: string; repositoryId?: string; url?: string; servicePath?: string; filePath?: string; page?: number }
       try { message = typeof event.data === 'string' ? JSON.parse(event.data) : event.data } catch { return }
       if (message?.profileId !== profileId) return
       if (message.type === 'workspace.tabs.loaded' && message.requestId === requestId && !loaded) {
@@ -61,6 +62,10 @@ export function useWorkspaceTabs(profileId: string | null, bridge: Bridge | null
         for (const tab of queued) opener.current(tab)
       }
       if (message.type === 'workspace.tabs.error') setState(previous => ({ ...previous, error: message.message ?? 'Could not save workspace tabs.' }))
+      if (message.type === 'workspace.pdf.opened') {
+        const tab: WorkspaceTabInput = { kind: 'pdf', projectId: message.projectId, repositoryId: message.repositoryId, filePath: message.filePath, page: message.page ?? 1 }
+        if (loaded) opener.current(tab); else queued.push(tab)
+      }
       if (message.type === 'workspace.browser.opened' && (message.kind === 'browser' || message.kind === 'jupyter')) {
         const tab: WorkspaceTabInput = { kind: message.kind, projectId: message.projectId ?? undefined, repositoryId: message.repositoryId ?? undefined,
           url: message.url ?? undefined, servicePath: message.servicePath ?? undefined }
@@ -90,7 +95,7 @@ export function useWorkspaceTabs(profileId: string | null, bridge: Bridge | null
     const activeId = previous.activeId === id ? tabs.at(-1)?.id ?? null : previous.activeId
     commit({ ...previous, tabs, activeId }); const active = tabs.find(tab => tab.id === activeId); if (active) activation.current(active)
   }
-  function update(id: string, changes: Pick<WorkspaceViewTab, 'filePath' | 'side'>) {
+  function update(id: string, changes: Pick<WorkspaceViewTab, 'filePath' | 'side' | 'page'>) {
     if (current.current.profileId === profileId) commit({ ...current.current, tabs: current.current.tabs.map(tab => tab.id === id ? { ...tab, ...changes } : tab) })
   }
   return { tabs: state.profileId === profileId ? state.tabs : [], activeId: state.profileId === profileId ? state.activeId : null,

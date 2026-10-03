@@ -55,7 +55,7 @@ Delivered and checked on 2026-10-01:
 
 ### Group 2: Browser and mixed workspace tabs
 
-Status: browser-tab foundation and workspace Logs/Diff/navigation slice implemented. New workspace-tab changes are not yet rebuilt or runtime-tested.
+Status: browser-tab foundation and workspace Logs/Diff/navigation slice implemented and built. PDF workspace entries and native viewing are implemented but not yet built or runtime-tested. UI acceptance checks remain pending.
 
 - [x] Separate browser pages with New/Close tab and navigation controls.
 - [x] Restore browser tabs and visibility per profile without persisting URL authentication tokens.
@@ -64,6 +64,16 @@ Status: browser-tab foundation and workspace Logs/Diff/navigation slice implemen
 - [x] Add read-only workspace Diff tabs with file selection, working/staged comparison, Refresh, and opening a preview from Changes.
 - [x] Restore validated tab descriptors per profile without saving log/diff contents or replaying jobs, Git writes, or service startup.
 - [x] Link browser/Jupyter openings into workspace navigation while keeping the existing native browser pane and authenticated service controller.
+- [x] Add PDF workspace entries with Open/Refresh/Open externally, an explicitly saved Go-to-page target, and native document navigation/zoom/search controls.
+- [x] Route Theory's repository/quick-task Open PDF and build-success opening into the native viewer; refresh a visible PDF after a successful managed build.
+- [x] Restrict PDF requests to one validated relative PDF within a configured checkout, rejecting path traversal and symlinks/junctions; disable the launcher bridge, permissions, document links, and downloads.
+- [x] Preserve only relative PDF paths and explicit page targets in profile tab descriptors; do not replay opening or builds on restoration.
+- [x] Add Math Build PDFs using its existing BUILD_ALL.ps1 (volumes, available editions, and QA), plus a bounded build/pdf selector with explicit Open/Refresh list and separate Open in VS Code. Existing Math desktop profiles gain these defaults without rewriting their JSON paths.
+- [x] Refresh an already-open PDF collection after a new successful managed build, without replaying a completed job when a tab is restored.
+- [x] Add PDF entries to the folder browser, routed into workspace/native viewing without changing terminal cwd. Only configured repository files can be opened; other PDFs remain disabled with an explanatory tooltip.
+- Math's user-run build completed on 2026-10-03: 20 PDFs collected under build/pdf, all eight canonical volumes passed document QA, and the managed job exited 0. The stale selector did not automatically refresh; the auto-refresh fix and folder-PDF changes are not yet rebuilt or UI-tested.
+- [ ] Build and check Math's PDF collection, empty/missing output, volume selection, build/QA failures, profile restoration, and preservation of its VS Code action. No Math document builds have been run as part of this implementation.
+- [ ] Build and check PDF display, large Theory output, native toolbar controls, refreshed output after rebuild, missing/invalid PDFs, explicit page restoration, profile isolation, and external opening. Native scrolling is not tracked in this first version.
 - [ ] Build and test the new slice: live output/Stop, side switching/Refresh, terminal preservation, profile restoration/isolation, and browser/Jupyter navigation.
 - [ ] Unify center tab types: Terminal, Browser, Jupyter, Diff, Markdown, Files, and Logs.
 - [ ] Add Copy URL, DevTools, project URL shortcuts, and device-size presets.

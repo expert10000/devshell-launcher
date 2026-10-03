@@ -107,14 +107,17 @@ public partial class Form1
                 if (RepositoryUpdates.Owns(key)) throw new InvalidOperationException("This repository is reserved by Update All. Stop the queue before starting another action.");
                 var project = _workspace.Projects?.FirstOrDefault(p => p.Id == projectId) ?? throw new InvalidOperationException("Project not found.");
                 var repo = project.Repositories?.FirstOrDefault(r => r.Id == repositoryId) ?? throw new InvalidOperationException("Repository not found.");
+                if (action == "run" && repo.PdfPath != null)
+                    return OpenWorkspacePdfAsync(_activeWorkspaceProfileId, project.Id, repo.Id);
                 var cwd = ExpandProjectValue(project, repo.Path);
                 EnsureRepositoryIdle(key, cwd);
                 _repositoryActionPaths[key] = Path.GetFullPath(cwd).TrimEnd('\\', '/');
                 var build = action is "build" or "launch" ? CreateRepositoryCommand(project,
                     (action == "launch" ? repo.BrowserBuildTask ?? repo.BuildTask : repo.BuildTask) ?? throw new InvalidOperationException("Build is not configured."), cwd) : null;
                 var runAfter = action == "build" && payload.TryGetProperty("runAfter", out var value) && value.GetBoolean();
+                var pdfAfter = runAfter && (repo.PdfPath != null || repo.PdfDirectory != null);
                 var run = action is "fetch" or "pull" or "clone" or "diff" or "history" ? CreateGitCommand(project, repo, action)
-                    : action is "run" or "launch" || runAfter ? CreateRepositoryCommand(project,
+                    : action is "run" or "launch" || runAfter && !pdfAfter ? CreateRepositoryCommand(project,
                         (action == "launch" ? repo.BrowserRunTask ?? repo.RunTask : repo.RunTask) ?? throw new InvalidOperationException("Run is not configured."), cwd) : null;
                 RepositoryBrowserLaunch? browser = null;
                 if (action == "launch")
@@ -128,6 +131,8 @@ public partial class Form1
                     }
                 }
                 if (!_repositoryRunner.Start(key, build, run, RepositoryLogDirectory, action, browser)) throw new InvalidOperationException("A repository job is already running.");
+                if (action == "build" && (repo.PdfPath != null || repo.PdfDirectory != null))
+                    _ = ObservePdfBuildAsync(key, _activeWorkspaceProfileId, project.Id, repo.Id, pdfAfter);
             }
         }
         catch (Exception error) { SendMessage(new { type = "repository.job.error", key, message = error.Message }); }

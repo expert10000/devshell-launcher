@@ -151,6 +151,7 @@ public partial class Form1 : Form
             "workspace.profile.reload" => HandleWorkspaceProfileReloadAsync(),
             "workspace.profile.openFolder" => HandleWorkspaceProfileOpenFolderAsync(),
             "workspace.tabs" => HandleWorkspaceTabsAsync(doc.RootElement),
+            "workspace.pdf" => HandleWorkspacePdfAsync(doc.RootElement),
             "tasks.request" => HandleTasksRequestAsync(),
             "task.run" => HandleTaskRunAsync(doc.RootElement),
             "service.control" => HandleServiceControlAsync(doc.RootElement),
@@ -667,7 +668,8 @@ public partial class Form1 : Form
             sessionId,
             path = result.Path,
             parent = result.Parent,
-            entries = result.Entries,
+            entries = result.Entries.Select(entry => new { entry.Name, entry.Path, entry.Kind,
+                pdfTarget = entry.Kind == "pdf" ? FindFolderPdfTarget(entry.Path) : null }).ToList(),
             error = result.Error
         });
 
@@ -1088,7 +1090,11 @@ public partial class Form1 : Form
                     Path = folder,
                     Kind = "folder"
                 })
-                .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
+                .Concat(Directory.EnumerateFiles(normalized, "*.pdf", SearchOption.TopDirectoryOnly)
+                    .OrderBy(file => file, StringComparer.OrdinalIgnoreCase).Take(256)
+                    .Select(file => new FolderEntry { Name = Path.GetFileName(file), Path = file, Kind = "pdf" }))
+                .OrderBy(entry => entry.Kind == "pdf" ? 1 : 0)
+                .ThenBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
             return new FolderListingResult

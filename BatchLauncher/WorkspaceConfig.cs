@@ -81,6 +81,9 @@ public sealed class WorkspaceRepository
     public string? BuildTask { get; set; }
     public string? RunTask { get; set; }
     public string? RunLabel { get; set; }
+    public string? PdfPath { get; set; }
+    public string? PdfDirectory { get; set; }
+    public string? PdfOpenTask { get; set; }
     public string? BrowserUrl { get; set; }
     public List<string>? ReadyUrls { get; set; }
     public int ReadyTimeoutSeconds { get; set; } = 120;

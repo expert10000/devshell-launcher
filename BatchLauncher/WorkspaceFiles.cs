@@ -6,6 +6,7 @@ internal sealed record WorkspaceFileEntry(string Name, string Path, string Kind,
 internal sealed record WorkspaceFileListing(string Path, List<WorkspaceFileEntry> Entries, bool Truncated);
 internal sealed record WorkspaceFilePreview(string Path, string Text, bool Truncated);
 internal sealed record WorkspaceImagePreview(string Path, string MimeType, string DataUrl, long Size);
+internal sealed record WorkspaceFileLocation(WorkspaceFileListing Listing, WorkspaceFileEntry Entry);
 
 internal static class WorkspaceFiles
 {
@@ -20,7 +21,7 @@ internal static class WorkspaceFiles
     private static readonly Dictionary<string, string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
         { [".png"] = "image/png", [".jpg"] = "image/jpeg", [".jpeg"] = "image/jpeg", [".gif"] = "image/gif", [".webp"] = "image/webp" };
     private static readonly HashSet<string> ArtifactExtensions = new(StringComparer.OrdinalIgnoreCase)
-        { ".pdf", ".log", ".json", ".csv", ".tsv", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".zip", ".exe", ".msi" };
+        { ".pdf", ".log", ".json", ".ipynb", ".csv", ".tsv", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".zip", ".exe", ".msi" };
 
     internal static WorkspaceFileListing List(string root, string relativePath)
     {
@@ -42,6 +43,20 @@ internal static class WorkspaceFiles
         }
         return new(relativePath, entries.OrderBy(entry => entry.Kind == "folder" ? 0 : 1)
             .ThenBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase).ToList(), paths.Count > MaxEntries);
+    }
+
+    internal static WorkspaceFileLocation Locate(string root, string relativePath)
+    {
+        var path = ResolvePreviewPath(root, relativePath);
+        var parent = (Path.GetDirectoryName(relativePath) ?? "").Replace('\\', '/');
+        var listing = List(root, parent);
+        var info = new FileInfo(path); var extension = info.Extension;
+        var kind = extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase) ? "pdf" : ImageExtensions.ContainsKey(extension) ? "image" : IsCode(path) ? "code" : TextExtensions.Contains(extension) ? "text" : "file";
+        var entry = new WorkspaceFileEntry(info.Name, relativePath, kind, ArtifactExtensions.Contains(extension), info.Length, info.LastWriteTimeUtc.ToString("O"));
+        // Keep the selected search result visible even in a capped folder listing.
+        if (!listing.Entries.Any(item => item.Path == relativePath))
+            listing = listing with { Entries = listing.Entries.Prepend(entry).Take(MaxEntries).ToList(), Truncated = true };
+        return new(listing, entry);
     }
 
     internal static WorkspaceFilePreview Preview(string root, string relativePath)

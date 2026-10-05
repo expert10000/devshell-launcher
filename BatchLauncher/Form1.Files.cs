@@ -13,10 +13,17 @@ public partial class Form1
         try
         {
             var projectId = payload.GetProperty("projectId").GetString();
-            var repositoryId = payload.GetProperty("repositoryId").GetString();
             action = payload.GetProperty("action").GetString();
             var path = payload.TryGetProperty("path", out var folder) ? folder.GetString() ?? "" : "";
             var project = _workspace.Projects?.FirstOrDefault(item => item.Id == projectId) ?? throw new InvalidOperationException("Project not found.");
+            if (action == "search")
+            {
+                var query = payload.GetProperty("query").GetString() ?? "";
+                var repositories = (project.Repositories ?? new List<WorkspaceRepository>())
+                    .Select(item => new WorkspaceSearchRepository(item.Id, item.Name, ExpandProjectValue(project, item.Path))).ToList();
+                return SearchWorkspaceFilesAsync(profileId, requestId, repositories, query);
+            }
+            var repositoryId = payload.GetProperty("repositoryId").GetString();
             var repo = project.Repositories?.FirstOrDefault(item => item.Id == repositoryId) ?? throw new InvalidOperationException("Repository not found.");
             var root = ExpandProjectValue(project, repo.Path);
             if (action == "artifacts")
@@ -26,6 +33,11 @@ public partial class Form1
                 return InspectWorkspaceArtifactsAsync(profileId, requestId, root, configuration);
             }
             if (action == "list") SendMessage(new { type = "workspace.files.result", profileId, requestId, listing = WorkspaceFiles.List(root, path) });
+            else if (action == "locate")
+            {
+                var location = WorkspaceFiles.Locate(root, path);
+                SendMessage(new { type = "workspace.files.result", profileId, requestId, listing = location.Listing, entry = location.Entry });
+            }
             else if (action == "preview") SendMessage(new { type = "workspace.files.result", profileId, requestId, preview = WorkspaceFiles.Preview(root, path) });
             else if (action == "image") SendMessage(new { type = "workspace.files.result", profileId, requestId, image = WorkspaceFiles.ImagePreview(root, path) });
             else if (action == "output")
@@ -41,6 +53,20 @@ public partial class Form1
             if (action == "output") SendMessage(new { type = "workspace.tabs.error", profileId, message = error.Message });
         }
         return Task.CompletedTask;
+    }
+
+    private async Task SearchWorkspaceFilesAsync(string? profileId, string? requestId, List<WorkspaceSearchRepository> repositories, string query)
+    {
+        try
+        {
+            // All request/config values are captured before JSON dispatch returns.
+            var search = await Task.Run(() => WorkspaceFileSearch.Search(repositories, query));
+            if (!IsDisposed && profileId == _activeWorkspaceProfileId) SendMessage(new { type = "workspace.files.result", profileId, requestId, search });
+        }
+        catch (Exception error)
+        {
+            if (!IsDisposed && profileId == _activeWorkspaceProfileId) SendMessage(new { type = "workspace.files.result", profileId, requestId, error = error.Message });
+        }
     }
 
     private async Task InspectWorkspaceArtifactsAsync(string? profileId, string? requestId, string root, WorkspaceRepository repo)

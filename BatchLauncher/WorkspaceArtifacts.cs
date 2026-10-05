@@ -10,7 +10,7 @@ internal static class WorkspaceArtifacts
     private static readonly HashSet<string> ExcludedFolders = new(StringComparer.OrdinalIgnoreCase)
         { ".git", "node_modules", ".venv", ".venvs", "venv", ".cache", "__pycache__", "obj", ".vs", ".idea", ".devshell-logs" };
     private static readonly HashSet<string> DocumentExtensions = new(StringComparer.OrdinalIgnoreCase)
-        { ".md", ".markdown", ".txt", ".log", ".json", ".csv", ".tsv", ".yaml", ".yml", ".toml" };
+        { ".md", ".markdown", ".txt", ".log", ".json", ".ipynb", ".csv", ".tsv", ".yaml", ".yml", ".toml" };
 
     internal static WorkspaceArtifactOverview Scan(string root, WorkspaceRepository repo)
     {

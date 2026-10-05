@@ -3099,11 +3099,17 @@ const App = () => {
     return () => { clearInterval(timer); bridge.removeEventListener('message', receive) }
   }, [bridge, activeWorkspaceProfileId, projects])
 
-  const repositoryAction = (projectId: string, repositoryId: string, action: 'build' | 'run' | 'stop' | 'log' | 'fetch' | 'pull' | 'clone' | 'launch' | 'diff' | 'history' | 'github' | 'commit' | 'push') => {
+  const repositoryAction = (projectId: string, repositoryId: string, action: 'build' | 'run' | 'stop' | 'log' | 'fetch' | 'pull' | 'clone' | 'launch' | 'diff' | 'history' | 'github' | 'commit' | 'push' | 'files' | 'pdf') => {
     const key = `${activeWorkspaceProfileId}:${projectId}:${repositoryId}`
     if (action === 'diff') { workspaceViews.open({ kind: 'diff', projectId, repositoryId }); return }
     if (action === 'log') { workspaceViews.open({ kind: 'logs', projectId, repositoryId }); return }
+    if (action === 'files') { workspaceViews.open({ kind: 'files', projectId, repositoryId }); return }
     const repo = projects.find(project => project.id === projectId)?.repositories?.find(item => item.id === repositoryId)
+    if (action === 'pdf') {
+      if (repo?.pdfDirectory && !repo.pdfPath) workspaceViews.open({ kind: 'pdf', projectId, repositoryId, page: 1 })
+      else postMessage({ type: 'workspace.pdf', profileId: activeWorkspaceProfileId, projectId, repositoryId, action: 'open' })
+      return
+    }
     if (action === 'run' && repo?.pdfPath) {
       setJobErrors(current => ({ ...current, [key]: '' }))
       postMessage({ type: 'workspace.pdf', profileId: activeWorkspaceProfileId, projectId, repositoryId, action: 'open' }); return
@@ -4340,6 +4346,7 @@ const App = () => {
             </div>
             <div className="tab-strip">
               <button className={`tab ${repositoriesView ? 'active' : ''}`} onClick={() => { workspaceViews.clearActive(); setRepositoriesView(true) }} aria-pressed={repositoriesView}>Repositories</button>
+              <button className={`tab ${!repositoriesView && workspaceViews.tabs.some(tab => tab.id === workspaceViews.activeId && tab.kind === 'files') ? 'active' : ''}`} aria-pressed={!repositoriesView && workspaceViews.tabs.some(tab => tab.id === workspaceViews.activeId && tab.kind === 'files')} disabled={!panelProject?.repositories?.length} title="Open project files and generated artifacts" onClick={() => { const existing = workspaceViews.tabs.find(tab => tab.id === workspaceViews.activeId && tab.kind === 'files') ?? workspaceViews.tabs.find(tab => tab.kind === 'files' && tab.projectId === panelProject?.id); if (existing) { workspaceViews.select(existing.id); return }; const repo = panelProject?.repositories?.[0]; if (panelProject && repo) repositoryAction(panelProject.id, repo.id, 'files') }}>Files &amp; Artifacts</button>
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
@@ -4708,6 +4715,7 @@ const App = () => {
                     {repo.browserUrl && <button disabled={disabled || !(repo.browserBuildTask ?? repo.buildTask) || !(repo.browserRunTask ?? repo.runTask) || !status || !!status.error} title="Build the web app, start its server, and open it in DevShell only when ready" onClick={() => repositoryAction(project.id, repo.id, 'launch')}>Build + Run + Open</button>}
                     <button disabled={!busy} onClick={() => repositoryAction(project.id, repo.id, 'stop')}>Stop</button>
                     <button onClick={() => repositoryAction(project.id, repo.id, 'log')}>Logs</button>
+                    <button onClick={() => repositoryAction(project.id, repo.id, 'files')}>Files</button>
                   </div>
                   {repo.buildTask && (repo.runTask || repo.pdfPath || repo.pdfDirectory) && <label className="repo-run-after"><input type="checkbox" checked={runAfterBuild[jobKey] ?? false} disabled={disabled} onChange={(event) => setRunAfterBuild((current) => ({ ...current, [jobKey]: event.target.checked }))} /> {repo.pdfDirectory ? 'Show PDF selector after successful build' : repo.pdfPath ? 'Open PDF after successful build' : 'Run after successful build'}</label>}
                   {job && <div className={`repo-job-status ${job.state}`} role="status">{busy && <span className="job-spinner" />} {job.action ?? 'Job'}: {job.state}{['build', 'run'].includes(job.action ?? '') && ` · Build: ${job.buildState}`}{job.exitCode != null ? ` · Exit ${job.exitCode}` : ''}</div>}
@@ -4728,7 +4736,7 @@ const App = () => {
           onAction={(repoId, action) => repositoryAction(panelProject.id, repoId, action)} />}
         {workspaceViews.error && <p className="check-error" role="alert">{workspaceViews.error}</p>}
         {activeWorkspaceProfileId && <WorkspaceViews key={activeWorkspaceProfileId} tabs={workspaceViews.tabs} activeId={workspaceViews.activeId} profileId={activeWorkspaceProfileId} projects={projects}
-          jobs={repositoryJobs} errors={jobErrors} bridge={bridge} reservedKeys={new Set(updateBatches.filter(batch => batch.state === 'running').flatMap(batch => batch.results.map(result => result.key)))} onChange={workspaceViews.update} onClose={workspaceViews.close} />}
+          jobs={repositoryJobs} errors={jobErrors} bridge={bridge} reservedKeys={new Set(updateBatches.filter(batch => batch.state === 'running').flatMap(batch => batch.results.map(result => result.key)))} onChange={workspaceViews.update} onClose={workspaceViews.close} onBack={workspaceViews.back} backTarget={workspaceViews.backTarget} />}
         <div
           className="terminal-frame"
           style={{ display: workspaceViews.activeId ? 'none' : undefined }}

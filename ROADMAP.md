@@ -71,6 +71,11 @@ Status: browser-tab foundation and workspace Logs/Diff/navigation slice implemen
 - [x] Add Math Build PDFs using its existing BUILD_ALL.ps1 (volumes, available editions, and QA), plus a bounded build/pdf selector with explicit Open/Refresh list and separate Open in VS Code. Existing Math desktop profiles gain these defaults without rewriting their JSON paths.
 - [x] Refresh an already-open PDF collection after a new successful managed build, without replaying a completed job when a tab is restored.
 - [x] Add PDF entries to the folder browser, routed into workspace/native viewing without changing terminal cwd. Only configured repository files can be opened; other PDFs remain disabled with an explanatory tooltip.
+- [x] Normalize null/absent PDF collection paths to the same frontend identity so reopening a restored selector reuses its tab.
+- [x] Add Files and Build PDFs/Open PDF actions directly to the repository strip.
+- [x] Add standalone Files & Artifacts workspace tabs with repository switching, folder navigation, filename/artifact filters, bounded read-only text previews, and PDF opening; no terminal session is needed.
+- [x] Restore Files folder descriptors without saving previews or search contents. Scoped requests block Git internals, path escapes, and symlink/junction traversal.
+- [ ] Run the new WorkspaceFilesChecks and focused PDF/Files UI flow checks before marking this slice verified.
 - Math's user-run build completed on 2026-10-03: 20 PDFs collected under build/pdf, all eight canonical volumes passed document QA, and the managed job exited 0. The stale selector did not automatically refresh; the auto-refresh fix and folder-PDF changes are not yet rebuilt or UI-tested.
 - [ ] Build and check Math's PDF collection, empty/missing output, volume selection, build/QA failures, profile restoration, and preservation of its VS Code action. No Math document builds have been run as part of this implementation.
 - [ ] Build and check PDF display, large Theory output, native toolbar controls, refreshed output after rebuild, missing/invalid PDFs, explicit page restoration, profile isolation, and external opening. Native scrolling is not tracked in this first version.

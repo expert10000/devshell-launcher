@@ -54,13 +54,13 @@ internal static class WorkspaceTabsStore
             if (tab == null || !Guid.TryParse(tab.Id, out _) || !ids.Add(tab.Id)) continue;
             var project = workspace.Projects?.FirstOrDefault(item => item.Id == tab.ProjectId);
             var repo = project?.Repositories?.FirstOrDefault(item => item.Id == tab.RepositoryId);
-            if (tab.Kind is "logs" or "diff")
+            if (tab.Kind is "logs" or "diff" or "files")
             {
                 if (repo == null || tab.FilePath != null && !IsRelativePath(tab.FilePath)) continue;
                 var identity = tab.Kind + ":" + project!.Id + ":" + repo.Id;
                 if (!identities.Add(identity)) continue;
                 result.Tabs.Add(new() { Id = tab.Id, Kind = tab.Kind, ProjectId = project.Id, RepositoryId = repo.Id,
-                    FilePath = tab.Kind == "diff" ? tab.FilePath : null, Side = tab.Kind == "diff" ? tab.Side == "staged" ? "staged" : "working" : null });
+                    FilePath = tab.Kind is "diff" or "files" ? tab.FilePath : null, Side = tab.Kind == "diff" ? tab.Side == "staged" ? "staged" : "working" : null });
             }
             else if (tab.Kind == "pdf")
             {

@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { RepositoryChangesPanel } from './RepositoryChangesPanel'
 
-type Repo = { id: string; name: string; path: string; url?: string }
+type Repo = { id: string; name: string; path: string; url?: string; buildTask?: string; pdfPath?: string; pdfDirectory?: string }
 type Status = { projectId: string; id: string; path: string; branch?: string; upstream?: string; ahead?: number; behind?: number; changed: number; error?: string;
   lastCommit?: { hash: string; subject: string; author: string; timestamp: string };
   remotes?: { name: string; url: string; direction: string }[];
   worktrees?: { path: string; branch?: string; head?: string; detached: boolean; locked: boolean; prunable: boolean; bare: boolean }[];
   metadataErrors?: string[] }
 type Job = { key: string; state: string; action?: string }
-type Action = 'diff' | 'commit' | 'pull' | 'push' | 'history' | 'github' | 'fetch' | 'log'
+type Action = 'diff' | 'commit' | 'pull' | 'push' | 'history' | 'github' | 'fetch' | 'log' | 'build' | 'pdf' | 'files'
 
 export function RepositoryStrip({ project, profileId, statuses, jobs, errors, reservedKeys, onAction }: {
   project: { id: string; name: string; repositories?: Repo[] }; profileId?: string | null; statuses: Status[];
@@ -45,6 +45,11 @@ export function RepositoryStrip({ project, profileId, statuses, jobs, errors, re
       <button disabled={!selected.url && !status?.remotes?.length} onClick={() => onAction(selected.id, 'github')}>Open GitHub</button>
       <button disabled={blocked || unavailable} title="Refresh remote references; counts otherwise use the last fetch" onClick={() => onAction(selected.id, 'fetch')}>Fetch</button>
       <button onClick={() => onAction(selected.id, 'log')}>Logs</button>
+      <button title="Browse repository files without a terminal session" onClick={() => onAction(selected.id, 'files')}>Files</button>
+      {(selected.pdfPath || selected.pdfDirectory) && <>
+        {selected.buildTask && <button disabled={blocked || unavailable} onClick={() => onAction(selected.id, 'build')}>Build PDFs</button>}
+        <button disabled={unavailable} onClick={() => onAction(selected.id, 'pdf')}>Open PDF</button>
+      </>}
       {job && <span role="status">{job.action ?? 'Job'}: {job.state}</span>}
     </div>
     {errors[key] && <p className="check-error" role="alert">{errors[key]}</p>}

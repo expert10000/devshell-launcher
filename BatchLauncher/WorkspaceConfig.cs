@@ -79,6 +79,7 @@ public sealed class WorkspaceRepository
     public string Name { get; set; } = string.Empty;
     public string Path { get; set; } = string.Empty;
     public string? BuildTask { get; set; }
+    public string? OutputDirectory { get; set; }
     public string? RunTask { get; set; }
     public string? RunLabel { get; set; }
     public string? PdfPath { get; set; }

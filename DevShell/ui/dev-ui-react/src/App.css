@@ -2682,6 +2682,64 @@
 .workspace-pdf-controls { justify-content: flex-start; }
 .workspace-pdf-controls input { width: 90px; color: inherit; background: #8997a719; border: 1px solid #8997a755; border-radius: 7px; padding: 7px; }
 .workspace-pdf-controls select { max-width: min(460px, 70vw); }
+.workspace-tab-kind.files, .workspace-tab-kind.folder { color: #91d5bf; background: #38957520; }
+.files-workspace { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 10px; }
+.files-toolbar { justify-content: flex-start; margin-bottom: 0; }
+.files-path-form, .files-filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.files-path-form label { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.files-filters label { display: flex; gap: 8px; align-items: center; font-size: 12px; }
+.files-path-form input, .files-filters input:not([type="checkbox"]) { min-width: 0; color: inherit; background: #8997a719; border: 1px solid #8997a755; border-radius: 7px; padding: 8px; }
+.files-path-form input { flex: 1; }
+.files-body { display: grid; grid-template-columns: minmax(0, 1fr); flex: 1; min-height: 0; gap: 14px; }
+.files-body.has-preview { grid-template-columns: minmax(220px, 1fr) minmax(0, 1.4fr); }
+.files-list { overflow: auto; min-height: 150px; }
+.files-row { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; margin-bottom: 5px; }
+.files-row strong { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.files-row > span:last-child { flex-shrink: 0; font-size: 11px; opacity: .7; }
+.tab-strip .tab.active { border-color: #48c7d8; box-shadow: inset 0 -3px 0 #48c7d8; font-weight: 700; }
+.workspace-tab-entry.active { border-color: #48c7d8; background: #35a9c529; }
+.workspace-view .files-row.selected { border-color: #48c7d8; background: #35a9c52e; box-shadow: inset 4px 0 0 #48c7d8; }
+.files-location { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 10px; border-left: 3px solid #48c7d8; background: #35a9c512; font-size: 13px; overflow-wrap: anywhere; }
+.files-selection { margin: 0; font-size: 12px; overflow-wrap: anywhere; }
+.files-breadcrumbs { gap: 4px; align-items: center; }
+.files-breadcrumb { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.workspace-view .files-breadcrumbs button { background: transparent; border-color: transparent; padding: 4px 7px; text-align: left; overflow-wrap: anywhere; }
+.workspace-view .files-breadcrumbs button:hover:not(:disabled) { background: #35a9c51f; border-color: #48c7d866; }
+.workspace-view .files-breadcrumbs button[aria-current="location"] { font-weight: 700; background: #35a9c529; border-color: #48c7d8; }
+.files-breadcrumbs button:focus-visible { outline: 2px solid #48c7d8; outline-offset: 2px; }
+.files-artifact-filter { padding: 6px 9px; border: 1px solid transparent; border-radius: 7px; }
+.files-artifact-filter.active { border-color: #48c7d8; background: #35a9c529; }
+.workspace-view .workspace-back { flex-shrink: 0; border-color: #48c7d8; }
+.files-row:focus-visible, .tab-strip button:focus-visible, .workspace-back:focus-visible { outline: 2px solid #48c7d8; outline-offset: 2px; }
+.theme-daylight .tab-strip .tab.active, .theme-daylight .workspace-view .files-row.selected { border-color: #177f96; }
+.files-preview { display: flex; flex-direction: column; min-height: 0; min-width: 0; gap: 10px; }
+.files-preview header { display: flex; align-items: center; justify-content: space-between; gap: 8px; overflow-wrap: anywhere; }
+.files-preview-actions { display: flex; gap: 6px; flex-wrap: wrap; flex-shrink: 0; }
+.workspace-tab-kind.image { color: #91d5bf; background: #38957520; }
+.files-image-preview { display: grid; place-items: start center; flex: 1; min-height: 100px; overflow: auto; padding: 14px; border: 1px solid #8997a733; border-radius: 10px; background: repeating-conic-gradient(#8997a715 0% 25%, transparent 0% 50%) 0 0 / 24px 24px; }
+.files-image-preview img { max-width: 100%; max-height: 65vh; object-fit: contain; }
+.markdown-preview { flex: 1; min-height: 100px; overflow: auto; padding: 18px; border: 1px solid #8997a733; border-radius: 10px; background: #060c13; color: #dce8f5; font-size: 14px; line-height: 1.65; overflow-wrap: anywhere; }
+.markdown-preview > :first-child { margin-top: 0; }
+.markdown-preview h1, .markdown-preview h2 { padding-bottom: 8px; border-bottom: 1px solid #8997a733; }
+.markdown-preview h1 { font-size: 24px; }
+.markdown-preview h2 { font-size: 21px; }
+.markdown-preview h3 { font-size: 18px; }
+.markdown-preview code { padding: 2px 5px; border-radius: 4px; background: #8997a722; font: 12px/1.5 Consolas, monospace; }
+.markdown-preview pre { margin: 5px 0; padding: 12px; overflow: auto; background: #8997a712; border-radius: 8px; }
+.markdown-preview pre code { padding: 0; background: transparent; white-space: pre; }
+.markdown-preview blockquote { margin: 12px 0; padding: 8px 16px; border-left: 3px solid #48c7d8; background: #35a9c512; white-space: pre-wrap; }
+.markdown-preview li { margin: 4px 0; }
+.markdown-preview hr { border: 0; border-top: 1px solid #8997a755; }
+.markdown-table { overflow: auto; }
+.markdown-preview table { border-collapse: collapse; min-width: 100%; }
+.markdown-preview th, .markdown-preview td { border: 1px solid #8997a744; padding: 7px 10px; text-align: left; }
+.markdown-preview th { background: #35a9c512; }
+.markdown-reference { color: #8fc9ef; }
+.markdown-reference small { color: inherit; opacity: .65; }
+.theme-daylight .markdown-preview { background: #fff; color: #182638; }
+.theme-daylight .markdown-reference { color: #176b83; }
+.theme-daylight .workspace-tab-kind.files, .theme-daylight .workspace-tab-kind.folder { color: #176b54; }
+@media (max-width: 850px) { .files-body.has-preview { grid-template-columns: 1fr; overflow: auto; } .files-preview { min-height: 250px; } .files-filters input { max-width: 60vw; } }
 .workspace-pdf-help { margin-top: 24px; padding: 18px; border: 1px solid #8997a733; border-radius: 12px; background: #8997a70a; }
 .theme-daylight .workspace-tab-kind.browser, .theme-daylight .workspace-tab-kind.jupyter { color: #225c83; }
 @media (max-width: 720px) { .workspace-view { padding: 12px; } .workspace-view-heading h2 { font-size: 15px; } .workspace-diff-controls, .workspace-diff-controls label { width: 100%; } .workspace-diff-controls select { max-width: 100%; min-width: 0; flex: 1; } }

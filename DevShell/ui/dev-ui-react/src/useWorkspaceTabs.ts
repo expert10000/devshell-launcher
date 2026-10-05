@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 export type WorkspaceViewTab = {
-  id: string; kind: 'logs' | 'diff' | 'browser' | 'jupyter' | 'pdf'; projectId?: string; repositoryId?: string;
+  id: string; kind: 'logs' | 'diff' | 'browser' | 'jupyter' | 'pdf' | 'files'; projectId?: string; repositoryId?: string;
   filePath?: string; side?: 'working' | 'staged'; url?: string; servicePath?: string; page?: number; restored?: boolean
 }
 export type WorkspaceTabInput = Omit<WorkspaceViewTab, 'id' | 'restored'>
@@ -9,7 +9,7 @@ type Bridge = { postMessage: (data: unknown) => void; addEventListener: (name: '
 type State = { profileId: string | null; ready: boolean; tabs: WorkspaceViewTab[]; activeId: string | null; error: string }
 
 function identity(tab: WorkspaceTabInput) {
-  if (tab.kind === 'pdf') return `pdf:${tab.projectId}:${tab.repositoryId}:${tab.filePath}`
+  if (tab.kind === 'pdf') return `pdf:${tab.projectId}:${tab.repositoryId}:${tab.filePath ?? ''}`
   return tab.kind === 'browser' ? `browser:${tab.url}` : tab.kind === 'jupyter' ? `jupyter:${tab.projectId}:${tab.servicePath ?? ''}` : `${tab.kind}:${tab.projectId}:${tab.repositoryId}`
 }
 
@@ -20,6 +20,7 @@ function cleanUrl(value?: string) {
 export function useWorkspaceTabs(profileId: string | null, bridge: Bridge | null, onActivate: (tab: WorkspaceViewTab) => void) {
   const [state, setState] = useState<State>({ profileId: null, ready: false, tabs: [], activeId: null, error: '' })
   const current = useRef(state)
+  const returnTargets = useRef(new Map<string, string>())
   const activation = useRef(onActivate)
   activation.current = onActivate
   function commit(next: State) {
@@ -36,6 +37,12 @@ export function useWorkspaceTabs(profileId: string | null, bridge: Bridge | null
     const existing = previous.tabs.find(tab => identity(tab) === identity(safe))
     if (!existing && previous.tabs.length >= 24) { commit({ ...previous, error: 'Close a workspace tab before opening another (limit: 24).' }); return }
     const tab: WorkspaceViewTab = existing ? { ...existing, ...safe, restored: false } : { ...safe, id: crypto.randomUUID(), restored: false }
+    const source = previous.tabs.find(item => item.id === previous.activeId)
+    if (tab.kind === 'pdf' && source && source.id !== tab.id && (source.kind === 'files' || source.kind === 'pdf')) {
+      returnTargets.current.set(tab.id, source.id)
+      // Reopening a selector from its document must not create a Back cycle.
+      if (returnTargets.current.get(source.id) === tab.id) returnTargets.current.delete(source.id)
+    }
     commit({ ...previous, error: '', activeId: tab.id, tabs: existing ? previous.tabs.map(item => item.id === tab.id ? tab : item) : [...previous.tabs, tab] })
     activation.current(tab)
   }
@@ -43,6 +50,7 @@ export function useWorkspaceTabs(profileId: string | null, bridge: Bridge | null
   opener.current = open
 
   useEffect(() => {
+    returnTargets.current.clear()
     const empty: State = { profileId, ready: false, tabs: [], activeId: null, error: '' }
     current.current = empty; setState(empty)
     if (!bridge || !profileId) return
@@ -62,6 +70,10 @@ export function useWorkspaceTabs(profileId: string | null, bridge: Bridge | null
         for (const tab of queued) opener.current(tab)
       }
       if (message.type === 'workspace.tabs.error') setState(previous => ({ ...previous, error: message.message ?? 'Could not save workspace tabs.' }))
+      if (message.type === 'workspace.files.opened') {
+        const tab: WorkspaceTabInput = { kind: 'files', projectId: message.projectId, repositoryId: message.repositoryId, filePath: message.filePath }
+        if (loaded) opener.current(tab); else queued.push(tab)
+      }
       if (message.type === 'workspace.pdf.opened') {
         const tab: WorkspaceTabInput = { kind: 'pdf', projectId: message.projectId, repositoryId: message.repositoryId, filePath: message.filePath, page: message.page ?? 1 }
         if (loaded) opener.current(tab); else queued.push(tab)
@@ -98,6 +110,12 @@ export function useWorkspaceTabs(profileId: string | null, bridge: Bridge | null
   function update(id: string, changes: Pick<WorkspaceViewTab, 'filePath' | 'side' | 'page'>) {
     if (current.current.profileId === profileId) commit({ ...current.current, tabs: current.current.tabs.map(tab => tab.id === id ? { ...tab, ...changes } : tab) })
   }
+  const backTargetId = state.activeId ? returnTargets.current.get(state.activeId) : undefined
+  const backTarget = state.profileId === profileId ? state.tabs.find(tab => tab.id === backTargetId) : undefined
+  function back() {
+    const targetId = current.current.activeId ? returnTargets.current.get(current.current.activeId) : undefined
+    if (targetId) select(targetId)
+  }
   return { tabs: state.profileId === profileId ? state.tabs : [], activeId: state.profileId === profileId ? state.activeId : null,
-    ready: state.profileId === profileId && state.ready, error: state.profileId === profileId ? state.error : '', open, select, clearActive, close, update }
+    ready: state.profileId === profileId && state.ready, error: state.profileId === profileId ? state.error : '', open, select, clearActive, close, update, back, backTarget }
 }

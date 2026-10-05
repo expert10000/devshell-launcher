@@ -2,8 +2,16 @@ namespace BatchLauncher;
 
 internal static class PdfFile
 {
-    internal static string ResolveDirectory(string root, string relativePath)
+    internal static string ResolveDirectory(string root, string relativePath, bool allowRoot = false)
     {
+        if (allowRoot && relativePath == "" && Path.IsPathFullyQualified(root))
+        {
+            root = Path.GetFullPath(root);
+            if (!Directory.Exists(root)) throw new DirectoryNotFoundException("Repository folder is missing.");
+            if ((File.GetAttributes(root) & FileAttributes.ReparsePoint) != 0)
+                throw new ArgumentException("Repository folders cannot be symlinks or junctions.");
+            return root;
+        }
         if (!Path.IsPathFullyQualified(root) || string.IsNullOrWhiteSpace(relativePath) ||
             !WorkspaceTabsStore.IsRelativePath(relativePath) || relativePath.Split('/').Any(string.IsNullOrWhiteSpace))
             throw new ArgumentException("Configure a relative PDF directory inside the repository.");

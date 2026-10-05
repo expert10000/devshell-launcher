@@ -3,6 +3,7 @@ import type { WorkspaceViewTab } from './useWorkspaceTabs'
 import { MarkdownPreview } from './MarkdownPreview'
 import { ArtifactOverview, type ArtifactBuildStatus } from './ArtifactOverview'
 import { CodeFilePreview, JsonFilePreview, TableFilePreview } from './DataFilePreview'
+import { HtmlFilePreview } from './HtmlFilePreview'
 
 type Repo = { id: string; name: string }
 type Bridge = { postMessage: (message: unknown) => void; addEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void; removeEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void }
@@ -86,10 +87,11 @@ export function FilesWorkspaceView({ tab, profileId, bridge, repos, active, onFo
   const folder = listing?.path ?? tab.filePath ?? ''
   const segments = folder.split('/').filter(Boolean)
   const markdown = !!preview && /\.(md|markdown)$/i.test(preview.path)
+  const html = !!preview && /\.html?$/i.test(preview.path)
   const json = !!preview && /\.(json|ipynb)$/i.test(preview.path)
   const table = !!preview && /\.(csv|tsv)$/i.test(preview.path)
-  const structured = markdown || json || table || previewKind === 'code'
-  const renderedPreview = preview && !showSource ? markdown ? <MarkdownPreview text={preview.text} /> : json ? <JsonFilePreview key={preview.path} text={preview.text} notebook={/\.ipynb$/i.test(preview.path)} /> : table ? <TableFilePreview key={preview.path} text={preview.text} delimiter={/\.tsv$/i.test(preview.path) ? '\t' : ','} /> : previewKind === 'code' ? <CodeFilePreview text={preview.text} filename={preview.path} /> : undefined : undefined
+  const structured = !html && (markdown || json || table || previewKind === 'code')
+  const renderedPreview = preview && !showSource ? html ? <HtmlFilePreview key={preview.path} text={preview.text} filename={preview.path} /> : markdown ? <MarkdownPreview text={preview.text} /> : json ? <JsonFilePreview key={preview.path} text={preview.text} notebook={/\.ipynb$/i.test(preview.path)} /> : table ? <TableFilePreview key={preview.path} text={preview.text} delimiter={/\.tsv$/i.test(preview.path) ? '\t' : ','} /> : previewKind === 'code' ? <CodeFilePreview text={preview.text} filename={preview.path} /> : undefined : undefined
   return <div className="files-workspace">
     <div className="workspace-view-toolbar files-toolbar">
       <label>Repository <select aria-label="Files repository" value={tab.repositoryId} onChange={event => window.dispatchEvent(new CustomEvent('devshell.workspace.open', { detail: { profileId, kind: 'files', projectId: tab.projectId, repositoryId: event.target.value } }))}>{repos.map(repo => <option key={repo.id} value={repo.id}>{repo.name}</option>)}</select></label>

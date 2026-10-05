@@ -19,6 +19,12 @@ public partial class Form1
             var project = _workspace.Projects?.FirstOrDefault(item => item.Id == projectId) ?? throw new InvalidOperationException("Project not found.");
             var repo = project.Repositories?.FirstOrDefault(item => item.Id == repositoryId) ?? throw new InvalidOperationException("Repository not found.");
             var root = ExpandProjectValue(project, repo.Path);
+            if (action == "artifacts")
+            {
+                // Capture request values before leaving the JSON document's dispatch lifetime.
+                var configuration = new WorkspaceRepository { OutputDirectory = repo.OutputDirectory, PdfDirectory = repo.PdfDirectory, PdfPath = repo.PdfPath };
+                return InspectWorkspaceArtifactsAsync(profileId, requestId, root, configuration);
+            }
             if (action == "list") SendMessage(new { type = "workspace.files.result", profileId, requestId, listing = WorkspaceFiles.List(root, path) });
             else if (action == "preview") SendMessage(new { type = "workspace.files.result", profileId, requestId, preview = WorkspaceFiles.Preview(root, path) });
             else if (action == "image") SendMessage(new { type = "workspace.files.result", profileId, requestId, image = WorkspaceFiles.ImagePreview(root, path) });
@@ -35,5 +41,18 @@ public partial class Form1
             if (action == "output") SendMessage(new { type = "workspace.tabs.error", profileId, message = error.Message });
         }
         return Task.CompletedTask;
+    }
+
+    private async Task InspectWorkspaceArtifactsAsync(string? profileId, string? requestId, string root, WorkspaceRepository repo)
+    {
+        try
+        {
+            var artifacts = await Task.Run(() => WorkspaceArtifacts.Scan(root, repo));
+            if (!IsDisposed && profileId == _activeWorkspaceProfileId) SendMessage(new { type = "workspace.files.result", profileId, requestId, artifacts });
+        }
+        catch (Exception error)
+        {
+            if (!IsDisposed && profileId == _activeWorkspaceProfileId) SendMessage(new { type = "workspace.files.result", profileId, requestId, error = error.Message });
+        }
     }
 }

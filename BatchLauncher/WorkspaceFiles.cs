@@ -12,7 +12,11 @@ internal static class WorkspaceFiles
     internal const int MaxEntries = 1000, MaxPreviewChars = 128 * 1024;
     internal const int MaxImageBytes = 8 * 1024 * 1024;
     private static readonly HashSet<string> TextExtensions = new(StringComparer.OrdinalIgnoreCase)
-        { ".md", ".markdown", ".txt", ".log", ".json", ".csv", ".tsv", ".yaml", ".yml", ".toml", ".tex", ".svg" };
+        { ".md", ".markdown", ".txt", ".log", ".json", ".ipynb", ".csv", ".tsv", ".yaml", ".yml", ".toml", ".tex", ".svg" };
+    private static readonly HashSet<string> CodeExtensions = new(StringComparer.OrdinalIgnoreCase)
+        { ".py", ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".cs", ".fs", ".vb", ".c", ".cpp", ".h", ".hpp", ".java", ".go", ".rs", ".sh", ".ps1", ".psm1", ".bat", ".cmd", ".sql", ".html", ".htm", ".css", ".scss", ".less", ".xml", ".xaml", ".ini", ".cfg", ".conf", ".properties" };
+    private static readonly HashSet<string> CodeNames = new(StringComparer.OrdinalIgnoreCase)
+        { "Dockerfile", "Makefile", ".gitignore", ".gitattributes", ".editorconfig" };
     private static readonly Dictionary<string, string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
         { [".png"] = "image/png", [".jpg"] = "image/jpeg", [".jpeg"] = "image/jpeg", [".gif"] = "image/gif", [".webp"] = "image/webp" };
     private static readonly HashSet<string> ArtifactExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -32,7 +36,7 @@ internal static class WorkspaceFiles
             var folder = Directory.Exists(path);
             FileSystemInfo info = folder ? new DirectoryInfo(path) : new FileInfo(path);
             var extension = Path.GetExtension(path);
-            var kind = folder ? "folder" : extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase) ? "pdf" : ImageExtensions.ContainsKey(extension) ? "image" : TextExtensions.Contains(extension) ? "text" : "file";
+            var kind = folder ? "folder" : extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase) ? "pdf" : ImageExtensions.ContainsKey(extension) ? "image" : IsCode(path) ? "code" : TextExtensions.Contains(extension) ? "text" : "file";
             entries.Add(new(info.Name, Path.GetRelativePath(root, path).Replace('\\', '/'), kind,
                 !folder && ArtifactExtensions.Contains(extension), folder ? null : ((FileInfo)info).Length, info.LastWriteTimeUtc.ToString("O")));
         }
@@ -43,8 +47,8 @@ internal static class WorkspaceFiles
     internal static WorkspaceFilePreview Preview(string root, string relativePath)
     {
         if (string.IsNullOrWhiteSpace(relativePath) || !WorkspaceTabsStore.IsRelativePath(relativePath) ||
-            relativePath.Split('/').Any(string.IsNullOrWhiteSpace) || !TextExtensions.Contains(Path.GetExtension(relativePath)))
-            throw new ArgumentException("Only supported text documents and reports can be previewed.");
+            relativePath.Split('/').Any(string.IsNullOrWhiteSpace) || !(TextExtensions.Contains(Path.GetExtension(relativePath)) || IsCode(relativePath)))
+            throw new ArgumentException("Only supported source files, text documents, and reports can be previewed.");
         var path = ResolvePreviewPath(root, relativePath);
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
         using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
@@ -103,4 +107,6 @@ internal static class WorkspaceFiles
         if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0) throw new ArgumentException("File previews cannot follow symlinks.");
         return path;
     }
+
+    private static bool IsCode(string path) => CodeExtensions.Contains(Path.GetExtension(path)) || CodeNames.Contains(Path.GetFileName(path));
 }

@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 
 export type WorkspaceViewTab = {
   id: string; kind: 'logs' | 'diff' | 'browser' | 'jupyter' | 'pdf' | 'files'; projectId?: string; repositoryId?: string;
-  filePath?: string; side?: 'working' | 'staged'; url?: string; servicePath?: string; page?: number; restored?: boolean
+  filePath?: string; side?: 'working' | 'staged'; url?: string; servicePath?: string; page?: number; restored?: boolean; activationId?: string
 }
-export type WorkspaceTabInput = Omit<WorkspaceViewTab, 'id' | 'restored'>
+export type WorkspaceTabInput = Omit<WorkspaceViewTab, 'id' | 'restored' | 'activationId'>
 type Bridge = { postMessage: (data: unknown) => void; addEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void; removeEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void }
 type State = { profileId: string | null; ready: boolean; tabs: WorkspaceViewTab[]; activeId: string | null; error: string }
 
@@ -32,7 +32,7 @@ export function useWorkspaceTabs(profileId: string | null, bridge: Bridge | null
   function open(input: WorkspaceTabInput) {
     const previous = current.current
     if (!profileId || previous.profileId !== profileId || !previous.ready) return
-    const safe = { ...input, url: input.kind === 'browser' ? cleanUrl(input.url) : undefined }
+    const safe = { ...input, url: input.kind === 'browser' ? cleanUrl(input.url) : undefined, activationId: input.kind === 'files' ? crypto.randomUUID() : undefined }
     if (safe.kind === 'browser' && !safe.url) return
     const existing = previous.tabs.find(tab => identity(tab) === identity(safe))
     if (!existing && previous.tabs.length >= 24) { commit({ ...previous, error: 'Close a workspace tab before opening another (limit: 24).' }); return }
@@ -96,7 +96,8 @@ export function useWorkspaceTabs(profileId: string | null, bridge: Bridge | null
   function select(id: string) {
     if (current.current.profileId !== profileId) return
     const tab = current.current.tabs.find(item => item.id === id); if (!tab) return
-    commit({ ...current.current, activeId: id }); activation.current(tab)
+    const selected = tab.kind === 'files' ? { ...tab, restored: false, activationId: crypto.randomUUID() } : tab
+    commit({ ...current.current, activeId: id, tabs: current.current.tabs.map(item => item.id === id ? selected : item) }); activation.current(selected)
   }
   function clearActive() {
     if (current.current.profileId === profileId && current.current.activeId) commit({ ...current.current, activeId: null })

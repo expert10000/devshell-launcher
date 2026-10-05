@@ -6,5 +6,6 @@
     <Compile Include="../../BatchLauncher/WorkspaceTabsStore.cs" Link="WorkspaceTabsStore.cs" />
     <Compile Include="../../BatchLauncher/PdfFile.cs" Link="PdfFile.cs" />
     <Compile Include="../../BatchLauncher/WorkspaceFiles.cs" Link="WorkspaceFiles.cs" />
+    <Compile Include="../../BatchLauncher/WorkspaceArtifacts.cs" Link="WorkspaceArtifacts.cs" />
   </ItemGroup>
 </Project>

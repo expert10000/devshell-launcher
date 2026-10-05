@@ -2715,6 +2715,49 @@
 .files-preview { display: flex; flex-direction: column; min-height: 0; min-width: 0; gap: 10px; }
 .files-preview header { display: flex; align-items: center; justify-content: space-between; gap: 8px; overflow-wrap: anywhere; }
 .files-preview-actions { display: flex; gap: 6px; flex-wrap: wrap; flex-shrink: 0; }
+.workspace-tab-kind.code { color: #8fc9ef; background: #2879b51f; }
+.json-preview, .code-preview, .table-preview { flex: 1; min-height: 100px; min-width: 0; overflow: auto; padding: 14px; border: 1px solid #8997a733; border-radius: 10px; background: #060c13; color: #dce8f5; font-size: 13px; }
+.json-preview ul { list-style: none; margin: 5px 0; padding-left: 18px; }
+.json-preview li { margin: 5px 0; }
+.json-preview summary { cursor: pointer; overflow-wrap: anywhere; }
+.json-preview summary span { margin-left: 8px; font-size: 11px; opacity: .65; }
+.json-value { overflow-wrap: anywhere; }
+.json-value code { white-space: pre-wrap; }
+.json-string { color: #91d5bf; }
+.json-number, .json-boolean { color: #eeae89; }
+.json-null { opacity: .6; }
+.code-lines { font: 12px/1.6 Consolas, monospace; min-width: max-content; }
+.code-line { display: flex; gap: 14px; white-space: pre; }
+.code-line > span { width: 40px; flex-shrink: 0; text-align: right; color: #8e9cad; user-select: none; }
+.code-line code { font: inherit; }
+.table-preview { display: flex; flex-direction: column; gap: 10px; }
+.table-preview > label { font-size: 12px; }
+.table-preview-scroll { overflow: auto; min-height: 70px; flex: 1; }
+.table-preview table { border-collapse: collapse; min-width: 100%; font-size: 12px; }
+.table-preview th, .table-preview td { border: 1px solid #8997a744; padding: 7px 10px; text-align: left; vertical-align: top; white-space: pre-wrap; overflow-wrap: anywhere; min-width: 100px; max-width: 400px; }
+.table-preview th { position: sticky; top: 0; background: #172d3b; }
+.theme-daylight .json-preview, .theme-daylight .code-preview, .theme-daylight .table-preview { background: #fff; color: #182638; }
+.theme-daylight .json-string { color: #176b54; }
+.theme-daylight .json-number, .theme-daylight .json-boolean { color: #965022; }
+.theme-daylight .table-preview th { background: #e8f2f6; }
+.workspace-view .files-toolbar button[aria-pressed="true"] { border-color: #48c7d8; background: #35a9c529; font-weight: 700; }
+.artifact-overview { display: flex; flex-direction: column; gap: 12px; }
+.artifact-build-summary { display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 12px; border-left: 3px solid #48c7d8; background: #35a9c512; font-size: 13px; }
+.artifact-groups { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.artifact-groups button { display: flex; flex-direction: column; text-align: left; gap: 5px; }
+.artifact-groups strong { font-size: 24px; }
+.artifact-groups span { font-size: 12px; }
+.workspace-view .artifact-groups button[aria-pressed="true"] { border-color: #48c7d8; background: #35a9c529; }
+.artifact-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.artifact-toolbar label { display: flex; align-items: center; gap: 8px; font-size: 12px; flex: 1; }
+.artifact-toolbar input { flex: 1; min-width: 80px; color: inherit; background: #8997a719; border: 1px solid #8997a755; border-radius: 7px; padding: 8px; }
+.artifact-scan-warning { padding: 9px 12px; border: 1px solid #cfa66077; border-radius: 8px; font-size: 12px; overflow-wrap: anywhere; }
+.artifact-row { display: flex; align-items: stretch; gap: 6px; margin-bottom: 6px; }
+.artifact-open { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; text-align: left; }
+.artifact-open > span:nth-child(2) { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.artifact-open small { display: block; font-size: 11px; opacity: .65; margin-top: 4px; }
+.artifact-file-meta { text-align: right; font-size: 11px; flex-shrink: 0; }
+@media (max-width: 850px) { .artifact-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); } .artifact-file-meta { display: none; } .artifact-toolbar label { flex-basis: 100%; } }
 .workspace-tab-kind.image { color: #91d5bf; background: #38957520; }
 .files-image-preview { display: grid; place-items: start center; flex: 1; min-height: 100px; overflow: auto; padding: 14px; border: 1px solid #8997a733; border-radius: 10px; background: repeating-conic-gradient(#8997a715 0% 25%, transparent 0% 50%) 0 0 / 24px 24px; }
 .files-image-preview img { max-width: 100%; max-height: 65vh; object-fit: contain; }

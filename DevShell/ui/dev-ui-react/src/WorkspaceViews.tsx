@@ -4,7 +4,7 @@ import { PdfWorkspaceView } from './PdfWorkspaceView'
 import { FilesWorkspaceView } from './FilesWorkspaceView'
 
 type Project = { id: string; name: string; repositories?: { id: string; name: string; pdfDirectory?: string }[] }
-type Job = { key: string; state: string; buildState: string; exitCode?: number; log: string; logPath: string; action?: string }
+type Job = { key: string; state: string; buildState: string; exitCode?: number; log: string; logPath: string; action?: string; lastBuildFinishedAt?: string; lastBuildState?: string; lastBuildExitCode?: number }
 type Bridge = { postMessage: (message: unknown) => void; addEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void; removeEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void }
 type ChangedFile = { path: string; staged: boolean; unstaged: boolean; conflicted: boolean }
 type Snapshot = { path: string; files: ChangedFile[]; blockedReason?: string }
@@ -117,7 +117,7 @@ export function WorkspaceViews({ tabs, activeId, profileId, projects, jobs, erro
       <header className="workspace-view-heading"><div>{tab.kind === 'pdf' && activeId === tab.id && backTarget && <button className="workspace-back" onClick={onBack} title={`Return to ${workspaceTabTitle(backTarget, projects)} without closing this PDF`}>{backTarget.kind === 'files' ? 'Back to files' : 'Back to PDF selector'}</button>}<span className={`workspace-tab-kind ${tab.kind}`}>{tab.kind}</span><h2>{workspaceTabTitle(tab, projects)}</h2></div><button onClick={() => onClose(tab.id)}>Close tab</button></header>
       {tab.kind === 'logs' && <LogsView job={job} error={errors[key]} onStop={() => repositoryAction(tab, 'stop')} onFullLog={() => repositoryAction(tab, 'log')} onRefresh={() => bridge?.postMessage({ type: 'repository.job', action: 'status' })} onOutputFolder={() => bridge?.postMessage({ type: 'workspace.files', action: 'output', profileId, projectId: tab.projectId, repositoryId: tab.repositoryId, requestId: crypto.randomUUID() })} />}
       {tab.kind === 'diff' && <DiffView tab={tab} profileId={profileId} bridge={bridge} active={activeId === tab.id} busy={busy} onChange={changes => onChange(tab.id, changes)} />}
-      {tab.kind === 'files' && <FilesWorkspaceView tab={tab} profileId={profileId} bridge={bridge} repos={projects.find(project => project.id === tab.projectId)?.repositories ?? []} active={activeId === tab.id} onFolder={path => onChange(tab.id, { filePath: path })} />}
+      {tab.kind === 'files' && <FilesWorkspaceView tab={tab} profileId={profileId} bridge={bridge} repos={projects.find(project => project.id === tab.projectId)?.repositories ?? []} active={activeId === tab.id} onFolder={path => onChange(tab.id, { filePath: path })} job={job} />}
       {tab.kind === 'pdf' && <PdfWorkspaceView tab={tab} profileId={profileId} bridge={bridge} job={job} directory={projects.find(project => project.id === tab.projectId)?.repositories?.find(repo => repo.id === tab.repositoryId)?.pdfDirectory} onPage={page => onChange(tab.id, { page })} />}
       {(tab.kind === 'browser' || tab.kind === 'jupyter') && <div className="workspace-browser-entry"><h3>{tab.kind === 'jupyter' ? 'Jupyter in the native browser pane' : 'Browser page in the native pane'}</h3><p>{tab.kind === 'jupyter' ? tab.servicePath ?? 'JupyterLab workspace' : tab.url}</p>
         <p>Workspace navigation is linked to the existing browser pane. Restoring this entry does not navigate, start a service, or replay a task.</p>

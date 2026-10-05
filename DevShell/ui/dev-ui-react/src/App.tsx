@@ -4731,6 +4731,8 @@ const App = () => {
       </main>}
       <main className="terminal-pane" style={{ display: repositoriesView ? 'none' : undefined }}>
         {panelProject && <RepositoryStrip key={`${activeWorkspaceProfileId}:${panelProject.id}`} project={panelProject} profileId={activeWorkspaceProfileId}
+          activeFilesRepoId={workspaceViews.tabs.find(tab => tab.id === workspaceViews.activeId && tab.kind === 'files' && tab.projectId === panelProject.id)?.repositoryId}
+          onSelectFilesRepo={repoId => { const existing = workspaceViews.tabs.find(tab => tab.kind === 'files' && tab.projectId === panelProject.id && tab.repositoryId === repoId); if (existing) workspaceViews.select(existing.id); else workspaceViews.open({ kind: 'files', projectId: panelProject.id, repositoryId: repoId }) }}
           statuses={dashboard?.repositories ?? []} jobs={repositoryJobs} errors={jobErrors}
           reservedKeys={new Set(updateBatches.filter((batch) => batch.state === 'running').flatMap((batch) => batch.results.map((result) => result.key)))}
           onAction={(repoId, action) => repositoryAction(panelProject.id, repoId, action)} />}

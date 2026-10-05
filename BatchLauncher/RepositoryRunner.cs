@@ -7,7 +7,7 @@ using System.Text.Json;
 namespace BatchLauncher;
 
 public sealed record RepositoryCommand(string Shell, string Script, string Cwd);
-public sealed record RepositoryJobStatus(string Key, string State, string BuildState, int? ExitCode, string Log, string LogPath, string Action, string BrowserState = "not-requested", string? BrowserUrl = null);
+public sealed record RepositoryJobStatus(string Key, string State, string BuildState, int? ExitCode, string Log, string LogPath, string Action, string BrowserState = "not-requested", string? BrowserUrl = null, string? LastBuildFinishedAt = null, string? LastBuildState = null, int? LastBuildExitCode = null);
 public sealed record RepositoryBrowserLaunch(string Url, IReadOnlyList<string> ReadyUrls, int TimeoutSeconds = 120);
 
 public sealed class RepositoryRunner : IDisposable
@@ -23,6 +23,8 @@ public sealed class RepositoryRunner : IDisposable
         public string Action = "run";
         public string BrowserState = "not-requested";
         public string? BrowserUrl;
+        public string? LastBuildFinishedAt, LastBuildState;
+        public int? LastBuildExitCode;
         public readonly TaskCompletionSource<RepositoryJobStatus> Completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
     private readonly Dictionary<string, Job> _jobs = new();
@@ -45,6 +47,15 @@ public sealed class RepositoryRunner : IDisposable
             if (_jobs.TryGetValue(key, out var previous) && previous.Active) return false;
             Directory.CreateDirectory(logDirectory);
             job = new Job { Action = action ?? (build != null ? "build" : "run"), LogPath = Path.Combine(logDirectory, $"repo-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.log") };
+            if (previous != null)
+            {
+                lock (previous.Sync)
+                {
+                    job.LastBuildFinishedAt = previous.LastBuildFinishedAt;
+                    job.LastBuildState = previous.LastBuildState;
+                    job.LastBuildExitCode = previous.LastBuildExitCode;
+                }
+            }
             if (browser != null) { job.BrowserState = "queued"; job.BrowserUrl = browser.Url; }
             if (build == null && previous != null && (action == null || action is "run" or "fetch")) job.BuildState = previous.BuildState;
             _jobs[key] = job;
@@ -63,7 +74,14 @@ public sealed class RepositoryRunner : IDisposable
             lock (pair.Value.Sync) return Status(pair.Key, pair.Value);
         }).ToList();
     }
-    private static RepositoryJobStatus Status(string key, Job job) => new(key, job.State, job.BuildState, job.ExitCode, job.Log.ToString(), job.LogPath, job.Action, job.BrowserState, job.BrowserUrl);
+    private static RepositoryJobStatus Status(string key, Job job) => new(key, job.State, job.BuildState, job.ExitCode, job.Log.ToString(), job.LogPath, job.Action, job.BrowserState, job.BrowserUrl, job.LastBuildFinishedAt, job.LastBuildState, job.LastBuildExitCode);
+    private static void FinishBuild(Job job, string state, int? exitCode)
+    {
+        job.BuildState = state;
+        job.LastBuildFinishedAt = DateTimeOffset.UtcNow.ToString("O");
+        job.LastBuildState = state;
+        job.LastBuildExitCode = exitCode;
+    }
     public Task<RepositoryJobStatus> Completion(string key)
     {
         lock (_sync) return _jobs[key].Completion.Task;
@@ -128,7 +146,7 @@ public sealed class RepositoryRunner : IDisposable
                 lock (job.Sync)
                 {
                     job.ExitCode = process.ExitCode;
-                    if (phase == "building") job.BuildState = process.ExitCode == 0 ? "succeeded" : "failed";
+                    if (phase == "building") FinishBuild(job, process.ExitCode == 0 ? "succeeded" : "failed", process.ExitCode);
                 }
                 Append($"[{DateTime.Now:T}] {phase} finished, exit code {process.ExitCode}");
                 if (process.ExitCode != 0) { lock (job.Sync) job.State = "failed"; return; }
@@ -141,8 +159,8 @@ public sealed class RepositoryRunner : IDisposable
             }
             lock (job.Sync) job.State = "succeeded";
         }
-        catch (OperationCanceledException) { lock (job.Sync) { job.State = "stopped"; if (job.BuildState == "building") job.BuildState = "stopped"; } }
-        catch (Exception error) { lock (job.Sync) { job.State = "failed"; if (job.BuildState == "building") job.BuildState = "failed"; job.Log.AppendLine(error.Message); } }
+        catch (OperationCanceledException) { lock (job.Sync) { job.State = "stopped"; if (job.BuildState == "building") FinishBuild(job, "stopped", null); } }
+        catch (Exception error) { lock (job.Sync) { job.State = "failed"; if (job.BuildState == "building") FinishBuild(job, "failed", null); job.Log.AppendLine(error.Message); } }
         finally
         {
             lock (job.Sync)

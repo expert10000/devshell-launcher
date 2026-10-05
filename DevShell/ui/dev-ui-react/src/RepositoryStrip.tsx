@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { RepositoryChangesPanel } from './RepositoryChangesPanel'
 
 type Repo = { id: string; name: string; path: string; url?: string; buildTask?: string; pdfPath?: string; pdfDirectory?: string }
@@ -10,14 +10,16 @@ type Status = { projectId: string; id: string; path: string; branch?: string; up
 type Job = { key: string; state: string; action?: string }
 type Action = 'diff' | 'commit' | 'pull' | 'push' | 'history' | 'github' | 'fetch' | 'log' | 'build' | 'pdf' | 'files'
 
-export function RepositoryStrip({ project, profileId, statuses, jobs, errors, reservedKeys, onAction }: {
+export function RepositoryStrip({ project, profileId, statuses, jobs, errors, reservedKeys, onAction, activeFilesRepoId, onSelectFilesRepo }: {
   project: { id: string; name: string; repositories?: Repo[] }; profileId?: string | null; statuses: Status[];
-  jobs: Job[]; errors: Record<string, string>; reservedKeys: Set<string>; onAction: (repoId: string, action: Action) => void
+  jobs: Job[]; errors: Record<string, string>; reservedKeys: Set<string>; onAction: (repoId: string, action: Action) => void;
+  activeFilesRepoId?: string; onSelectFilesRepo?: (repoId: string) => void
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [changesId, setChangesId] = useState<string | null>(null)
   const repos = project.repositories ?? []
-  const selected = repos.find((repo) => repo.id === selectedId) ?? repos[0]
+  const selected = repos.find((repo) => repo.id === (activeFilesRepoId ?? selectedId)) ?? repos[0]
+  useEffect(() => { if (activeFilesRepoId) setSelectedId(activeFilesRepoId) }, [activeFilesRepoId])
   const statusOf = (repo: Repo) => statuses.find((status) => status.projectId === project.id && status.id === repo.id)
   const summary = (status?: Status) => !status ? 'Checking...' : status.error ? 'Unavailable' :
     `${status.branch ?? 'No branch'} · ${status.changed ? `${status.changed} modified` : 'clean'} · ${status.upstream ? `↑${status.ahead ?? '?'} ↓${status.behind ?? '?'}` : 'no upstream'}`
@@ -31,7 +33,7 @@ export function RepositoryStrip({ project, profileId, statuses, jobs, errors, re
   const detached = status?.branch === '(detached)'
   return <section className="repository-strip" aria-label={`${project.name} repositories`}>
     <div className="repository-strip-selector" role="group" aria-label="Select repository">
-      {repos.map((repo) => <button key={repo.id} aria-pressed={repo.id === selected.id} title={statusOf(repo)?.path ?? repo.path} onClick={() => setSelectedId(repo.id)}>
+      {repos.map((repo) => <button key={repo.id} aria-pressed={repo.id === selected.id} title={statusOf(repo)?.path ?? repo.path} onClick={() => { setSelectedId(repo.id); if (activeFilesRepoId) onSelectFilesRepo?.(repo.id) }}>
         <strong>{repo.name}</strong><span>{summary(statusOf(repo))}</span>
       </button>)}
     </div>

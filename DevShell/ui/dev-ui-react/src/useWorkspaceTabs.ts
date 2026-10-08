@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 
 export type WorkspaceViewTab = {
   id: string; kind: 'logs' | 'diff' | 'browser' | 'jupyter' | 'pdf' | 'files'; projectId?: string; repositoryId?: string;
-  filePath?: string; side?: 'working' | 'staged'; url?: string; servicePath?: string; page?: number; restored?: boolean; activationId?: string; revealPath?: string
+  filePath?: string; side?: 'working' | 'staged'; url?: string; servicePath?: string; page?: number; restored?: boolean; activationId?: string; revealPath?: string; sourceLine?: number
 }
 export type WorkspaceTabInput = Omit<WorkspaceViewTab, 'id' | 'restored' | 'activationId'>
 type Bridge = { postMessage: (data: unknown) => void; addEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void; removeEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void }
@@ -32,7 +32,8 @@ export function useWorkspaceTabs(profileId: string | null, bridge: Bridge | null
   function open(input: WorkspaceTabInput) {
     const previous = current.current
     if (!profileId || previous.profileId !== profileId || !previous.ready) return
-    const safe = { ...input, url: input.kind === 'browser' ? cleanUrl(input.url) : undefined, activationId: input.kind === 'files' ? crypto.randomUUID() : undefined, revealPath: input.kind === 'files' ? input.revealPath : undefined }
+    const safe = { ...input, url: input.kind === 'browser' ? cleanUrl(input.url) : undefined, activationId: input.kind === 'files' ? crypto.randomUUID() : undefined, revealPath: input.kind === 'files' ? input.revealPath : undefined,
+      sourceLine: input.kind === 'files' && typeof input.sourceLine === 'number' && Number.isFinite(input.sourceLine) ? Math.min(1000000, Math.max(1, Math.floor(input.sourceLine))) : undefined }
     if (safe.kind === 'browser' && !safe.url) return
     const existing = previous.tabs.find(tab => identity(tab) === identity(safe))
     if (!existing && previous.tabs.length >= 24) { commit({ ...previous, error: 'Close a workspace tab before opening another (limit: 24).' }); return }
@@ -93,15 +94,39 @@ export function useWorkspaceTabs(profileId: string | null, bridge: Bridge | null
       const detail = (event as CustomEvent<{ profileId: string; id: string }>).detail
       if (loaded && detail?.profileId === profileId) select(detail.id)
     }
-    bridge.addEventListener('message', receive); window.addEventListener('devshell.workspace.open', externalOpen); window.addEventListener('devshell.workspace.select', externalSelect)
+    const restoreLayout = (event: Event) => {
+      const detail = (event as CustomEvent<{ profileId: string; requestId: string; tabs: WorkspaceTabInput[]; focused?: string }>).detail
+      if (!loaded || detail?.profileId !== profileId) return
+      const previous = current.current
+      if (!Array.isArray(detail.tabs) || detail.tabs.length !== 2) return
+      const next = [...previous.tabs]; const restored: WorkspaceViewTab[] = []
+      for (const input of detail.tabs) {
+        const existing = next.find(tab => identity(tab) === identity(input))
+        const tab: WorkspaceViewTab = existing ? { ...existing, activationId: undefined, revealPath: undefined, sourceLine: undefined } : {
+          id: crypto.randomUUID(), kind: input.kind, projectId: input.projectId, repositoryId: input.repositoryId, filePath: input.filePath,
+          side: input.side, page: input.page, url: cleanUrl(input.url), servicePath: input.servicePath, restored: true,
+        }
+        if (existing) next[next.findIndex(item => item.id === tab.id)] = tab
+        else next.push(tab)
+        restored.push(tab)
+      }
+      if (next.length > 24 || restored[0].id === restored[1].id) {
+        window.dispatchEvent(new CustomEvent('devshell.workspace.layout-restored', { detail: { profileId, requestId: detail.requestId, error: 'Close some workspace tabs before restoring this layout (limit: 24), and use two distinct views.' } }))
+        return
+      }
+      const focused = restored[detail.focused === 'secondary' ? 1 : 0]
+      commit({ ...previous, tabs: next, activeId: focused.id, error: '' }); activation.current(focused)
+      window.dispatchEvent(new CustomEvent('devshell.workspace.layout-restored', { detail: { profileId, requestId: detail.requestId, primaryId: restored[0].id, secondaryId: restored[1].id } }))
+    }
+    bridge.addEventListener('message', receive); window.addEventListener('devshell.workspace.open', externalOpen); window.addEventListener('devshell.workspace.select', externalSelect); window.addEventListener('devshell.workspace.layout-restore', restoreLayout)
     bridge.postMessage({ type: 'workspace.tabs', profileId, requestId, action: 'load' })
-    return () => { bridge.removeEventListener('message', receive); window.removeEventListener('devshell.workspace.open', externalOpen); window.removeEventListener('devshell.workspace.select', externalSelect) }
+    return () => { bridge.removeEventListener('message', receive); window.removeEventListener('devshell.workspace.open', externalOpen); window.removeEventListener('devshell.workspace.select', externalSelect); window.removeEventListener('devshell.workspace.layout-restore', restoreLayout) }
   }, [profileId, bridge])
 
   function select(id: string) {
     if (current.current.profileId !== profileId) return
     const tab = current.current.tabs.find(item => item.id === id); if (!tab) return
-    const selected = tab.kind === 'files' ? { ...tab, restored: false, activationId: crypto.randomUUID(), revealPath: undefined } : tab
+    const selected = tab.kind === 'files' ? { ...tab, restored: false, activationId: crypto.randomUUID(), revealPath: undefined, sourceLine: undefined } : tab
     commit({ ...current.current, activeId: id, tabs: current.current.tabs.map(item => item.id === id ? selected : item) }); activation.current(selected)
   }
   function clearActive() {

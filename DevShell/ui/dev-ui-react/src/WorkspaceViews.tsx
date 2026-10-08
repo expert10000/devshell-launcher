@@ -4,6 +4,8 @@ import { PdfWorkspaceView } from './PdfWorkspaceView'
 import { FilesWorkspaceView } from './FilesWorkspaceView'
 import { chooseWorkspacePane, resizeWorkspacePanes, resolveWorkspaceSplit, singleWorkspacePane, splitWorkspacePane } from './workspaceSplit'
 import { WorkspaceFileNavigation } from './WorkspaceFileNavigation'
+import { NamedWorkspaceLayouts } from './NamedWorkspaceLayouts'
+import { BuildDiagnostics } from './BuildDiagnostics'
 
 type Project = { id: string; name: string; repositories?: { id: string; name: string; pdfDirectory?: string }[] }
 type Job = { key: string; state: string; buildState: string; exitCode?: number; log: string; logPath: string; action?: string; lastBuildFinishedAt?: string; lastBuildState?: string; lastBuildExitCode?: number }
@@ -151,6 +153,7 @@ export function WorkspaceViews({ tabs, activeId, profileId, projects, jobs, erro
       </>}
       {!layout.direction && tabs.length < 2 && <span className="workspace-view-caption">Open another Files, Logs, Diff, or viewer tab to split.</span>}
     </div>
+    <NamedWorkspaceLayouts profileId={profileId} bridge={bridge} layout={layout} tabs={tabs} onRestore={setSplit} />
     <div ref={grid} className={`workspace-split-grid ${direction ? `split split-${direction}` : ''} ${resizing ? 'resizing' : ''}`} style={{ gridTemplateColumns: direction === 'right' ? `minmax(0, ${layout.ratio}fr) 10px minmax(0, ${100 - layout.ratio}fr)` : 'minmax(0, 1fr)', gridTemplateRows: direction === 'below' ? `minmax(0, ${layout.ratio}fr) 10px minmax(0, ${100 - layout.ratio}fr)` : 'minmax(0, 1fr)' }}>{tabs.map(tab => {
     const key = `${profileId}:${tab.projectId}:${tab.repositoryId}`; const job = jobs.find(item => item.key === key)
     const busy = reservedKeys.has(key) || !!job && ['queued', 'building', 'running'].includes(job.state)
@@ -159,6 +162,7 @@ export function WorkspaceViews({ tabs, activeId, profileId, projects, jobs, erro
     return <section key={tab.id} role="tabpanel" aria-label={workspaceTabTitle(tab, projects)} data-workspace-pane={visible ? secondary ? 'secondary' : 'primary' : undefined} className={`workspace-view ${activeId === tab.id ? 'pane-focused' : ''}`} style={{ display: visible ? undefined : 'none', gridColumn: secondary && direction === 'right' ? 3 : 1, gridRow: secondary && direction === 'below' ? 3 : 1 }} onPointerDownCapture={() => visible && focusPane(tab.id)} onFocusCapture={() => visible && focusPane(tab.id)}>
       <header className="workspace-view-heading"><div>{tab.kind === 'pdf' && activeId === tab.id && backTarget && <button className="workspace-back" onClick={onBack} title={`Return to ${workspaceTabTitle(backTarget, projects)} without closing this PDF`}>{backTarget.kind === 'files' ? 'Back to files' : 'Back to PDF selector'}</button>}<span className={`workspace-tab-kind ${tab.kind}`}>{tab.kind}</span><h2>{workspaceTabTitle(tab, projects)}</h2></div><div className="workspace-pane-actions">{direction && <button aria-label={`Focus ${secondary ? 'second' : 'first'} workspace pane`} aria-pressed={activeId === tab.id} onClick={() => focusPane(tab.id)}>Focus pane</button>}<button onClick={() => closeTab(tab.id)}>Close tab</button></div></header>
       {tab.kind === 'logs' && <LogsView job={job} error={errors[key]} onStop={() => repositoryAction(tab, 'stop')} onFullLog={() => repositoryAction(tab, 'log')} onRefresh={() => bridge?.postMessage({ type: 'repository.job', action: 'status' })} onOutputFolder={() => bridge?.postMessage({ type: 'workspace.files', action: 'output', profileId, projectId: tab.projectId, repositoryId: tab.repositoryId, requestId: crypto.randomUUID() })} />}
+      {tab.kind === 'logs' && <BuildDiagnostics log={job?.log ?? ''} profileId={profileId} projectId={tab.projectId} repositoryId={tab.repositoryId} bridge={bridge} />}
       {tab.kind === 'diff' && <DiffView tab={tab} profileId={profileId} bridge={bridge} active={visible && !!activeId} busy={busy} onChange={changes => onChange(tab.id, changes)} />}
       {tab.kind === 'files' && <FilesWorkspaceView tab={tab} profileId={profileId} bridge={bridge} repos={projects.find(project => project.id === tab.projectId)?.repositories ?? []} active={visible && !!activeId} onFolder={path => onChange(tab.id, { filePath: path })} job={job} />}
       {tab.kind === 'pdf' && <><WorkspaceFileNavigation profileId={profileId} projectId={tab.projectId} bridge={bridge} selected={tab.filePath && tab.projectId && tab.repositoryId ? { projectId: tab.projectId, repositoryId: tab.repositoryId, path: tab.filePath, kind: 'pdf' } : undefined} /><PdfWorkspaceView tab={tab} profileId={profileId} bridge={bridge} job={job} directory={projects.find(project => project.id === tab.projectId)?.repositories?.find(repo => repo.id === tab.repositoryId)?.pdfDirectory} onPage={page => onChange(tab.id, { page })} /></>}

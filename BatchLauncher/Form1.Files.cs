@@ -43,6 +43,13 @@ public partial class Form1
                 var location = WorkspaceFiles.Locate(root, path);
                 SendMessage(new { type = "workspace.files.result", profileId, requestId, listing = location.Listing, entry = location.Entry });
             }
+            else if (action == "diagnostic")
+            {
+                var file = payload.GetProperty("file").GetString() ?? "";
+                var line = payload.TryGetProperty("line", out var lineValue) && lineValue.TryGetInt32(out var lineNumber) ? lineNumber : 1;
+                var column = payload.TryGetProperty("column", out var columnValue) && columnValue.TryGetInt32(out var columnNumber) ? columnNumber : 1;
+                SendMessage(new { type = "workspace.files.result", profileId, requestId, location = WorkspaceFiles.ResolveDiagnostic(root, file, line, column) });
+            }
             else if (action == "preview")
             {
                 var preview = WorkspaceFiles.Preview(root, path);

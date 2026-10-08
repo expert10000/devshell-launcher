@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { parseDelimited, parseJsonPreview } from './filePreviewParsers'
 
 function jsonNode(value: unknown, name: string, depth: number, budget: { remaining: number }): ReactNode {
@@ -32,7 +32,15 @@ export function TableFilePreview({ text, delimiter }: { text: string; delimiter:
   return <div className="table-preview" aria-label="Read-only table preview"><label><input type="checkbox" checked={header} onChange={event => setHeader(event.target.checked)} /> First row contains headers</label><div className="table-preview-scroll" tabIndex={0}><table><thead><tr>{headers.map((name, index) => <th key={index}>{name}</th>)}</tr></thead><tbody>{rows.map((row, rowIndex) => <tr key={rowIndex}>{headers.map((_, index) => <td key={index}>{row[index] ?? ''}</td>)}</tr>)}</tbody></table></div><p className="workspace-view-caption">{rows.length} visible rows / {width} columns. Up to 201 total rows, 50 columns, and 4096 characters per cell are displayed.</p>{parsed.truncated && <p>Table preview limits reached. View source for the bounded text.</p>}{parsed.warning && <p role="alert">{parsed.warning}</p>}</div>
 }
 
-export function CodeFilePreview({ text, filename }: { text: string; filename: string }) {
+export function CodeFilePreview({ text, filename, line }: { text: string; filename: string; line?: number }) {
   const lines = useMemo(() => text.replace(/\r\n?/g, '\n').split('\n'), [text])
-  return <div className="code-preview" tabIndex={0} aria-label="Read-only code preview"><p className="workspace-view-caption">{filename.split('.').at(-1)?.toUpperCase()} source / read-only, never executed</p><div className="code-lines">{lines.slice(0, 2000).map((line, index) => <div className="code-line" key={index}><span aria-hidden="true">{index + 1}</span><code>{line || ' '}</code></div>)}</div>{lines.length > 2000 && <p>Showing the first 2000 lines. View source for the bounded text.</p>}</div>
+  const container = useRef<HTMLDivElement>(null); const highlighted = useRef<HTMLDivElement>(null)
+  const requested = Math.max(1, Math.floor(line ?? 1)); const available = !!line && requested <= lines.length
+  const start = available && requested > 2000 ? Math.max(0, requested - 1000) : 0
+  const end = Math.min(lines.length, start + 2000)
+  useEffect(() => {
+    const target = highlighted.current; const element = container.current
+    if (target && element) element.scrollTop += target.getBoundingClientRect().top - element.getBoundingClientRect().top - element.clientHeight / 2
+  }, [text, filename, line])
+  return <div ref={container} className="code-preview" tabIndex={0} aria-label="Read-only code preview"><p className="workspace-view-caption">{filename.split('.').at(-1)?.toUpperCase()} source / read-only, never executed{line ? ` / diagnostic line ${requested}` : ''}</p><div className="code-lines">{lines.slice(start, end).map((source, index) => <div ref={available && start + index + 1 === requested ? highlighted : undefined} className={`code-line ${available && start + index + 1 === requested ? 'diagnostic-line' : ''}`} aria-current={available && start + index + 1 === requested ? true : undefined} key={start + index}><span aria-hidden="true">{start + index + 1}</span><code>{source || ' '}</code></div>)}</div>{line && !available && <p role="status">Reported line is outside the available preview. The file may have changed or the preview may be truncated.</p>}{lines.length > 2000 && <p>Showing lines {start + 1}-{end} of the bounded preview. View source for more.</p>}</div>
 }

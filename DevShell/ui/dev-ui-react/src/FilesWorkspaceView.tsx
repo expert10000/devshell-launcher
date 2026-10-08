@@ -26,14 +26,18 @@ export function FilesWorkspaceView({ tab, profileId, bridge, repos, active, onFo
   const [pending, setPending] = useState(false); const [error, setError] = useState('')
   const [selectedPath, setSelectedPath] = useState('')
   const [previewKind, setPreviewKind] = useState<Entry['kind']>('text')
+  const [sourceLine, setSourceLine] = useState<number>()
+  const requestedSourceLine = useRef<number | undefined>(undefined)
   const [history, setHistory] = useState<{ paths: string[]; index: number }>({ paths: [], index: -1 })
   const requestedHistoryIndex = useRef<number | undefined>(undefined)
   const handledActivation = useRef(tab.activationId)
   const current = useRef(''); const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const latest = useRef({ onFolder }); latest.current = { onFolder }
-  function request(action: 'list' | 'preview' | 'image' | 'locate', target: string, historyIndex?: number) {
+  function request(action: 'list' | 'preview' | 'image' | 'locate', target: string, historyIndex?: number, targetLine?: number) {
     if (!bridge) { setError('Files require the DevShell desktop app.'); return }
     if (action === 'list' || action === 'locate') setOverview(false)
+    if (action === 'list') setSourceLine(undefined)
+    requestedSourceLine.current = action === 'locate' ? targetLine : undefined
     requestedHistoryIndex.current = action === 'list' ? historyIndex : undefined
     clearTimeout(timer.current); current.current = crypto.randomUUID(); setPending(true); setError(''); setPreview(undefined); setImage(undefined); setShowSource(false)
     timer.current = setTimeout(() => { current.current = ''; setPending(false); setError('File request timed out. Refresh to retry.') }, 30000)
@@ -61,10 +65,10 @@ export function FilesWorkspaceView({ tab, profileId, bridge, repos, active, onFo
       }
       if (message.preview) setPreview(message.preview)
       if (message.image) setImage(message.image)
-      if (message.entry) open(message.entry)
+      if (message.entry) open(message.entry, requestedSourceLine.current)
     }
     bridge.addEventListener('message', receive)
-    if (!tab.restored) request(tab.revealPath ? 'locate' : 'list', tab.revealPath ?? tab.filePath ?? '')
+    if (!tab.restored) request(tab.revealPath ? 'locate' : 'list', tab.revealPath ?? tab.filePath ?? '', undefined, tab.sourceLine)
     return () => { clearTimeout(timer.current); current.current = ''; bridge.removeEventListener('message', receive) }
   }, [bridge, profileId, tab.id])
   useEffect(() => {
@@ -76,10 +80,11 @@ export function FilesWorkspaceView({ tab, profileId, bridge, repos, active, onFo
     handledActivation.current = tab.activationId
     // Explicit selection may load a restored location, but restoration itself
     // never creates an activation token. Keep loaded lists and PDF-return filters.
-    if (tab.revealPath) request('locate', tab.revealPath)
+    if (tab.revealPath) request('locate', tab.revealPath, undefined, tab.sourceLine)
     else if (!listing && !overview) request('list', tab.filePath ?? '')
   }, [active, pending, tab.activationId, tab.revealPath, overview])
-  function open(entry: Entry) {
+  function open(entry: Entry, targetLine?: number) {
+    setSourceLine(targetLine)
     setSelectedPath(entry.path)
     setPreviewKind(entry.kind)
     if (entry.kind === 'folder') { request('list', entry.path); return }
@@ -98,8 +103,8 @@ export function FilesWorkspaceView({ tab, profileId, bridge, repos, active, onFo
   const notebook = !!preview && /\.ipynb$/i.test(preview.path)
   const json = !!preview && /\.json$/i.test(preview.path)
   const table = !!preview && /\.(csv|tsv)$/i.test(preview.path)
-  const structured = !html && (markdown || notebook || json || table || previewKind === 'code')
-  const renderedPreview = preview && !showSource ? html ? <HtmlFilePreview key={preview.path} text={preview.text} filename={preview.path} /> : notebook ? <NotebookFilePreview key={preview.path} text={preview.text} /> : markdown ? <MarkdownPreview text={preview.text} /> : json ? <JsonFilePreview key={preview.path} text={preview.text} notebook={false} /> : table ? <TableFilePreview key={preview.path} text={preview.text} delimiter={/\.tsv$/i.test(preview.path) ? '\t' : ','} /> : previewKind === 'code' ? <CodeFilePreview text={preview.text} filename={preview.path} /> : undefined : undefined
+  const structured = (!html || !!sourceLine) && (markdown || notebook || json || table || previewKind === 'code' || !!sourceLine)
+  const renderedPreview = preview && !showSource ? sourceLine ? <CodeFilePreview text={preview.text} filename={preview.path} line={sourceLine} /> : html ? <HtmlFilePreview key={preview.path} text={preview.text} filename={preview.path} /> : notebook ? <NotebookFilePreview key={preview.path} text={preview.text} /> : markdown ? <MarkdownPreview text={preview.text} /> : json ? <JsonFilePreview key={preview.path} text={preview.text} notebook={false} /> : table ? <TableFilePreview key={preview.path} text={preview.text} delimiter={/\.tsv$/i.test(preview.path) ? '\t' : ','} /> : previewKind === 'code' ? <CodeFilePreview text={preview.text} filename={preview.path} /> : undefined : undefined
   const folderImages = entries.filter(entry => entry.kind === 'image').map(entry => entry.path)
   const imagePaths = image && !overview && folderImages.includes(image.path) ? folderImages : image ? [image.path] : []
   return <div className="files-workspace">

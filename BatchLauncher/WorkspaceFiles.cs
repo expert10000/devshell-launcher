@@ -7,6 +7,7 @@ internal sealed record WorkspaceFileListing(string Path, List<WorkspaceFileEntry
 internal sealed record WorkspaceFilePreview(string Path, string Text, bool Truncated);
 internal sealed record WorkspaceImagePreview(string Path, string MimeType, string DataUrl, long Size);
 internal sealed record WorkspaceFileLocation(WorkspaceFileListing Listing, WorkspaceFileEntry Entry);
+internal sealed record WorkspaceDiagnosticLocation(string Path, int Line, int Column);
 
 internal static class WorkspaceFiles
 {
@@ -15,7 +16,7 @@ internal static class WorkspaceFiles
     private static readonly HashSet<string> TextExtensions = new(StringComparer.OrdinalIgnoreCase)
         { ".md", ".markdown", ".txt", ".log", ".json", ".ipynb", ".csv", ".tsv", ".yaml", ".yml", ".toml", ".tex", ".svg" };
     private static readonly HashSet<string> CodeExtensions = new(StringComparer.OrdinalIgnoreCase)
-        { ".py", ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".cs", ".fs", ".vb", ".c", ".cpp", ".h", ".hpp", ".java", ".go", ".rs", ".sh", ".ps1", ".psm1", ".bat", ".cmd", ".sql", ".html", ".htm", ".css", ".scss", ".less", ".xml", ".xaml", ".ini", ".cfg", ".conf", ".properties" };
+        { ".py", ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".cs", ".fs", ".vb", ".c", ".cpp", ".h", ".hpp", ".java", ".go", ".rs", ".sh", ".ps1", ".psm1", ".bat", ".cmd", ".sql", ".html", ".htm", ".css", ".scss", ".less", ".xml", ".xaml", ".ini", ".cfg", ".conf", ".properties", ".csproj", ".fsproj", ".vbproj", ".props", ".targets", ".gradle", ".kt", ".kts" };
     private static readonly HashSet<string> CodeNames = new(StringComparer.OrdinalIgnoreCase)
         { "Dockerfile", "Makefile", ".gitignore", ".gitattributes", ".editorconfig" };
     private static readonly Dictionary<string, string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -70,6 +71,29 @@ internal static class WorkspaceFiles
         var buffer = new char[MaxPreviewChars + 1];
         var length = reader.ReadBlock(buffer, 0, buffer.Length);
         return new(relativePath, new string(buffer, 0, Math.Min(length, MaxPreviewChars)), length > MaxPreviewChars);
+    }
+
+    internal static WorkspaceDiagnosticLocation ResolveDiagnostic(string root, string file, int line, int column)
+    {
+        file = file.Trim().Trim('"');
+        if (file.Length == 0 || file.Length > 2048 || file.Contains('\0')) throw new ArgumentException("The diagnostic does not contain a supported source path.");
+        root = Path.GetFullPath(root);
+        string relative;
+        if (Path.IsPathFullyQualified(file))
+        {
+            var absolute = Path.GetFullPath(file);
+            var prefix = Path.TrimEndingDirectorySeparator(root) + Path.DirectorySeparatorChar;
+            if (!absolute.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) throw new ArgumentException("This diagnostic points outside the build repository. Open external SDK/dependency files explicitly in your editor.");
+            relative = Path.GetRelativePath(root, absolute).Replace('\\', '/');
+        }
+        else
+        {
+            relative = file.Replace('\\', '/');
+            if (relative.StartsWith("./", StringComparison.Ordinal)) relative = relative[2..];
+        }
+        if (KindOfFile(relative) is not ("code" or "text")) throw new ArgumentException("This diagnostic file has no safe source preview.");
+        ResolvePreviewPath(root, relative); // Enforces containment, existence, and no symlink traversal.
+        return new(relative, Math.Clamp(line, 1, 1000000), Math.Clamp(column, 1, 1000000));
     }
 
     internal static WorkspaceImagePreview ImagePreview(string root, string relativePath)

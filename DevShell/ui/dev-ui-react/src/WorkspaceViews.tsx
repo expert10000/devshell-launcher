@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { WorkspaceViewTab } from './useWorkspaceTabs'
 import { PdfWorkspaceView } from './PdfWorkspaceView'
 import { FilesWorkspaceView } from './FilesWorkspaceView'
+import { chooseWorkspacePane, resizeWorkspacePanes, resolveWorkspaceSplit, singleWorkspacePane, splitWorkspacePane } from './workspaceSplit'
+import { WorkspaceFileNavigation } from './WorkspaceFileNavigation'
 
 type Project = { id: string; name: string; repositories?: { id: string; name: string; pdfDirectory?: string }[] }
 type Job = { key: string; state: string; buildState: string; exitCode?: number; log: string; logPath: string; action?: string; lastBuildFinishedAt?: string; lastBuildState?: string; lastBuildExitCode?: number }
@@ -109,21 +111,70 @@ export function WorkspaceViews({ tabs, activeId, profileId, projects, jobs, erro
   tabs: WorkspaceViewTab[]; activeId: string | null; profileId: string; projects: Project[]; jobs: Job[]; errors: Record<string, string>; reservedKeys: Set<string>; bridge: Bridge | null;
   onChange: (id: string, changes: Pick<WorkspaceViewTab, 'filePath' | 'side' | 'page'>) => void; onClose: (id: string) => void; onBack: () => void; backTarget?: WorkspaceViewTab
 }) {
+  const [split, setSplit] = useState(() => singleWorkspacePane(profileId, activeId))
+  const [compact, setCompact] = useState(false)
+  const [resizing, setResizing] = useState(false)
+  const grid = useRef<HTMLDivElement>(null)
+  const drag = useRef<{ id: number; direction: 'right' | 'below' } | null>(null)
+  const ids = tabs.map(tab => tab.id)
+  const layout = resolveWorkspaceSplit(split, profileId, ids, activeId)
+  const direction = layout.direction === 'right' && compact ? 'below' : layout.direction
+  useEffect(() => { setSplit(previous => resolveWorkspaceSplit(previous, profileId, tabs.map(tab => tab.id), activeId)) }, [profileId, tabs, activeId])
+  useEffect(() => {
+    const element = grid.current; if (!element) return
+    const observer = new ResizeObserver(() => setCompact(element.clientWidth < 760))
+    observer.observe(element); return () => observer.disconnect()
+  }, [])
+  useEffect(() => { drag.current = null; setResizing(false) }, [profileId, direction])
+  function focusPane(id: string) {
+    if (activeId !== id) window.dispatchEvent(new CustomEvent('devshell.workspace.select', { detail: { profileId, id } }))
+  }
+  function choosePane(pane: 'primary' | 'secondary', id: string) {
+    setSplit(chooseWorkspacePane(layout, pane, id)); focusPane(id)
+  }
+  function closeTab(id: string) {
+    const survivor = layout.direction && (id === layout.primaryId ? layout.secondaryId : id === layout.secondaryId ? layout.primaryId : null)
+    onClose(id)
+    if (survivor) { setSplit(singleWorkspacePane(profileId, survivor)); focusPane(survivor) }
+  }
+  function releaseDivider() { drag.current = null; setResizing(false) }
   function repositoryAction(tab: WorkspaceViewTab, action: string) { bridge?.postMessage({ type: 'repository.job', projectId: tab.projectId, repositoryId: tab.repositoryId, action }) }
-  return <div className="workspace-content" style={{ display: activeId ? undefined : 'none' }}>{tabs.map(tab => {
+  return <div className="workspace-content workspace-split-content" style={{ display: activeId ? undefined : 'none' }}>
+    <div className="workspace-split-toolbar" aria-label="Workspace layout">
+      <button disabled={tabs.length < 2} aria-pressed={layout.direction === 'right'} title={tabs.length < 2 ? 'Open a second workspace tab first' : 'Keep two workspace views side by side'} onClick={() => setSplit(splitWorkspacePane(layout, 'right', ids, activeId))}>Split right</button>
+      <button disabled={tabs.length < 2} aria-pressed={layout.direction === 'below'} title={tabs.length < 2 ? 'Open a second workspace tab first' : 'Keep two workspace views above and below'} onClick={() => setSplit(splitWorkspacePane(layout, 'below', ids, activeId))}>Split below</button>
+      {layout.direction && <>
+        <button onClick={() => setSplit(singleWorkspacePane(profileId, activeId))}>Single pane</button>
+        <label>First pane <select aria-label="First workspace pane" value={layout.primaryId ?? ''} onChange={event => choosePane('primary', event.target.value)}>{tabs.map(tab => <option key={tab.id} value={tab.id}>{workspaceTabTitle(tab, projects)}</option>)}</select></label>
+        <label>Second pane <select aria-label="Second workspace pane" value={layout.secondaryId ?? ''} onChange={event => choosePane('secondary', event.target.value)}>{tabs.map(tab => <option key={tab.id} value={tab.id}>{workspaceTabTitle(tab, projects)}</option>)}</select></label>
+        <span className="workspace-view-caption">{compact && layout.direction === 'right' ? 'Stacked to fit this window. ' : ''}Choose a tab for each pane; new views replace the focused pane. Layout is session-only.</span>
+      </>}
+      {!layout.direction && tabs.length < 2 && <span className="workspace-view-caption">Open another Files, Logs, Diff, or viewer tab to split.</span>}
+    </div>
+    <div ref={grid} className={`workspace-split-grid ${direction ? `split split-${direction}` : ''} ${resizing ? 'resizing' : ''}`} style={{ gridTemplateColumns: direction === 'right' ? `minmax(0, ${layout.ratio}fr) 10px minmax(0, ${100 - layout.ratio}fr)` : 'minmax(0, 1fr)', gridTemplateRows: direction === 'below' ? `minmax(0, ${layout.ratio}fr) 10px minmax(0, ${100 - layout.ratio}fr)` : 'minmax(0, 1fr)' }}>{tabs.map(tab => {
     const key = `${profileId}:${tab.projectId}:${tab.repositoryId}`; const job = jobs.find(item => item.key === key)
     const busy = reservedKeys.has(key) || !!job && ['queued', 'building', 'running'].includes(job.state)
-    return <section key={tab.id} role="tabpanel" aria-label={workspaceTabTitle(tab, projects)} className="workspace-view" style={{ display: activeId === tab.id ? undefined : 'none' }}>
-      <header className="workspace-view-heading"><div>{tab.kind === 'pdf' && activeId === tab.id && backTarget && <button className="workspace-back" onClick={onBack} title={`Return to ${workspaceTabTitle(backTarget, projects)} without closing this PDF`}>{backTarget.kind === 'files' ? 'Back to files' : 'Back to PDF selector'}</button>}<span className={`workspace-tab-kind ${tab.kind}`}>{tab.kind}</span><h2>{workspaceTabTitle(tab, projects)}</h2></div><button onClick={() => onClose(tab.id)}>Close tab</button></header>
+    const secondary = !!direction && tab.id === layout.secondaryId
+    const visible = tab.id === layout.primaryId || secondary
+    return <section key={tab.id} role="tabpanel" aria-label={workspaceTabTitle(tab, projects)} data-workspace-pane={visible ? secondary ? 'secondary' : 'primary' : undefined} className={`workspace-view ${activeId === tab.id ? 'pane-focused' : ''}`} style={{ display: visible ? undefined : 'none', gridColumn: secondary && direction === 'right' ? 3 : 1, gridRow: secondary && direction === 'below' ? 3 : 1 }} onPointerDownCapture={() => visible && focusPane(tab.id)} onFocusCapture={() => visible && focusPane(tab.id)}>
+      <header className="workspace-view-heading"><div>{tab.kind === 'pdf' && activeId === tab.id && backTarget && <button className="workspace-back" onClick={onBack} title={`Return to ${workspaceTabTitle(backTarget, projects)} without closing this PDF`}>{backTarget.kind === 'files' ? 'Back to files' : 'Back to PDF selector'}</button>}<span className={`workspace-tab-kind ${tab.kind}`}>{tab.kind}</span><h2>{workspaceTabTitle(tab, projects)}</h2></div><div className="workspace-pane-actions">{direction && <button aria-label={`Focus ${secondary ? 'second' : 'first'} workspace pane`} aria-pressed={activeId === tab.id} onClick={() => focusPane(tab.id)}>Focus pane</button>}<button onClick={() => closeTab(tab.id)}>Close tab</button></div></header>
       {tab.kind === 'logs' && <LogsView job={job} error={errors[key]} onStop={() => repositoryAction(tab, 'stop')} onFullLog={() => repositoryAction(tab, 'log')} onRefresh={() => bridge?.postMessage({ type: 'repository.job', action: 'status' })} onOutputFolder={() => bridge?.postMessage({ type: 'workspace.files', action: 'output', profileId, projectId: tab.projectId, repositoryId: tab.repositoryId, requestId: crypto.randomUUID() })} />}
-      {tab.kind === 'diff' && <DiffView tab={tab} profileId={profileId} bridge={bridge} active={activeId === tab.id} busy={busy} onChange={changes => onChange(tab.id, changes)} />}
-      {tab.kind === 'files' && <FilesWorkspaceView tab={tab} profileId={profileId} bridge={bridge} repos={projects.find(project => project.id === tab.projectId)?.repositories ?? []} active={activeId === tab.id} onFolder={path => onChange(tab.id, { filePath: path })} job={job} />}
-      {tab.kind === 'pdf' && <PdfWorkspaceView tab={tab} profileId={profileId} bridge={bridge} job={job} directory={projects.find(project => project.id === tab.projectId)?.repositories?.find(repo => repo.id === tab.repositoryId)?.pdfDirectory} onPage={page => onChange(tab.id, { page })} />}
+      {tab.kind === 'diff' && <DiffView tab={tab} profileId={profileId} bridge={bridge} active={visible && !!activeId} busy={busy} onChange={changes => onChange(tab.id, changes)} />}
+      {tab.kind === 'files' && <FilesWorkspaceView tab={tab} profileId={profileId} bridge={bridge} repos={projects.find(project => project.id === tab.projectId)?.repositories ?? []} active={visible && !!activeId} onFolder={path => onChange(tab.id, { filePath: path })} job={job} />}
+      {tab.kind === 'pdf' && <><WorkspaceFileNavigation profileId={profileId} projectId={tab.projectId} bridge={bridge} selected={tab.filePath && tab.projectId && tab.repositoryId ? { projectId: tab.projectId, repositoryId: tab.repositoryId, path: tab.filePath, kind: 'pdf' } : undefined} /><PdfWorkspaceView tab={tab} profileId={profileId} bridge={bridge} job={job} directory={projects.find(project => project.id === tab.projectId)?.repositories?.find(repo => repo.id === tab.repositoryId)?.pdfDirectory} onPage={page => onChange(tab.id, { page })} /></>}
       {(tab.kind === 'browser' || tab.kind === 'jupyter') && <div className="workspace-browser-entry"><h3>{tab.kind === 'jupyter' ? 'Jupyter in the native browser pane' : 'Browser page in the native pane'}</h3><p>{tab.kind === 'jupyter' ? tab.servicePath ?? 'JupyterLab workspace' : tab.url}</p>
         <p>Workspace navigation is linked to the existing browser pane. Restoring this entry does not navigate, start a service, or replay a task.</p>
         <button onClick={() => tab.kind === 'jupyter' ? bridge?.postMessage({ type: 'service.control', projectId: tab.projectId, action: 'open', path: tab.servicePath }) : bridge?.postMessage({ type: 'browser.open', projectId: tab.projectId, url: tab.url })}>{tab.kind === 'jupyter' ? 'Open Jupyter' : 'Open / focus browser page'}</button>
         <p className="workspace-view-caption">Use Show/hide browser to toggle the native pane. Closing this workspace entry does not close the page.{tab.kind === 'browser' ? ' Saved links omit credentials, query strings, and fragments; use the original task when parameters are required.' : ' Notebook access is reopened through the service controller; authentication URLs are never stored here.'}</p>
       </div>}
     </section>
-  })}</div>
+  })}
+    {direction && <div className="workspace-split-divider" role="separator" tabIndex={0} aria-label="Resize workspace panes" aria-orientation={direction === 'right' ? 'vertical' : 'horizontal'} aria-valuemin={20} aria-valuemax={80} aria-valuenow={Math.round(layout.ratio)} style={{ gridColumn: direction === 'right' ? 2 : 1, gridRow: direction === 'below' ? 2 : 1 }}
+      onPointerDown={event => { if (event.button !== 0) return; drag.current = { id: event.pointerId, direction }; event.currentTarget.setPointerCapture(event.pointerId); setResizing(true); event.currentTarget.focus(); event.preventDefault() }}
+      onPointerMove={event => { const origin = drag.current; const bounds = grid.current?.getBoundingClientRect(); if (!origin || origin.id !== event.pointerId || !bounds) return; const length = origin.direction === 'right' ? bounds.width : bounds.height; const offset = origin.direction === 'right' ? event.clientX - bounds.left : event.clientY - bounds.top; if (length > 0) setSplit(previous => resizeWorkspacePanes(previous, offset / length * 100)) }}
+      onPointerUp={event => { if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); releaseDivider() }} onPointerCancel={releaseDivider} onLostPointerCapture={releaseDivider}
+      onDoubleClick={() => setSplit(previous => resizeWorkspacePanes(previous, 50))}
+      onKeyDown={event => { const backward = direction === 'right' ? 'ArrowLeft' : 'ArrowUp'; const forward = direction === 'right' ? 'ArrowRight' : 'ArrowDown'; if (event.key === backward || event.key === forward || event.key === 'Home') { event.preventDefault(); setSplit(previous => resizeWorkspacePanes(previous, event.key === 'Home' ? 50 : previous.ratio + (event.key === forward ? 5 : -5))) } }} />}
+    </div>
+  </div>
 }

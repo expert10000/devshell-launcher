@@ -37,7 +37,7 @@ internal static class WorkspaceFiles
             var folder = Directory.Exists(path);
             FileSystemInfo info = folder ? new DirectoryInfo(path) : new FileInfo(path);
             var extension = Path.GetExtension(path);
-            var kind = folder ? "folder" : extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase) ? "pdf" : ImageExtensions.ContainsKey(extension) ? "image" : IsCode(path) ? "code" : TextExtensions.Contains(extension) ? "text" : "file";
+            var kind = folder ? "folder" : KindOfFile(path);
             entries.Add(new(info.Name, Path.GetRelativePath(root, path).Replace('\\', '/'), kind,
                 !folder && ArtifactExtensions.Contains(extension), folder ? null : ((FileInfo)info).Length, info.LastWriteTimeUtc.ToString("O")));
         }
@@ -51,7 +51,7 @@ internal static class WorkspaceFiles
         var parent = (Path.GetDirectoryName(relativePath) ?? "").Replace('\\', '/');
         var listing = List(root, parent);
         var info = new FileInfo(path); var extension = info.Extension;
-        var kind = extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase) ? "pdf" : ImageExtensions.ContainsKey(extension) ? "image" : IsCode(path) ? "code" : TextExtensions.Contains(extension) ? "text" : "file";
+        var kind = KindOfFile(path);
         var entry = new WorkspaceFileEntry(info.Name, relativePath, kind, ArtifactExtensions.Contains(extension), info.Length, info.LastWriteTimeUtc.ToString("O"));
         // Keep the selected search result visible even in a capped folder listing.
         if (!listing.Entries.Any(item => item.Path == relativePath))
@@ -121,6 +121,12 @@ internal static class WorkspaceFiles
         if (!File.Exists(path)) throw new FileNotFoundException("File is missing. Refresh the listing.");
         if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0) throw new ArgumentException("File previews cannot follow symlinks.");
         return path;
+    }
+
+    internal static string KindOfFile(string path)
+    {
+        var extension = Path.GetExtension(path);
+        return extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase) ? "pdf" : ImageExtensions.ContainsKey(extension) ? "image" : IsCode(path) ? "code" : TextExtensions.Contains(extension) ? "text" : "file";
     }
 
     private static bool IsCode(string path) => CodeExtensions.Contains(Path.GetExtension(path)) || CodeNames.Contains(Path.GetFileName(path));

@@ -14,6 +14,11 @@ public partial class Form1
         {
             var projectId = payload.GetProperty("projectId").GetString();
             action = payload.GetProperty("action").GetString();
+            if (action == "navigation")
+            {
+                HandleWorkspaceNavigation(payload, profileId!, requestId);
+                return Task.CompletedTask;
+            }
             var path = payload.TryGetProperty("path", out var folder) ? folder.GetString() ?? "" : "";
             var project = _workspace.Projects?.FirstOrDefault(item => item.Id == projectId) ?? throw new InvalidOperationException("Project not found.");
             if (action == "search")
@@ -38,8 +43,24 @@ public partial class Form1
                 var location = WorkspaceFiles.Locate(root, path);
                 SendMessage(new { type = "workspace.files.result", profileId, requestId, listing = location.Listing, entry = location.Entry });
             }
-            else if (action == "preview") SendMessage(new { type = "workspace.files.result", profileId, requestId, preview = WorkspaceFiles.Preview(root, path) });
-            else if (action == "image") SendMessage(new { type = "workspace.files.result", profileId, requestId, image = WorkspaceFiles.ImagePreview(root, path) });
+            else if (action == "preview")
+            {
+                var preview = WorkspaceFiles.Preview(root, path);
+                RememberWorkspaceFile(projectId, repositoryId, preview.Path, WorkspaceFiles.KindOfFile(preview.Path));
+                SendMessage(new { type = "workspace.files.result", profileId, requestId, preview });
+            }
+            else if (action == "image")
+            {
+                var image = WorkspaceFiles.ImagePreview(root, path);
+                RememberWorkspaceFile(projectId, repositoryId, image.Path, "image");
+                SendMessage(new { type = "workspace.files.result", profileId, requestId, image });
+            }
+            else if (action == "remember-pdf")
+            {
+                PdfFile.Resolve(root, path);
+                RememberWorkspaceFile(projectId, repositoryId, path, "pdf");
+                SendMessage(new { type = "workspace.files.result", profileId, requestId, remembered = true });
+            }
             else if (action == "output")
             {
                 var output = WorkspaceFiles.FindOutputDirectory(root, repo);

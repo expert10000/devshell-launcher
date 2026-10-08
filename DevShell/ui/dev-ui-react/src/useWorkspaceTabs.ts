@@ -75,6 +75,7 @@ export function useWorkspaceTabs(profileId: string | null, bridge: Bridge | null
         if (loaded) opener.current(tab); else queued.push(tab)
       }
       if (message.type === 'workspace.pdf.opened') {
+        if (message.filePath) bridge.postMessage({ type: 'workspace.files', profileId, projectId: message.projectId, repositoryId: message.repositoryId, action: 'remember-pdf', path: message.filePath, requestId: crypto.randomUUID() })
         const tab: WorkspaceTabInput = { kind: 'pdf', projectId: message.projectId, repositoryId: message.repositoryId, filePath: message.filePath, page: message.page ?? 1 }
         if (loaded) opener.current(tab); else queued.push(tab)
       }
@@ -88,9 +89,13 @@ export function useWorkspaceTabs(profileId: string | null, bridge: Bridge | null
       const detail = (event as CustomEvent<WorkspaceTabInput & { profileId: string }>).detail
       if (detail?.profileId === profileId) { if (loaded) opener.current(detail); else queued.push(detail) }
     }
-    bridge.addEventListener('message', receive); window.addEventListener('devshell.workspace.open', externalOpen)
+    const externalSelect = (event: Event) => {
+      const detail = (event as CustomEvent<{ profileId: string; id: string }>).detail
+      if (loaded && detail?.profileId === profileId) select(detail.id)
+    }
+    bridge.addEventListener('message', receive); window.addEventListener('devshell.workspace.open', externalOpen); window.addEventListener('devshell.workspace.select', externalSelect)
     bridge.postMessage({ type: 'workspace.tabs', profileId, requestId, action: 'load' })
-    return () => { bridge.removeEventListener('message', receive); window.removeEventListener('devshell.workspace.open', externalOpen) }
+    return () => { bridge.removeEventListener('message', receive); window.removeEventListener('devshell.workspace.open', externalOpen); window.removeEventListener('devshell.workspace.select', externalSelect) }
   }, [profileId, bridge])
 
   function select(id: string) {

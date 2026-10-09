@@ -10,13 +10,13 @@ Runtime readiness is evidence, not configuration. A profile or executable path a
 
 ## 1. Scientific Runtimes workspace
 
-Status: starting. Add a major `RUNTIMES / Scientific` entry alongside existing workspace navigation.
+Status: initial workspace implemented in source, not built or tested. Native probes, persistent profiles, environment installation, and execution adapters remain planned.
 
-- [ ] Runtime inventory: CGAL, VTK, Gmsh, SageMath, Python/SciPy, and custom profiles.
-- [ ] Environment selector: Windows native, WSL, Docker; clearly label unsupported execution adapters.
-- [ ] Health, Environment, Commands, Tests, Benchmarks, Packages, Artifacts, Integration sections.
-- [ ] Profile details, capability declarations, executable/compiler/CMake paths, and planned probe contracts.
-- [ ] Keep all restoration passive; no environment creation, imports, commands, rendering, or package/network access on selection.
+- [x] Initial runtime inventory: CGAL, VTK, Gmsh, SageMath, Python/SciPy. Custom-profile editing remains planned.
+- [x] Environment selector: Windows native, WSL, Docker; clearly label unsupported execution adapters.
+- [x] Health, Environment, Commands, Tests, Benchmarks, Packages, Artifacts, Integration foundation sections.
+- [x] Session-only profile details, capability declarations, executable/compiler/CMake paths, and planned probe contracts.
+- [x] Passive navigation; no environment creation, imports, commands, rendering, or package/network access on selection.
 - [ ] Later connect explicit Health to the bounded probe runner; until then report Not checked, never invented versions/readiness.
 
 ## 2. Runtime profiles and new CGAL/VTK environments

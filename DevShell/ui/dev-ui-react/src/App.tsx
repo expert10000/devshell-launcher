@@ -10,6 +10,7 @@ import { Terminal } from 'xterm'
 import { RepositoryStrip } from './RepositoryStrip'
 import { useWorkspaceTabs } from './useWorkspaceTabs'
 import { WorkspaceTabButtons, WorkspaceViews } from './WorkspaceViews'
+import { ScientificRuntimesWorkspace } from './ScientificRuntimesWorkspace'
 import { FitAddon } from 'xterm-addon-fit'
 import { SearchAddon } from 'xterm-addon-search'
 import { WebLinksAddon } from 'xterm-addon-web-links'
@@ -456,6 +457,7 @@ const App = () => {
   const [runAfterBuild, setRunAfterBuild] = useState<Record<string, boolean>>({})
   const [jobErrors, setJobErrors] = useState<Record<string, string>>({})
   const [repositoriesView, setRepositoriesView] = useState(true)
+  const [scientificView, setScientificView] = useState(false)
   const [healthOpen, setHealthOpen] = useState(false)
   const [dashboardLoading, setDashboardLoading] = useState(false)
   const [serviceStatuses, setServiceStatuses] = useState<Record<string, { state: string; message: string }>>({})
@@ -485,6 +487,7 @@ const App = () => {
 
   const bridge = useMemo(getBridge, [])
   const workspaceViews = useWorkspaceTabs(activeWorkspaceProfileId, bridge, (tab) => {
+    setScientificView(false)
     setRepositoriesView(false)
     if (tab.projectId) { setActiveProjectId(tab.projectId); setTaskProjectId(tab.projectId) }
   })
@@ -4345,13 +4348,14 @@ const App = () => {
               )}
             </div>
             <div className="tab-strip">
-              <button className={`tab ${repositoriesView ? 'active' : ''}`} onClick={() => { workspaceViews.clearActive(); setRepositoriesView(true) }} aria-pressed={repositoriesView}>Repositories</button>
+              <button className={`tab ${!scientificView && repositoriesView ? 'active' : ''}`} onClick={() => { setScientificView(false); workspaceViews.clearActive(); setRepositoriesView(true) }} aria-pressed={!scientificView && repositoriesView}>Repositories</button>
+              <button className={`tab ${scientificView ? 'active' : ''}`} aria-pressed={scientificView} onClick={() => { workspaceViews.clearActive(); setRepositoriesView(false); setScientificView(true) }} title="Scientific runtime profiles, capabilities, and environment contracts">RUNTIMES / Scientific</button>
               <button className={`tab ${!repositoriesView && workspaceViews.tabs.some(tab => tab.id === workspaceViews.activeId && tab.kind === 'files') ? 'active' : ''}`} aria-pressed={!repositoriesView && workspaceViews.tabs.some(tab => tab.id === workspaceViews.activeId && tab.kind === 'files')} disabled={!panelProject?.repositories?.length} title="Open project files and generated artifacts" onClick={() => { const existing = workspaceViews.tabs.find(tab => tab.id === workspaceViews.activeId && tab.kind === 'files') ?? workspaceViews.tabs.find(tab => tab.kind === 'files' && tab.projectId === panelProject?.id); if (existing) { workspaceViews.select(existing.id); return }; const repo = panelProject?.repositories?.[0]; if (panelProject && repo) repositoryAction(panelProject.id, repo.id, 'files') }}>Files &amp; Artifacts</button>
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
-                  className={`tab ${!repositoriesView && !workspaceViews.activeId && activeTabId === tab.id ? 'active' : ''}`}
-                  onClick={() => { workspaceViews.clearActive(); setRepositoriesView(false); setActiveTabId(tab.id) }}
+                  className={`tab ${!scientificView && !repositoriesView && !workspaceViews.activeId && activeTabId === tab.id ? 'active' : ''}`}
+                  onClick={() => { setScientificView(false); workspaceViews.clearActive(); setRepositoriesView(false); setActiveTabId(tab.id) }}
                   onDoubleClick={() => {
                     setEditingTabId(tab.id)
                     setEditingTitle(tab.title)
@@ -4666,7 +4670,8 @@ const App = () => {
           <span>{activePane?.status ?? 'disconnected'}</span>
         </div>
       </header>
-      {repositoriesView && <main className="repositories-page" aria-label="Repositories">
+      {scientificView && <ScientificRuntimesWorkspace profileId={activeWorkspaceProfileId} projects={projects} />}
+      {!scientificView && repositoriesView && <main className="repositories-page" aria-label="Repositories">
         <div className="repositories-title"><div><h1>Repositories</h1><p>Your repositories, build actions, and working changes.</p></div><div className="repository-toolbar"><button className="action" disabled={anyUpdateBusy || !projects.some((project) => project.repositories?.length) || repositoryJobs.some((job) => job.key.startsWith(`${activeWorkspaceProfileId}:`) && ['queued', 'building', 'running'].includes(job.state))} onClick={updateAll}>Update All</button><button className="action ghost" onClick={() => { setHealthOpen(true); refreshDashboard() }}>Environment checks</button></div></div>
         {jobErrors[`${activeWorkspaceProfileId}:update-all`] && <p className="check-error" role="alert">{jobErrors[`${activeWorkspaceProfileId}:update-all`]}</p>}
         {anyUpdateBusy && !updateBatch && <p role="status">Update All is running in another profile.</p>}

@@ -6,8 +6,10 @@ import { chooseWorkspacePane, resizeWorkspacePanes, resolveWorkspaceSplit, singl
 import { WorkspaceFileNavigation } from './WorkspaceFileNavigation'
 import { NamedWorkspaceLayouts } from './NamedWorkspaceLayouts'
 import { BuildDiagnostics } from './BuildDiagnostics'
+import { ArtifactComparison } from './ArtifactComparison'
+import { WorkspaceCommandPalette } from './WorkspaceCommandPalette'
 
-type Project = { id: string; name: string; repositories?: { id: string; name: string; pdfDirectory?: string }[] }
+type Project = { id: string; name: string; repositories?: { id: string; name: string; pdfDirectory?: string; buildTask?: string; runTask?: string; url?: string }[] }
 type Job = { key: string; state: string; buildState: string; exitCode?: number; log: string; logPath: string; action?: string; lastBuildFinishedAt?: string; lastBuildState?: string; lastBuildExitCode?: number }
 type Bridge = { postMessage: (message: unknown) => void; addEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void; removeEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void }
 type ChangedFile = { path: string; staged: boolean; unstaged: boolean; conflicted: boolean }
@@ -121,6 +123,7 @@ export function WorkspaceViews({ tabs, activeId, profileId, projects, jobs, erro
   const ids = tabs.map(tab => tab.id)
   const layout = resolveWorkspaceSplit(split, profileId, ids, activeId)
   const direction = layout.direction === 'right' && compact ? 'below' : layout.direction
+  const busyKeys = new Set([...reservedKeys, ...jobs.filter(job => ['queued', 'building', 'running'].includes(job.state)).map(job => job.key)])
   useEffect(() => { setSplit(previous => resolveWorkspaceSplit(previous, profileId, tabs.map(tab => tab.id), activeId)) }, [profileId, tabs, activeId])
   useEffect(() => {
     const element = grid.current; if (!element) return
@@ -143,6 +146,7 @@ export function WorkspaceViews({ tabs, activeId, profileId, projects, jobs, erro
   function repositoryAction(tab: WorkspaceViewTab, action: string) { bridge?.postMessage({ type: 'repository.job', projectId: tab.projectId, repositoryId: tab.repositoryId, action }) }
   return <div className="workspace-content workspace-split-content" style={{ display: activeId ? undefined : 'none' }}>
     <div className="workspace-split-toolbar" aria-label="Workspace layout">
+      <WorkspaceCommandPalette profileId={profileId} bridge={bridge} projects={projects} tabs={tabs} activeId={activeId} busyKeys={busyKeys} />
       <button disabled={tabs.length < 2} aria-pressed={layout.direction === 'right'} title={tabs.length < 2 ? 'Open a second workspace tab first' : 'Keep two workspace views side by side'} onClick={() => setSplit(splitWorkspacePane(layout, 'right', ids, activeId))}>Split right</button>
       <button disabled={tabs.length < 2} aria-pressed={layout.direction === 'below'} title={tabs.length < 2 ? 'Open a second workspace tab first' : 'Keep two workspace views above and below'} onClick={() => setSplit(splitWorkspacePane(layout, 'below', ids, activeId))}>Split below</button>
       {layout.direction && <>
@@ -154,6 +158,7 @@ export function WorkspaceViews({ tabs, activeId, profileId, projects, jobs, erro
       {!layout.direction && tabs.length < 2 && <span className="workspace-view-caption">Open another Files, Logs, Diff, or viewer tab to split.</span>}
     </div>
     <NamedWorkspaceLayouts profileId={profileId} bridge={bridge} layout={layout} tabs={tabs} onRestore={setSplit} />
+    <ArtifactComparison profileId={profileId} bridge={bridge} />
     <div ref={grid} className={`workspace-split-grid ${direction ? `split split-${direction}` : ''} ${resizing ? 'resizing' : ''}`} style={{ gridTemplateColumns: direction === 'right' ? `minmax(0, ${layout.ratio}fr) 10px minmax(0, ${100 - layout.ratio}fr)` : 'minmax(0, 1fr)', gridTemplateRows: direction === 'below' ? `minmax(0, ${layout.ratio}fr) 10px minmax(0, ${100 - layout.ratio}fr)` : 'minmax(0, 1fr)' }}>{tabs.map(tab => {
     const key = `${profileId}:${tab.projectId}:${tab.repositoryId}`; const job = jobs.find(item => item.key === key)
     const busy = reservedKeys.has(key) || !!job && ['queued', 'building', 'running'].includes(job.state)

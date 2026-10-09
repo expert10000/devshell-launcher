@@ -12,6 +12,7 @@ export function NamedWorkspaceLayouts({ profileId, bridge, layout, tabs, onResto
   const current = useRef<{ id: string; operation: string; layout?: SavedLayout }>({ id: '', operation: '' })
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const latest = useRef(onRestore); latest.current = onRestore
+  const savedRef = useRef(saved); savedRef.current = saved
   function begin(operation: string, restored?: SavedLayout) {
     clearTimeout(timer.current); current.current = { id: crypto.randomUUID(), operation, layout: restored }; setPending(true); setError('')
     timer.current = setTimeout(() => { current.current.id = ''; setPending(false); setError('Layout request timed out. Refresh layouts to retry.') }, 30000)
@@ -42,9 +43,16 @@ export function NamedWorkspaceLayouts({ profileId, bridge, layout, tabs, onResto
       if (detail.error) { setError(detail.error); return }
       if (preset && detail.primaryId && detail.secondaryId) latest.current({ profileId, direction: preset.direction, ratio: preset.ratio, focused: preset.focused, primaryId: detail.primaryId, secondaryId: detail.secondaryId })
     }
-    bridge.addEventListener('message', receive); window.addEventListener('devshell.workspace.layout-restored', restored)
+    const fromPalette = (event: Event) => {
+      const detail = (event as CustomEvent<{ profileId: string; layoutId: string }>).detail
+      if (detail?.profileId !== profileId) return
+      const preset = savedRef.current.find(item => item.id === detail.layoutId)
+      if (preset) beginRestore(preset)
+      else setError('Refresh layouts before opening this saved layout.')
+    }
+    bridge.addEventListener('message', receive); window.addEventListener('devshell.workspace.layout-restored', restored); window.addEventListener('devshell.workspace.named-layout', fromPalette)
     request('layouts-load')
-    return () => { clearTimeout(timer.current); current.current.id = ''; bridge.removeEventListener('message', receive); window.removeEventListener('devshell.workspace.layout-restored', restored) }
+    return () => { clearTimeout(timer.current); current.current.id = ''; bridge.removeEventListener('message', receive); window.removeEventListener('devshell.workspace.layout-restored', restored); window.removeEventListener('devshell.workspace.named-layout', fromPalette) }
   }, [bridge, profileId])
   function save() {
     const primary = tabs.find(tab => tab.id === layout.primaryId); const secondary = tabs.find(tab => tab.id === layout.secondaryId)
@@ -54,6 +62,9 @@ export function NamedWorkspaceLayouts({ profileId, bridge, layout, tabs, onResto
   }
   function restore() {
     const preset = saved.find(item => item.id === selected); if (!preset) return
+    beginRestore(preset)
+  }
+  function beginRestore(preset: SavedLayout) {
     const requestId = begin('restore', preset)
     window.dispatchEvent(new CustomEvent('devshell.workspace.layout-restore', { detail: { profileId, requestId, tabs: preset.tabs, focused: preset.focused } }))
   }

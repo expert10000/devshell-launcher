@@ -1,6 +1,6 @@
 # DevShell workspace roadmap
 
-Updated: 2026-10-03
+Updated: 2026-10-09
 
 ## Direction
 
@@ -158,6 +158,21 @@ Acceptance: common workspace operations stay discoverable and portable without m
 - Do not automatically install packages, mutate Git state, or terminate unrelated services.
 
 ## Immediate next slice
+
+Scientific-runtime laboratory: see [SCIENTIFIC_RUNTIMES_ROADMAP.md](SCIENTIFIC_RUNTIMES_ROADMAP.md). Start with the dedicated Scientific Runtimes workspace, then implement validated runtime profiles and explicit environment probes. CGAL and VTK environment definitions must remain separate from proof of installation or capability readiness.
+
+Delivered workspace additions through 2026-10-09:
+
+- [x] Read-only code, static HTML, notebook, image, structured JSON, and CSV/TSV previews.
+- [x] Folder history/breadcrumbs, project filename search, artifact overview, recent files, pins, and source/output references.
+- [x] Split panes and explicit, profile-scoped named layouts; restoration does not replay commands or reopen documents.
+- [x] Clickable bounded compiler diagnostics, including corrected Rust line/column parsing.
+- [x] Session-only two-artifact comparison with independent image zoom/pan and bounded line-position report differences.
+- [x] Workspace palette (Ctrl+Alt+P) for repository views, file references/search, layouts, and explicitly confirmed managed Build/Run actions.
+- Verification: 117 automated backend/parser/viewer checks passed. Frontend and native builds passed; focused live checks covered split sizing, passive named-layout restoration, report/image comparison, and palette confirmation.
+- The new comprehensive live workflow harness still needs its guard adjusted: read-only service status polls are not service starts. Do not claim that harness passed.
+
+The older Group 2 acceptance list below remains useful for edge cases; the completed baseline above supersedes its earlier unbuilt status statements.
 
 Next: build and verify the implemented Group 2 Logs/Diff/navigation slice before moving native WebView controls into the center workspace.
 

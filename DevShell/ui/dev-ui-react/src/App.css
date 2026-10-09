@@ -2858,6 +2858,36 @@
 .theme-daylight .named-layout-controls input, .theme-daylight .named-layout-controls select { background: #fff; color: #182638; }
 .theme-daylight .code-line.diagnostic-line > span { color: #965022; }
 @media (max-width: 850px) { .named-layout-controls label { flex: 1; min-width: 180px; } .named-layout-controls input, .named-layout-controls select { flex: 1; max-width: 100%; } }
+.artifact-comparison { flex-shrink: 0; border: 1px solid #8997a733; border-radius: 8px; padding: 9px 12px; background: #35a9c50b; }
+.artifact-comparison > summary { cursor: pointer; font-size: 13px; font-weight: 600; }
+.artifact-comparison-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0; font-size: 12px; overflow-wrap: anywhere; }
+.artifact-comparison-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.artifact-comparison-side { display: flex; flex-direction: column; min-width: 0; height: 350px; overflow: auto; gap: 8px; padding: 10px; border: 1px solid #8997a744; border-radius: 8px; }
+.artifact-comparison-side h3 { font-size: 13px; margin: 0; overflow-wrap: anywhere; }
+.artifact-comparison-side p { font-size: 12px; }
+.artifact-comparison-side .image-pan-viewport { min-height: 100px; }
+.artifact-comparison-diff { margin-top: 10px; font-size: 12px; }
+.artifact-comparison-diff-scroll { max-height: 230px; overflow: auto; }
+.artifact-comparison-diff table { border-collapse: collapse; width: 100%; }
+.artifact-comparison-diff th, .artifact-comparison-diff td { text-align: left; vertical-align: top; padding: 6px; border: 1px solid #8997a744; }
+.artifact-comparison-diff pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+.workspace-command-dialog { width: min(720px, 90vw); max-height: 85vh; padding: 18px; color: #dce8f5; background: #101d27; border: 1px solid #48c7d888; border-radius: 14px; box-shadow: 0 20px 80px #0008; }
+.workspace-command-dialog::backdrop { background: #030d16aa; backdrop-filter: blur(4px); }
+.workspace-command-dialog header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 14px; }
+.workspace-command-dialog header span { font-size: 11px; opacity: .65; margin-left: auto; }
+.workspace-command-dialog button, .workspace-command-dialog select { color: inherit; background: #8997a719; border: 1px solid #8997a755; border-radius: 7px; padding: 8px 10px; cursor: pointer; }
+.workspace-command-dialog button:disabled { opacity: .45; cursor: default; }
+.workspace-command-query { display: block; width: 100%; box-sizing: border-box; padding: 12px; color: inherit; background: #060c13; border: 1px solid #48c7d8; border-radius: 8px; font-size: 16px; }
+.workspace-command-file-search { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0; font-size: 12px; }
+.workspace-command-file-search label { display: flex; align-items: center; gap: 8px; }
+.workspace-command-dialog select { background: #14232d; max-width: 250px; }
+.workspace-command-results { max-height: 42vh; overflow: auto; }
+.workspace-command-results button { display: flex; flex-direction: column; gap: 4px; width: 100%; text-align: left; margin-bottom: 5px; overflow-wrap: anywhere; }
+.workspace-command-results button.selected { border-color: #48c7d8; background: #35a9c529; }
+.workspace-command-results small { opacity: .65; font-size: 11px; }
+.workspace-task-confirmation { padding: 12px; border-left: 3px solid #eeae89; background: #bb653310; }
+.workspace-task-confirmation button { margin-right: 8px; }
+@media (max-width: 850px) { .artifact-comparison-grid { grid-template-columns: 1fr; } .workspace-command-dialog { padding: 12px; } }
 .markdown-preview { flex: 1; min-height: 100px; overflow: auto; padding: 18px; border: 1px solid #8997a733; border-radius: 10px; background: #060c13; color: #dce8f5; font-size: 14px; line-height: 1.65; overflow-wrap: anywhere; }
 .markdown-preview > :first-child { margin-top: 0; }
 .markdown-preview h1, .markdown-preview h2 { padding-bottom: 8px; border-bottom: 1px solid #8997a733; }

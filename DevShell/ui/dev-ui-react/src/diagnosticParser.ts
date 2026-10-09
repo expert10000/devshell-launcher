@@ -15,9 +15,9 @@ export function parseBuildDiagnostics(log: string): DiagnosticScan {
     const source = raw.replace(/^(?:ERROR|WARNING)\s+in\s+/i, '').replace(/^(?:-->|:::)\s*/, '')
     const python = source.match(/^File\s+"([^"]+)",\s+line\s+(\d+)(?:,.*)?$/)
     const parens = source.match(/^(.*?)\((\d+)(?:,\s*(\d+))?\)\s*:\s*(?:(error|warning)\b\s*)?(.*)$/i)
-    const colon = source.match(/^(.*?):(\d+)(?::(\d+))?\s*(?::|-)\s*(?:(?:fatal\s+)?(error|warning)\b\s*:?\s*)?(.*)$/i)
     const rust = source.match(/^(.+?):(\d+):(\d+)$/)
-    const match = parens ?? colon ?? rust
+    const colon = source.match(/^(.*?):(\d+)(?::(\d+))?\s*(?::|-)\s*(?:(?:fatal\s+)?(error|warning)\b\s*:?\s*)?(.*)$/i)
+    const match = parens ?? rust ?? colon
     if (!python && !match) continue
     const file = (python?.[1] ?? match![1]).trim().replace(/^["'`]|["'`]$/g, '')
     // Require a filename, not a timestamp, port number, URL, or arbitrary log prose.

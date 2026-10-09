@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { restoreWorkspaceDescriptors } from './passiveWorkspaceLayout'
 
 export type WorkspaceViewTab = {
   id: string; kind: 'logs' | 'diff' | 'browser' | 'jupyter' | 'pdf' | 'files'; projectId?: string; repositoryId?: string;
@@ -98,25 +99,14 @@ export function useWorkspaceTabs(profileId: string | null, bridge: Bridge | null
       const detail = (event as CustomEvent<{ profileId: string; requestId: string; tabs: WorkspaceTabInput[]; focused?: string }>).detail
       if (!loaded || detail?.profileId !== profileId) return
       const previous = current.current
-      if (!Array.isArray(detail.tabs) || detail.tabs.length !== 2) return
-      const next = [...previous.tabs]; const restored: WorkspaceViewTab[] = []
-      for (const input of detail.tabs) {
-        const existing = next.find(tab => identity(tab) === identity(input))
-        const tab: WorkspaceViewTab = existing ? { ...existing, activationId: undefined, revealPath: undefined, sourceLine: undefined } : {
-          id: crypto.randomUUID(), kind: input.kind, projectId: input.projectId, repositoryId: input.repositoryId, filePath: input.filePath,
-          side: input.side, page: input.page, url: cleanUrl(input.url), servicePath: input.servicePath, restored: true,
-        }
-        if (existing) next[next.findIndex(item => item.id === tab.id)] = tab
-        else next.push(tab)
-        restored.push(tab)
-      }
-      if (next.length > 24 || restored[0].id === restored[1].id) {
-        window.dispatchEvent(new CustomEvent('devshell.workspace.layout-restored', { detail: { profileId, requestId: detail.requestId, error: 'Close some workspace tabs before restoring this layout (limit: 24), and use two distinct views.' } }))
+      const result = restoreWorkspaceDescriptors(previous.tabs, detail.tabs, detail.focused)
+      if (result.error) {
+        window.dispatchEvent(new CustomEvent('devshell.workspace.layout-restored', { detail: { profileId, requestId: detail.requestId, error: result.error } }))
         return
       }
-      const focused = restored[detail.focused === 'secondary' ? 1 : 0]
-      commit({ ...previous, tabs: next, activeId: focused.id, error: '' }); activation.current(focused)
-      window.dispatchEvent(new CustomEvent('devshell.workspace.layout-restored', { detail: { profileId, requestId: detail.requestId, primaryId: restored[0].id, secondaryId: restored[1].id } }))
+      const focused = result.tabs.find(tab => tab.id === result.focusedId)!
+      commit({ ...previous, tabs: result.tabs, activeId: focused.id, error: '' }); activation.current(focused)
+      window.dispatchEvent(new CustomEvent('devshell.workspace.layout-restored', { detail: { profileId, requestId: detail.requestId, primaryId: result.primaryId, secondaryId: result.secondaryId } }))
     }
     bridge.addEventListener('message', receive); window.addEventListener('devshell.workspace.open', externalOpen); window.addEventListener('devshell.workspace.select', externalSelect); window.addEventListener('devshell.workspace.layout-restore', restoreLayout)
     bridge.postMessage({ type: 'workspace.tabs', profileId, requestId, action: 'load' })

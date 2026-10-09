@@ -1,0 +1,41 @@
+using BatchLauncher;
+using System.Text.Json;
+
+var root = Path.Combine(Path.GetTempPath(), "devshell-workflow-checks-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+File.WriteAllText(Path.Combine(root, "source.cs"), "line1\nline2\n");
+File.WriteAllText(Path.Combine(root, "result.csv"), "name,value\na,1\n");
+File.WriteAllText(Path.Combine(root, "secret.env"), "PRIVATE=never-preview");
+var workspace = new WorkspaceConfig { Projects = new() { new() { Id = "p", Name = "Project", Repositories = new() { new() { Id = "r", Name = "Repo", Path = root } } } } };
+void Check(string label, bool condition) { if (!condition) throw new Exception(label); Console.WriteLine("PASS: " + label); }
+void Reject(string label, Action action) { try { action(); } catch (ArgumentException) { Check(label, true); return; } throw new Exception(label); }
+WorkspaceFileReference Reference(string path) => new("p", "r", path, "text");
+var navigation = new WorkspaceNavigationState(); WorkspaceNavigationStore.Remember(navigation, Reference("source.cs")); WorkspaceNavigationStore.Remember(navigation, Reference("result.csv")); WorkspaceNavigationStore.Remember(navigation, Reference("source.cs"));
+Check("recents are deduplicated and most-recent first", navigation.Recent.Count == 2 && navigation.Recent[0].Path == "source.cs");
+for (var i = 0; i < 40; i++) WorkspaceNavigationStore.Remember(navigation, Reference($"report-{i}.csv"));
+Check("recents bounded at 30", navigation.Recent.Count == 30);
+navigation.Pinned = new() { Reference("source.cs"), Reference("source.cs"), Reference("../escape.cs"), Reference("secret.env"), new("p", "missing", "source.cs", "code") };
+navigation.Links = new() { new(Reference("source.cs"), Reference("result.csv")), new(Reference("source.cs"), Reference("result.csv")), new(Reference("source.cs"), Reference("source.cs")) };
+var normalized = WorkspaceNavigationStore.Normalize(navigation, workspace);
+Check("pins reject escapes, unknown repos, unsupported types, and duplicates", normalized.Pinned.Count == 1 && normalized.Pinned[0].Kind == "code");
+Check("source/output links deduplicate and reject self-links", normalized.Links.Count == 1);
+var profile = "workflow-check-" + Guid.NewGuid().ToString("N"); WorkspaceNavigationStore.Save(profile, normalized, workspace);
+Check("navigation references round-trip", WorkspaceNavigationStore.Load(profile, workspace).Links.Count == 1);
+Check("navigation isolated by profile", WorkspaceNavigationStore.Load(profile + "-other", workspace).Pinned.Count == 0);
+var layout = new WorkspaceNamedLayout { Name = "Source and logs", Ratio = 95, Tabs = new() { new() { Kind = "files", ProjectId = "p", RepositoryId = "r", FilePath = "" }, new() { Kind = "logs", ProjectId = "p", RepositoryId = "r" } } };
+var safe = WorkspaceLayoutStore.Normalize(layout, workspace);
+Check("named layout descriptors normalize without opening contents", safe != null && safe.Ratio == 80 && safe.Tabs.Count == 2);
+WorkspaceLayoutStore.Save(profile, new() { layout }, workspace);
+Check("named layout round-trip", WorkspaceLayoutStore.Load(profile, workspace).Single().Name == layout.Name);
+Check("named layouts isolated by profile", WorkspaceLayoutStore.Load(profile + "-other", workspace).Count == 0);
+layout.Tabs[1] = layout.Tabs[0]; Check("duplicate layout views rejected", WorkspaceLayoutStore.Normalize(layout, workspace) == null);
+var webLayout = new WorkspaceNamedLayout { Name = "Browser and files", Tabs = new() { new() { Kind = "browser", Url = "https://user:password@example.com/repo?token=secret#private" }, new() { Kind = "files", ProjectId = "p", RepositoryId = "r", FilePath = "" } } };
+var json = JsonSerializer.Serialize(WorkspaceLayoutStore.Normalize(webLayout, workspace));
+Check("layouts strip browser credentials and query secrets", !json.Contains("password") && !json.Contains("token") && !json.Contains("private"));
+var absolute = WorkspaceFiles.ResolveDiagnostic(root, Path.Combine(root, "source.cs"), 2, 4);
+Check("absolute compiler locations resolve inside checkout", absolute.Path == "source.cs" && absolute.Line == 2 && absolute.Column == 4);
+Check("relative compiler locations resolve", WorkspaceFiles.ResolveDiagnostic(root, "./source.cs", 2, 1).Path == "source.cs");
+Reject("diagnostic escapes rejected", () => WorkspaceFiles.ResolveDiagnostic(root, "../source.cs", 1, 1));
+Reject("diagnostic Git internals rejected", () => WorkspaceFiles.ResolveDiagnostic(root, ".git/source.cs", 1, 1));
+Reject("diagnostic unsupported secret files rejected", () => WorkspaceFiles.ResolveDiagnostic(root, "secret.env", 1, 1));
+Reject("diagnostic external SDK paths rejected", () => WorkspaceFiles.ResolveDiagnostic(root, Path.Combine(Path.GetTempPath(), "external.cs"), 1, 1));
+Console.WriteLine("Workflow fixtures and isolated metadata retained: " + root + " / " + profile);

@@ -10,7 +10,7 @@ Runtime readiness is evidence, not configuration. A profile or executable path a
 
 ## 1. Scientific Runtimes workspace
 
-Status: initial workspace implemented in source, not built or tested. Native probes, persistent profiles, environment installation, and execution adapters remain planned.
+Status: workspace and local inventory UI built; isolated CGAL/VTK environments installed on 2026-10-09. Bounded Python/import/tool inventory passed. UI acceptance tests, C++ compile/link, rendering, persistent profiles, and managed execution adapters remain pending.
 
 - [x] Initial runtime inventory: CGAL, VTK, Gmsh, SageMath, Python/SciPy. Custom-profile editing remains planned.
 - [x] Environment selector: Windows native, WSL, Docker; clearly label unsupported execution adapters.
@@ -18,6 +18,7 @@ Status: initial workspace implemented in source, not built or tested. Native pro
 - [x] Session-only profile details, capability declarations, executable/compiler/CMake paths, and planned probe contracts.
 - [x] Passive navigation; no environment creation, imports, commands, rendering, or package/network access on selection.
 - [ ] Later connect explicit Health to the bounded probe runner; until then report Not checked, never invented versions/readiness.
+- [x] Add explicit local snapshot loading with recorded probe evidence, timestamp, tool/SDK paths, and full package inventory. Frontend/native builds passed; interactive report loading has not been UI-tested.
 
 ## 2. Runtime profiles and new CGAL/VTK environments
 
@@ -28,6 +29,9 @@ Status: initial workspace implemented in source, not built or tested. Native pro
 - [ ] Capture resolved Python/package/C++ SDK versions and tool provenance; distinguish Python bindings from C++ development libraries.
 - [ ] Add explicit export/import with schema validation and secret exclusion.
 - [ ] WSL distribution and Docker image/digest profiles; unavailable adapters remain visible but not executable.
+- [x] Add workspace-local install-missing and explicit inspection scripts for separate devshell-cgal/devshell-vtk Conda environments, preserving existing MATH3D environments.
+- [x] Keep local inventories out of Git; publish snapshots to the launcher only through an explicit script option.
+- Installed: separate workspace-local CGAL 6.0.1 bindings/SDK and VTK 9.6.1 bindings/SDK, each with Python 3.11.17, NumPy 2.4.6, SciPy 1.17.1, CMake 4.4.4, and Ninja 1.13.2. Python imports/Point_3/vtkPolyData and SDK files were checked; C++ builds/linking and rendering remain untested. Existing MATH3D environments were not modified.
 
 CGAL target capabilities: mesh read/write, validation, repair, boolean operations, simplify/remesh, AABB, distance. VTK target capabilities: polydata, filters, mesh IO, rendering, offscreen rendering. Declarations are candidates until corresponding tests pass.
 

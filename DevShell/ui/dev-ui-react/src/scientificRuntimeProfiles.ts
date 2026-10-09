@@ -90,7 +90,7 @@ export const executionNames: Record<RuntimeExecution, string> = {
 export function createScientificProfiles(hostRoot: string, execution: RuntimeExecution): RuntimeProfile[] {
   const root = hostRoot.replace(/[\\/]+$/, '')
   return definitions.map(definition => {
-    const suffix = definition.kind === 'vtk' ? 'math3d-vtk' : definition.kind === 'cgal' ? 'math3d-cgal' : 'math3d-scientific'
+    const suffix = definition.kind === 'vtk' ? 'devshell-vtk' : definition.kind === 'cgal' ? 'devshell-cgal' : 'devshell-scientific'
     const environmentRoot = execution === 'windows-native' && root ? `${root}\\.conda\\${suffix}` : undefined
     const id = `${definition.kind}-${execution === 'windows-native' ? 'win-conda' : execution}`
     const executable = execution === 'windows-native'

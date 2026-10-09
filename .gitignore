@@ -24,3 +24,5 @@ __pycache__/
 .ipynb_checkpoints/
 .pytest_cache/
 JupyterWorkspace/theory/generated/
+.scientific/
+BatchLauncher/ui/scientific-runtime-report.json

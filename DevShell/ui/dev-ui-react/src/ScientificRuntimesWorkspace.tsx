@@ -63,11 +63,39 @@ export function ScientificRuntimesWorkspace({ profileId, projects, bridge }: { p
     finally { if (generation === reportGeneration.current) setReportLoading(false) }
   }
   const native = useScientificRuntime(bridge, profileId, () => { void loadReport() })
+  const jobs = Object.values(native.jobs).sort((a, b) => Number(b.state === 'running') - Number(a.state === 'running') || Date.parse(b.startedAtUtc ?? '') - Date.parse(a.startedAtUtc ?? ''))
+  const [clock, setClock] = useState(() => Date.now())
+  useEffect(() => {
+    if (!jobs.some(job => job.state === 'running')) return
+    const timer = window.setInterval(() => setClock(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [jobs.some(job => job.state === 'running')])
+  const showArtifacts = (runtimeId: string) => {
+    const target = createScientificProfiles(hostRoot, 'windows-native').find(profile => profile.id === runtimeId)
+    if (!target) return
+    setExecution('windows-native'); setRuntimeKind(target.kind); setSection('Artifacts')
+  }
   return <main className="scientific-runtime-workspace" aria-label="Scientific Runtimes">
     <header className="scientific-runtime-header"><div><span className="scientific-runtime-kicker">RUNTIMES / SCIENTIFIC</span><h1>Scientific Runtimes</h1><p>A scientific-runtime laboratory for MATH3D. Profiles describe intent; probes establish readiness.</p></div><div><button disabled={reportLoading} onClick={loadReport}>{reportLoading ? 'Loading report...' : 'Load local report'}</button><p className="scientific-runtime-note">{report ? `Recorded ${new Date(report.generatedAt).toLocaleString()}` : 'No inventory loaded / opening does not run probes'}</p></div></header>
     {reportError && <p role="alert">{reportError}</p>}
     {native.error && <p role="alert">{native.error}</p>}
     {native.notice && <p role="status">{native.notice}</p>}
+    <section className="scientific-job-bar" aria-label="Scientific job status">
+      <strong>Managed jobs</strong>
+      {!jobs.length ? <span className="scientific-job-idle">No jobs in this profile. Opening this workspace does not run a recipe.</span> : jobs.map(job => {
+        const started = Date.parse(job.startedAtUtc ?? '')
+        const duration = job.state === 'running' && Number.isFinite(started) ? Math.max(job.durationMs, clock - started) : job.durationMs
+        const elapsed = `${Math.floor(duration / 60000)}:${String(Math.floor(duration / 1000) % 60).padStart(2, '0')}`
+        return <div className="scientific-job-summary" key={job.jobId}>
+          <span className={`scientific-job-state ${job.state === 'running' ? 'running' : ''}`}>{job.state}</span>
+          <span className="scientific-job-name" title={`${job.runtimeId} / ${job.recipeId}`}>{job.runtimeId} / {job.recipeId}</span>
+          <span className="scientific-job-stage" role="status">{job.stage || job.state}</span>
+          <time aria-label="Elapsed time">{elapsed}</time>
+          <button disabled={job.state !== 'running'} onClick={() => native.send(job.runtimeId, 'stop', { jobId: job.jobId })}>Stop</button>
+          <button disabled={!createScientificProfiles(hostRoot, 'windows-native').some(profile => profile.id === job.runtimeId)} onClick={() => showArtifacts(job.runtimeId)}>View artifacts</button>
+        </div>
+      })}
+    </section>
     <div className="scientific-runtime-grid">
       <aside className="scientific-runtime-inventory" aria-label="Scientific runtime inventory">
         <label>Environment<select aria-label="Scientific execution environment" value={execution} onChange={event => { setExecution(event.target.value as RuntimeExecution); setCopyStatus('') }}>{Object.entries(executionNames).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>

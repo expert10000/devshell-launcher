@@ -19,6 +19,7 @@ public partial class Form1
         public required string RuntimeId { get; init; }
         public required string RecipeId { get; init; }
         public required string Directory { get; init; }
+        public DateTimeOffset StartedAtUtc { get; } = DateTimeOffset.UtcNow;
         public string State { get; set; } = "running";
         public string? Error { get; set; }
         public long DurationMs { get; set; }
@@ -89,7 +90,7 @@ public partial class Form1
     }
     private static object ScientificJobSnapshot(ScientificJob job)
     {
-        lock(job.Sync)return new{jobId=job.Id,profileId=job.ProfileId,runtimeId=job.RuntimeId,recipeId=job.RecipeId,state=job.State,stage=job.Stage,durationMs=job.DurationMs,error=job.Error,log=job.Log.ToString(),outputDirectory=job.Directory,request=job.Request,result=job.Result};
+        lock(job.Sync)return new{jobId=job.Id,profileId=job.ProfileId,runtimeId=job.RuntimeId,recipeId=job.RecipeId,state=job.State,stage=job.Stage,startedAtUtc=job.StartedAtUtc,durationMs=job.DurationMs,error=job.Error,log=job.Log.ToString(),outputDirectory=job.Directory,request=job.Request,result=job.Result};
     }
     private void ScientificLog(ScientificJob job,string text)
     {

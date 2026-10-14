@@ -3,7 +3,7 @@ import type { ScientificRuntimeReport } from './scientificRuntimeReport'
 import type { ScientificRunRequest, ScientificRunResult } from './scientificRuntimeProfiles'
 
 export type ScientificBridge = { postMessage: (message: unknown) => void; addEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void; removeEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void }
-export interface ScientificJob { jobId: string; profileId: string; runtimeId: string; recipeId: string; state: string; stage?: string; durationMs: number; log: string; error?: string; outputDirectory: string; request?: ScientificRunRequest; result?: ScientificRunResult }
+export interface ScientificJob { jobId: string; profileId: string; runtimeId: string; recipeId: string; state: string; stage?: string; startedAtUtc?: string; durationMs: number; log: string; error?: string; outputDirectory: string; request?: ScientificRunRequest; result?: ScientificRunResult }
 export interface ScientificDataset { id: string; name: string; category: string; path: string; bytes: number; sha256: string; sourcePath: string; sourceRoot: string; expectedProblem: boolean }
 export interface ScientificEnvironment { environment: Record<string, string>; vcpkgRoot: string | null; installedVcpkg: string | null; vcpkgUsed: boolean; report: ScientificRuntimeReport; evidence?: { compilerVersion?: string | null; compilerSource?: string; rendering?: ScientificRunResult['rendering'] } }
 export interface ScientificMeshPreview { name: string; positions: number[]; bounds: number[]; points: number; triangles: number; previewTriangles: number; sampled: boolean; note: string }

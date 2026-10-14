@@ -2919,6 +2919,16 @@
 .scientific-runtime-header h1 { margin: 8px 0; font-size: 28px; }
 .scientific-runtime-header p, .scientific-runtime-note { opacity: .72; line-height: 1.6; }
 .scientific-runtime-kicker { font-size: 12px; font-weight: 700; letter-spacing: .12em; color: #64cbd0; }
+.scientific-job-bar { position: sticky; top: 0; z-index: 4; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 16px; padding: 10px 14px; border: 1px solid var(--border, #294451); border-radius: 12px; background: var(--panel, #15212a); box-shadow: 0 6px 20px rgba(0,0,0,.18); font-size: 12px; }
+.scientific-job-idle { opacity: .7; }
+.scientific-job-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; padding-left: 12px; border-left: 1px solid var(--border, #294451); }
+.scientific-job-state { font-weight: 700; text-transform: uppercase; color: #b9c6cb; }
+.scientific-job-state.running { color: #64cbd0; }
+.scientific-job-name { min-width: 0; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scientific-job-stage { opacity: .8; }
+.scientific-job-summary time { font-variant-numeric: tabular-nums; }
+.scientific-job-summary button { padding: 5px 9px; color: inherit; border: 1px solid var(--border, #294451); border-radius: 7px; background: rgba(100,130,140,.1); cursor: pointer; }
+.scientific-job-summary button:disabled { opacity: .45; cursor: not-allowed; }
 .scientific-runtime-status { display: inline-block; padding: 8px 12px; border: 1px solid var(--border, #294451); border-radius: 16px; font-size: 12px; white-space: normal; }
 .scientific-runtime-grid { display: grid; grid-template-columns: minmax(180px, 230px) minmax(0, 1fr); gap: 24px; margin-top: 24px; }
 .scientific-runtime-inventory label { display: grid; gap: 8px; font-weight: 600; }

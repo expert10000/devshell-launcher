@@ -53,15 +53,17 @@ export function ScientificCgalRecipes({ runtime, native, edited }: {
       </>}
       <label>Output filename<input aria-label="CGAL output filename" value={outputName} onChange={event => setOutputName(event.target.value)} spellCheck={false} /></label>
     </div>
-    {selected && <details><summary>Dataset provenance</summary><p><code>{selected.sourceRoot} / {selected.sourcePath}</code></p><p>SHA-256 <code>{selected.sha256}</code></p></details>}
-    <details><summary>Engine command / positional arguments</summary><pre>{command}</pre><p className="scientific-runtime-note">The registered JSON adapter resolves the copied input and fresh output directory, then invokes the C++ engine with argv. This text is never passed to a shell.</p></details>
-    <details open><summary>Shared JSON request contract</summary><pre>{JSON.stringify(request, null, 2)}</pre></details>
-    <details><summary>Registered build recipe</summary><pre>{JSON.stringify(recipe, null, 2)}</pre></details>
     <div className="scientific-inspector-actions">
       <button disabled={!executable || !valid || native.busy || native.pending} onClick={() => native.send(runtime.id, 'cgal-recipe', { recipeId: `cgal.${operation}`, parameters })}>Run {operation === 'remesh' ? 'remesh' : 'validation'} recipe</button>
+      <button onClick={() => copy(JSON.stringify(request, null, 2))}>Copy invocation</button>
+    </div>
+    {selected && <details><summary>Dataset provenance</summary><p><code>{selected.sourceRoot} / {selected.sourcePath}</code></p><p>SHA-256 <code>{selected.sha256}</code></p></details>}
+    <details><summary>Engine command / positional arguments</summary><pre>{command}</pre><p className="scientific-runtime-note">The registered JSON adapter resolves the copied input and fresh output directory, then invokes the C++ engine with argv. This text is never passed to a shell.</p></details>
+    <details><summary>Shared JSON request contract</summary><pre>{JSON.stringify(request, null, 2)}</pre></details>
+    <details><summary>Registered build recipe</summary><pre>{JSON.stringify(recipe, null, 2)}</pre></details>
+    <div className="scientific-inspector-actions">
       <button onClick={() => copy(command)}>Copy command template</button>
       <button onClick={() => copy(JSON.stringify(recipe, null, 2))}>Copy recipe</button>
-      <button onClick={() => copy(JSON.stringify(request, null, 2))}>Copy invocation</button>
     </div>
     <p className="scientific-runtime-note">Validation rejects unreadable/non-manifold inputs, degenerate triangles, and self-intersections. Polygon faces are triangulated explicitly. Open surfaces are allowed; no implicit soup repair is performed. Protected boundaries can gain vertices from edge splitting. Inputs are limited to 100,000 faces and 32 MiB; very small edge targets are rejected by a conservative geometry budget. Local validation/remesh acceptance cases have passed; each new run records its own evidence rather than claiming every CGAL capability is ready.</p>
     {notice && <p role="status">{notice}</p>}

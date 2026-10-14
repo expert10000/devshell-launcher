@@ -50,7 +50,7 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
       clearTimeout(waiting.timer); requests.current.delete(message.requestId); setPending(requests.current.size > 0)
       if (message.error) { setError(message.error); return }
       if (message.action === 'status' && Array.isArray(message.data)) message.data.forEach(item => mergeJob(item as ScientificJob))
-      else if ((message.action === 'recipe' || message.action === 'cgal-recipe' || message.action === 'stop') && message.data) mergeJob(message.data as ScientificJob)
+      else if ((message.action === 'recipe' || message.action === 'cgal-recipe' || message.action === 'test-hold' || message.action === 'stop') && message.data) mergeJob(message.data as ScientificJob)
       else if (message.action === 'artifacts' && message.data && message.runtimeId) setPreviews(previous => ({ ...previous, [message.runtimeId!]: message.data as ScientificArtifactPreview }))
       else if (message.action === 'environment' && message.data && message.runtimeId) setEnvironments(previous => ({ ...previous, [message.runtimeId!]: message.data as ScientificEnvironment }))
       else if (message.action === 'datasets' && message.data) setDatasets(message.data as { importedAt: string; note: string; entries: ScientificDataset[] })

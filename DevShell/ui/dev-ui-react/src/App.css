@@ -2917,6 +2917,7 @@
 .scientific-runtime-workspace ~ main { display: none !important; }
 .scientific-runtime-header, .scientific-runtime-detail-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
 .scientific-runtime-header h1 { margin: 8px 0; font-size: 28px; }
+.scientific-runtime-header-actions button + button { margin-left: 8px; }
 .scientific-runtime-header p, .scientific-runtime-note { opacity: .72; line-height: 1.6; }
 .scientific-runtime-kicker { font-size: 12px; font-weight: 700; letter-spacing: .12em; color: #64cbd0; }
 .scientific-job-bar { position: sticky; top: 0; z-index: 4; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 16px; padding: 10px 14px; border: 1px solid var(--border, #294451); border-radius: 12px; background: var(--panel, #15212a); box-shadow: 0 6px 20px rgba(0,0,0,.18); font-size: 12px; }

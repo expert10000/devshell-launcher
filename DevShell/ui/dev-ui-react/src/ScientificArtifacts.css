@@ -1,0 +1,16 @@
+.scientific-artifact-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 18px 0; }
+.scientific-artifact-toolbar label { display: flex; align-items: center; gap: 8px; }
+.scientific-artifact-toolbar select { min-width: 150px; max-width: 100%; padding: 8px; color: inherit; background: var(--panel, #15212a); border: 1px solid var(--border, #294451); border-radius: 8px; }
+.scientific-mesh-comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.scientific-mesh-viewport { min-width: 0; margin: 0; padding: 14px; border: 1px solid var(--border, #294451); border-radius: 14px; background: linear-gradient(145deg, rgba(100,160,180,.1), rgba(20,30,40,.15)); }
+.scientific-mesh-viewport figcaption { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; margin-bottom: 10px; overflow-wrap: anywhere; }
+.scientific-mesh-viewport figcaption strong { font-size: 12px; letter-spacing: .08em; }
+.scientific-mesh-viewport canvas { display: block; width: 100%; height: clamp(220px, 28vw, 420px); border-radius: 8px; touch-action: none; cursor: grab; }
+.scientific-mesh-viewport canvas:active { cursor: grabbing; }
+.scientific-mesh-viewport canvas:focus-visible { outline: 2px solid #64cbd0; outline-offset: 3px; }
+.scientific-mesh-viewport p { margin: 10px 0 3px; }
+.scientific-mesh-viewport small { opacity: .7; }
+.scientific-mesh-statistics { width: 100%; margin: 18px 0; border-collapse: collapse; font-size: 13px; }
+.scientific-mesh-statistics th, .scientific-mesh-statistics td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--border, #294451); }
+.scientific-artifacts > p code { overflow-wrap: anywhere; }
+@media (max-width: 850px) { .scientific-mesh-comparison { grid-template-columns: 1fr; } .scientific-mesh-statistics th, .scientific-mesh-statistics td { padding: 7px 4px; } .scientific-artifact-toolbar label { flex-wrap: wrap; } }

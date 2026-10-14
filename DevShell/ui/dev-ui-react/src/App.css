@@ -2951,3 +2951,14 @@
 .scientific-runtime-package-scroll th, .scientific-runtime-package-scroll td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border, #294451); overflow-wrap: anywhere; }
 .scientific-runtime-package-scroll th { position: sticky; top: 0; background: var(--panel, #15212a); }
 .scientific-runtime-checks code { overflow-wrap: anywhere; }
+.scientific-inspector { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border, #294451); }
+.scientific-inspector-facts { margin: 16px 0; }
+.scientific-inspector-facts > div { display: grid; grid-template-columns: minmax(150px, 220px) minmax(0, 1fr); gap: 14px; padding: 9px 0; border-bottom: 1px solid var(--border, #294451); }
+.scientific-inspector-facts dt { opacity: .7; }
+.scientific-inspector-facts dd { margin: 0; overflow-wrap: anywhere; }
+.scientific-inspector-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+.scientific-runtime-fields select { padding: 10px; width: 100%; border: 1px solid var(--border, #294451); border-radius: 8px; color: inherit; background: var(--panel, #15212a); }
+.scientific-runtime-fields input[type=checkbox] { width: 18px; height: 18px; }
+.scientific-recipe-job { margin-top: 24px; border-top: 1px solid var(--border, #294451); padding-top: 16px; }
+.scientific-recipe-job pre { max-height: 360px; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 650px) { .scientific-inspector-facts > div { grid-template-columns: 1fr; gap: 3px; } }

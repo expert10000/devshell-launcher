@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.20)
+project(devshell_cgal_smoke LANGUAGES CXX)
+find_package(CGAL REQUIRED)
+add_executable(devshell_cgal_smoke main.cpp)
+target_compile_features(devshell_cgal_smoke PRIVATE cxx_std_17)
+target_link_libraries(devshell_cgal_smoke PRIVATE CGAL::CGAL)

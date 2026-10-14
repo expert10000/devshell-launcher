@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.20)
+project(devshell_vtk_smoke LANGUAGES CXX)
+find_package(VTK REQUIRED COMPONENTS CommonCore CommonDataModel FiltersSources IOXML)
+add_executable(devshell_vtk_smoke main.cpp)
+target_compile_features(devshell_vtk_smoke PRIVATE cxx_std_17)
+target_link_libraries(devshell_vtk_smoke PRIVATE ${VTK_LIBRARIES})
+vtk_module_autoinit(TARGETS devshell_vtk_smoke MODULES ${VTK_LIBRARIES})

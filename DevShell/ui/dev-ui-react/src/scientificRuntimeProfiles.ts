@@ -45,24 +45,35 @@ export interface ScientificRunRequest {
   recipeId: string
   operation: string
   parameters: Record<string, unknown>
-  inputArtifacts: { path: string; mediaType: string }[]
+  inputArtifacts: { path: string; mediaType: string; sha256?: string; bytes?: number; datasetId?: string; sourcePath?: string; sourceRoot?: string }[]
   workingDirectory: string
   timeoutSeconds: number
   outputArtifacts: { path: string; mediaType: string }[]
+  provenance?: Record<string, unknown>
 }
 
 export interface ScientificRunResult {
   schemaVersion: 1
   runId: string
   runtimeId: string
+  recipeId: string
+  operation?: string
   state: 'succeeded' | 'failed' | 'cancelled' | 'timed-out'
   exitCode: number | null
   durationMs: number
+  workerDurationMs?: number
+  stage?: string
   versions: Record<string, string>
   validatedCapabilities: string[]
   diagnostics: { severity: 'info' | 'warning' | 'error'; message: string }[]
   logReference?: string
-  artifacts: { path: string; mediaType: string }[]
+  artifacts: { path: string; mediaType: string; bytes?: number; sha256?: string }[]
+  inputArtifacts?: ScientificRunRequest['inputArtifacts']
+  before?: Record<string, number | boolean>
+  after?: Record<string, number | boolean>
+  scope?: string
+  provenance?: Record<string, unknown>
+  rendering?: { state?: string; backend?: string; version?: string; capabilities?: string }
 }
 
 const definitions: { kind: RuntimeKind; name: string; capabilities: string[]; checks: RuntimeProbe[] }[] = [

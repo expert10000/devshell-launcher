@@ -4670,7 +4670,7 @@ const App = () => {
           <span>{activePane?.status ?? 'disconnected'}</span>
         </div>
       </header>
-      {scientificView && <ScientificRuntimesWorkspace profileId={activeWorkspaceProfileId} projects={projects} />}
+      {scientificView && <ScientificRuntimesWorkspace profileId={activeWorkspaceProfileId} projects={projects} bridge={bridge} />}
       {!scientificView && repositoriesView && <main className="repositories-page" aria-label="Repositories">
         <div className="repositories-title"><div><h1>Repositories</h1><p>Your repositories, build actions, and working changes.</p></div><div className="repository-toolbar"><button className="action" disabled={anyUpdateBusy || !projects.some((project) => project.repositories?.length) || repositoryJobs.some((job) => job.key.startsWith(`${activeWorkspaceProfileId}:`) && ['queued', 'building', 'running'].includes(job.state))} onClick={updateAll}>Update All</button><button className="action ghost" onClick={() => { setHealthOpen(true); refreshDashboard() }}>Environment checks</button></div></div>
         {jobErrors[`${activeWorkspaceProfileId}:update-all`] && <p className="check-error" role="alert">{jobErrors[`${activeWorkspaceProfileId}:update-all`]}</p>}

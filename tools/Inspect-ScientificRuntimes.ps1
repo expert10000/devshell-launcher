@@ -50,7 +50,7 @@ foreach ($kind in @('cgal', 'vtk')) {
         $results += ($output | ConvertFrom-Json)
     } finally { $process.Dispose() }
 }
-$compiler = [ordered]@{ state='missing'; installation=$null; version=$null; path=$null; compilation='not-tested' }
+$compiler = [ordered]@{ state='missing'; installation=$null; version=$null; actualVersion=$null; binaryVersion=$null; path=$null; compilation='not-tested'; versionProbe='not-tested' }
 $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
 if (Test-Path -LiteralPath $vswhere) {
     $installation = (& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath | Select-Object -First 1)
@@ -58,7 +58,30 @@ if (Test-Path -LiteralPath $vswhere) {
         $tools = Get-ChildItem -LiteralPath (Join-Path $installation 'VC/Tools/MSVC') -Directory | Sort-Object { [version]$_.Name } -Descending | Select-Object -First 1
         if ($tools) {
             $cl = Join-Path $tools.FullName 'bin/Hostx64/x64/cl.exe'
-            if (Test-Path -LiteralPath $cl) { $compiler = [ordered]@{ state='installed'; installation=$installation; version=(Get-Item -LiteralPath $cl).VersionInfo.ProductVersion; toolsetVersion=$tools.Name; path=$cl; compilation='not-tested' } }
+            if (Test-Path -LiteralPath $cl) {
+                $binaryVersion = (Get-Item -LiteralPath $cl).VersionInfo.ProductVersion
+                $compiler = [ordered]@{ state='installed'; installation=$installation; version=$binaryVersion; binaryVersion=$binaryVersion; actualVersion=$null; toolsetVersion=$tools.Name; path=$cl; compilation='not-tested'; versionProbe='not-tested' }
+                $versionStart = [System.Diagnostics.ProcessStartInfo]::new()
+                $versionStart.FileName = $cl
+                $versionStart.ArgumentList.Add('/Bv')
+                $versionStart.UseShellExecute = $false
+                $versionStart.CreateNoWindow = $true
+                $versionStart.RedirectStandardOutput = $true
+                $versionStart.RedirectStandardError = $true
+                $versionProcess = [System.Diagnostics.Process]::new()
+                $versionProcess.StartInfo = $versionStart
+                try {
+                    if (-not $versionProcess.Start()) { throw 'Cannot start compiler version probe' }
+                    $versionOutput = $versionProcess.StandardOutput.ReadToEndAsync()
+                    $versionErrors = $versionProcess.StandardError.ReadToEndAsync()
+                    if (-not $versionProcess.WaitForExit(15000)) { $versionProcess.Kill($true); $versionProcess.WaitForExit(); throw 'Compiler version probe timed out' }
+                    $banner = $versionOutput.GetAwaiter().GetResult() + "`n" + $versionErrors.GetAwaiter().GetResult()
+                    $match = [regex]::Match($banner, '\b19\.\d+\.\d+(?:\.\d+)?\b')
+                    if ($match.Success) { $compiler.actualVersion = $match.Value; $compiler.versionProbe = 'passed / cl.exe /Bv, no compilation' }
+                    else { $compiler.versionProbe = 'failed / version banner not recognized' }
+                } catch { $compiler.versionProbe = "failed / $($_.Exception.Message)" }
+                finally { $versionProcess.Dispose() }
+            }
         }
     }
 }
@@ -78,4 +101,4 @@ if ($PublishToLauncher) {
 }
 Write-Host "Report: $OutputPath"
 foreach ($runtime in $results) { Write-Host "$($runtime.name): $($runtime.state); version $($runtime.version); $($runtime.environmentRoot)" }
-Write-Host "MSVC: $($compiler.state) $($compiler.version). C++ compilation/linking and rendering remain untested."
+Write-Host "MSVC: $($compiler.state), compiler $($compiler.actualVersion), binary metadata $($compiler.binaryVersion). C++ compilation/linking and rendering remain untested."

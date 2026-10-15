@@ -2959,6 +2959,12 @@
 @media (max-width: 560px) { .scientific-runtime-workspace { padding: 14px; } .scientific-runtime-inventory { grid-template-columns: 1fr; } .scientific-runtime-checks li { flex-direction: column; gap: 3px; } }
 .scientific-runtime-package-scroll { max-height: 420px; overflow: auto; }
 .scientific-runtime-package-scroll table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.scientific-history-scroll { max-height: 460px; overflow: auto; margin-top: 14px; }
+.scientific-history-scroll table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.scientific-history-scroll th, .scientific-history-scroll td { padding: 9px; text-align: left; border-bottom: 1px solid var(--border, #294451); vertical-align: top; }
+.scientific-history-actions { display: flex; flex-wrap: wrap; gap: 5px; }
+.scientific-history-result { margin-top: 18px; padding: 16px; border: 1px solid var(--border, #294451); border-radius: 10px; }
+.scientific-history-result li { margin: 7px 0; overflow-wrap: anywhere; }
 .scientific-runtime-package-scroll th, .scientific-runtime-package-scroll td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border, #294451); overflow-wrap: anywhere; }
 .scientific-runtime-package-scroll th { position: sticky; top: 0; background: var(--panel, #15212a); }
 .scientific-runtime-checks code { overflow-wrap: anywhere; }

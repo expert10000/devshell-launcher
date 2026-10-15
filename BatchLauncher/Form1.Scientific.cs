@@ -199,6 +199,9 @@ public partial class Form1
             if(profileId.Length is 0 or >128)throw new InvalidOperationException("Select a workspace profile.");
             if(!_scientificCloseHook){_scientificCloseHook=true;FormClosed+=(_,_)=>{_scientificLifetime.Cancel();foreach(var job in _scientificJobs.Values)if(job.State=="running")job.Cancellation.Cancel();};}
             if(action=="status")data=_scientificJobs.Values.Where(job=>job.ProfileId==profileId).Select(ScientificJobSnapshot).ToArray();
+            else if(action=="history")data=ScientificHistoryList(profileId);
+            else if(action=="history-result")data=ScientificHistoryResult(profileId,request.GetProperty("jobId").GetString()??"");
+            else if(action is "history-open-log" or "history-open-output" or "history-reveal-artifact")data=ScientificHistoryOpen(profileId,request,action);
             else if(action=="report")data=ScientificReport();
             else if(action=="datasets")
             {

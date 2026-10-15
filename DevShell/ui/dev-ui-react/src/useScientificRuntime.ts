@@ -8,12 +8,15 @@ export interface ScientificDataset { id: string; name: string; category: string;
 export interface ScientificEnvironment { environment: Record<string, string>; vcpkgRoot: string | null; installedVcpkg: string | null; vcpkgUsed: boolean; report: ScientificRuntimeReport; evidence?: { compilerVersion?: string | null; compilerSource?: string; rendering?: ScientificRunResult['rendering'] } }
 export interface ScientificMeshPreview { name: string; positions: number[]; bounds: number[]; points: number; triangles: number; previewTriangles: number; sampled: boolean; note: string }
 export interface ScientificArtifactPreview { jobId: string; artifactPath: string; geometry: { before: ScientificMeshPreview | null; after: ScientificMeshPreview }; result: ScientificRunResult }
+export interface ScientificHistoryEntry { jobId: string; runtimeId: string; recipeId: string; state: string; durationMs: number; finishedAtUtc: string; artifactCount: number }
 
 export function useScientificRuntime(bridge: ScientificBridge | null, profileId: string | null, refreshReport: () => void) {
   const [jobs, setJobs] = useState<Record<string, ScientificJob>>({})
   const [environments, setEnvironments] = useState<Record<string, ScientificEnvironment>>({})
   const [previews, setPreviews] = useState<Record<string, ScientificArtifactPreview>>({})
   const [datasets, setDatasets] = useState<{ importedAt: string; note: string; entries: ScientificDataset[] } | null>(null)
+  const [history, setHistory] = useState<ScientificHistoryEntry[] | null>(null)
+  const [historyResult, setHistoryResult] = useState<ScientificRunResult | null>(null)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -38,7 +41,7 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
     bridge.postMessage({ type: 'scientific.runtime', profileId, runtimeId, requestId, action, ...extra })
   }
   useEffect(() => {
-    setJobs({}); setEnvironments({}); setPreviews({}); setDatasets(null); setError(''); setNotice(''); setPending(false); completed.current.clear()
+    setJobs({}); setEnvironments({}); setPreviews({}); setDatasets(null); setHistory(null); setHistoryResult(null); setError(''); setNotice(''); setPending(false); completed.current.clear()
     if (!bridge || !profileId) return
     const receive = (event: MessageEvent) => {
       let message: { type?: string; profileId?: string; runtimeId?: string; requestId?: string; action?: string; error?: string; job?: ScientificJob; data?: unknown }
@@ -50,6 +53,8 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
       clearTimeout(waiting.timer); requests.current.delete(message.requestId); setPending(requests.current.size > 0)
       if (message.error) { setError(message.error); return }
       if (message.action === 'status' && Array.isArray(message.data)) message.data.forEach(item => mergeJob(item as ScientificJob))
+      else if (message.action === 'history' && Array.isArray(message.data)) { setHistory(message.data as ScientificHistoryEntry[]); setHistoryResult(null) }
+      else if (message.action === 'history-result' && message.data) setHistoryResult(message.data as ScientificRunResult)
       else if ((message.action === 'recipe' || message.action === 'cgal-recipe' || message.action === 'test-hold' || message.action === 'stop') && message.data) mergeJob(message.data as ScientificJob)
       else if (message.action === 'artifacts' && message.data && message.runtimeId) setPreviews(previous => ({ ...previous, [message.runtimeId!]: message.data as ScientificArtifactPreview }))
       else if (message.action === 'environment' && message.data && message.runtimeId) setEnvironments(previous => ({ ...previous, [message.runtimeId!]: message.data as ScientificEnvironment }))
@@ -63,5 +68,5 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
     // Callback refs keep completed diagnostics from restarting subscriptions.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bridge, profileId])
-  return { jobs, environments, previews, datasets, pending, error, notice, send, busy: Object.values(jobs).some(job => job.state === 'running') }
+  return { jobs, environments, previews, datasets, history, historyResult, pending, error, notice, send, busy: Object.values(jobs).some(job => job.state === 'running') }
 }

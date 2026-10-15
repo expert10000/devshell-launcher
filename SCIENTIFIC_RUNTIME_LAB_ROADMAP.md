@@ -28,7 +28,7 @@ These probes are narrower than the existing full installation report. In particu
 - [x] Separate executable, checked-in manifests, isolated child probes, bounded output, timeout/kill, per-run result and environment snapshot.
 - [x] Connect DevShell Scientific Runtimes to `runtime-lab` through a managed native action, with live logs, Stop, and History using the existing job service. Probes run only when clicked, not on workspace opening.
 - [ ] Add declarative `run`, `test`, and `bench` recipes with typed parameters, validated input/output paths, immutable invocation records, and reproducible artifacts. Keep argv execution; never substitute shell command strings.
-- [ ] Implement readiness levels L0-L9 as evidence gates. Distinguish detected, importable, compilable, functional, reproducible, benchmarked, and integration-ready; show failures and untested capabilities explicitly.
+- [ ] Implement readiness levels L0-L9 as evidence gates. The session's latest managed probe now overrides matching report checks in Health and Commands, with per-gate provenance; durable history merge and functional L5-L9 gates remain pending.
 - [ ] Extend the CGAL adapter with C++ SDK/compiler/CMake checks, compile/link, Surface_mesh, mesh validate/remesh/repair/boolean/simplify, and geometry AABB/distance/intersection recipes as implementations become available.
 - [ ] Extend VTK independently across Python, C++ SDK, polydata I/O, interactive rendering, and offscreen rendering. Store a render image as an artifact, not just an exit code.
 - [ ] Add Gmsh, SageMath, and Python/SciPy manifests only with working adapters and truthfully scoped capability evidence. Support Windows Native, WSL, and Docker as separate execution profiles rather than assuming path compatibility.

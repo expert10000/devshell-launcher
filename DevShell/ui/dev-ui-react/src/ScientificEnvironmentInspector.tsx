@@ -7,15 +7,18 @@ export function ScientificEnvironmentInspector({ runtime, observed, report, nati
   const [copyStatus, setCopyStatus] = useState('')
   const environment = native.environments[runtime.id]
   const result = native.jobs[runtime.id]?.result
+  const probeJob = native.jobs[runtime.id]?.recipeId === 'lab.probe' ? native.jobs[runtime.id] : undefined
+  const probeResult = probeJob?.result as unknown as { probeResults?: { id: string; status: string }[] } | undefined
+  const probeChecks = Array.isArray(probeResult?.probeResults) ? probeResult.probeResults : []
   const compiler = result?.versions.msvc ?? environment?.evidence?.compilerVersion ?? report?.compiler.actualVersion
   const rendering = result?.rendering ?? environment?.evidence?.rendering ?? observed?.sdk?.renderingEvidence
   const renderingLines = rendering?.capabilities?.split(/\r?\n/).filter(line => /OpenGL.*(vendor|renderer|version)/i.test(line)) ?? []
   const enabled = runtime.execution === 'windows-native' && (runtime.kind === 'cgal' || runtime.kind === 'vtk') && !edited
   const status = (value?: string) => value === 'passed' ? 'Passed' : value === 'not-tested' ? 'Not tested' : value ?? 'Unknown'
   const packageVersion = (...names: string[]) => observed?.packages.find(item => names.includes(item.name))?.version ?? 'Not recorded'
-  const evidence = (id: string) => observed?.checks.find(check => check.id === id)?.state
+  const evidence = (id: string) => probeChecks.find(check => check.id === id)?.status ?? observed?.checks.find(check => check.id === id)?.state
   const rows: [string, string][] = [
-    ['Status', edited ? 'Definition changed / not checked' : observed?.state ?? 'Not checked'],
+    ['Status', edited ? 'Definition changed / not checked' : [observed?.state ? `Installation report: ${observed.state}` : '', probeChecks.length ? `Managed probe: ${probeJob?.state}` : ''].filter(Boolean).join(' / ') || 'Not checked'],
     [runtime.kind === 'vtk' ? 'VTK SDK' : 'CGAL SDK', observed?.version ?? 'Unknown'],
     ['Python', observed?.pythonVersion ?? 'Unknown'],
     ['Boost', packageVersion('libboost', 'boost-cpp', 'boost')], ['GMP', packageVersion('gmp')], ['MPFR', packageVersion('mpfr')], ['Eigen', packageVersion('eigen')],

@@ -14,7 +14,7 @@ public partial class Form1
     private bool _scientificCloseHook;
     private sealed class ScientificJob
     {
-        public string Id { get; } = Guid.NewGuid().ToString("N");
+        public string Id { get; init; } = Guid.NewGuid().ToString("N");
         public required string ProfileId { get; init; }
         public required string RuntimeId { get; init; }
         public required string RecipeId { get; init; }
@@ -201,6 +201,7 @@ public partial class Form1
             if(action=="status")data=_scientificJobs.Values.Where(job=>job.ProfileId==profileId).Select(ScientificJobSnapshot).ToArray();
             else if(action=="history")data=ScientificHistoryList(profileId);
             else if(action=="history-result")data=ScientificHistoryResult(profileId,request.GetProperty("jobId").GetString()??"");
+            else if(action=="history-preview")data=await ScientificHistoryPreviewAsync(profileId,request);
             else if(action is "history-open-log" or "history-open-output" or "history-reveal-artifact")data=ScientificHistoryOpen(profileId,request,action);
             else if(action=="report")data=ScientificReport();
             else if(action=="datasets")

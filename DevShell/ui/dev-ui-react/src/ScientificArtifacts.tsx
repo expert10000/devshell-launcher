@@ -3,8 +3,8 @@ import type { ScientificMeshPreview, useScientificRuntime } from './useScientifi
 import type { RuntimeProfile } from './scientificRuntimeProfiles'
 import './ScientificArtifacts.css'
 
-type Camera = { yaw: number; pitch: number; zoom: number; wire: boolean }
-const initialCamera: Camera = { yaw: 0.6, pitch: 0.35, zoom: 0.85, wire: false }
+export type Camera = { yaw: number; pitch: number; zoom: number; wire: boolean }
+export const initialCamera: Camera = { yaw: 0.6, pitch: 0.35, zoom: 0.85, wire: false }
 const vertexShader = `
 attribute vec3 position; attribute vec3 normal;
 uniform vec3 center; uniform float scale; uniform vec2 angle; uniform float zoom; uniform float aspect;
@@ -23,8 +23,8 @@ void main() { float light=0.3+0.7*abs(dot(normalize(lightingNormal),normalize(ve
   gl_FragColor=vec4(color*light,1.0); }
 `
 
-function MeshCanvas({ mesh, camera, setCamera, bounds, after }: {
-  mesh: ScientificMeshPreview; camera: Camera; setCamera: React.Dispatch<React.SetStateAction<Camera>>; bounds: number[]; after: boolean
+export function MeshCanvas({ mesh, camera, setCamera, bounds, after, label }: {
+  mesh: ScientificMeshPreview; camera: Camera; setCamera: React.Dispatch<React.SetStateAction<Camera>>; bounds: number[]; after: boolean; label?: string
 }) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const currentCamera = useRef(camera); currentCamera.current = camera
@@ -96,8 +96,8 @@ function MeshCanvas({ mesh, camera, setCamera, bounds, after }: {
     return release
   }, [mesh, bounds, after])
   useEffect(() => { draw.current?.() }, [camera])
-  return <figure className="scientific-mesh-viewport"><figcaption><strong>{after ? 'AFTER / output' : 'BEFORE / input'}</strong><span>{mesh.name}</span></figcaption>
-    <canvas ref={canvas} tabIndex={0} aria-label={`${after ? 'Output' : 'Input'} mesh; drag to orbit, arrow keys to rotate`}
+  return <figure className="scientific-mesh-viewport"><figcaption><strong>{label ?? (after ? 'AFTER / output' : 'BEFORE / input')}</strong><span>{mesh.name}</span></figcaption>
+    <canvas ref={canvas} tabIndex={0} aria-label={`${label ?? (after ? 'Output' : 'Input')} mesh; drag to orbit, arrow keys to rotate`}
       onPointerDown={event => { pointer.current = { x: event.clientX, y: event.clientY }; event.currentTarget.setPointerCapture(event.pointerId) }}
       onPointerMove={event => { if (!pointer.current) return; const dx = event.clientX - pointer.current.x, dy = event.clientY - pointer.current.y; pointer.current = { x: event.clientX, y: event.clientY }; setCamera(value => ({ ...value, yaw: value.yaw + dx * 0.008, pitch: Math.max(-1.5, Math.min(1.5, value.pitch + dy * 0.008)) })) }}
       onPointerUp={() => { pointer.current = null }} onPointerCancel={() => { pointer.current = null }}

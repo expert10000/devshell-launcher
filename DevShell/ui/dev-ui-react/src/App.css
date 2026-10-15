@@ -2965,6 +2965,21 @@
 .scientific-history-actions { display: flex; flex-wrap: wrap; gap: 5px; }
 .scientific-history-result { margin-top: 18px; padding: 16px; border: 1px solid var(--border, #294451); border-radius: 10px; }
 .scientific-history-result li { margin: 7px 0; overflow-wrap: anywhere; }
+.scientific-comparison-presets { margin: 14px 0 20px; padding: 16px; border: 1px solid var(--border, #294451); border-radius: 10px; background: rgba(100,130,140,.07); }
+.scientific-comparison-presets h4 { margin: 0 0 8px; }
+.scientific-comparison-preset-fields { display: grid; grid-template-columns: minmax(220px, 2fr) repeat(2, minmax(130px, 1fr)); gap: 12px; margin: 14px 0; }
+.scientific-comparison-preset-fields label { display: grid; gap: 5px; min-width: 0; }
+.scientific-comparison-preset-fields input, .scientific-comparison-preset-fields select { width: 100%; box-sizing: border-box; padding: 7px; color: inherit; background: var(--panel, #15212a); border: 1px solid var(--border, #294451); border-radius: 7px; }
+.scientific-comparison-preset-fields .scientific-comparison-preset-check { display: flex; align-items: center; gap: 8px; }
+.scientific-comparison-preset-check input { width: auto; }
+@media (max-width: 900px) { .scientific-comparison-preset-fields { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .scientific-comparison-preset-fields { grid-template-columns: 1fr; } }
+.scientific-history-compare-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
+.scientific-history-compare-card { min-width: 0; padding: 12px; border: 1px solid var(--border, #294451); border-radius: 9px; }
+.scientific-history-compare-card label { display: grid; gap: 5px; margin: 10px 0; }
+.scientific-history-compare-card select { max-width: 100%; padding: 7px; color: inherit; background: var(--panel, #15212a); border: 1px solid var(--border, #294451); border-radius: 7px; }
+.scientific-history-compare-card .scientific-mesh-viewport { margin: 12px 0 0; }
+@media (max-width: 900px) { .scientific-history-compare-grid { grid-template-columns: 1fr; } }
 .scientific-runtime-package-scroll th, .scientific-runtime-package-scroll td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border, #294451); overflow-wrap: anywhere; }
 .scientific-runtime-package-scroll th { position: sticky; top: 0; background: var(--panel, #15212a); }
 .scientific-runtime-checks code { overflow-wrap: anywhere; }

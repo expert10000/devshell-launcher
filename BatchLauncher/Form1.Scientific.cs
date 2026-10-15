@@ -235,6 +235,7 @@ public partial class Form1
                     using var dialog=new SaveFileDialog{Filter="Runtime profile (*.json)|*.json",DefaultExt="json",FileName=runtimeId+".json",AddExtension=true,OverwritePrompt=true};
                     if(dialog.ShowDialog(this)==DialogResult.OK){var definition=new{schemaVersion=1,id=runtimeId,kind=runtimeId.StartsWith("cgal",StringComparison.Ordinal)?"cgal":"vtk",execution="windows-native",environmentRoot=prefix,executable=Path.Combine(prefix,"python.exe"),cmake=Path.Combine(prefix,"Library","bin","cmake.exe"),sdkRoot=Path.Combine(prefix,"Library"),environment=new Dictionary<string,string>{["CMAKE_PREFIX_PATH"]=Path.Combine(prefix,"Library"),["PYTHONNOUSERSITE"]="1"},readiness="not-checked",note="Definition only; no host secrets, captured job contents, or readiness evidence."};File.WriteAllText(dialog.FileName,JsonSerializer.Serialize(definition,new JsonSerializerOptions(ScientificJson){WriteIndented=true}),Encoding.UTF8);data=new{path=dialog.FileName};}else data=new{cancelled=true};
                 }
+                else if (action == "lab-probe") data = ScientificLabProbeStart(profileId, runtimeId);
                 else if(action=="test-hold")data=ScientificStopTestStart(profileId,runtimeId);
                 else if(action=="recipe")
                 {

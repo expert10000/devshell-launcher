@@ -26,7 +26,7 @@ These probes are narrower than the existing full installation report. In particu
 ## Delivery stages
 
 - [x] Separate executable, checked-in manifests, isolated child probes, bounded output, timeout/kill, per-run result and environment snapshot.
-- [ ] Connect DevShell Scientific Runtimes to `runtime-lab` through a managed native action, with live logs, Stop, and History using the existing job service. Do not launch probes on workspace opening.
+- [x] Connect DevShell Scientific Runtimes to `runtime-lab` through a managed native action, with live logs, Stop, and History using the existing job service. Probes run only when clicked, not on workspace opening.
 - [ ] Add declarative `run`, `test`, and `bench` recipes with typed parameters, validated input/output paths, immutable invocation records, and reproducible artifacts. Keep argv execution; never substitute shell command strings.
 - [ ] Implement readiness levels L0-L9 as evidence gates. Distinguish detected, importable, compilable, functional, reproducible, benchmarked, and integration-ready; show failures and untested capabilities explicitly.
 - [ ] Extend the CGAL adapter with C++ SDK/compiler/CMake checks, compile/link, Surface_mesh, mesh validate/remesh/repair/boolean/simplify, and geometry AABB/distance/intersection recipes as implementations become available.

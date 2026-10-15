@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "cgal-win-conda",
+  "kind": "cgal",
+  "execution": "windows-native",
+  "description": "Isolated Python binding probes for the local CGAL Conda prefix. C++ SDK checks remain separate.",
+  "probes": [
+    {
+      "id": "python.version",
+      "readinessLevel": "L1",
+      "timeoutSeconds": 15,
+      "arguments": ["-I", "-c", "import sys; print(sys.version); print(sys.executable)"]
+    },
+    {
+      "id": "cgal.python",
+      "readinessLevel": "L2",
+      "capability": "cgal.python.import",
+      "timeoutSeconds": 20,
+      "arguments": ["-I", "-c", "import CGAL; print(CGAL.__file__)"]
+    },
+    {
+      "id": "cgal.geometry",
+      "readinessLevel": "L3",
+      "capability": "geometry.point3",
+      "timeoutSeconds": 20,
+      "arguments": ["-I", "-c", "from CGAL.CGAL_Kernel import Point_3; p = Point_3(1, 2, 3); print(p)"]
+    }
+  ]
+}

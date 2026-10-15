@@ -71,4 +71,14 @@
   <ItemGroup>
     <Content Include="..\scientific\cgal-worker\**\*" Link="scientific\cgal-worker\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\tools\runtime-lab\RuntimeLab.csproj" ReferenceOutputAssembly="false" />
+    <Content Include="..\runtimes\**\runtime.json" Link="runtimes\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="CopyRuntimeLab" AfterTargets="Build">
+    <ItemGroup>
+      <RuntimeLabOutput Include="..\tools\runtime-lab\bin\$(Configuration)\net8.0\runtime-lab.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(RuntimeLabOutput)" DestinationFolder="$(TargetDir)runtime-lab\" SkipUnchangedFiles="true" />
+  </Target>
 </Project>

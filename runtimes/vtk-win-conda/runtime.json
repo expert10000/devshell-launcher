@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "vtk-win-conda",
+  "kind": "vtk",
+  "execution": "windows-native",
+  "description": "Isolated VTK Python probes. C++ SDK and rendering checks remain separate.",
+  "probes": [
+    {
+      "id": "python.version",
+      "readinessLevel": "L1",
+      "timeoutSeconds": 15,
+      "arguments": ["-I", "-c", "import sys; print(sys.version); print(sys.executable)"]
+    },
+    {
+      "id": "vtk.python",
+      "readinessLevel": "L2",
+      "capability": "vtk.python.import",
+      "timeoutSeconds": 20,
+      "arguments": ["-I", "-c", "from vtkmodules.vtkCommonCore import vtkVersion; print(vtkVersion.GetVTKVersion())"]
+    },
+    {
+      "id": "vtk.polydata",
+      "readinessLevel": "L3",
+      "capability": "geometry.polydata",
+      "timeoutSeconds": 20,
+      "arguments": ["-I", "-c", "from vtkmodules.vtkCommonDataModel import vtkPolyData; print(vtkPolyData().GetNumberOfPoints())"]
+    }
+  ]
+}

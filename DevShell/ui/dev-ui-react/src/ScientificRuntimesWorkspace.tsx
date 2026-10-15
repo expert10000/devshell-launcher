@@ -116,7 +116,7 @@ export function ScientificRuntimesWorkspace({ profileId, projects, bridge }: { p
       <button type="button" onClick={() => void native.send(runtime.id, "lab-probe")}>Probe in runtime-lab</button>
       <span>Runs in an isolated process. Follow its managed job or open History for the result.</span>
     </div>
-  )}{(runtime.id === 'cgal-win-conda' || runtime.id === 'vtk-win-conda') && <ScientificReadiness runtimeId={runtime.id} observed={observed} probeJob={native.jobs[runtime.id]} />}
+  )}{(runtime.id === 'cgal-win-conda' || runtime.id === 'vtk-win-conda') && <ScientificReadiness profileId={profileId ?? ""} runtimeId={runtime.id} observed={observed} native={native} />}
 <ScientificRecipePanel runtime={runtime} native={native} edited={edited} onArtifacts={() => setSection('Artifacts')} /></>}
           {section === 'Tests' && <><h3>Capability acceptance tests</h3><ul className="scientific-runtime-checks">{runtime.healthChecks.map(check => <li key={check.id}><span>{check.name}{check.capability && <code>{check.capability}</code>}</span><small>Planned / not run</small></li>)}</ul><p>Tests must emit machine-readable results, logs, resolved versions, and geometry artifact references. No imported code runs by selecting a test.</p></>}
           {section === 'Benchmarks' && <><h3>Reproducible benchmarks</h3><p>No benchmark runs. The runner will record input size, runtime/tool versions, hardware metadata, duration, and output validity before timings can be compared.</p><button disabled title="Benchmark recipes follow the managed runner">Run benchmark</button></>}
@@ -125,7 +125,7 @@ export function ScientificRuntimesWorkspace({ profileId, projects, bridge }: { p
           {section === 'History' && <ScientificHistory native={native} />}
           {section === 'Integration' && <><h3>MATH3D execution contract</h3><p>This is a request-schema preview, not a submitted job. Worker transport must consume structured requests/results, not parse terminal presentation.</p><pre>{JSON.stringify(contract, null, 2)}</pre><button onClick={copyProfile}>Copy profile definition</button><p>Outputs include exit state, duration, resolved versions, validated capabilities, diagnostics, log references, and scoped artifact references.</p></>}
           {(section === 'Health' || section === 'Environment') && <>
-<ScientificReadiness runtimeId={runtime.id} observed={observed} probeJob={native.jobs[runtime.id]} />
+<ScientificReadiness profileId={profileId ?? ""} runtimeId={runtime.id} observed={observed} native={native} />
 <ScientificEnvironmentInspector runtime={runtime} observed={observed} report={report} native={native} edited={edited} />
 </>}
           {section === 'Environment' && observed && <details><summary>Installed tools / SDK evidence</summary><pre>{JSON.stringify({ environmentRoot: observed.environmentRoot, executable: observed.executable, compiler: report?.compiler, sdk: observed.sdk, tools: observed.tools }, null, 2)}</pre></details>}

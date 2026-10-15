@@ -1,3 +1,6 @@
+import { useEffect, useRef } from 'react';
+import type { useScientificRuntime } from './useScientificRuntime';
+
 type EvidenceStatus = 'passed' | 'failed' | 'untested';
 
 type Check = Record<string, unknown>;
@@ -23,11 +26,32 @@ function checkStatus(checks: Check[], id: string): EvidenceStatus {
   return 'untested';
 }
 
-export default function ScientificReadiness({ runtimeId, observed, probeJob }: { runtimeId: string; observed: unknown; probeJob?: unknown }) {
+export default function ScientificReadiness({ profileId, runtimeId, observed, native }: { profileId: string; runtimeId: string; observed: unknown; native: ReturnType<typeof useScientificRuntime> }) {
+  const requestedProfile = useRef<string | null>(null);
+  useEffect(() => {
+    if (native.history != null || requestedProfile.current === profileId) return;
+    requestedProfile.current = profileId;
+    void native.send('', 'history');
+  }, [profileId, native.history, native.send]);
+
+  const latestEntry = native.history
+    ?.filter((entry) => entry.runtimeId === runtimeId && entry.recipeId === 'lab.probe')
+    .sort((a, b) => Date.parse(b.finishedAtUtc) - Date.parse(a.finishedAtUtc))[0];
+  const savedResult = latestEntry ? native.historyResults[latestEntry.jobId] : undefined;
+  const requestedResult = useRef<string | null>(null);
+  useEffect(() => {
+    if (!latestEntry || savedResult || requestedResult.current === `${profileId}:${latestEntry.jobId}`) return;
+    requestedResult.current = `${profileId}:${latestEntry.jobId}`;
+    void native.send(runtimeId, 'history-result', { jobId: latestEntry.jobId });
+  }, [profileId, runtimeId, latestEntry?.jobId, savedResult, native.send]);
+
   const recordedChecks = getChecks(observed);
-  const job = probeJob && typeof probeJob === 'object' ? probeJob as Record<string, unknown> : null;
+  const probeJob = native.jobs[runtimeId];
+  const job = probeJob && typeof probeJob === 'object' ? probeJob as unknown as Record<string, unknown> : null;
   const currentJob = job?.runtimeId === runtimeId && job?.recipeId === 'lab.probe' ? job : null;
-  const result = currentJob?.result && typeof currentJob.result === 'object' ? currentJob.result as Record<string, unknown> : null;
+  const liveResult = currentJob?.result && typeof currentJob.result === 'object' ? currentJob.result as Record<string, unknown> : null;
+  const result = liveResult ?? (savedResult && typeof savedResult === 'object' ? savedResult as unknown as Record<string, unknown> : null);
+  const probeOrigin = liveResult ? 'this session' : result ? 'History' : '';
   const probeChecks = Array.isArray(result?.probeResults)
     ? result.probeResults.filter((check): check is Check => !!check && typeof check === 'object')
     : [];
@@ -58,7 +82,7 @@ export default function ScientificReadiness({ runtimeId, observed, probeJob }: {
   return <section aria-label="Scientific readiness evidence" style={{ margin: '12px 0', padding: 12, border: '1px solid #39516a', borderRadius: 10 }}>
     <strong>Readiness evidence</strong>
     <p style={{ margin: '5px 0 10px', opacity: 0.75 }}>
-      {probeChecks.length ? `Latest managed probe: ${String(currentJob?.state ?? result?.status ?? 'recorded')} at ${String(result?.completedAtUtc ?? currentJob?.startedAtUtc ?? 'unknown time')}. ` : 'No managed probe evidence in this session. '}
+      {probeChecks.length ? `Managed probe (${probeOrigin}): ${String(liveResult ? currentJob?.state ?? result?.status : latestEntry?.state ?? result?.status ?? 'recorded')} at ${String(result?.completedAtUtc ?? (liveResult ? currentJob?.startedAtUtc : latestEntry?.finishedAtUtc) ?? 'unknown time')}. ` : 'No saved managed probe evidence loaded for this profile. '}
       Other checks use the separately loaded installation report. Untested is not a failure or a blanket readiness claim.
     </p>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(175px, 1fr))', gap: 6 }}>
@@ -67,7 +91,7 @@ export default function ScientificReadiness({ runtimeId, observed, probeJob }: {
         const fromProbe = gate.checks.length ? gate.checks.some((id) => checkStatus(probeChecks, id) !== 'untested') : probeChecks.length > 0;
         return <div key={gate.level} style={{ padding: '7px 9px', borderRadius: 7, background: 'rgba(255,255,255,0.05)', borderLeft: `3px solid ${evidence === 'passed' ? '#4db78a' : evidence === 'failed' ? '#d86b65' : '#6b7988'}` }}>
           <strong>{gate.level}</strong> {gate.title}<br />
-          <small>{evidence} · {fromProbe ? 'managed probe' : observed ? 'installation report' : 'no evidence'}</small>
+          <small>{evidence} · {fromProbe ? `managed probe / ${probeOrigin}` : observed ? 'installation report' : 'no evidence'}</small>
         </div>;
       })}
     </div>

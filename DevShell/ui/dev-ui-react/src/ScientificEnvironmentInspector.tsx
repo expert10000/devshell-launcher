@@ -8,7 +8,9 @@ export function ScientificEnvironmentInspector({ runtime, observed, report, nati
   const environment = native.environments[runtime.id]
   const result = native.jobs[runtime.id]?.result
   const probeJob = native.jobs[runtime.id]?.recipeId === 'lab.probe' ? native.jobs[runtime.id] : undefined
-  const probeResult = probeJob?.result as unknown as { probeResults?: { id: string; status: string }[] } | undefined
+  const savedProbe = native.history?.filter(entry => entry.runtimeId === runtime.id && entry.recipeId === 'lab.probe').sort((a, b) => Date.parse(b.finishedAtUtc) - Date.parse(a.finishedAtUtc))[0]
+  const savedResult = savedProbe ? native.historyResults[savedProbe.jobId] : undefined
+  const probeResult = (probeJob?.result ?? savedResult) as unknown as { probeResults?: { id: string; status: string }[] } | undefined
   const probeChecks = Array.isArray(probeResult?.probeResults) ? probeResult.probeResults : []
   const compiler = result?.versions.msvc ?? environment?.evidence?.compilerVersion ?? report?.compiler.actualVersion
   const rendering = result?.rendering ?? environment?.evidence?.rendering ?? observed?.sdk?.renderingEvidence
@@ -18,7 +20,7 @@ export function ScientificEnvironmentInspector({ runtime, observed, report, nati
   const packageVersion = (...names: string[]) => observed?.packages.find(item => names.includes(item.name))?.version ?? 'Not recorded'
   const evidence = (id: string) => probeChecks.find(check => check.id === id)?.status ?? observed?.checks.find(check => check.id === id)?.state
   const rows: [string, string][] = [
-    ['Status', edited ? 'Definition changed / not checked' : [observed?.state ? `Installation report: ${observed.state}` : '', probeChecks.length ? `Managed probe: ${probeJob?.state}` : ''].filter(Boolean).join(' / ') || 'Not checked'],
+    ['Status', edited ? 'Definition changed / not checked' : [observed?.state ? `Installation report: ${observed.state}` : '', probeChecks.length ? `Managed probe: ${probeJob?.result ? probeJob.state : savedProbe?.state} (${probeJob?.result ? 'this session' : 'History'})` : ''].filter(Boolean).join(' / ') || 'Not checked'],
     [runtime.kind === 'vtk' ? 'VTK SDK' : 'CGAL SDK', observed?.version ?? 'Unknown'],
     ['Python', observed?.pythonVersion ?? 'Unknown'],
     ['Boost', packageVersion('libboost', 'boost-cpp', 'boost')], ['GMP', packageVersion('gmp')], ['MPFR', packageVersion('mpfr')], ['Eigen', packageVersion('eigen')],

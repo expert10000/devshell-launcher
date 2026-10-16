@@ -4,6 +4,7 @@ import json
 import math
 import os
 from pathlib import Path
+import struct
 import sys
 
 parser = argparse.ArgumentParser()
@@ -20,16 +21,56 @@ from vtkmodules.vtkIOPLY import vtkPLYReader
 from vtkmodules.vtkIOXML import vtkXMLPolyDataReader
 
 
+def preview_math3d(path):
+    data = path.read_bytes()
+    if len(data) < 32:
+        raise ValueError('Incomplete MATH3D mesh header')
+    magic, version, header_bytes, points, triangles, vertex_bytes, face_bytes, total_bytes, reserved = struct.unpack_from('<4sHHIIIIII', data)
+    if (magic != b'M3DM' or version != 1 or header_bytes != 32 or reserved != 0
+            or total_bytes != len(data) or vertex_bytes != points * 12 or face_bytes != triangles * 12
+            or len(data) != 32 + vertex_bytes + face_bytes):
+        raise ValueError('Invalid MATH3D mesh header or length')
+    if not (0 < points <= 2000000 and 0 < triangles <= 2000000):
+        raise ValueError('Empty mesh or preview geometry budget exceeded')
+    minimum = [math.inf] * 3
+    maximum = [-math.inf] * 3
+    for index in range(points):
+        vertex = struct.unpack_from('<fff', data, 32 + index * 12)
+        for axis, value in enumerate(vertex):
+            if not math.isfinite(value):
+                raise ValueError('Non-finite MATH3D mesh coordinate')
+            minimum[axis] = min(minimum[axis], value)
+            maximum[axis] = max(maximum[axis], value)
+    limit = min(triangles, 12000)
+    samples = {sample * triangles // limit for sample in range(limit)}
+    positions = []
+    face_offset = 32 + vertex_bytes
+    for index in range(triangles):
+        face = struct.unpack_from('<III', data, face_offset + index * 12)
+        if any(vertex >= points for vertex in face):
+            raise ValueError('Invalid MATH3D mesh face index')
+        if index in samples:
+            for vertex in face:
+                positions.extend(round(value, 7) for value in struct.unpack_from('<fff', data, 32 + vertex * 12))
+    bounds = [value for axis in range(3) for value in (minimum[axis], maximum[axis])]
+    return {'name': path.name, 'points': points, 'triangles': triangles, 'bounds': bounds,
+            'positions': positions, 'previewTriangles': len(positions) // 9,
+            'sampled': triangles > limit,
+            'note': 'Uniform triangle sample for display only; not simplified geometry.' if triangles > limit else 'Full triangle preview.'}
+
+
 def preview(filename):
     if not filename:
         return None
     path = Path(filename).resolve(strict=True)
     if path.stat().st_size > 67108864:
         raise ValueError('Preview input exceeds 64 MiB')
+    if path.suffix.lower() == '.m3dm':
+        return preview_math3d(path)
     readers = {'.obj': vtkOBJReader, '.stl': vtkSTLReader, '.ply': vtkPLYReader, '.vtp': vtkXMLPolyDataReader}
     reader_type = readers.get(path.suffix.lower())
     if not reader_type:
-        raise ValueError('Preview supports OBJ/STL/PLY/VTP only')
+        raise ValueError('Preview supports OBJ/STL/PLY/VTP/M3DM only')
     errors = []
     reader = reader_type()
     reader.AddObserver('ErrorEvent', lambda *_: errors.append('Mesh reader failed'))

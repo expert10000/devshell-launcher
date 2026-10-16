@@ -112,7 +112,7 @@ export function ScientificArtifacts({ runtime, native }: { runtime: RuntimeProfi
   const [selected, setSelected] = useState('')
   const [camera, setCamera] = useState<Camera>(initialCamera)
   useEffect(() => { setSelected(''); setCamera(initialCamera) }, [runtime.id, job?.jobId])
-  const artifacts = (job?.result?.artifacts ?? []).filter(item => /\.(obj|stl|ply|vtp)$/i.test(item.path))
+  const artifacts = (job?.result?.artifacts ?? []).filter(item => /\.(obj|stl|ply|vtp|m3dm)$/i.test(item.path))
   const path = artifacts.some(item => item.path === selected) ? selected : artifacts[0]?.path ?? ''
   const cached = native.previews[runtime.id]
   const preview = cached?.jobId === job?.jobId && cached?.artifactPath === path ? cached : null
@@ -142,6 +142,6 @@ export function ScientificArtifacts({ runtime, native }: { runtime: RuntimeProfi
         <details><summary>Artifact hashes and input provenance</summary><pre>{JSON.stringify({ inputArtifacts: result.inputArtifacts, artifacts: result.artifacts, provenance: result.provenance }, null, 2)}</pre></details>
         <details><summary>Shared request / result contract</summary><h4>Request</h4><pre>{JSON.stringify(job.request, null, 2)}</pre><h4>Result</h4><pre>{JSON.stringify(result, null, 2)}</pre></details></>}
     </>}
-    <p className="scientific-runtime-note">Read-only OBJ/STL/PLY/VTP previews require the dedicated VTK environment. At most 12,000 sampled triangles per view; statistics describe the full worker geometry. No file content is executed, no external resources are fetched, and meshes are not saved in profile restoration.</p>
+    <p className="scientific-runtime-note">Read-only OBJ/STL/PLY/VTP/M3DM previews require the dedicated VTK environment. At most 12,000 sampled triangles per view; statistics describe the full worker geometry. No file content is executed, no external resources are fetched, and meshes are not saved in profile restoration.</p>
   </section>
 }

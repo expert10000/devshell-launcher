@@ -11,7 +11,7 @@ public partial class Form1
 {
     private readonly SemaphoreSlim _scientificPreviewGate = new(1, 1);
     private readonly CancellationTokenSource _scientificLifetime = new();
-    private static readonly string[] ScientificMeshExtensions = { ".obj", ".stl", ".ply", ".vtp" };
+    private static readonly string[] ScientificMeshExtensions = { ".obj", ".stl", ".ply", ".vtp", ".m3dm" };
 
     private static string ScientificMediaType(string path) => Path.GetExtension(path).ToLowerInvariant() switch
     {
@@ -171,7 +171,7 @@ public partial class Form1
             throw new InvalidOperationException("Select an artifact from this run's result contract.");
         var output = ScientificScopedFile(job.Directory, requested);
         if (!ScientificMeshExtensions.Contains(Path.GetExtension(output).ToLowerInvariant()) || !File.Exists(output) || new FileInfo(output).Length > 67108864)
-            throw new InvalidOperationException("Preview requires a bounded OBJ/STL/PLY/VTP output.");
+            throw new InvalidOperationException("Preview requires a bounded OBJ/STL/PLY/VTP/M3DM output.");
         var record = artifacts.First(item => item.GetProperty("path").GetString() == requested);
         if (record.TryGetProperty("sha256", out var expected) && ScientificHash(output) != expected.GetString())
             throw new InvalidOperationException("Output artifact changed since the run completed.");

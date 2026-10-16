@@ -1,6 +1,6 @@
 # Scientific Runtime Lab: architecture extension
 
-Updated 2026-10-15. This extends [SCIENTIFIC_RUNTIMES_ROADMAP.md](SCIENTIFIC_RUNTIMES_ROADMAP.md); it does not replace the existing scientific jobs, CGAL/VTK workers, or their recorded evidence.
+Updated 2026-10-16. This extends [SCIENTIFIC_RUNTIMES_ROADMAP.md](SCIENTIFIC_RUNTIMES_ROADMAP.md); it does not replace the existing scientific jobs, CGAL/VTK workers, or their recorded evidence.
 
 ## Boundary
 
@@ -44,3 +44,11 @@ These probes are narrower than the existing full installation report. The VTK ma
 - Successful exit means the declared probes passed; it is not a blanket claim that all CGAL or VTK features are ready.
 - Result records omit inherited environment variables and secrets. Extend snapshots only with explicit allowlisted fields.
 - Test data is duplicated into local controlled sets; originals remain unchanged and upstream licenses remain applicable.
+
+## MATH3D integration and artifact preview (2026-10-16)
+
+- The fresh managed MATH3D native Boolean integration run passed all four contract checks. Saved run ID: `0285d78f3af24d91be5a5fa89ca6682a`. History records one output artifact for this run; an older zero-artifact entry remains historical evidence.
+- History now opens native `.m3dm` output through a bounded, read-only preview parser. It validates the M3DM header, version, exact byte length, vertex/triangle counts, finite coordinates, and face indices before returning the existing mesh-preview schema. The tested output displayed four points and four triangles.
+- History's Compare action accepts the integration output. A live UI check rendered its `.m3dm` mesh beside a successful CGAL validation `.obj` output, each with four points and four triangles. This is a visual comparison, not a numeric mesh diff or a CGAL validation reproducibility check.
+- React/Vite and Windows Release builds passed; the rebuilt DevShell was launched and the focused UI flow completed. Generated UI assets are included. Local run results and runtime profile state stay out of version control.
+- Next: compare meaningful same-input MATH3D and CGAL operations with numeric diagnostics and explicit tolerances. The tetrahedron self-union smoke case does not establish broad Boolean correctness or runtime readiness.

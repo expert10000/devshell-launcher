@@ -16,7 +16,8 @@ public partial class Form1
     private static string ScientificMediaType(string path) => Path.GetExtension(path).ToLowerInvariant() switch
     {
         ".obj" => "model/obj", ".stl" => "model/stl", ".ply" => "application/ply",
-        ".vtp" => "application/vnd.vtk.vtp", ".off" => "application/off", _ => "application/json"
+        ".vtp" => "application/vnd.vtk.vtp", ".off" => "application/off",
+        ".m3dm" => "application/octet-stream", _ => "application/json"
     };
     private static string ScientificHash(string path)
     {
@@ -82,7 +83,9 @@ public partial class Form1
         if (result["error"]?.GetValue<string>() is { Length: > 0 } engineError)
             diagnostics.Add(new JsonObject { ["severity"] = "error", ["message"] = engineError });
         result["schemaVersion"] = 1; result["runId"] = job.Id; result["profileId"] = job.ProfileId;
-        result["runtimeId"] = job.RuntimeId; result["recipeId"] = job.RecipeId; result["operation"] = job.RecipeId;
+        result["runtimeId"] = job.RuntimeId; result["recipeId"] = job.RecipeId;
+        if (job.RecipeId != "integration.math3d.native-boolean" || result["operation"] == null)
+            result["operation"] = job.RecipeId;
         if (job.EnvironmentFingerprint != null)
         {
             result["environmentFingerprint"] = job.EnvironmentFingerprint;
@@ -101,7 +104,8 @@ public partial class Form1
         result["versions"] = versions;
         if (job.CompilerVersion != null) versions["msvc"] = job.CompilerVersion;
         result["inputArtifacts"] = job.Request is { } request ? JsonNode.Parse(request.GetRawText())?["inputArtifacts"]?.DeepClone() ?? new JsonArray() : new JsonArray();
-        result["provenance"] = job.Request is { } invocation ? JsonNode.Parse(invocation.GetRawText())?["provenance"]?.DeepClone() ?? new JsonObject() : new JsonObject();
+        if (job.RecipeId != "integration.math3d.native-boolean" || result["provenance"] == null)
+            result["provenance"] = job.Request is { } invocation ? JsonNode.Parse(invocation.GetRawText())?["provenance"]?.DeepClone() ?? new JsonObject() : new JsonObject();
         result["steps"] = JsonSerializer.SerializeToNode(job.Steps, ScientificJson);
         var artifacts = new JsonArray();
         if (job.State == "succeeded" && job.Request is { } definition)

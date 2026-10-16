@@ -23,21 +23,24 @@ public partial class Form1
         if (!File.Exists(script)) throw new FileNotFoundException("MATH3D integration harness is missing.", script);
         if (!File.Exists(worker))
             throw new FileNotFoundException("MATH3D native worker is not built in the local Scientific builds folder.", worker);
+        var input = ScientificDatasetArtifact("math3d/basic/01_tetrahedron.obj");
 
         if (!_scientificGate.Wait(0))
             throw new InvalidOperationException("Another Scientific job is running; stop or wait for it.");
         try
         {
-            var directory = Path.Combine(ScientificDataRoot, "runs", Guid.NewGuid().ToString("N"));
+            var runId = Guid.NewGuid().ToString("N");
+            var directory = Path.Combine(ScientificDataRoot, "runs", runId);
             Directory.CreateDirectory(directory);
             var job = new ScientificJob
             {
+                Id = runId,
                 ProfileId = profileId,
                 RuntimeId = runtimeId,
                 RecipeId = "integration.math3d.native-boolean",
                 Directory = directory
             };
-            ScientificWriteRequest(job, null);
+            ScientificWriteRequest(job, null, input, "math3d-native-self-union.m3dm");
             _scientificJobs[profileId + ":" + runtimeId] = job;
             ScientificSend(new { type = "scientific.runtime.job", job = ScientificJobSnapshot(job) });
             _ = ScientificMath3DIntegrationRunAsync(job, prefix, node, script, worker);

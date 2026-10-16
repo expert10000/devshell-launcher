@@ -38,12 +38,22 @@ export default function ScientificReadiness({ profileId, runtimeId, observed, na
     ?.filter((entry) => entry.runtimeId === runtimeId && entry.recipeId === 'lab.probe')
     .sort((a, b) => Date.parse(b.finishedAtUtc) - Date.parse(a.finishedAtUtc))[0];
   const savedResult = latestEntry ? native.historyResults[latestEntry.jobId] : undefined;
+  const validationEntry = runtimeId === 'cgal-win-conda' ? native.history
+    ?.filter((entry) => entry.runtimeId === runtimeId && entry.recipeId === 'cgal.validate')
+    .sort((a, b) => Date.parse(b.finishedAtUtc) - Date.parse(a.finishedAtUtc))[0] : undefined;
+  const savedValidation = validationEntry ? native.historyResults[validationEntry.jobId] : undefined;
   const requestedResult = useRef<string | null>(null);
   useEffect(() => {
     if (!latestEntry || savedResult || requestedResult.current === `${profileId}:${latestEntry.jobId}`) return;
     requestedResult.current = `${profileId}:${latestEntry.jobId}`;
     void native.send(runtimeId, 'history-result', { jobId: latestEntry.jobId });
   }, [profileId, runtimeId, latestEntry?.jobId, savedResult, native.send]);
+  const requestedValidation = useRef<string | null>(null);
+  useEffect(() => {
+    if (!validationEntry || savedValidation || requestedValidation.current === `${profileId}:${validationEntry.jobId}`) return;
+    requestedValidation.current = `${profileId}:${validationEntry.jobId}`;
+    void native.send(runtimeId, 'history-result', { jobId: validationEntry.jobId });
+  }, [profileId, runtimeId, validationEntry?.jobId, savedValidation, native.send]);
 
   const recordedChecks = getChecks(observed);
   const probeJob = native.jobs[runtimeId];
@@ -55,7 +65,17 @@ export default function ScientificReadiness({ profileId, runtimeId, observed, na
   const probeChecks = Array.isArray(result?.probeResults)
     ? result.probeResults.filter((check): check is Check => !!check && typeof check === 'object')
     : [];
+  const liveValidation = probeJob?.recipeId === 'cgal.validate' ? probeJob.result : undefined;
+  const validation = liveValidation ?? savedValidation;
+  const validationPassed = validation?.state === 'succeeded'
+    && validation.validatedCapabilities?.includes('mesh.validate')
+    && validation.artifacts?.some((artifact) => artifact.path.endsWith('.obj') && !!artifact.sha256);
+  const matrixEntry = runtimeId === 'cgal-win-conda' ? native.history?.find((entry) => entry.runtimeId === runtimeId && entry.recipeId === 'matrix.cgal.validation') : undefined;
+  const liveMatrix = probeJob?.recipeId === 'matrix.cgal.validation' ? probeJob.result : undefined;
+  const matrix = liveMatrix?.matrixSummary ? liveMatrix : matrixEntry ? native.historyResults[matrixEntry.jobId] : undefined;
+  const matrixPassed = matrix?.state === 'succeeded' && !!matrix.matrixSummary?.total && matrix.matrixSummary.passed === matrix.matrixSummary.total;
   const checkEvidence = (id: string): EvidenceStatus => {
+    if (id === 'worker.recipe' && (validationPassed || matrixPassed)) return 'passed';
     const recent = checkStatus(probeChecks, id);
     return recent !== 'untested' ? recent : checkStatus(recordedChecks, id);
   };
@@ -89,9 +109,10 @@ export default function ScientificReadiness({ profileId, runtimeId, observed, na
       {gates.map((gate) => {
         const evidence = status(gate.checks);
         const fromProbe = gate.checks.length ? gate.checks.some((id) => checkStatus(probeChecks, id) !== 'untested') : probeChecks.length > 0;
+        const fromValidation = gate.level === 'L5' && (validationPassed || matrixPassed);
         return <div key={gate.level} style={{ padding: '7px 9px', borderRadius: 7, background: 'rgba(255,255,255,0.05)', borderLeft: `3px solid ${evidence === 'passed' ? '#4db78a' : evidence === 'failed' ? '#d86b65' : '#6b7988'}` }}>
           <strong>{gate.level}</strong> {gate.title}<br />
-          <small>{evidence} · {fromProbe ? `managed probe / ${probeOrigin}` : observed ? 'installation report' : 'no evidence'}</small>
+          <small>{evidence} · {fromValidation ? matrixPassed ? `CGAL matrix ${matrix?.matrixSummary?.passed}/${matrix?.matrixSummary?.total} / ${liveMatrix ? 'this session' : 'History'}` : `managed CGAL validation / ${liveValidation ? 'this session' : 'History'}` : fromProbe ? `managed probe / ${probeOrigin}` : observed ? 'installation report' : 'no evidence'}</small>
         </div>;
       })}
     </div>

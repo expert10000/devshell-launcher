@@ -62,6 +62,7 @@ public partial class Form1
                     jobId = result.GetProperty("runId").GetString(),
                     runtimeId = result.GetProperty("runtimeId").GetString(),
                     recipeId = result.GetProperty("recipeId").GetString(),
+                    testCaseId = result.TryGetProperty("testCaseId", out var testCase) ? testCase.GetString() : null,
                     state = result.GetProperty("state").GetString(),
                     durationMs = result.GetProperty("durationMs").GetInt64(),
                     finishedAtUtc = File.GetLastWriteTimeUtc(Path.Combine(directory.FullName, "results.json")),

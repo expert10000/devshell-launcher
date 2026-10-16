@@ -26,10 +26,11 @@ public partial class Form1
         public string Stage { get; set; } = "queued";
         public int? ExitCode { get; set; }
         public string? CompilerVersion { get; set; }
+        public string? EnvironmentFingerprint { get; set; }
         public JsonElement? Request { get; set; }
         public JsonElement? Result { get; set; }
         public List<object> Steps { get; } = new();
-        public CancellationTokenSource Cancellation { get; } = new();
+        public CancellationTokenSource Cancellation { get; init; } = new();
         public StringBuilder Log { get; } = new();
         public object Sync { get; } = new();
     }
@@ -201,6 +202,7 @@ public partial class Form1
             if(action=="status")data=_scientificJobs.Values.Where(job=>job.ProfileId==profileId).Select(ScientificJobSnapshot).ToArray();
             else if(action=="history")data=ScientificHistoryList(profileId);
             else if(action=="history-result")data=ScientificHistoryResult(profileId,request.GetProperty("jobId").GetString()??"");
+            else if(action=="test-matrix")data=ScientificMatrixCases();
             else if(action=="history-preview")data=await ScientificHistoryPreviewAsync(profileId,request);
             else if(action is "history-open-log" or "history-open-output" or "history-reveal-artifact")data=ScientificHistoryOpen(profileId,request,action);
             else if(action=="report")data=ScientificReport();
@@ -252,6 +254,8 @@ public partial class Form1
                     catch{_scientificGate.Release();throw;}
                 }
                 else if(action=="cgal-recipe")data=ScientificCgalStart(profileId,runtimeId,request);
+                else if(action=="run-matrix")data=ScientificMatrixStart(profileId,runtimeId);
+                else if(action=="math3d-integration")data=ScientificMath3DIntegrationStart(profileId,runtimeId);
                 else throw new InvalidOperationException("Unknown Scientific action.");
             }
         }

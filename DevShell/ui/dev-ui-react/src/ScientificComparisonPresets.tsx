@@ -35,7 +35,7 @@ export function ScientificComparisonPresets({ native }: { native: ReturnType<typ
     </div>
     {!validEdge && <p role="alert">Enter a positive finite target edge length.</p>}
     {!validIterations && <p role="alert">Iterations must be an integer from 1 to 10.</p>}
-    <div className="scientific-history-actions"><button disabled={disabled} onClick={() => run('cgal.validate')}>1. Run baseline validation</button><button disabled={disabled || !validEdge || !validIterations} onClick={() => run('cgal.remesh')}>2. Run remesh variant</button></div>
-    <p className="scientific-runtime-note">Target edge length uses the mesh's own units; adjust it for the selected input. Wait for the first job to finish before starting the second, then Refresh history and select both runs for comparison. Each run writes to its own output folder.</p>
+    <div className="scientific-history-actions"><button disabled={disabled} onClick={() => run('cgal.validate')}>1. Run baseline validation</button><button disabled={disabled} onClick={() => run('cgal.validate')}>Repeat baseline</button><button disabled={disabled || !validEdge || !validIterations} onClick={() => run('cgal.remesh')}>2. Run remesh variant</button></div>
+    <p className="scientific-runtime-note">Repeat baseline uses the same selected mesh and request parameters in a fresh run folder. Wait for each job to finish, then Refresh history and compare the two validation runs for input/output hashes. The remesh variant is a separate operation; target edge length uses the mesh's own units.</p>
   </section>
 }

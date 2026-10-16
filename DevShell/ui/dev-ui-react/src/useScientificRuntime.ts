@@ -8,7 +8,8 @@ export interface ScientificDataset { id: string; name: string; category: string;
 export interface ScientificEnvironment { environment: Record<string, string>; vcpkgRoot: string | null; installedVcpkg: string | null; vcpkgUsed: boolean; report: ScientificRuntimeReport; evidence?: { compilerVersion?: string | null; compilerSource?: string; rendering?: ScientificRunResult['rendering'] } }
 export interface ScientificMeshPreview { name: string; positions: number[]; bounds: number[]; points: number; triangles: number; previewTriangles: number; sampled: boolean; note: string }
 export interface ScientificArtifactPreview { jobId: string; artifactPath: string; geometry: { before: ScientificMeshPreview | null; after: ScientificMeshPreview }; result: ScientificRunResult }
-export interface ScientificHistoryEntry { jobId: string; runtimeId: string; recipeId: string; state: string; durationMs: number; finishedAtUtc: string; artifactCount: number }
+export interface ScientificHistoryEntry { jobId: string; runtimeId: string; recipeId: string; testCaseId?: string | null; state: string; durationMs: number; finishedAtUtc: string; artifactCount: number }
+export interface ScientificMatrixCase { id: string; datasetId: string; name: string; expected: 'succeeded' | 'rejected'; reason: string }
 
 export function useScientificRuntime(bridge: ScientificBridge | null, profileId: string | null, refreshReport: () => void) {
   const [jobs, setJobs] = useState<Record<string, ScientificJob>>({})
@@ -19,6 +20,7 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
   const [historyResult, setHistoryResult] = useState<ScientificRunResult | null>(null)
   const [historyResults, setHistoryResults] = useState<Record<string, ScientificRunResult>>({})
   const [historyPreviews, setHistoryPreviews] = useState<Record<string, ScientificArtifactPreview>>({})
+  const [testMatrix, setTestMatrix] = useState<ScientificMatrixCase[] | null>(null)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -43,7 +45,7 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
     bridge.postMessage({ type: 'scientific.runtime', profileId, runtimeId, requestId, action, ...extra })
   }
   useEffect(() => {
-    setJobs({}); setEnvironments({}); setPreviews({}); setDatasets(null); setHistory(null); setHistoryResult(null); setHistoryResults({}); setHistoryPreviews({}); setError(''); setNotice(''); setPending(false); completed.current.clear()
+    setJobs({}); setEnvironments({}); setPreviews({}); setDatasets(null); setHistory(null); setHistoryResult(null); setHistoryResults({}); setHistoryPreviews({}); setTestMatrix(null); setError(''); setNotice(''); setPending(false); completed.current.clear()
     if (!bridge || !profileId) return
     const receive = (event: MessageEvent) => {
       let message: { type?: string; profileId?: string; runtimeId?: string; requestId?: string; action?: string; error?: string; job?: ScientificJob; data?: unknown }
@@ -62,6 +64,8 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
       else if (message.action === 'artifacts' && message.data && message.runtimeId) setPreviews(previous => ({ ...previous, [message.runtimeId!]: message.data as ScientificArtifactPreview }))
       else if (message.action === 'environment' && message.data && message.runtimeId) setEnvironments(previous => ({ ...previous, [message.runtimeId!]: message.data as ScientificEnvironment }))
       else if (message.action === 'datasets' && message.data) setDatasets(message.data as { importedAt: string; note: string; entries: ScientificDataset[] })
+      else if (message.action === 'test-matrix' && Array.isArray(message.data)) setTestMatrix(message.data as ScientificMatrixCase[])
+      else if (message.action === 'run-matrix' && message.data) mergeJob(message.data as ScientificJob)
       else if (message.action === 'export') { const result = message.data as { path?: string; cancelled?: boolean }; setNotice(result.cancelled ? 'Profile export cancelled.' : `Profile exported: ${result.path ?? ''}`) }
       else if (message.action === 'terminal') setNotice('External scientific PowerShell opened; not a VS developer shell.')
     }
@@ -71,5 +75,5 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
     // Callback refs keep completed diagnostics from restarting subscriptions.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bridge, profileId])
-  return { jobs, environments, previews, datasets, history, historyResult, historyResults, historyPreviews, pending, error, notice, send, busy: Object.values(jobs).some(job => job.state === 'running') }
+  return { jobs, environments, previews, datasets, history, historyResult, historyResults, historyPreviews, testMatrix, pending, error, notice, send, busy: Object.values(jobs).some(job => job.state === 'running') }
 }

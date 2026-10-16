@@ -4,6 +4,37 @@
   "kind": "cgal",
   "execution": "windows-native",
   "description": "Isolated Python binding probes for the local CGAL Conda prefix. C++ SDK checks remain separate.",
+  "recipes": [
+    {
+      "id": "cgal.validate",
+      "adapter": "tools/scientific-cgal-worker.py",
+      "capability": "mesh.validate",
+      "timeoutSeconds": 120
+    }
+  ],
+  "testMatrix": [
+    {
+      "id": "tetrahedron",
+      "datasetId": "math3d/basic/01_tetrahedron.obj",
+      "name": "Tetrahedron",
+      "expected": "succeeded",
+      "reason": ""
+    },
+    {
+      "id": "cube",
+      "datasetId": "math3d/basic/02_cube.obj",
+      "name": "Cube",
+      "expected": "succeeded",
+      "reason": ""
+    },
+    {
+      "id": "degenerate-faces",
+      "datasetId": "math3d/problematic/18_degenerate_faces.obj",
+      "name": "Degenerate faces",
+      "expected": "rejected",
+      "reason": "not a readable manifold polygon mesh"
+    }
+  ],
   "probes": [
     {
       "id": "python.version",

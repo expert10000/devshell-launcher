@@ -2,8 +2,9 @@ import { useState } from 'react'
 import type { RuntimeProfile } from './scientificRuntimeProfiles'
 import type { ObservedScientificRuntime, ScientificRuntimeReport } from './scientificRuntimeReport'
 import type { useScientificRuntime } from './useScientificRuntime'
+import type { ScientificRunResult } from './scientificRuntimeProfiles'
 
-export function ScientificEnvironmentInspector({ runtime, observed, report, native, edited }: { runtime: RuntimeProfile; observed?: ObservedScientificRuntime; report: ScientificRuntimeReport | null; native: ReturnType<typeof useScientificRuntime>; edited: boolean }) {
+export function ScientificEnvironmentInspector({ runtime, observed, report, native, edited, matrixSummary, matrixState }: { runtime: RuntimeProfile; observed?: ObservedScientificRuntime; report: ScientificRuntimeReport | null; native: ReturnType<typeof useScientificRuntime>; edited: boolean; matrixSummary?: ScientificRunResult['matrixSummary']; matrixState?: ScientificRunResult['state'] }) {
   const [copyStatus, setCopyStatus] = useState('')
   const environment = native.environments[runtime.id]
   const result = native.jobs[runtime.id]?.result
@@ -34,6 +35,7 @@ export function ScientificEnvironmentInspector({ runtime, observed, report, nati
     ['Python bindings', status(evidence(`${runtime.kind}.python`))],
     ['Compiler / include / link smoke', status(observed?.sdk?.compilation)],
     ['C++ link smoke', status(observed?.sdk?.linking)],
+    ...(runtime.kind === 'cgal' ? [['MATH3D fixture matrix', matrixSummary ? `${matrixSummary.passed}/${matrixSummary.total} passed / ${matrixState ?? 'recorded'} (saved worker evidence, not a compiler or application test)` : 'No saved matrix result loaded']] as [string, string][] : []),
     [runtime.kind === 'vtk' ? 'vtkPolyData' : 'Surface_mesh smoke', status(evidence(`${runtime.kind}.geometry`) ?? (runtime.kind === 'vtk' ? evidence('vtk.polydata') : undefined))],
     ['Offscreen rendering', runtime.kind === 'vtk' ? rendering?.state === 'succeeded' ? 'Passed / recorded render result' : status(observed?.sdk?.rendering) : 'Not applicable to the CGAL adapter'],
     ['Rendering backend', runtime.kind === 'vtk' ? rendering?.backend ?? 'Not recorded / Load environment for saved rendering evidence' : 'Not applicable'],

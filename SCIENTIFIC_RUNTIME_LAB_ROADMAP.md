@@ -12,7 +12,7 @@ DevShell UI -> native bridge -> runtime-lab -> isolated adapter child
                                   +-- results.json +-- stdout/stderr
 ```
 
-The shipped first slice is `tools/runtime-lab/RuntimeLab.csproj` and the checked-in `runtimes/{cgal-win-conda,vtk-win-conda}/runtime.json` manifests. The supervisor supports `inventory` and `probe`, runs each Python probe in a separately owned process from an explicit Conda prefix, applies a timeout, kills its process tree on timeout/cancellation, limits retained output, and writes an atomic run-scoped `results.json`. A successful probe certifies only the capability on that probe, not the whole runtime. `BatchLauncher` builds and copies this separate executable and its manifests; no CGAL/VTK assembly is loaded into DevShell.
+The shipped first slice is `tools/runtime-lab/RuntimeLab.csproj` and the checked-in `runtimes/{cgal-win-conda,vtk-win-conda}/runtime.json` manifests. The supervisor supports `inventory`, `probe`, and a registered `cgal.validate` run recipe. It runs adapters in separately owned processes from an explicit Conda prefix, applies a timeout, kills the process tree on timeout/cancellation, limits retained output, and uses an atomic run-scoped `results.json`. A successful probe or validation run certifies only its recorded scope, not the whole runtime. `BatchLauncher` builds and copies this separate executable and its manifests; no CGAL/VTK assembly is loaded into DevShell.
 
 Example after building (the prefix is intentionally explicit):
 
@@ -21,7 +21,7 @@ Example after building (the prefix is intentionally explicit):
 ./tools/runtime-lab/bin/Debug/net8.0/runtime-lab.exe probe cgal-win-conda --manifest-root ./runtimes --prefix G:\master\conda\math3d-cgal --output ./.scientific/lab-runs/manual-cgal
 ```
 
-These probes are narrower than the existing full installation report. In particular, the initial VTK manifest does not establish C++ SDK, OpenGL, or offscreen rendering readiness. The initial CGAL manifest does not establish C++ compile/link, mesh remeshing, or worker readiness. The existing report and worker tests remain the source of evidence for those checks until the manifests are extended.
+These probes are narrower than the existing full installation report. The VTK manifest does not establish C++ SDK, OpenGL, or offscreen rendering readiness. The CGAL validation recipe records one mesh-worker result and artifact; it does not establish remeshing, all geometry operations, or broad reproducibility.
 
 ## Delivery stages
 
@@ -32,7 +32,7 @@ These probes are narrower than the existing full installation report. In particu
 - [ ] Extend the CGAL adapter with C++ SDK/compiler/CMake checks, compile/link, Surface_mesh, mesh validate/remesh/repair/boolean/simplify, and geometry AABB/distance/intersection recipes as implementations become available.
 - [ ] Extend VTK independently across Python, C++ SDK, polydata I/O, interactive rendering, and offscreen rendering. Store a render image as an artifact, not just an exit code.
 - [ ] Add Gmsh, SageMath, and Python/SciPy manifests only with working adapters and truthfully scoped capability evidence. Support Windows Native, WSL, and Docker as separate execution profiles rather than assuming path compatibility.
-- [ ] Add a Test Matrix keyed by runtime/profile/recipe/dataset, with captured versions, environment fingerprint, pass/fail/skip, timings, and artifact links. No cached result should masquerade as a live check.
+- [ ] Add a Test Matrix keyed by runtime/profile/recipe/dataset, with captured versions, environment fingerprint, pass/fail/skip, timings, and artifact links. The first CGAL validation slice declares three fixture expectations and reads saved results; more runtimes and cases remain. No cached result should masquerade as a live check.
 - [ ] Add interoperability cases CGAL -> VTK -> MATH3D and reverse where meaningful, with explicit file formats, topology/units/orientation checks, and round-trip tolerances.
 - [ ] Add repeatable benchmarks with warmup, multiple samples, environment snapshot, baseline comparison, and memory/time metrics. Keep benchmarks separate from health checks.
 - [ ] Define the MATH3D worker/backend API on the same schema-versioned invocation/result contract. MATH3D imports contract and artifacts, not DevShell internals; DevShell remains a laboratory and observability client.

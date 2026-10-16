@@ -10,6 +10,9 @@ import { ScientificEnvironmentInspector } from './ScientificEnvironmentInspector
 import { ScientificRecipePanel } from './ScientificRecipePanel'
 import { ScientificArtifacts } from './ScientificArtifacts'
 import { ScientificHistory } from './ScientificHistory'
+import { ScientificTestMatrix } from './ScientificTestMatrix'
+import { ScientificMath3DIntegration } from './ScientificMath3DIntegration'
+import { ScientificMath3DManagedJob } from './ScientificMath3DManagedJob'
 
 type ScientificProject = { id: string; name: string; root?: string | null; repositories?: { id: string; name: string; path?: string | null }[] }
 const sections = ['Health', 'Environment', 'Commands', 'Tests', 'Benchmarks', 'Packages', 'Artifacts', 'History', 'Integration'] as const
@@ -65,6 +68,22 @@ export function ScientificRuntimesWorkspace({ profileId, projects, bridge }: { p
     finally { if (generation === reportGeneration.current) setReportLoading(false) }
   }
   const native = useScientificRuntime(bridge, profileId, () => { void loadReport() })
+  useEffect(() => { if (bridge && profileId) void loadReport() }, [bridge, profileId])
+  const matrixEntry = native.history?.find(item => item.runtimeId === 'cgal-win-conda' && item.recipeId === 'matrix.cgal.validation')
+  const matrixHistory = useRef(native.history)
+  const requestedMatrix = useRef<string | null>(null)
+  const savedMatrix = matrixEntry ? native.historyResults[matrixEntry.jobId] : undefined
+  useEffect(() => {
+    if (matrixHistory.current !== native.history) { matrixHistory.current = native.history; requestedMatrix.current = null }
+    if (matrixEntry && !savedMatrix && requestedMatrix.current !== matrixEntry.jobId) {
+      requestedMatrix.current = matrixEntry.jobId
+      native.send('cgal-win-conda', 'history-result', { jobId: matrixEntry.jobId })
+    }
+  }, [native.history, matrixEntry?.jobId, savedMatrix])
+  const liveMatrix = native.jobs['cgal-win-conda']?.recipeId === 'matrix.cgal.validation' ? native.jobs['cgal-win-conda'] : undefined
+  const matrixResult = liveMatrix?.result?.matrixSummary ? liveMatrix.result : savedMatrix
+  const matrixSummary = matrixResult?.matrixSummary
+  const matrixLabel = matrixSummary ? `CGAL matrix ${matrixSummary.passed}/${matrixSummary.total} ${matrixResult?.state === 'succeeded' ? 'passed' : 'recorded'}` : ''
   const jobs = Object.values(native.jobs).sort((a, b) => Number(b.state === 'running') - Number(a.state === 'running') || Date.parse(b.startedAtUtc ?? '') - Date.parse(a.startedAtUtc ?? ''))
   const [clock, setClock] = useState(() => Date.now())
   useEffect(() => {
@@ -102,10 +121,10 @@ export function ScientificRuntimesWorkspace({ profileId, projects, bridge }: { p
       <aside className="scientific-runtime-inventory" aria-label="Scientific runtime inventory">
         <label>Environment<select aria-label="Scientific execution environment" value={execution} onChange={event => { setExecution(event.target.value as RuntimeExecution); setCopyStatus('') }}>{Object.entries(executionNames).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <p className="scientific-runtime-note">{execution === 'windows-native' ? report ? 'Recorded installation and probe evidence loaded. Partial means some capabilities remain untested; this is not a live health check.' : 'Candidate native paths. Load a local report to see recorded installation and probe evidence.' : 'Adapter planned. Selecting it does not start WSL or Docker.'}</p>
-        {profiles.map(profile => { const inventory = report?.runtimes.find(item => item.id === profile.id); return <button key={profile.id} className={`scientific-runtime-item ${runtime.kind === profile.kind ? 'selected' : ''}`} aria-pressed={runtime.kind === profile.kind} onClick={() => { setRuntimeKind(profile.kind); setCopyStatus('') }}><strong>{profile.name}</strong><span>{inventory ? `${inventory.state} / ${inventory.version ?? 'unknown version'}` : 'Not checked'}</span><small>{profile.id}</small></button> })}
+        {profiles.map(profile => { const inventory = report?.runtimes.find(item => item.id === profile.id); return <button key={profile.id} className={`scientific-runtime-item ${runtime.kind === profile.kind ? 'selected' : ''}`} aria-pressed={runtime.kind === profile.kind} onClick={() => { setRuntimeKind(profile.kind); setCopyStatus('') }}><strong>{profile.name}</strong><span>{inventory ? `${inventory.state} / ${inventory.version ?? 'unknown version'}` : 'Inventory not loaded'}{profile.id === 'cgal-win-conda' && matrixLabel ? ` / ${matrixLabel}` : ''}</span><small>{profile.id}</small></button> })}
       </aside>
       <section className="scientific-runtime-detail" aria-label={`${runtime.name} runtime details`}>
-        <div className="scientific-runtime-detail-heading"><div><h2>{runtime.name} / {executionNames[execution]}</h2><code>{runtime.id}</code></div><span className="scientific-runtime-status">{edited ? 'Definition edited / not checked' : observed ? `${observed.state} / ${observed.version ?? 'unknown version'}` : 'Not checked / version unknown'}</span></div>
+        <div className="scientific-runtime-detail-heading"><div><h2>{runtime.name} / {executionNames[execution]}</h2><code>{runtime.id}</code></div><span className="scientific-runtime-status">{edited ? 'Definition edited / not checked' : observed ? `${observed.state} / ${observed.version ?? 'unknown version'}` : 'Inventory not loaded / version unknown'}{runtime.id === 'cgal-win-conda' && matrixLabel ? ` / ${matrixLabel}` : ''}</span></div>
         <nav className="scientific-runtime-sections" aria-label="Scientific runtime sections">{sections.map(name => <button key={name} className={section === name ? 'selected' : ''} aria-pressed={section === name} onClick={() => { setSection(name); setCopyStatus('') }}>{name}</button>)}</nav>
         <div className="scientific-runtime-section">
           {section === 'Health' && <><h3>Readiness evidence</h3>{observed ? <><p>Recorded checks for <code>{observed.environmentRoot}</code>. {edited && 'These describe the installed environment, not your edited definition.'}</p><ul className="scientific-runtime-checks">{observed.checks.map(check => <li key={check.id}><span>{check.name}<code>{check.detail}</code></span><small>{check.state} / {check.durationMs} ms</small></li>)}</ul><p>Python {observed.pythonVersion ?? 'unknown'} / {observed.architecture ?? 'unknown architecture'}. C++ compile: {observed.sdk?.compilation ?? 'not-tested'} / link: {observed.sdk?.linking ?? 'not-tested'} / offscreen rendering: {runtime.kind === 'vtk' ? observed.sdk?.rendering ?? 'not-tested' : 'not applicable'}.</p></> : <p>No installation inventory is loaded. A managed probe may provide narrower evidence below.</p>}<details><summary>Planned acceptance checks</summary><ul className="scientific-runtime-checks">{checks.map(check => <li key={check.id}><span>{check.name}</span><small>Not checked</small></li>)}</ul></details><p className="scientific-runtime-note">Run tools/Inspect-ScientificRuntimes.ps1 explicitly, then Load local report. A VTK import does not imply rendering readiness; installed SDK files do not imply a successful C++ build.</p></>}
@@ -118,15 +137,15 @@ export function ScientificRuntimesWorkspace({ profileId, projects, bridge }: { p
     </div>
   )}{(runtime.id === 'cgal-win-conda' || runtime.id === 'vtk-win-conda') && <ScientificReadiness profileId={profileId ?? ""} runtimeId={runtime.id} observed={observed} native={native} />}
 <ScientificRecipePanel runtime={runtime} native={native} edited={edited} onArtifacts={() => setSection('Artifacts')} /></>}
-          {section === 'Tests' && <><h3>Capability acceptance tests</h3><ul className="scientific-runtime-checks">{runtime.healthChecks.map(check => <li key={check.id}><span>{check.name}{check.capability && <code>{check.capability}</code>}</span><small>Planned / not run</small></li>)}</ul><p>Tests must emit machine-readable results, logs, resolved versions, and geometry artifact references. No imported code runs by selecting a test.</p></>}
+          {section === 'Tests' && (runtime.id === 'cgal-win-conda' ? <ScientificTestMatrix runtime={runtime} native={native} edited={edited} /> : <><h3>Capability acceptance tests</h3><ul className="scientific-runtime-checks">{runtime.healthChecks.map(check => <li key={check.id}><span>{check.name}{check.capability && <code>{check.capability}</code>}</span><small>Planned / not run</small></li>)}</ul><p>Tests must emit machine-readable results, logs, resolved versions, and geometry artifact references. No imported code runs by selecting a test.</p></>)}
           {section === 'Benchmarks' && <><h3>Reproducible benchmarks</h3><p>No benchmark runs. The runner will record input size, runtime/tool versions, hardware metadata, duration, and output validity before timings can be compared.</p><button disabled title="Benchmark recipes follow the managed runner">Run benchmark</button></>}
           {section === 'Packages' && <><h3>Package provenance</h3>{observed ? <div className="scientific-runtime-package-scroll"><table><thead><tr><th>Package</th><th>Version</th><th>Build</th><th>Source</th></tr></thead><tbody>{observed.packages.map((item, index) => <tr key={`${item.name}:${index}`}><td>{item.name}</td><td>{item.version}</td><td>{item.build}</td><td>{item.source}</td></tr>)}</tbody></table></div> : <p>No package inventory loaded.</p>}<p>Explicit install-missing workflow: <code>tools/Install-ScientificRuntimes.ps1 -WorkspaceRoot &lt;workspace&gt; -CondaExecutable &lt;conda.exe&gt; -PublishToLauncher</code></p><p className="scientific-runtime-note">Creates separate devshell-cgal/devshell-vtk environments. Existing MATH3D environments and system PATH are unchanged; environments with all required packages are not upgraded.</p></>}
           {section === 'Artifacts' && <><ScientificArtifacts runtime={runtime} native={native} /><button disabled={!math3dProject || !math3dRepo} onClick={() => { if (math3dProject && math3dRepo) window.dispatchEvent(new CustomEvent('devshell.workspace.open', { detail: { kind: 'files', projectId: math3dProject.id, repositoryId: math3dRepo.id } })) }}>Open MATH3D files</button></>}
           {section === 'History' && <ScientificHistory native={native} />}
-          {section === 'Integration' && <><h3>MATH3D execution contract</h3><p>This is a request-schema preview, not a submitted job. Worker transport must consume structured requests/results, not parse terminal presentation.</p><pre>{JSON.stringify(contract, null, 2)}</pre><button onClick={copyProfile}>Copy profile definition</button><p>Outputs include exit state, duration, resolved versions, validated capabilities, diagnostics, log references, and scoped artifact references.</p></>}
+          {section === 'Integration' && <><ScientificMath3DIntegration runtime={runtime} native={native} edited={edited} onHistory={() => setSection('History')} /><ScientificMath3DManagedJob native={native} onHistory={() => setSection('History')} /><h3>MATH3D execution contract</h3><p>This is a request-schema preview, not a submitted job. Worker transport must consume structured requests/results, not parse terminal presentation.</p><pre>{JSON.stringify(contract, null, 2)}</pre><button onClick={copyProfile}>Copy profile definition</button><p>Outputs include exit state, duration, resolved versions, validated capabilities, diagnostics, log references, and scoped artifact references.</p></>}
           {(section === 'Health' || section === 'Environment') && <>
 <ScientificReadiness profileId={profileId ?? ""} runtimeId={runtime.id} observed={observed} native={native} />
-<ScientificEnvironmentInspector runtime={runtime} observed={observed} report={report} native={native} edited={edited} />
+<ScientificEnvironmentInspector runtime={runtime} observed={observed} report={report} native={native} edited={edited} matrixSummary={runtime.id === 'cgal-win-conda' ? matrixSummary : undefined} matrixState={matrixResult?.state} />
 </>}
           {section === 'Environment' && observed && <details><summary>Installed tools / SDK evidence</summary><pre>{JSON.stringify({ environmentRoot: observed.environmentRoot, executable: observed.executable, compiler: report?.compiler, sdk: observed.sdk, tools: observed.tools }, null, 2)}</pre></details>}
           {copyStatus && <p role="status">{copyStatus}</p>}

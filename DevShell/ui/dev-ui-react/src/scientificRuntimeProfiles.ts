@@ -58,6 +58,9 @@ export interface ScientificRunResult {
   runtimeId: string
   recipeId: string
   operation?: string
+  testCaseId?: string
+  environmentFingerprint?: string
+  environmentFingerprintScope?: string
   state: 'succeeded' | 'failed' | 'cancelled' | 'timed-out'
   exitCode: number | null
   durationMs: number
@@ -74,6 +77,7 @@ export interface ScientificRunResult {
   scope?: string
   provenance?: Record<string, unknown>
   rendering?: { state?: string; backend?: string; version?: string; capabilities?: string }
+  matrixSummary?: { suiteId: string; total: number; passed: number; cases: { caseId: string; runId: string; expected: string; observed: string; verdict: string; durationMs: number }[] }
 }
 
 const definitions: { kind: RuntimeKind; name: string; capabilities: string[]; checks: RuntimeProbe[] }[] = [

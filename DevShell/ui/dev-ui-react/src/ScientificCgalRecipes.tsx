@@ -16,6 +16,7 @@ export function ScientificCgalRecipes({ runtime, native, edited }: {
   const [notice, setNotice] = useState('')
   useEffect(() => { setInputId(''); setNotice('') }, [runtime.id])
   const inputs = (native.datasets?.entries ?? []).filter(item => /\.(obj|stl|ply|off)$/i.test(item.path))
+  const presetInput = inputs.find(item => !item.expectedProblem)
   const selected = inputs.find(item => item.id === inputId)
   const edge = Number(targetEdge), count = Number(iterations)
   const parameters = { inputId, outputName, ...(operation === 'remesh' ? { targetEdge: edge, iterations: count, preserveBoundary } : {}) }
@@ -23,12 +24,16 @@ export function ScientificCgalRecipes({ runtime, native, edited }: {
     (operation !== 'remesh' || (targetEdge.trim() !== '' && iterations.trim() !== '' && Number.isFinite(edge) && edge > 0 && edge <= 1000000 && Number.isInteger(count) && count >= 1 && count <= 10))
   const executable = runtime.execution === 'windows-native' && runtime.id === 'cgal-win-conda' && !edited
   const argv = [operation, selected?.path ?? '<input fixture>', `<new-run-folder>/${outputName}`, operation === 'remesh' ? targetEdge : '0.1', operation === 'remesh' ? iterations : '1', operation === 'remesh' && preserveBoundary ? '1' : '0']
-  const command = `& 'devshell_cgal_worker.exe' ${argv.map(shellQuote).join(' ')}`
+  const command = operation === 'validate'
+    ? "& 'runtime-lab.exe' run 'cgal-win-conda' --manifest-root '<registered-manifests>' --prefix '<CGAL-prefix>' --source-root '<shipped-source>' --request '<new-run-folder>/request.json' --worker '<profile-build-cache>/Release/devshell_cgal_worker.exe' --run-id '<assigned-run-id>' --output '<new-run-folder>'"
+    : `& 'devshell_cgal_worker.exe' ${argv.map(shellQuote).join(' ')}`
   const recipe = {
     schemaVersion: 1, id: `cgal.${operation}`, runtime: runtime.id,
     steps: [{ executable: 'cmake', argv: ['-S', '<shipped cgal-worker>', '-B', '<profile build cache>', '-G', 'Visual Studio 17 2022', '-A', 'x64', '-DCMAKE_PREFIX_PATH=<installed CGAL prefix>/Library'] },
       { executable: 'cmake', argv: ['--build', '<profile build cache>', '--config', 'Release', '--parallel', '1'] },
-      { executable: '<profile build cache>/Release/devshell_cgal_worker.exe', argv }],
+      operation === 'validate'
+        ? { executable: 'runtime-lab.exe', argv: ['run', 'cgal-win-conda', '--manifest-root', '<registered-manifests>', '--prefix', '<CGAL-prefix>', '--source-root', '<shipped-source>', '--request', '<new-run-folder>/request.json', '--worker', '<profile build cache>/Release/devshell_cgal_worker.exe', '--run-id', '<assigned-run-id>', '--output', '<new-run-folder>'] }
+        : { executable: '<profile build cache>/Release/devshell_cgal_worker.exe', argv }],
     parameters, artifacts: [outputName, 'results.json', 'invocation.json', 'full.log'],
     timeoutSecondsPerStep: [180, 180, 120], execution: 'owned argv-based processes; paths resolved by the native runner',
   }
@@ -39,6 +44,12 @@ export function ScientificCgalRecipes({ runtime, native, edited }: {
   const copy = async (value: string) => { try { await navigator.clipboard.writeText(value); setNotice('Copied. Placeholder paths are resolved by the runner, not by the clipboard command.') } catch { setNotice('Clipboard unavailable.') } }
   return <section aria-label="CGAL parameterized recipes">
     <h4>Mesh / CGAL worker recipes</h4>
+    <div className="scientific-comparison-presets" aria-label="Runtime-lab validation preset">
+      <strong>Runtime-lab validation preset</strong>
+      <p className="scientific-runtime-note">Uses the first registered non-problematic local mesh copy, writes <code>preset-validation.obj</code> in a new run folder, and records the result in History. Nothing runs until clicked.</p>
+      <button disabled={!executable || !presetInput || native.busy || native.pending} onClick={() => presetInput && native.send(runtime.id, 'cgal-recipe', { recipeId: 'cgal.validate', parameters: { inputId: presetInput.id, outputName: 'preset-validation.obj' } })}>Run validation preset</button>
+      <span>{presetInput ? ` ${presetInput.category} / ${presetInput.name}` : ' Load duplicated test sets first.'}</span>
+    </div>
     <div className="scientific-inspector-actions">
       <button aria-pressed={operation === 'validate'} onClick={() => setOperation('validate')}>Validate</button>
       <button aria-pressed={operation === 'remesh'} onClick={() => setOperation('remesh')}>Isotropic Remesh</button>

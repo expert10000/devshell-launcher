@@ -83,6 +83,16 @@ public partial class Form1
             diagnostics.Add(new JsonObject { ["severity"] = "error", ["message"] = engineError });
         result["schemaVersion"] = 1; result["runId"] = job.Id; result["profileId"] = job.ProfileId;
         result["runtimeId"] = job.RuntimeId; result["recipeId"] = job.RecipeId; result["operation"] = job.RecipeId;
+        if (job.EnvironmentFingerprint != null)
+        {
+            result["environmentFingerprint"] = job.EnvironmentFingerprint;
+            result["environmentFingerprintScope"] = "SHA-256 of Conda history, CGAL worker executable, and Python adapter";
+        }
+        if (job.RecipeId == "cgal.validate" && job.Request is { } caseRequest
+            && caseRequest.TryGetProperty("parameters", out var caseParameters)
+            && caseParameters.TryGetProperty("testCaseId", out var testCaseId)
+            && testCaseId.ValueKind == JsonValueKind.String)
+            result["testCaseId"] = testCaseId.GetString();
         result["state"] = job.State; result["exitCode"] = job.State is "cancelled" or "timed-out" ? null : job.State == "succeeded" ? 0 : job.ExitCode is > 0 ? job.ExitCode : 1;
         result["durationMs"] = job.DurationMs; result["workerDurationMs"] = workerDuration;
         result["stage"] = job.Stage; result["logReference"] = "full.log";

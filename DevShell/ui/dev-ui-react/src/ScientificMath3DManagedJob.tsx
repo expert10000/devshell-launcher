@@ -9,6 +9,7 @@ type Comparison = {
   passed: number
   total: number
   checks: { name: string; passed: boolean; expected: unknown; actual: unknown }[]
+  cases?: { name: string; metrics?: { boundsDelta: number; areaDelta: number; volumeDelta: number; sampledSurfaceDeviation: number; triangleCountDelta: number }; tolerances?: { bounds: number; area: number; volume: number; sampledSurface: number } }[]
 }
 
 export function ScientificMath3DManagedJob({ native, onHistory }: { native: ReturnType<typeof useScientificRuntime>; onHistory: () => void }) {
@@ -33,7 +34,7 @@ export function ScientificMath3DManagedJob({ native, onHistory }: { native: Retu
 
   return <section aria-label="MATH3D native worker integration" className="scientific-history-result">
     <h3>MATH3D native worker comparison</h3>
-    <p className="scientific-runtime-note">Send the registered tetrahedron to MATH3D's binary-protocol CGAL worker as a self-union, then compare its output with DevShell's saved validation. These are different operations; a pass is integration evidence, not equivalent validation.</p>
+    <p className="scientific-runtime-note">Send the registered tetrahedron and cube to MATH3D's binary-protocol CGAL worker as self-unions. Compare each output with the same input's saved DevShell validation using explicit geometry tolerances. Different operations; a pass is bounded integration evidence, not broad Boolean correctness.</p>
     <div className="scientific-inspector-actions">
       <button disabled={native.busy || native.pending} onClick={() => native.send(runtimeId, 'math3d-integration')}>Run MATH3D integration test</button>
       <button disabled={native.pending} onClick={() => native.send('', 'history')}>Refresh saved verdict</button>
@@ -46,6 +47,7 @@ export function ScientificMath3DManagedJob({ native, onHistory }: { native: Retu
     {entry ? <div><h4>Saved verdict: {result?.comparison?.verdict?.toUpperCase() ?? entry.state}</h4>
       <p>{result?.comparison ? `${result.comparison.passed}/${result.comparison.total} checks passed` : 'Load the saved result to see the checks.'} / run <code>{entry.jobId}</code></p>
       {result?.comparison?.checks && <ul>{result.comparison.checks.map(check => <li key={check.name}>{check.passed ? 'PASS' : 'FAIL'} / {check.name}</li>)}</ul>}
+      {result?.comparison?.cases?.map(item => <p key={item.name}>{item.name}: {item.metrics ? `bounds ${item.metrics.boundsDelta.toPrecision(3)} / ${item.tolerances?.bounds.toPrecision(3)}, area ${item.metrics.areaDelta.toPrecision(3)} / ${item.tolerances?.area.toPrecision(3)}, volume ${item.metrics.volumeDelta.toPrecision(3)} / ${item.tolerances?.volume.toPrecision(3)}, sampled surface ${item.metrics.sampledSurfaceDeviation.toPrecision(3)} / ${item.tolerances?.sampledSurface.toPrecision(3)}, triangle delta ${item.metrics.triangleCountDelta}` : 'No geometry output'}</p>)}
       <button onClick={() => { native.send(runtimeId, 'history-result', { jobId: entry.jobId }); onHistory() }}>Open saved History entry</button>
       <p className="scientific-runtime-note">This run is also listed under History. Use its Result, Log, and Folder actions there after Refresh history.</p>
     </div> : <p className="scientific-runtime-note">No saved MATH3D native integration run for this profile. The worker must be built in the local Scientific builds folder before running.</p>}

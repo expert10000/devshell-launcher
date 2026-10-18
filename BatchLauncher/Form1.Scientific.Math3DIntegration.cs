@@ -24,6 +24,7 @@ public partial class Form1
         if (!File.Exists(worker))
             throw new FileNotFoundException("MATH3D native worker is not built in the local Scientific builds folder.", worker);
         var input = ScientificDatasetArtifact("math3d/basic/01_tetrahedron.obj");
+        var cube = ScientificDatasetArtifact("math3d/basic/02_cube.obj");
 
         if (!_scientificGate.Wait(0))
             throw new InvalidOperationException("Another Scientific job is running; stop or wait for it.");
@@ -40,7 +41,12 @@ public partial class Form1
                 RecipeId = "integration.math3d.native-boolean",
                 Directory = directory
             };
-            ScientificWriteRequest(job, null, input, "math3d-native-self-union.m3dm");
+            ScientificWriteRequest(job, null, input, "math3d-native-self-union.m3dm",
+                new System.Text.Json.Nodes.JsonArray(cube),
+                new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject
+                {
+                    ["path"] = "math3d-native-cube-self-union.m3dm", ["mediaType"] = "application/octet-stream"
+                }));
             _scientificJobs[profileId + ":" + runtimeId] = job;
             ScientificSend(new { type = "scientific.runtime.job", job = ScientificJobSnapshot(job) });
             _ = ScientificMath3DIntegrationRunAsync(job, prefix, node, script, worker);
@@ -60,7 +66,7 @@ public partial class Form1
         try
         {
             await ScientificProcessAsync(job, prefix, node,
-                new[] { script, worker, job.Directory, job.ProfileId }, job.Directory, 60);
+                new[] { script, worker, job.Directory, job.ProfileId }, job.Directory, 90);
             using var saved = JsonDocument.Parse(File.ReadAllText(Path.Combine(job.Directory, "results.json")));
             if (!saved.RootElement.TryGetProperty("comparison", out var comparison) ||
                 !comparison.TryGetProperty("verdict", out var verdict) || verdict.GetString() != "pass")

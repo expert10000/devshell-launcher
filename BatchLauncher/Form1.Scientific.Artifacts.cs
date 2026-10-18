@@ -47,16 +47,21 @@ public partial class Form1
             ["sourceRoot"] = entry.TryGetProperty("sourceRoot", out var sourceRoot) ? sourceRoot.GetString() : null
         };
     }
-    private static void ScientificWriteRequest(ScientificJob job, JsonElement? parameters, JsonObject? input = null, string? output = null)
+    private static void ScientificWriteRequest(ScientificJob job, JsonElement? parameters, JsonObject? input = null, string? output = null,
+        JsonArray? additionalInputs = null, JsonArray? additionalOutputs = null)
     {
+        var inputs = input == null ? new JsonArray() : new JsonArray(input.DeepClone());
+        var outputs = output == null ? new JsonArray() : new JsonArray(new JsonObject { ["path"] = output, ["mediaType"] = ScientificMediaType(output) });
+        if (additionalInputs != null) foreach (var item in additionalInputs) inputs.Add(item?.DeepClone());
+        if (additionalOutputs != null) foreach (var item in additionalOutputs) outputs.Add(item?.DeepClone());
         var request = new JsonObject
         {
             ["schemaVersion"] = 1, ["runId"] = job.Id, ["profileId"] = job.ProfileId,
             ["runtimeId"] = job.RuntimeId, ["recipeId"] = job.RecipeId, ["operation"] = job.RecipeId,
             ["parameters"] = parameters is { ValueKind: JsonValueKind.Object } value ? JsonNode.Parse(value.GetRawText()) : new JsonObject(),
             ["workingDirectory"] = job.Directory, ["datasetRoot"] = Path.Combine(ScientificDataRoot, "datasets"),
-            ["timeoutSeconds"] = 120, ["inputArtifacts"] = input == null ? new JsonArray() : new JsonArray(input.DeepClone()),
-            ["outputArtifacts"] = output == null ? new JsonArray() : new JsonArray(new JsonObject { ["path"] = output, ["mediaType"] = ScientificMediaType(output) }),
+            ["timeoutSeconds"] = 120, ["inputArtifacts"] = inputs,
+            ["outputArtifacts"] = outputs,
             ["provenance"] = new JsonObject { ["inputPolicy"] = "Registered local copies; SHA-256 checked before execution", ["transport"] = "JSON request / argv-owned adapter; no shell" }
         };
         var json = request.ToJsonString(ScientificJson);

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { useScientificRuntime, ScientificHistoryEntry } from './useScientificRuntime'
 import { MeshCanvas, initialCamera } from './ScientificArtifacts'
 import type { Camera } from './ScientificArtifacts'
@@ -6,7 +6,12 @@ import { ScientificComparisonPresets } from './ScientificComparisonPresets'
 
 export function ScientificHistory({ native }: { native: ReturnType<typeof useScientificRuntime> }) {
   const entries = native.history
-  const result = native.historyResult
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
+  const result = selectedJobId ? native.historyResults[selectedJobId] ?? null : native.historyResult
+  const resultRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (selectedJobId && result?.runId === selectedJobId) resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [selectedJobId, result?.runId])
   const [comparisonIds, setComparisonIds] = useState<string[]>([])
   const [paths, setPaths] = useState<Record<string, string>>({})
   const [camera, setCamera] = useState<Camera>(initialCamera)
@@ -39,7 +44,7 @@ export function ScientificHistory({ native }: { native: ReturnType<typeof useSci
   const firstOutputHash = first?.artifacts?.find(item => item.path === comparison[0]?.path)?.sha256
   const secondOutputHash = second?.artifacts?.find(item => item.path === comparison[1]?.path)?.sha256
   const integration = result?.recipeId === 'integration.math3d.native-boolean'
-    ? (result as typeof result & { comparison?: { verdict: string; passed: number; total: number; checks: { name: string; passed: boolean }[] } }).comparison
+    ? (result as typeof result & { comparison?: { verdict: string; passed: number; total: number; checks: { name: string; passed: boolean }[]; cases?: { name: string; before: { faces: number }; after?: { faces: number }; metrics?: { boundsDelta: number; areaDelta: number; volumeDelta: number; sampledSurfaceDeviation: number }; tolerances?: { bounds: number; area: number; volume: number; sampledSurface: number } }[] } }).comparison
     : undefined
   return <section className="scientific-history" aria-label="Scientific run history">
     <h3>Run history</h3>
@@ -48,10 +53,19 @@ export function ScientificHistory({ native }: { native: ReturnType<typeof useSci
     <button disabled={native.pending} onClick={() => native.send('', 'history')}>{entries ? 'Refresh history' : 'Load history'}</button>
     {entries && (entries.length ? <div className="scientific-history-scroll"><table><thead><tr><th>Finished</th><th>Runtime / recipe</th><th>State</th><th>Duration</th><th>Artifacts</th><th>Actions</th></tr></thead><tbody>{entries.map(entry => <tr key={entry.jobId}>
       <td>{new Date(entry.finishedAtUtc).toLocaleString()}</td><td>{entry.runtimeId}<br /><strong>{entry.recipeId}</strong></td><td>{entry.state}</td><td>{(entry.durationMs / 1000).toFixed(1)} s</td><td>{entry.artifactCount}</td>
-      <td><div className="scientific-history-actions"><button onClick={() => native.send(entry.runtimeId, 'history-result', { jobId: entry.jobId })}>Result</button><button onClick={() => native.send(entry.runtimeId, 'history-open-log', { jobId: entry.jobId })}>Log</button><button onClick={() => native.send(entry.runtimeId, 'history-open-output', { jobId: entry.jobId })}>Folder</button><button disabled={entry.state !== 'succeeded' || !entry.artifactCount} aria-pressed={comparisonIds.includes(entry.jobId)} onClick={() => toggleComparison(entry)}>{comparisonIds.includes(entry.jobId) ? 'Selected' : 'Compare'}</button></div></td>
+      <td><div className="scientific-history-actions"><button aria-pressed={selectedJobId === entry.jobId} onClick={() => { setSelectedJobId(entry.jobId); native.send(entry.runtimeId, 'history-result', { jobId: entry.jobId }) }}>{selectedJobId === entry.jobId ? 'Viewing' : 'Result'}</button><button onClick={() => native.send(entry.runtimeId, 'history-open-log', { jobId: entry.jobId })}>Log</button><button onClick={() => native.send(entry.runtimeId, 'history-open-output', { jobId: entry.jobId })}>Folder</button><button disabled={entry.state !== 'succeeded' || !entry.artifactCount} aria-pressed={comparisonIds.includes(entry.jobId)} onClick={() => toggleComparison(entry)}>{comparisonIds.includes(entry.jobId) ? 'Selected' : 'Compare'}</button></div></td>
     </tr>)}</tbody></table></div> : <p>No completed runs found for this profile.</p>)}
-    {result && <div className="scientific-history-result"><h4>{result.runtimeId} / {result.recipeId} / {result.state}</h4><p><code>{result.runId}</code> / {result.durationMs} ms</p>
-      {integration && <section aria-label="MATH3D integration verdict"><h5>Native worker comparison: {integration.verdict.toUpperCase()} / {integration.passed}/{integration.total}</h5><p className="scientific-runtime-note">MATH3D self-union and DevShell validation are different operations; this is an integration smoke test.</p><ul>{integration.checks.map(check => <li key={check.name}>{check.passed ? 'PASS' : 'FAIL'} / {check.name}</li>)}</ul></section>}
+    {selectedJobId && !result && <div className="scientific-history-result" role="status">Loading result <code>{selectedJobId}</code>...</div>}
+    {result && <div ref={resultRef} className="scientific-history-result"><h4>{result.runtimeId} / {result.recipeId} / {result.state}</h4><p><code>{result.runId}</code> / {result.durationMs} ms</p>
+      {integration && <section aria-label="MATH3D integration verdict"><h5>Native worker comparison: {integration.verdict.toUpperCase()} / {integration.passed}/{integration.total}</h5><p className="scientific-runtime-note">MATH3D self-union and DevShell validation are different operations. Surface deviation samples vertices, edge midpoints, and face centroids; it is not a full Hausdorff proof.</p><ul>{integration.checks.map(check => <li key={check.name}>{check.passed ? 'PASS' : 'FAIL'} / {check.name}</li>)}</ul>
+        {integration.cases?.map(item => <div key={item.name}><h5>{item.name} numeric comparison</h5>{item.metrics && item.tolerances ? <table><thead><tr><th>Measure</th><th>Delta</th><th>Tolerance</th></tr></thead><tbody>
+          <tr><td>Bounds</td><td>{item.metrics.boundsDelta.toPrecision(4)}</td><td>{item.tolerances.bounds.toPrecision(4)}</td></tr>
+          <tr><td>Surface area</td><td>{item.metrics.areaDelta.toPrecision(4)}</td><td>{item.tolerances.area.toPrecision(4)}</td></tr>
+          <tr><td>Enclosed volume</td><td>{item.metrics.volumeDelta.toPrecision(4)}</td><td>{item.tolerances.volume.toPrecision(4)}</td></tr>
+          <tr><td>Sampled surface</td><td>{item.metrics.sampledSurfaceDeviation.toPrecision(4)}</td><td>{item.tolerances.sampledSurface.toPrecision(4)}</td></tr>
+          <tr><td>Triangles</td><td>{item.before.faces} / {item.after?.faces ?? 'none'}</td><td>Topology checked separately</td></tr>
+        </tbody></table> : <p>No geometry output recorded.</p>}</div>)}
+      </section>}
       <h5>Artifacts</h5>{result.artifacts?.length ? <ul>{result.artifacts.map(artifact => <li key={artifact.path}><code>{artifact.path}</code> <button onClick={() => native.send(result.runtimeId, 'history-reveal-artifact', { jobId: result.runId, artifactPath: artifact.path })}>Reveal</button> {meshArtifacts([artifact]).length > 0 && <button disabled={native.pending} onClick={() => loadPreview(result.runId, result.runtimeId, artifact.path)}>Preview</button>}</li>)}</ul> : <p>No output artifacts recorded.</p>}
       <details><summary>Result contract</summary><pre>{JSON.stringify(result, null, 2)}</pre></details>
     </div>}

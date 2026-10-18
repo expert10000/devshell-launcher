@@ -77,9 +77,16 @@
     <Content Include="..\runtimes\**\runtime.json" Link="runtimes\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <Target Name="CopyRuntimeLab" AfterTargets="Build">
+    <MSBuild Projects="..\tools\runtime-lab\RuntimeLab.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" ItemName="RuntimeLabTargetPath" />
+    </MSBuild>
+    <PropertyGroup>
+      <RuntimeLabOutputDirectory>@(RuntimeLabTargetPath->'%(RootDir)%(Directory)')</RuntimeLabOutputDirectory>
+    </PropertyGroup>
     <ItemGroup>
-      <RuntimeLabOutput Include="..\tools\runtime-lab\bin\$(Configuration)\net8.0\runtime-lab.*" />
+      <RuntimeLabOutput Include="$(RuntimeLabOutputDirectory)runtime-lab.*" />
     </ItemGroup>
+    <Error Condition="!Exists('$(RuntimeLabOutputDirectory)runtime-lab.exe')" Text="The runtime-lab executable was not built." />
     <Copy SourceFiles="@(RuntimeLabOutput)" DestinationFolder="$(TargetDir)runtime-lab\" SkipUnchangedFiles="true" />
   </Target>
 </Project>

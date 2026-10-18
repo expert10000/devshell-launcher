@@ -9,7 +9,8 @@ export interface ScientificEnvironment { environment: Record<string, string>; vc
 export interface ScientificMeshPreview { name: string; positions: number[]; bounds: number[]; points: number; triangles: number; previewTriangles: number; sampled: boolean; note: string }
 export interface ScientificArtifactPreview { jobId: string; artifactPath: string; geometry: { before: ScientificMeshPreview | null; beforeSecond?: ScientificMeshPreview | null; after: ScientificMeshPreview }; result: ScientificRunResult }
 export interface ScientificHistoryImagePreview { jobId: string; artifactPath: string; image: { dataUrl: string; mimeType: string; size: number } }
-export interface ScientificHistoryEntry { jobId: string; runtimeId: string; recipeId: string; testCaseId?: string | null; state: string; durationMs: number; finishedAtUtc: string; artifactCount: number; meshArtifactCount?: number }
+export interface ScientificHistoryThumbnail { jobId: string; artifactPath: string; dataUrl?: string; error?: string }
+export interface ScientificHistoryEntry { jobId: string; runtimeId: string; recipeId: string; testCaseId?: string | null; state: string; durationMs: number; finishedAtUtc: string; artifactCount: number; meshArtifactCount?: number; thumbnailPath?: string | null }
 export interface ScientificMatrixCase { id: string; datasetId: string; name: string; expected: 'succeeded' | 'rejected'; reason: string }
 
 export function useScientificRuntime(bridge: ScientificBridge | null, profileId: string | null, refreshReport: () => void) {
@@ -22,11 +23,12 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
   const [historyResults, setHistoryResults] = useState<Record<string, ScientificRunResult>>({})
   const [historyPreviews, setHistoryPreviews] = useState<Record<string, ScientificArtifactPreview>>({})
   const [historyImages, setHistoryImages] = useState<Record<string, ScientificHistoryImagePreview>>({})
+  const [historyThumbnails, setHistoryThumbnails] = useState<Record<string, ScientificHistoryThumbnail>>({})
   const [testMatrix, setTestMatrix] = useState<ScientificMatrixCase[] | null>(null)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
-  const requests = useRef(new Map<string, { action: string; timer: ReturnType<typeof setTimeout> }>())
+  const requests = useRef(new Map<string, { action: string; thumbnailKey?: string; timer: ReturnType<typeof setTimeout> }>())
   const completed = useRef(new Set<string>())
   const refresh = useRef(refreshReport); refresh.current = refreshReport
   const mergeJob = (job: ScientificJob) => {
@@ -41,13 +43,16 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
   const send = (runtimeId: string, action: string, extra: Record<string, unknown> = {}) => {
     if (!bridge || !profileId) { setError('This action requires the DevShell desktop app and a selected profile.'); return }
     const requestId = crypto.randomUUID()
-    setError(''); setNotice(''); setPending(true)
-    const timer = setTimeout(() => { requests.current.delete(requestId); setPending(requests.current.size > 0); setError(`${action} response timed out. Inspect job status before retrying a run.`) }, action === 'export' ? 600000 : 30000)
-    requests.current.set(requestId, { action, timer })
+    const background = action === 'history-thumbnail'
+    const thumbnailKey = background ? `${extra.jobId}|${extra.artifactPath}` : undefined
+    if (!background) { setError(''); setNotice(''); setPending(true) }
+    else if (thumbnailKey) setHistoryThumbnails(previous => ({ ...previous, [thumbnailKey]: { jobId: String(extra.jobId), artifactPath: String(extra.artifactPath) } }))
+    const timer = setTimeout(() => { requests.current.delete(requestId); setPending([...requests.current.values()].some(item => item.action !== 'history-thumbnail')); if (thumbnailKey) setHistoryThumbnails(previous => ({ ...previous, [thumbnailKey]: { jobId: String(extra.jobId), artifactPath: String(extra.artifactPath), error: 'Thumbnail timed out.' } })); else setError(`${action} response timed out. Inspect job status before retrying a run.`) }, action === 'export' ? 600000 : 30000)
+    requests.current.set(requestId, { action, thumbnailKey, timer })
     bridge.postMessage({ type: 'scientific.runtime', profileId, runtimeId, requestId, action, ...extra })
   }
   useEffect(() => {
-    setJobs({}); setEnvironments({}); setPreviews({}); setDatasets(null); setHistory(null); setHistoryResult(null); setHistoryResults({}); setHistoryPreviews({}); setHistoryImages({}); setTestMatrix(null); setError(''); setNotice(''); setPending(false); completed.current.clear()
+    setJobs({}); setEnvironments({}); setPreviews({}); setDatasets(null); setHistory(null); setHistoryResult(null); setHistoryResults({}); setHistoryPreviews({}); setHistoryImages({}); setHistoryThumbnails({}); setTestMatrix(null); setError(''); setNotice(''); setPending(false); completed.current.clear()
     if (!bridge || !profileId) return
     const receive = (event: MessageEvent) => {
       let message: { type?: string; profileId?: string; runtimeId?: string; requestId?: string; action?: string; error?: string; job?: ScientificJob; data?: unknown }
@@ -56,10 +61,17 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
       if (message.type !== 'scientific.runtime.result' || message.profileId !== profileId || !message.requestId) return
       const waiting = requests.current.get(message.requestId)
       if (!waiting) return
-      clearTimeout(waiting.timer); requests.current.delete(message.requestId); setPending(requests.current.size > 0)
+      clearTimeout(waiting.timer); requests.current.delete(message.requestId); setPending([...requests.current.values()].some(item => item.action !== 'history-thumbnail'))
+      if (waiting.thumbnailKey) {
+        const key = waiting.thumbnailKey
+        setHistoryThumbnails(previous => ({ ...previous, [key]: message.error
+          ? { jobId: key.split('|')[0], artifactPath: key.slice(key.indexOf('|') + 1), error: message.error }
+          : message.data as ScientificHistoryThumbnail }))
+        return
+      }
       if (message.error) { setError(message.error); return }
       if (message.action === 'status' && Array.isArray(message.data)) message.data.forEach(item => mergeJob(item as ScientificJob))
-      else if (message.action === 'history' && Array.isArray(message.data)) { setHistory(message.data as ScientificHistoryEntry[]); setHistoryResult(null); setHistoryResults({}); setHistoryPreviews({}); setHistoryImages({}) }
+      else if (message.action === 'history' && Array.isArray(message.data)) { setHistory(message.data as ScientificHistoryEntry[]); setHistoryResult(null); setHistoryResults({}); setHistoryPreviews({}); setHistoryImages({}); setHistoryThumbnails({}) }
       else if (message.action === 'history-result' && message.data) { const result = message.data as ScientificRunResult; setHistoryResult(result); setHistoryResults(previous => ({ ...previous, [result.runId]: result })) }
       else if (message.action === 'history-image-preview' && message.data) { const preview = message.data as ScientificHistoryImagePreview; setHistoryImages(previous => ({ ...previous, [`${preview.jobId}|${preview.artifactPath}`]: preview })) }
       else if (message.action === 'history-preview' && message.data) { const preview = message.data as ScientificArtifactPreview; setHistoryPreviews(previous => ({ ...previous, [`${preview.jobId}|${preview.artifactPath}`]: preview })) }
@@ -78,5 +90,5 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
     // Callback refs keep completed diagnostics from restarting subscriptions.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bridge, profileId])
-  return { jobs, environments, previews, datasets, history, historyResult, historyResults, historyPreviews, historyImages, testMatrix, pending, error, notice, send, busy: Object.values(jobs).some(job => job.state === 'running') }
+  return { jobs, environments, previews, datasets, history, historyResult, historyResults, historyPreviews, historyImages, historyThumbnails, testMatrix, pending, error, notice, send, busy: Object.values(jobs).some(job => job.state === 'running') }
 }

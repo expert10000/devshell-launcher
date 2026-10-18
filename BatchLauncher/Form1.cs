@@ -46,8 +46,9 @@ public partial class Form1 : Form
         _workspace = ResolveWorkspace(WorkspaceStore.LoadWorkspace(_scriptsPath), _activeWorkspaceProfileId);
         _environment = BuildEnvironmentSnapshot();
         _latestState = AppStateStore.Load();
+        InitializeWindowPlacement();
         Shown += async (_, _) => await InitializeWebViewAsync();
-        FormClosing += (_, _) => StopAllSessions();
+        FormClosing += (_, _) => { SaveWindowPlacement(); StopAllSessions(); };
     }
 
     private async Task InitializeWebViewAsync()

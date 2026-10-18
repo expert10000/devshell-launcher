@@ -192,6 +192,7 @@ public partial class Form1
             else if(action=="history")data=ScientificHistoryList(profileId);
             else if(action=="history-result")data=ScientificHistoryResult(profileId,request.GetProperty("jobId").GetString()??"");
             else if(action=="test-matrix")data=ScientificMatrixCases();
+            else if(action=="history-thumbnail")data=ScientificHistoryThumbnail(profileId,request);
             else if(action=="history-image-preview")data=ScientificHistoryImagePreview(profileId,request);
             else if(action=="history-preview")data=await ScientificHistoryPreviewAsync(profileId,request);
             else if(action is "history-open-log" or "history-open-output" or "history-reveal-artifact" or "history-open-artifact")data=ScientificHistoryOpen(profileId,request,action);

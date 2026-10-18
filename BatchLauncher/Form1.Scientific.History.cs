@@ -68,6 +68,8 @@ public partial class Form1
                     durationMs = result.GetProperty("durationMs").GetInt64(),
                     finishedAtUtc = File.GetLastWriteTimeUtc(Path.Combine(directory.FullName, "results.json")),
                     meshArtifactCount = files.ValueKind == JsonValueKind.Array ? files.EnumerateArray().Count(item => ScientificMeshExtensions.Contains(Path.GetExtension(item.GetProperty("path").GetString() ?? "").ToLowerInvariant())) : 0,
+                    thumbnailPath = result.GetProperty("state").GetString() == "succeeded" && files.ValueKind == JsonValueKind.Array
+                        ? files.EnumerateArray().Select(item => item.GetProperty("path").GetString()).FirstOrDefault(path => path != null && path.EndsWith(".png", StringComparison.OrdinalIgnoreCase)) : null,
                     artifactCount = artifacts
                 });
                 if (entries.Count == 50) break;
@@ -110,6 +112,14 @@ public partial class Form1
         start.ArgumentList.Add(path);
         Process.Start(start);
         return new { path };
+    }
+
+    private static object ScientificHistoryThumbnail(string profileId, JsonElement selection)
+    {
+        var jobId = selection.GetProperty("jobId").GetString() ?? "";
+        var (directory, result) = ScientificHistoryFind(profileId, jobId);
+        var relative = selection.GetProperty("artifactPath").GetString() ?? "";
+        return new { jobId, artifactPath = relative, dataUrl = ScientificArtifactThumbnails.Create(directory, result, relative) };
     }
 
     private static object ScientificHistoryImagePreview(string profileId, JsonElement selection)

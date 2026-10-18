@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0-windows</TargetFramework><UseWindowsForms>true</UseWindowsForms><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../BatchLauncher/WindowPlacementStore.cs" Link="WindowPlacementStore.cs" />
+    <Compile Include="../../BatchLauncher/ScientificArtifactThumbnails.cs" Link="ScientificArtifactThumbnails.cs" />
+    <Compile Include="../../BatchLauncher/ScientificArtifactFiles.cs" Link="ScientificArtifactFiles.cs" />
+    <Compile Include="../../BatchLauncher/WorkspaceConfig.cs" Link="WorkspaceConfig.cs" />
+    <Compile Include="../../BatchLauncher/ProjectDefinition.cs" Link="ProjectDefinition.cs" />
+    <Compile Include="../../BatchLauncher/WorkspaceTabsStore.cs" Link="WorkspaceTabsStore.cs" />
+    <Compile Include="../../BatchLauncher/PdfFile.cs" Link="PdfFile.cs" />
+    <Compile Include="../../BatchLauncher/WorkspaceFiles.cs" Link="WorkspaceFiles.cs" />
+  </ItemGroup>
+</Project>

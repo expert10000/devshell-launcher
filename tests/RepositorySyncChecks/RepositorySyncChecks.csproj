@@ -7,5 +7,9 @@
     <Compile Include="../../BatchLauncher/RepositoryUpdateQueue.cs" Link="RepositoryUpdateQueue.cs" />
     <Compile Include="../../BatchLauncher/DashboardInspector.cs" Link="DashboardInspector.cs" />
     <Compile Include="../../BatchLauncher/RepositoryEnvironment.cs" Link="RepositoryEnvironment.cs" />
+    <Compile Include="../../BatchLauncher/EnvironmentSetup.cs" Link="EnvironmentSetup.cs" />
+    <Compile Include="../../BatchLauncher/WorkspaceConfig.cs" Link="WorkspaceConfig.cs" />
+    <Compile Include="../../BatchLauncher/ProjectDefinition.cs" Link="ProjectDefinition.cs" />
+    <Compile Include="../../BatchLauncher/NodeDependencies.cs" Link="NodeDependencies.cs" />
   </ItemGroup>
 </Project>

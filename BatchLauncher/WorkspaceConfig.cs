@@ -11,6 +11,9 @@ public sealed class WorkspaceConfig
 
 public sealed class WorkspaceGlobals
 {
+    public string? WorkspaceRoot { get; set; }
+    public bool AutoDetectTools { get; set; }
+    public Dictionary<string, string>? Tools { get; set; }
     public string? DefaultShell { get; set; }
     public WorkspaceTerminalSettings? Terminal { get; set; }
     public Dictionary<string, string>? Vars { get; set; }
@@ -48,6 +51,7 @@ public sealed class WorkspaceProject
     public List<WorkspaceRepository>? Repositories { get; set; }
     public List<string>? RequiredTools { get; set; }
     public List<string>? PythonModules { get; set; }
+    public List<string>? PythonPackages { get; set; }
     public WorkspaceService? Service { get; set; }
     public string? PythonEnvironment { get; set; }
     public string Id { get; set; } = string.Empty;
@@ -74,6 +78,9 @@ public sealed class WorkspaceRepository
     public List<string>? RequiredTools { get; set; }
     public string? PythonEnvironment { get; set; }
     public List<string>? PythonModules { get; set; }
+    public List<string>? PythonOptionalModules { get; set; }
+    public List<string>? PythonPackages { get; set; }
+    public string? PythonRequirements { get; set; }
     public List<string>? DependencyFolders { get; set; }
     public string Id { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;

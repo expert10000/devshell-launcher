@@ -2994,3 +2994,34 @@
 .scientific-recipe-job { margin-top: 24px; border-top: 1px solid var(--border, #294451); padding-top: 16px; }
 .scientific-recipe-job pre { max-height: 360px; white-space: pre-wrap; overflow-wrap: anywhere; }
 @media (max-width: 650px) { .scientific-inspector-facts > div { grid-template-columns: 1fr; gap: 3px; } }
+.portable-workspace { padding: 18px; margin-bottom: 20px; border: 1px solid #8997a755; border-radius: 12px; }
+.workspace-root-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.workspace-root-row input { flex: 1; min-width: 160px; padding: 8px 12px; border: 1px solid #8997a755; border-radius: 8px; background: transparent; color: inherit; }
+.workspace-root-row button, .repository-environment button { padding: 8px 12px; border: 1px solid #8997a755; border-radius: 8px; cursor: pointer; }
+.detected-tools { list-style: none; padding: 0; }
+.detected-tools li { display: flex; gap: 14px; margin-top: 7px; font-size: 12px; overflow-wrap: anywhere; }
+.detected-tools strong { min-width: 70px; }
+.setup-progress { display: grid; gap: 6px; margin-top: 12px; font-size: 12px; }
+.setup-progress progress { width: 100%; accent-color: var(--accent); }
+.project-environment { margin-top: 24px; }
+
+.environment-readiness { margin-top: 14px; padding-top: 12px; border-top: 1px solid #8997a755; }
+.environment-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.environment-heading > strong { font-size: 13px; }
+.environment-readiness.blocked .environment-heading > strong { color: #bb472e; }
+.environment-readiness.ready .environment-heading > strong { color: #27835a; }
+.environment-readiness.review .environment-heading > strong { color: #a06816; }
+.environment-readiness button { background: #8997a712; color: inherit; border: 1px solid #8997a766; border-radius: 7px; padding: 6px 10px; cursor: pointer; }
+.environment-readiness button:disabled { opacity: .45; cursor: default; }
+.environment-readiness details { margin-top: 12px; }
+.environment-readiness summary { font-size: 12px; cursor: pointer; }
+.environment-issues { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 10px; }
+.environment-issue { border-left: 3px solid #bb472e; padding: 9px 10px; background: #bb472e08; font-size: 12px; }
+.environment-issue.warning { border-color: #a06816; background: #a0681608; }
+.environment-issue p, .environment-passed p { margin: 5px 0 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.environment-issue button { margin-top: 3px; }
+.environment-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.environment-plan { margin-top: 12px; padding: 12px; border: 1px solid #8997a755; border-radius: 8px; font-size: 12px; }
+.environment-plan ol { padding-left: 20px; }
+.environment-plan li { margin-top: 8px; }
+.environment-passed { margin-top: 10px; font-size: 12px; }

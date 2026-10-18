@@ -24,6 +24,30 @@ public partial class Form1
         return RepositoryGitCommand.Create(command.Application, Path.Combine(AppContext.BaseDirectory, "tools", "Sync-Repository.ps1"),
             ExpandProjectValue(project, repo.Path), repo.Url == null ? null : ExpandProjectValue(project, repo.Url), action, AppContext.BaseDirectory);
     }
+    private WorkspaceRepository ResolveRepository(WorkspaceProject project, WorkspaceRepository repo) => new()
+    {
+        Path = ExpandProjectValue(project, repo.Path),
+        DependencyFolders = repo.DependencyFolders?.Select(folder => ExpandProjectValue(project, folder)).ToList(),
+        RequiredTools = repo.RequiredTools?.Select(tool => ExpandProjectValue(project, tool)).ToList(),
+        PythonEnvironment = repo.PythonEnvironment == null ? null : ExpandProjectValue(project, repo.PythonEnvironment),
+        PythonModules = repo.PythonModules, PythonPackages = repo.PythonPackages, PythonOptionalModules = repo.PythonOptionalModules,
+        PythonRequirements = repo.PythonRequirements == null ? null : ExpandProjectValue(project, repo.PythonRequirements)
+    };
+    private Dictionary<string, string> EnvironmentTools()
+    {
+        var tools = new Dictionary<string, string>(_workspace.Globals?.Tools ?? PortableWorkspace.DiscoverTools(_workspace.Globals?.WorkspaceRoot ?? AppContext.BaseDirectory));
+        tools["workspaceRoot"] = _workspace.Globals?.WorkspaceRoot ?? AppContext.BaseDirectory;
+        var vars = _workspace.Globals?.Vars;
+        if (vars?.TryGetValue("nodeDirectory", out var nodeDirectory) == true) tools["node"] = Path.Combine(nodeDirectory, "node.exe");
+        if (vars?.TryGetValue("npmCli", out var npmCli) == true) tools["npm"] = tools["npmCli"] = npmCli;
+        return tools;
+    }
+    private EnvironmentSetupPlan CreateSetupPlan(WorkspaceProject project, WorkspaceRepository repo, IReadOnlyCollection<string>? targets = null)
+    {
+        var resolved = ResolveRepository(project, repo);
+        var root = _workspace.Globals?.WorkspaceRoot ?? Path.GetDirectoryName(resolved.Path)!;
+        return EnvironmentSetup.Plan(resolved, root, EnvironmentTools(), _workspace.Globals?.Vars?.GetValueOrDefault("basePython"), targets);
+    }
     private RepositoryCommand CreateRepositoryCommand(WorkspaceProject project, string taskName, string cwd)
     {
         var script = new StringBuilder("$ErrorActionPreference = 'Stop'\n$PSNativeCommandUseErrorActionPreference = $true\ntry {\n");
@@ -65,6 +89,7 @@ public partial class Form1
     private Task HandleRepositoryJobAsync(JsonElement payload)
     {
         var action = payload.GetProperty("action").GetString();
+        if (action is "setup" or "setup-plan" or "fix" or "fix-plan") return HandleEnvironmentSetupAsync(payload);
         if (action is "changes" or "file-diff" or "stage" or "unstage") return HandleRepositoryChangesAsync(payload, action);
         if (action == "status") { SendRepositoryJobs(); return Task.CompletedTask; }
         if (action is "update-all" or "stop-all")
@@ -74,6 +99,7 @@ public partial class Form1
                 if (action == "stop-all") RepositoryUpdates.Stop();
                 else
                 {
+                    if (_repositoryRunner.Snapshot().Any(job => job.Action == "setup" && job.State is "queued" or "building" or "running")) throw new InvalidOperationException("Finish or stop Setup before Update All.");
                     var profileId = _activeWorkspaceProfileId;
                     var items = (_workspace.Projects ?? new()).SelectMany(project => (project.Repositories ?? new()).Select(repo =>
                         new RepositoryUpdateItem($"{profileId}:{project.Id}:{repo.Id}", repo.Name, () => CreateGitCommand(project, repo, "sync")))).ToList();
@@ -105,6 +131,7 @@ public partial class Form1
             else if (action is "build" or "run" or "fetch" or "pull" or "clone" or "launch" or "diff" or "history")
             {
                 if (RepositoryUpdates.Owns(key)) throw new InvalidOperationException("This repository is reserved by Update All. Stop the queue before starting another action.");
+                if (_repositoryRunner.Snapshot().Any(job => job.Action == "setup" && job.State is "queued" or "building" or "running")) throw new InvalidOperationException("Finish or stop Setup before starting another repository action.");
                 var project = _workspace.Projects?.FirstOrDefault(p => p.Id == projectId) ?? throw new InvalidOperationException("Project not found.");
                 var repo = project.Repositories?.FirstOrDefault(r => r.Id == repositoryId) ?? throw new InvalidOperationException("Repository not found.");
                 if (action == "run" && repo.PdfPath != null)
@@ -165,6 +192,7 @@ public partial class Form1
     }
     private void EnsureRepositoryIdle(string key, string path)
     {
+        if (_repositoryRunner.Snapshot().Any(job => job.Action == "setup" && job.State is "queued" or "building" or "running")) throw new InvalidOperationException("Finish or stop Setup before modifying repositories.");
         path = Path.GetFullPath(path).TrimEnd('\\', '/');
         if (_repositoryChangesPaths.Contains(path)) throw new InvalidOperationException("This checkout is busy in the Changes panel.");
         if (RepositoryUpdates.Owns(key) || _repositoryActionPaths.Any(pair => pair.Value.Equals(path, StringComparison.OrdinalIgnoreCase) && RepositoryUpdates.Owns(pair.Key)))

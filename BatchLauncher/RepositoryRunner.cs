@@ -7,7 +7,7 @@ using System.Text.Json;
 namespace BatchLauncher;
 
 public sealed record RepositoryCommand(string Shell, string Script, string Cwd);
-public sealed record RepositoryJobStatus(string Key, string State, string BuildState, int? ExitCode, string Log, string LogPath, string Action, string BrowserState = "not-requested", string? BrowserUrl = null, string? LastBuildFinishedAt = null, string? LastBuildState = null, int? LastBuildExitCode = null);
+public sealed record RepositoryJobStatus(string Key, string State, string BuildState, int? ExitCode, string Log, string LogPath, string Action, string BrowserState = "not-requested", string? BrowserUrl = null, string? LastBuildFinishedAt = null, string? LastBuildState = null, int? LastBuildExitCode = null, int CompletedSteps = 0, int TotalSteps = 0, string? Step = null);
 public sealed record RepositoryBrowserLaunch(string Url, IReadOnlyList<string> ReadyUrls, int TimeoutSeconds = 120);
 
 public sealed class RepositoryRunner : IDisposable
@@ -25,13 +25,15 @@ public sealed class RepositoryRunner : IDisposable
         public string? BrowserUrl;
         public string? LastBuildFinishedAt, LastBuildState;
         public int? LastBuildExitCode;
+        public int CompletedSteps, TotalSteps;
+        public string? Step;
         public readonly TaskCompletionSource<RepositoryJobStatus> Completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
     private readonly Dictionary<string, Job> _jobs = new();
     private readonly object _sync = new();
     private bool _disposed;
     public event Action<string, string>? BrowserReady;
-    public bool Start(string key, RepositoryCommand? build, RepositoryCommand? run, string logDirectory, string? action = null, RepositoryBrowserLaunch? browser = null)
+    public bool Start(string key, RepositoryCommand? build, RepositoryCommand? run, string logDirectory, string? action = null, RepositoryBrowserLaunch? browser = null, int stepCount = 0)
     {
         if (browser != null)
         {
@@ -46,7 +48,7 @@ public sealed class RepositoryRunner : IDisposable
             if (_disposed) throw new ObjectDisposedException(nameof(RepositoryRunner));
             if (_jobs.TryGetValue(key, out var previous) && previous.Active) return false;
             Directory.CreateDirectory(logDirectory);
-            job = new Job { Action = action ?? (build != null ? "build" : "run"), LogPath = Path.Combine(logDirectory, $"repo-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.log") };
+            job = new Job { TotalSteps = stepCount, Action = action ?? (build != null ? "build" : "run"), LogPath = Path.Combine(logDirectory, $"repo-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.log") };
             if (previous != null)
             {
                 lock (previous.Sync)
@@ -74,7 +76,7 @@ public sealed class RepositoryRunner : IDisposable
             lock (pair.Value.Sync) return Status(pair.Key, pair.Value);
         }).ToList();
     }
-    private static RepositoryJobStatus Status(string key, Job job) => new(key, job.State, job.BuildState, job.ExitCode, job.Log.ToString(), job.LogPath, job.Action, job.BrowserState, job.BrowserUrl, job.LastBuildFinishedAt, job.LastBuildState, job.LastBuildExitCode);
+    private static RepositoryJobStatus Status(string key, Job job) => new(key, job.State, job.BuildState, job.ExitCode, job.Log.ToString(), job.LogPath, job.Action, job.BrowserState, job.BrowserUrl, job.LastBuildFinishedAt, job.LastBuildState, job.LastBuildExitCode, job.CompletedSteps, job.TotalSteps, job.Step);
     private static void FinishBuild(Job job, string state, int? exitCode)
     {
         job.BuildState = state;
@@ -104,6 +106,16 @@ public sealed class RepositoryRunner : IDisposable
                 lock (job.Sync)
                 {
                     log.WriteLine(line);
+                    if (job.Action == "setup")
+                    {
+                        var step = System.Text.RegularExpressions.Regex.Match(line, @"^\[setup\] (STEP|DONE) (\d+)/(\d+)(?:: (.*))?$");
+                        if (step.Success)
+                        {
+                            job.TotalSteps = int.Parse(step.Groups[3].Value);
+                            if (step.Groups[1].Value == "DONE") job.CompletedSteps = int.Parse(step.Groups[2].Value);
+                            else job.Step = step.Groups[4].Value;
+                        }
+                    }
                     job.Log.AppendLine(line);
                     if (job.Log.Length > 24000) job.Log.Remove(0, job.Log.Length - 24000);
                 }

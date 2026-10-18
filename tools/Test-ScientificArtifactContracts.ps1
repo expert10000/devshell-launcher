@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param()
+param([string]$RuntimeRoot='G:\master\.conda')
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $data = Join-Path $root '.scientific/datasets'
@@ -7,7 +7,7 @@ $manifest = Get-Content -LiteralPath (Join-Path $data 'manifest.json') -Raw | Co
 $suite = Join-Path $root ('.scientific/tests/contracts-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
 [System.IO.Directory]::CreateDirectory($suite) | Out-Null
 $compiler = Join-Path $root '.scientific/builds/cgal-worker-prebuild/Release/devshell_cgal_worker.exe'
-$python = @{ cgal='G:\master\.conda\devshell-cgal\python.exe'; vtk='G:\master\.conda\devshell-vtk\python.exe' }
+$python = @{ cgal=(Join-Path $RuntimeRoot 'devshell-cgal/python.exe'); vtk=(Join-Path $RuntimeRoot 'devshell-vtk/python.exe') }
 $records = [System.Collections.Generic.List[object]]::new()
 
 function Invoke-Child([string]$Kind, [string[]]$Arguments, [string]$Directory) {

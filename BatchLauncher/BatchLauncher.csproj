@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -66,6 +66,7 @@
     <Content Include="..\tools\Manage-Repository.ps1" Link="tools\Manage-Repository.ps1" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\tools\Inspect-ScientificRuntimes.ps1;..\tools\scientific-runtime-probe.py;..\tools\scientific-mesh-worker.py;..\tools\scientific-vtk-render-check.py;..\tools\scientific_worker_contract.py;..\tools\scientific-cgal-worker.py;..\tools\scientific-artifact-preview.py" Link="tools\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\scientific\smoke\**\*" Link="scientific\smoke\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\tools\Setup-Environment.ps1" Link="tools\Setup-Environment.ps1" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

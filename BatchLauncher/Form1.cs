@@ -43,7 +43,7 @@ public partial class Form1 : Form
         _terminalManager.Output += HandleSessionOutput;
         _terminalManager.Exited += HandleSessionExit;
         _terminalManager.Error += HandleSessionError;
-        _workspace = WorkspaceStore.LoadWorkspace(_scriptsPath);
+        _workspace = ResolveWorkspace(WorkspaceStore.LoadWorkspace(_scriptsPath), _activeWorkspaceProfileId);
         _environment = BuildEnvironmentSnapshot();
         _latestState = AppStateStore.Load();
         Shown += async (_, _) => await InitializeWebViewAsync();
@@ -154,6 +154,9 @@ public partial class Form1 : Form
             "workspace.pdf" => HandleWorkspacePdfAsync(doc.RootElement),
             "workspace.files" => HandleWorkspaceFilesAsync(doc.RootElement),
             "scientific.runtime" => HandleScientificRuntimeAsync(doc.RootElement),
+            "workspace.root.save" => HandleWorkspaceRootSaveAsync(doc.RootElement),
+            "workspace.root.pick" => HandleWorkspaceRootPickAsync(),
+            "workspace.tools.refresh" => HandleWorkspaceToolsRefreshAsync(),
             "tasks.request" => HandleTasksRequestAsync(),
             "task.run" => HandleTaskRunAsync(doc.RootElement),
             "service.control" => HandleServiceControlAsync(doc.RootElement),
@@ -270,7 +273,7 @@ public partial class Form1 : Form
         }
 
         if (_activeWorkspaceProfileId != profile.Id) ResetBrowserPane();
-        _workspace = workspace;
+        _workspace = ResolveWorkspace(workspace, profile.Id);
         _scriptsPath = profile.Path;
         _activeWorkspaceProfileId = profile.Id;
         WorkspaceProfileStore.SaveSelection(profile.Id);

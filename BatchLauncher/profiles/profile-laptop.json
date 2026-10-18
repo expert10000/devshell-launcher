@@ -3,36 +3,38 @@
   "globals": {
     "defaultShell": "pwsh",
     "vars": {
-      "browserEditorExe": "D:\\masters\\Browser-AI\\bin\\Debug Stable APIs\\net8.0-windows\\BrowserAI.exe",
-      "jupyterPython": "D:\\masters\\.venvs\\devshell-jupyter\\Scripts\\python.exe",
-      "nodeDirectory": "D:\\masters\\.tools\\node24\\node_modules\\node\\bin",
-      "math3dEnvironment": "D:\\masters\\.conda\\math3d-cgal",
-      "math3dPython": "D:\\masters\\.conda\\math3d-cgal\\python.exe",
-      "basePython": "D:\\masters\\.conda\\math3d-cgal\\python.exe",
-      "npmCli": "D:\\masters\\.tools\\node24\\node_modules\\npm\\bin\\npm-cli.js",
-      "npmDirectory": "D:\\masters\\.tools\\node24"
+      "browserEditorExe": "${workspaceRoot}\\Browser-AI\\bin\\Debug Stable APIs\\net8.0-windows\\BrowserAI.exe",
+      "jupyterPython": "${workspaceRoot}\\.venvs\\devshell-jupyter\\Scripts\\python.exe",
+      "nodeDirectory": "${workspaceRoot}\\.tools\\node24\\node_modules\\node\\bin",
+      "math3dEnvironment": "${workspaceRoot}\\.conda\\math3d-cgal",
+      "math3dPython": "${vars.math3dEnvironment}\\python.exe",
+      "basePython": "${workspaceRoot}\\.conda\\math3d-cgal\\python.exe",
+      "npmCli": "${workspaceRoot}\\.tools\\node24\\node_modules\\npm\\bin\\npm-cli.js",
+      "npmDirectory": "${workspaceRoot}\\.tools\\node24"
     },
     "terminal": {
       "fontSize": 14,
       "scrollback": 5000
-    }
+    },
+    "workspaceRoot": "D:\\masters",
+    "autoDetectTools": true
   },
   "templates": {},
   "projects": [
     {
       "id": "github",
       "name": "GitHub Repos",
-      "root": "D:\\masters",
+      "root": "${workspaceRoot}",
       "vars": {
-        "math3dRepoPath": "D:\\masters\\Math3D",
+        "math3dRepoPath": "${workspaceRoot}\\Math3D",
         "math3dRepoUrl": "https://github.com/expert10000/Math3D",
-        "theoryRepoPath": "D:\\masters\\theory",
+        "theoryRepoPath": "${workspaceRoot}\\theory",
         "theoryRepoUrl": "https://github.com/expert10000/theory",
-        "mathRepoPath": "D:\\masters\\math",
+        "mathRepoPath": "${workspaceRoot}\\math",
         "mathRepoUrl": "https://github.com/expert10000/math",
-        "devshellRepoPath": "D:\\masters\\devshell-launcher",
+        "devshellRepoPath": "${workspaceRoot}\\devshell-launcher",
         "devshellRepoUrl": "https://github.com/expert10000/devshell-launcher",
-        "browserRepoPath": "D:\\masters\\Browser-AI"
+        "browserRepoPath": "${workspaceRoot}\\Browser-AI"
       },
       "layout": {
         "type": "tabs",
@@ -231,17 +233,17 @@
         },
         "Master - Pull All Repositories": {
           "shell": "pwsh",
-          "cwd": "D:\\masters",
+          "cwd": "${workspaceRoot}",
           "steps": [
             {
-              "run": "& 'D:\\masters\\devshell-launcher\\tools\\Update-MasterRepos.ps1'"
+              "run": "& '${workspaceRoot}\\devshell-launcher\\tools\\Update-MasterRepos.ps1'"
             }
           ],
           "runInNewTab": true
         },
         "BrowserEditor - Build": {
           "shell": "pwsh",
-          "cwd": "D:\\masters\\Browser-AI",
+          "cwd": "${workspaceRoot}\\Browser-AI",
           "steps": [
             {
               "run": "dotnet build BrowserAI.csproj --configuration 'Debug Stable APIs'"
@@ -251,10 +253,10 @@
         },
         "BrowserEditor - Run": {
           "shell": "pwsh",
-          "cwd": "D:\\masters\\Browser-AI",
+          "cwd": "${workspaceRoot}\\Browser-AI",
           "steps": [
             {
-              "run": "Start-Process 'D:\\masters\\Browser-AI\\bin\\Debug Stable APIs\\net8.0-windows\\BrowserAI.exe'"
+              "run": "Start-Process '${workspaceRoot}\\Browser-AI\\bin\\Debug Stable APIs\\net8.0-windows\\BrowserAI.exe'"
             }
           ]
         },
@@ -335,7 +337,11 @@
           "pythonEnvironment": "${vars.math3dEnvironment}",
           "pythonModules": [
             "numpy",
-            "scipy"
+            "scipy",
+            "sympy",
+            "vtk",
+            "CGAL",
+            "pygalmesh"
           ],
           "browserBuildTask": "Math3D - Build Web",
           "browserRunTask": "Math3D - Run Web",
@@ -343,7 +349,10 @@
           "readyUrls": [
             "http://127.0.0.1:8787/api/worker/cgal/health"
           ],
-          "readyTimeoutSeconds": 120
+          "readyTimeoutSeconds": 120,
+          "dependencyFolders": [
+            "renderer"
+          ]
         },
         {
           "name": "Theory",
@@ -387,7 +396,7 @@
           "runTask": "BrowserEditor - Run",
           "id": "browsereditor",
           "buildTask": "BrowserEditor - Build",
-          "path": "D:\\masters\\Browser-AI",
+          "path": "${workspaceRoot}\\Browser-AI",
           "name": "BrowserEditor",
           "url": "https://github.com/expert10000/Browser-AI.git",
           "requiredTools": [
@@ -415,7 +424,7 @@
     {
       "id": "jupyter-studio",
       "name": "Jupyter Studio",
-      "root": "D:\\masters\\devshell-launcher\\JupyterWorkspace",
+      "root": "${workspaceRoot}\\devshell-launcher\\JupyterWorkspace",
       "pinned": true,
       "layout": {
         "type": "tabs",
@@ -423,36 +432,36 @@
           {
             "title": "Jupyter Lab Server",
             "profileId": "pwsh",
-            "cwd": "D:\\masters\\devshell-launcher\\JupyterWorkspace",
+            "cwd": "${workspaceRoot}\\devshell-launcher\\JupyterWorkspace",
             "taskId": "Jupyter - Start Lab",
             "autoRun": false
           },
           {
             "title": "Notebook Workspace",
             "profileId": "pwsh",
-            "cwd": "D:\\masters\\devshell-launcher\\JupyterWorkspace\\notebooks",
+            "cwd": "${workspaceRoot}\\devshell-launcher\\JupyterWorkspace\\notebooks",
             "taskId": "Jupyter - Environment Check",
             "autoRun": false
           },
           {
             "title": "Theory Python",
             "profileId": "pwsh",
-            "cwd": "D:\\masters\\devshell-launcher\\JupyterWorkspace\\theory",
+            "cwd": "${workspaceRoot}\\devshell-launcher\\JupyterWorkspace\\theory",
             "autoRun": false
           }
         ]
       },
       "tasks": {
         "Jupyter - Open Guide": {
-          "cwd": "D:\\masters\\devshell-launcher\\JupyterWorkspace",
+          "cwd": "${workspaceRoot}\\devshell-launcher\\JupyterWorkspace",
           "steps": [
             {
-              "run": "Start-Process \"D:\\masters\\devshell-launcher\\JupyterWorkspace\\guide.html\""
+              "run": "Start-Process \"${workspaceRoot}\\devshell-launcher\\JupyterWorkspace\\guide.html\""
             }
           ]
         },
         "Jupyter - Environment Check": {
-          "cwd": "D:\\masters\\devshell-launcher\\JupyterWorkspace",
+          "cwd": "${workspaceRoot}\\devshell-launcher\\JupyterWorkspace",
           "steps": [
             {
               "run": "& '${vars.jupyterPython}' -c \"import jupyterlab, notebook, numpy, pandas, matplotlib, sympy, ipywidgets; print('JupyterLab', jupyterlab.__version__)\""
@@ -460,10 +469,10 @@
           ]
         },
         "Jupyter - Install Environment": {
-          "cwd": "D:\\masters\\devshell-launcher\\JupyterWorkspace",
+          "cwd": "${workspaceRoot}\\devshell-launcher\\JupyterWorkspace",
           "steps": [
             {
-              "run": "if (-not (Test-Path '${vars.jupyterPython}')) { & '${vars.basePython}' -m venv 'D:\\masters\\.venvs\\devshell-jupyter'; if ($LASTEXITCODE -ne 0) { throw 'Environment creation failed' } }; & '${vars.jupyterPython}' -m pip install -r requirements.txt psutil"
+              "run": "if (-not (Test-Path '${vars.jupyterPython}')) { & '${vars.basePython}' -m venv '${workspaceRoot}\\.venvs\\devshell-jupyter'; if ($LASTEXITCODE -ne 0) { throw 'Environment creation failed' } }; & '${vars.jupyterPython}' -m pip install -r requirements.txt psutil"
             }
           ]
         },
@@ -502,7 +511,7 @@
           "shell": "pwsh"
         },
         "Jupyter - List Servers": {
-          "cwd": "D:\\masters\\devshell-launcher\\JupyterWorkspace",
+          "cwd": "${workspaceRoot}\\devshell-launcher\\JupyterWorkspace",
           "steps": [
             {
               "run": "& '${vars.jupyterPython}' -m jupyter server list"
@@ -515,7 +524,7 @@
           "serviceAction": "stop"
         },
         "Jupyter - Open Workspace in VS Code": {
-          "cwd": "D:\\masters\\devshell-launcher\\JupyterWorkspace",
+          "cwd": "${workspaceRoot}\\devshell-launcher\\JupyterWorkspace",
           "steps": [
             {
               "run": "Start-Process code -ArgumentList \".\""
@@ -541,7 +550,7 @@
         },
         "Theory - Check Environment": {
           "shell": "pwsh",
-          "cwd": "D:\\masters\\devshell-launcher\\JupyterWorkspace\\theory",
+          "cwd": "${workspaceRoot}\\devshell-launcher\\JupyterWorkspace\\theory",
           "steps": [
             {
               "run": "& '${vars.jupyterPython}' -c \"import numpy, matplotlib, sympy, scipy, pytest; print('Theory environment ready')\""
@@ -550,7 +559,7 @@
         },
         "Theory - Install Dependencies": {
           "shell": "pwsh",
-          "cwd": "D:\\masters\\devshell-launcher\\JupyterWorkspace\\theory",
+          "cwd": "${workspaceRoot}\\devshell-launcher\\JupyterWorkspace\\theory",
           "steps": [
             {
               "run": "& '${vars.jupyterPython}' -m pip install -r requirements.txt"
@@ -577,7 +586,7 @@
         "Jupyter - List Servers",
         "Jupyter - Open Workspace in VS Code"
       ],
-      "pythonEnvironment": "D:\\masters\\.venvs\\devshell-jupyter",
+      "pythonEnvironment": "${workspaceRoot}\\.venvs\\devshell-jupyter",
       "service": {
         "python": "${vars.jupyterPython}",
         "port": 8890,
@@ -587,7 +596,7 @@
         "shell": "pwsh",
         "steps": [
           {
-            "run": "$env:VIRTUAL_ENV = 'D:\\masters\\.venvs\\devshell-jupyter'; $env:PATH = \"$env:VIRTUAL_ENV\\Scripts;\" + (($env:PATH -split ';' | Where-Object { $_ -ne \"$env:VIRTUAL_ENV\\Scripts\" }) -join ';')"
+            "run": "$env:VIRTUAL_ENV = '${workspaceRoot}\\.venvs\\devshell-jupyter'; $env:PATH = \"$env:VIRTUAL_ENV\\Scripts;\" + (($env:PATH -split ';' | Where-Object { $_ -ne \"$env:VIRTUAL_ENV\\Scripts\" }) -join ';')"
           }
         ]
       },
@@ -600,6 +609,9 @@
         "scipy",
         "pytest",
         "ipywidgets",
+        "psutil"
+      ],
+      "pythonPackages": [
         "psutil"
       ]
     }

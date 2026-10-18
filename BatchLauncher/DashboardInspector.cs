@@ -14,7 +14,8 @@ public sealed record RepositoryStatus(string ProjectId, string Id, string Path, 
 public sealed record RepositoryCommit(string Hash, string Subject, string Author, string Timestamp);
 public sealed record RepositoryRemote(string Name, string Url, string Direction);
 public sealed record RepositoryWorktree(string Path, string? Branch, string? Head, bool Detached, bool Locked, bool Prunable, bool Bare);
-public sealed record HealthCheck(string Name, string State, string Detail, string? ProjectId = null, string? RepositoryId = null);
+public sealed record HealthCheck(string Name, string State, string Detail, string? ProjectId = null, string? RepositoryId = null,
+    string? FixTarget = null, string? FixLabel = null, string? Guidance = null, bool Optional = false);
 
 public static class DashboardInspector
 {
@@ -32,10 +33,11 @@ public static class DashboardInspector
     }
 
     public static async Task<(int Code, string Output, string Error)> Run(string executable, IEnumerable<string> arguments,
-        IReadOnlyDictionary<string, string>? environment = null)
+        IReadOnlyDictionary<string, string>? environment = null, string? workingDirectory = null)
     {
         var start = new ProcessStartInfo(executable) { UseShellExecute = false, CreateNoWindow = true,
             RedirectStandardOutput = true, RedirectStandardError = true };
+        if (workingDirectory != null) start.WorkingDirectory = workingDirectory;
         foreach (var argument in arguments) start.ArgumentList.Add(argument);
         foreach (var pair in environment ?? new Dictionary<string, string>()) start.Environment[pair.Key] = pair.Value;
         using var process = Process.Start(start) ?? throw new InvalidOperationException($"Cannot run {executable}");

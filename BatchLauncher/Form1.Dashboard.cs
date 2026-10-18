@@ -17,13 +17,13 @@ public partial class Form1
         {
             var variables = new Dictionary<string, string>(globals);
             foreach (var pair in project.Vars ?? new()) variables[pair.Key] = pair.Value;
-            foreach (var pair in variables) value = value.Replace("${vars." + pair.Key + "}", pair.Value);
-            return value;
+            return PortableWorkspace.Expand(value, variables);
         }
         var checks = new List<HealthCheck>();
         var repositories = new List<RepositoryStatus>();
         try
         {
+            if (_workspaceResolutionError != null) checks.Add(new("Workspace settings", "error", _workspaceResolutionError));
             var tools = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "git", "pwsh" };
             foreach (var project in projects)
             {
@@ -39,41 +39,14 @@ public partial class Form1
                     repositories.Add(status);
                     checks.Add(new(repo.Name + " repository", status.Error == null ? "ok" : "error", status.Error ?? status.Path));
                     foreach (var task in new[] { repo.BuildTask, repo.RunTask, repo.BrowserBuildTask, repo.BrowserRunTask }.Where(task => task != null))
-                        if (project.Tasks?.ContainsKey(task!) != true) checks.Add(new(repo.Name + " action", "error", $"Missing task: {task}"));
-                    var toolPaths = new Dictionary<string, string>();
-                    if (globals.TryGetValue("nodeDirectory", out var nodeDirectory)) toolPaths["node"] = Path.Combine(nodeDirectory, "node.exe");
-                    if (globals.TryGetValue("npmCli", out var npmCli)) toolPaths["npm"] = npmCli;
-                    checks.AddRange(await RepositoryEnvironment.Inspect(project.Id, repo.Id, Expand(project, repo.Path),
-                        (repo.RequiredTools ?? new()).Select(tool => Expand(project, tool)),
-                        repo.PythonEnvironment == null ? null : Expand(project, repo.PythonEnvironment), repo.PythonModules, toolPaths));
-                    foreach (var folder in repo.DependencyFolders ?? new())
-                    {
-                        var root = Path.GetFullPath(Expand(project, repo.Path)).TrimEnd(Path.DirectorySeparatorChar);
-                        var dependencyPath = Path.GetFullPath(Path.Combine(root, folder));
-                        if (!dependencyPath.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-                        {
-                            checks.Add(new("Dependency folder", "error", "Must be inside the repository: " + folder, project.Id, repo.Id));
-                            continue;
-                        }
-                        checks.AddRange((await RepositoryEnvironment.Inspect(project.Id, repo.Id, dependencyPath, Array.Empty<string>(), toolPaths: toolPaths))
-                            .Select(check => check with { Name = folder + " · " + check.Name }));
-                    }
+                        if (project.Tasks?.ContainsKey(task!) != true) checks.Add(new(repo.Name + " action", "error", $"Missing task: {task}", project.Id, repo.Id, Guidance: "Define this task in the profile or correct the repository action name."));
+                    checks.AddRange(await RepositoryEnvironment.InspectRepository(project.Id, repo.Id, ResolveRepository(project, repo), EnvironmentTools()));
                 }
                 if (project.PythonEnvironment != null)
                 {
-                    var python = Path.Combine(Expand(project, project.PythonEnvironment), "Scripts", "python.exe");
-                    if (!File.Exists(python)) checks.Add(new(project.Name + " Python", "error", "Missing environment: " + python));
-                    else
-                    {
-                        try
-                        {
-                            var modules = JsonSerializer.Serialize(project.PythonModules ?? new());
-                            var code = "import importlib,json,sys; modules=json.loads(sys.argv[1]); [importlib.import_module(m) for m in modules]; print(sys.executable)";
-                            var result = await DashboardInspector.Run(python, new[] { "-c", code, modules });
-                            checks.Add(new(project.Name + " Python packages", result.Code == 0 ? "ok" : "error", result.Code == 0 ? result.Output.Trim() : result.Error.Trim()));
-                        }
-                        catch (Exception error) { checks.Add(new(project.Name + " Python packages", "error", error.Message)); }
-                    }
+                    var repo = new WorkspaceRepository { Path = project.Root ?? "", PythonEnvironment = project.PythonEnvironment,
+                        PythonModules = project.PythonModules, PythonPackages = project.PythonPackages };
+                    checks.AddRange(await RepositoryEnvironment.InspectRepository(project.Id, "environment", ResolveRepository(project, repo), EnvironmentTools()));
                 }
                 if (project.Service != null)
                 {
@@ -93,7 +66,7 @@ public partial class Form1
             }
             foreach (var tool in tools)
             {
-                var resolved = DashboardInspector.FindTool(tool);
+                var resolved = DashboardInspector.FindTool(_workspace.Globals?.Tools?.GetValueOrDefault(tool) ?? tool);
                 checks.Add(new(tool, resolved == null ? "error" : "ok", resolved ?? "Not found. Install the tool or update its configured path."));
             }
         }

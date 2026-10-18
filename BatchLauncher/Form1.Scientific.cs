@@ -66,18 +66,7 @@ public partial class Form1
         ["PATH"]=prefix+";"+Path.Combine(prefix,"Library","bin")+";"+Path.Combine(prefix,"Scripts")+";"+(Environment.GetEnvironmentVariable("PATH")??""),
         ["PYTHONNOUSERSITE"]="1",["PYTHONIOENCODING"]="utf-8"
     };
-    private static string ScientificScopedFile(string root,string relative)
-    {
-        if(string.IsNullOrWhiteSpace(relative)||Path.IsPathRooted(relative)||relative.Contains(':')||relative.Contains('\\')||relative.Split('/').Any(part=>part is "" or "." or "..")) throw new InvalidOperationException("Expected a safe relative artifact path.");
-        var path=Path.GetFullPath(Path.Combine(root,relative));
-        if(!path.StartsWith(Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar)+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Artifact escapes root.");
-        for(FileSystemInfo? item=new FileInfo(path);item!=null;item=item is FileInfo file?file.Directory:((DirectoryInfo)item).Parent)
-        {
-            if(item.Exists&&(item.Attributes&FileAttributes.ReparsePoint)!=0) throw new InvalidOperationException("Symlink/junction artifacts are not allowed.");
-            if(string.Equals(item.FullName,Path.GetFullPath(root),StringComparison.OrdinalIgnoreCase)) break;
-        }
-        return path;
-    }
+    private static string ScientificScopedFile(string root,string relative) => ScientificArtifactFiles.ScopedFile(root, relative);
     private static IEnumerable<Control> ScientificControls(Control parent)
     {
         foreach(Control child in parent.Controls){yield return child;foreach(var nested in ScientificControls(child))yield return nested;}
@@ -203,8 +192,9 @@ public partial class Form1
             else if(action=="history")data=ScientificHistoryList(profileId);
             else if(action=="history-result")data=ScientificHistoryResult(profileId,request.GetProperty("jobId").GetString()??"");
             else if(action=="test-matrix")data=ScientificMatrixCases();
+            else if(action=="history-image-preview")data=ScientificHistoryImagePreview(profileId,request);
             else if(action=="history-preview")data=await ScientificHistoryPreviewAsync(profileId,request);
-            else if(action is "history-open-log" or "history-open-output" or "history-reveal-artifact")data=ScientificHistoryOpen(profileId,request,action);
+            else if(action is "history-open-log" or "history-open-output" or "history-reveal-artifact" or "history-open-artifact")data=ScientificHistoryOpen(profileId,request,action);
             else if(action=="report")data=ScientificReport();
             else if(action=="datasets")
             {

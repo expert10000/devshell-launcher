@@ -70,7 +70,7 @@ export interface ScientificRunResult {
   validatedCapabilities: string[]
   diagnostics: { severity: 'info' | 'warning' | 'error'; message: string }[]
   logReference?: string
-  artifacts: { path: string; mediaType: string; bytes?: number; sha256?: string }[]
+  artifacts: { path: string; mediaType: string; bytes?: number; sha256?: string; recoveredFromLegacyRun?: boolean }[]
   inputArtifacts?: ScientificRunRequest['inputArtifacts']
   before?: Record<string, number | boolean>
   after?: Record<string, number | boolean>

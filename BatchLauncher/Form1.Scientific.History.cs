@@ -19,7 +19,8 @@ public partial class Form1
             || !result.TryGetProperty("runId", out var runId) || !Regex.IsMatch(runId.GetString() ?? "", "^[0-9a-f]{32}$")
             || !result.TryGetProperty("profileId", out var profile) || profile.GetString() != profileId)
             throw new InvalidOperationException("Run does not belong to this profile.");
-        return (Path.GetDirectoryName(path)!, result.Clone());
+        var directory = Path.GetDirectoryName(path)!;
+        return (directory, ScientificArtifactFiles.RecoverLegacySmoke(directory, result.Clone()));
     }
 
     private static (string Directory, JsonElement Result) ScientificHistoryFind(string profileId, string jobId)
@@ -66,6 +67,7 @@ public partial class Form1
                     state = result.GetProperty("state").GetString(),
                     durationMs = result.GetProperty("durationMs").GetInt64(),
                     finishedAtUtc = File.GetLastWriteTimeUtc(Path.Combine(directory.FullName, "results.json")),
+                    meshArtifactCount = files.ValueKind == JsonValueKind.Array ? files.EnumerateArray().Count(item => ScientificMeshExtensions.Contains(Path.GetExtension(item.GetProperty("path").GetString() ?? "").ToLowerInvariant())) : 0,
                     artifactCount = artifacts
                 });
                 if (entries.Count == 50) break;
@@ -90,14 +92,17 @@ public partial class Form1
             if (!File.Exists(path)) throw new InvalidOperationException("Full log is unavailable for this run.");
             executable = "notepad.exe";
         }
-        else if (action == "history-reveal-artifact")
+        else if (action is "history-reveal-artifact" or "history-open-artifact")
         {
             var relative = request.GetProperty("artifactPath").GetString() ?? "";
-            if (!result.TryGetProperty("artifacts", out var artifacts) || artifacts.ValueKind != JsonValueKind.Array
-                || !artifacts.EnumerateArray().Any(item => item.GetProperty("path").GetString() == relative))
-                throw new InvalidOperationException("Artifact is not registered in this run.");
-            path = ScientificScopedFile(directory, relative);
-            if (!File.Exists(path)) throw new InvalidOperationException("Artifact is no longer available.");
+            path = ScientificArtifactFiles.ResolveRegistered(directory, result, relative);
+            if (action == "history-open-artifact")
+            {
+                if (!ScientificMeshExtensions.Contains(Path.GetExtension(path).ToLowerInvariant()) && Path.GetExtension(path).ToLowerInvariant() != ".png")
+                    throw new InvalidOperationException("Open supports registered mesh and PNG artifacts only.");
+                Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+                return new { path };
+            }
         }
         else path = directory;
         var start = new ProcessStartInfo(executable) { UseShellExecute = true };
@@ -105,6 +110,14 @@ public partial class Form1
         start.ArgumentList.Add(path);
         Process.Start(start);
         return new { path };
+    }
+
+    private static object ScientificHistoryImagePreview(string profileId, JsonElement selection)
+    {
+        var jobId = selection.GetProperty("jobId").GetString() ?? "";
+        var (directory, result) = ScientificHistoryFind(profileId, jobId);
+        var relative = selection.GetProperty("artifactPath").GetString() ?? "";
+        return new { jobId, artifactPath = relative, image = ScientificArtifactFiles.ImagePreview(directory, result, relative) };
     }
 
     private async Task<object> ScientificHistoryPreviewAsync(string profileId, JsonElement selection)

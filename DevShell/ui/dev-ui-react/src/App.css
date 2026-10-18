@@ -3017,6 +3017,13 @@
 .scientific-history-actions { display: flex; flex-wrap: wrap; gap: 5px; }
 .scientific-history-result { margin-top: 18px; padding: 16px; border: 1px solid var(--scientific-border); border-radius: 10px; }
 .scientific-history-result li { margin: 7px 0; overflow-wrap: anywhere; }
+.scientific-history-artifacts { list-style: none; padding: 0; }
+.scientific-history-artifacts li { display: grid; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--scientific-border); }
+.scientific-history-artifacts small { color: var(--scientific-muted); }
+.scientific-history-image { margin: 18px 0; padding: 14px; border: 1px solid var(--scientific-border); border-radius: 10px; background: var(--scientific-panel); }
+.scientific-history-image figcaption { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+.scientific-history-image img { display: block; max-width: 100%; max-height: 600px; width: auto; height: auto; margin: auto; }
+
 .scientific-comparison-presets { margin: 14px 0 20px; padding: 16px; border: 1px solid var(--scientific-border); border-radius: 10px; background: rgba(100,130,140,.07); }
 .scientific-comparison-presets h4 { margin: 0 0 8px; }
 .scientific-comparison-preset-fields { display: grid; grid-template-columns: minmax(220px, 2fr) repeat(2, minmax(130px, 1fr)); gap: 12px; margin: 14px 0; }

@@ -11,19 +11,9 @@ public partial class Form1
 {
     private readonly SemaphoreSlim _scientificPreviewGate = new(1, 1);
     private readonly CancellationTokenSource _scientificLifetime = new();
-    private static readonly string[] ScientificMeshExtensions = { ".obj", ".stl", ".ply", ".vtp", ".m3dm" };
-
-    private static string ScientificMediaType(string path) => Path.GetExtension(path).ToLowerInvariant() switch
-    {
-        ".obj" => "model/obj", ".stl" => "model/stl", ".ply" => "application/ply",
-        ".vtp" => "application/vnd.vtk.vtp", ".off" => "application/off",
-        ".m3dm" => "application/octet-stream", _ => "application/json"
-    };
-    private static string ScientificHash(string path)
-    {
-        using var stream = File.OpenRead(path);
-        return Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
-    }
+    private static readonly string[] ScientificMeshExtensions = ScientificArtifactFiles.MeshExtensions;
+    private static string ScientificMediaType(string path) => ScientificArtifactFiles.MediaType(path);
+    private static string ScientificHash(string path) => ScientificArtifactFiles.Hash(path);
     private static JsonObject ScientificDatasetArtifact(string inputId)
     {
         var root = Path.Combine(ScientificDataRoot, "datasets");
@@ -52,6 +42,8 @@ public partial class Form1
     {
         var inputs = input == null ? new JsonArray() : new JsonArray(input.DeepClone());
         var outputs = output == null ? new JsonArray() : new JsonArray(new JsonObject { ["path"] = output, ["mediaType"] = ScientificMediaType(output) });
+        foreach (var path in ScientificArtifactFiles.SmokeOutputs(job.RuntimeId, job.RecipeId))
+            outputs.Add(new JsonObject { ["path"] = path, ["mediaType"] = ScientificMediaType(path) });
         if (additionalInputs != null) foreach (var item in additionalInputs) inputs.Add(item?.DeepClone());
         if (additionalOutputs != null) foreach (var item in additionalOutputs) outputs.Add(item?.DeepClone());
         var request = new JsonObject
@@ -118,9 +110,7 @@ public partial class Form1
             foreach (var artifact in definition.GetProperty("outputArtifacts").EnumerateArray())
             {
                 var relative = artifact.GetProperty("path").GetString() ?? "";
-                var file = ScientificScopedFile(job.Directory, relative);
-                if (File.Exists(file) && new FileInfo(file).Length <= 67108864)
-                    artifacts.Add(new JsonObject { ["path"] = relative, ["mediaType"] = ScientificMediaType(file), ["bytes"] = new FileInfo(file).Length, ["sha256"] = ScientificHash(file) });
+                if (ScientificArtifactFiles.Describe(job.Directory, relative) is { } registered) artifacts.Add(registered);
             }
         }
         result["artifacts"] = artifacts;

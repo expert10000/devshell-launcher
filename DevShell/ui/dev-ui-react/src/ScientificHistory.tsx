@@ -8,6 +8,9 @@ export function ScientificHistory({ native }: { native: ReturnType<typeof useSci
   const entries = native.history
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
   const result = selectedJobId ? native.historyResults[selectedJobId] ?? null : native.historyResult
+  const [imageSelection, setImageSelection] = useState<{ jobId: string; path: string } | null>(null)
+  const imagePreview = imageSelection ? native.historyImages[`${imageSelection.jobId}|${imageSelection.path}`] : undefined
+  const [imageError, setImageError] = useState('')
   const resultRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (selectedJobId && result?.runId === selectedJobId) resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -53,7 +56,7 @@ export function ScientificHistory({ native }: { native: ReturnType<typeof useSci
     <button disabled={native.pending} onClick={() => native.send('', 'history')}>{entries ? 'Refresh history' : 'Load history'}</button>
     {entries && (entries.length ? <div className="scientific-history-scroll"><table><thead><tr><th>Finished</th><th>Runtime / recipe</th><th>State</th><th>Duration</th><th>Artifacts</th><th>Actions</th></tr></thead><tbody>{entries.map(entry => <tr key={entry.jobId}>
       <td>{new Date(entry.finishedAtUtc).toLocaleString()}</td><td>{entry.runtimeId}<br /><strong>{entry.recipeId}</strong></td><td>{entry.state}</td><td>{(entry.durationMs / 1000).toFixed(1)} s</td><td>{entry.artifactCount}</td>
-      <td><div className="scientific-history-actions"><button aria-pressed={selectedJobId === entry.jobId} onClick={() => { setSelectedJobId(entry.jobId); native.send(entry.runtimeId, 'history-result', { jobId: entry.jobId }) }}>{selectedJobId === entry.jobId ? 'Viewing' : 'Result'}</button><button onClick={() => native.send(entry.runtimeId, 'history-open-log', { jobId: entry.jobId })}>Log</button><button onClick={() => native.send(entry.runtimeId, 'history-open-output', { jobId: entry.jobId })}>Folder</button><button disabled={entry.state !== 'succeeded' || !entry.artifactCount} aria-pressed={comparisonIds.includes(entry.jobId)} onClick={() => toggleComparison(entry)}>{comparisonIds.includes(entry.jobId) ? 'Selected' : 'Compare'}</button></div></td>
+      <td><div className="scientific-history-actions"><button aria-pressed={selectedJobId === entry.jobId} onClick={() => { setSelectedJobId(entry.jobId); native.send(entry.runtimeId, 'history-result', { jobId: entry.jobId }) }}>{selectedJobId === entry.jobId ? 'Viewing' : 'Result'}</button><button onClick={() => native.send(entry.runtimeId, 'history-open-log', { jobId: entry.jobId })}>Log</button><button onClick={() => native.send(entry.runtimeId, 'history-open-output', { jobId: entry.jobId })}>Folder</button><button disabled={entry.state !== 'succeeded' || !(entry.meshArtifactCount ?? entry.artifactCount)} aria-pressed={comparisonIds.includes(entry.jobId)} onClick={() => toggleComparison(entry)}>{comparisonIds.includes(entry.jobId) ? 'Selected' : 'Compare'}</button></div></td>
     </tr>)}</tbody></table></div> : <p>No completed runs found for this profile.</p>)}
     {selectedJobId && !result && <div className="scientific-history-result" role="status">Loading result <code>{selectedJobId}</code>...</div>}
     {result && <div ref={resultRef} className="scientific-history-result"><h4>{result.runtimeId} / {result.recipeId} / {result.state}</h4><p><code>{result.runId}</code> / {result.durationMs} ms</p>
@@ -66,7 +69,21 @@ export function ScientificHistory({ native }: { native: ReturnType<typeof useSci
           <tr><td>Triangles</td><td>{item.before.faces} / {item.after?.faces ?? 'none'}</td><td>Topology checked separately</td></tr>
         </tbody></table> : <p>No geometry output recorded.</p>}</div>)}
       </section>}
-      <h5>Artifacts</h5>{result.artifacts?.length ? <ul>{result.artifacts.map(artifact => <li key={artifact.path}><code>{artifact.path}</code> <button onClick={() => native.send(result.runtimeId, 'history-reveal-artifact', { jobId: result.runId, artifactPath: artifact.path })}>Reveal</button> {meshArtifacts([artifact]).length > 0 && <button disabled={native.pending} onClick={() => loadPreview(result.runId, result.runtimeId, artifact.path)}>Preview</button>}</li>)}</ul> : <p>No output artifacts recorded.</p>}
+      <h5>Artifacts</h5>{result.artifacts?.length ? <ul className="scientific-history-artifacts">{result.artifacts.map(artifact => <li key={artifact.path}>
+        <code>{artifact.path}</code>{artifact.bytes !== undefined && <small>{artifact.bytes.toLocaleString()} bytes</small>}
+        <div className="scientific-history-actions">
+          {meshArtifacts([artifact]).length > 0 && <button disabled={native.pending} onClick={() => loadPreview(result.runId, result.runtimeId, artifact.path)}>Preview mesh</button>}
+          {/\.png$/i.test(artifact.path) && <button disabled={native.pending} onClick={() => { setImageSelection({ jobId: result.runId, path: artifact.path }); setImageError(''); native.send(result.runtimeId, 'history-image-preview', { jobId: result.runId, artifactPath: artifact.path }) }}>Preview image</button>}
+          <button title="Open with the default application" onClick={() => native.send(result.runtimeId, 'history-open-artifact', { jobId: result.runId, artifactPath: artifact.path })}>Open</button>
+          <button onClick={() => native.send(result.runtimeId, 'history-reveal-artifact', { jobId: result.runId, artifactPath: artifact.path })}>Reveal in folder</button>
+        </div>
+        {artifact.recoveredFromLegacyRun && <small>Recovered from a legacy run; size and hash checked when History loads.</small>}
+      </li>)}</ul> : <p>No output artifacts recorded.</p>}
+      {imageSelection?.jobId === result.runId && <figure className="scientific-history-image" aria-label="Saved artifact image preview">
+        <figcaption><code>{imageSelection.path}</code><button onClick={() => setImageSelection(null)}>Close preview</button></figcaption>
+        {imagePreview ? <img src={imagePreview.image.dataUrl} alt={`VTK render: ${imageSelection.path}`} onError={() => setImageError('The saved image could not be displayed. Use Open or Reveal in folder.')} /> : <p role="status">{native.pending ? 'Loading image preview...' : 'Image preview unavailable. Check the error above, or retry Preview image.'}</p>}
+        {imageError && <p role="alert">{imageError}</p>}
+      </figure>}
       <details><summary>Result contract</summary><pre>{JSON.stringify(result, null, 2)}</pre></details>
     </div>}
     {comparison.length > 0 && <div className="scientific-history-result"><h4>Compare saved outputs</h4><p className="scientific-runtime-note">Select up to two successful runs. Previews use the same camera and bounds; this is visual comparison, not mesh registration or a numeric geometry diff.</p><button onClick={() => { setComparisonIds([]); setCamera(initialCamera) }}>Clear comparison</button><button onClick={() => setCamera(initialCamera)}>Reset camera</button>

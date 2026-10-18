@@ -7,10 +7,11 @@ namespace BatchLauncher;
 public static class RepositoryEnvironment
 {
     public static async Task<List<HealthCheck>> InspectRepository(string projectId, string repositoryId, WorkspaceRepository repo,
-        IReadOnlyDictionary<string, string>? toolPaths = null)
+        IReadOnlyDictionary<string, string>? toolPaths = null, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var checks = await Inspect(projectId, repositoryId, repo.Path, repo.RequiredTools ?? new(), repo.PythonEnvironment,
-            repo.PythonModules, toolPaths, repo.PythonRequirements, repo.PythonPackages, repo.PythonOptionalModules);
+            repo.PythonModules, toolPaths, repo.PythonRequirements, repo.PythonPackages, repo.PythonOptionalModules, cancellationToken: cancellationToken);
         foreach (var folder in (repo.DependencyFolders ?? new()).Distinct(StringComparer.OrdinalIgnoreCase))
         {
             try
@@ -24,8 +25,9 @@ public static class RepositoryEnvironment
                     continue;
                 }
                 checks.AddRange((await Inspect(projectId, repositoryId, path, Array.Empty<string>(), toolPaths: toolPaths,
-                    repositoryRoot: repo.Path, relativeDirectory: Path.GetRelativePath(repo.Path, path))).Select(check => check with { Name = folder + " · " + check.Name }));
+                    repositoryRoot: repo.Path, relativeDirectory: Path.GetRelativePath(repo.Path, path), cancellationToken: cancellationToken)).Select(check => check with { Name = folder + " · " + check.Name }));
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
             catch (Exception error) { checks.Add(new("Dependency folder · " + folder, "error", error.Message, projectId, repositoryId,
                 Guidance: "Configure a dependency folder inside this repository.")); }
         }
@@ -35,8 +37,9 @@ public static class RepositoryEnvironment
     public static async Task<List<HealthCheck>> Inspect(string projectId, string repositoryId, string path,
         IEnumerable<string> requiredTools, string? pythonEnvironment = null, List<string>? pythonModules = null,
         IReadOnlyDictionary<string, string>? toolPaths = null, string? requirementsFile = null,
-        List<string>? pythonPackages = null, List<string>? pythonOptionalModules = null, string? repositoryRoot = null, string relativeDirectory = ".")
+        List<string>? pythonPackages = null, List<string>? pythonOptionalModules = null, string? repositoryRoot = null, string relativeDirectory = ".", CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var checks = new List<HealthCheck>();
         void Add(string name, string state, string detail, string? target = null, string? label = null, string? guidance = null, bool optional = false) =>
             checks.Add(new(name, state, detail, projectId, repositoryId, target, label, guidance, optional));
@@ -57,9 +60,9 @@ public static class RepositoryEnvironment
                     var semver = NodeDependencies.Semver(toolPaths?.GetValueOrDefault("npmCli") ?? Tool("npm"), node);
                     if (node != null && manifest.NodeRange != null)
                     {
-                        var version = await NodeDependencies.Version(node);
+                        var version = await NodeDependencies.Version(node, cancellationToken: cancellationToken);
                         var found = version.Output.Trim().TrimStart('v');
-                        var match = version.Code == 0 ? (await NodeDependencies.MatchVersions(node, semver, new() { (found, manifest.NodeRange) }))[0] : false;
+                        var match = version.Code == 0 ? (await NodeDependencies.MatchVersions(node, semver, new() { (found, manifest.NodeRange) }, cancellationToken))[0] : false;
                         Add("Node version", match == true ? "ok" : match == false ? "error" : "warning",
                             $"Installed {found}; required {manifest.NodeRange}." + (match == null ? " Version range could not be verified; install npm with its bundled version checker." : ""),
                             match == false ? nodeTarget : null, "Update Node.js");
@@ -68,7 +71,7 @@ public static class RepositoryEnvironment
                     if (manager == null) Add("Package manager", "error", $"Missing {manifest.Manager}" + (manifest.ManagerVersion == null ? "." : " " + manifest.ManagerVersion + "."), nodeTarget, "Prepare " + manifest.Manager);
                     else if (manifest.ManagerVersion != null)
                     {
-                        var version = await NodeDependencies.Version(manager, node);
+                        var version = await NodeDependencies.Version(manager, node, cancellationToken);
                         var found = version.Output.Trim();
                         Add("Package manager", version.Code == 0 && found == manifest.ManagerVersion ? "ok" : "error",
                             $"{manifest.Manager}: installed {found}; required {manifest.ManagerVersion}.", nodeTarget, "Use declared " + manifest.Manager);
@@ -83,7 +86,7 @@ public static class RepositoryEnvironment
                         using var json = JsonDocument.Parse(await File.ReadAllTextAsync(file));
                         if (json.RootElement.TryGetProperty("version", out var version)) installed.Add((dependency.Key, version.GetString() ?? "", dependency.Value));
                     }
-                    var matches = await NodeDependencies.MatchVersions(node, semver, installed.Select(item => (item.Version, item.Range)).ToList());
+                    var matches = await NodeDependencies.MatchVersions(node, semver, installed.Select(item => (item.Version, item.Range)).ToList(), cancellationToken);
                     var incompatible = installed.Where((_, index) => matches[index] == false).Select(item => item.Name + " " + item.Version + " (requires " + item.Range + ")").ToList();
                     var issues = new List<string>();
                     if (missing.Count > 0) issues.Add($"{missing.Count} missing: {string.Join(", ", missing.Take(10))}.");
@@ -95,6 +98,7 @@ public static class RepositoryEnvironment
                     if (unverified.Count > 0) Add("Node version verification", "warning", "Version ranges could not be verified for: " + string.Join(", ", unverified.Take(10)),
                         guidance: "Local, Git, and other non-registry dependencies need manual verification. Install npm if the version checker is unavailable.");
                 }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
                 catch (Exception error) { Add("Node environment", "error", error.Message, guidance: "Correct the package manifest or configured executable path, then recheck."); }
             }
             if (Directory.EnumerateFiles(path, "*.csproj").Any() || Directory.EnumerateFiles(path, "*.sln*").Any())
@@ -104,14 +108,14 @@ public static class RepositoryEnvironment
                 {
                     var minimum = DotnetMinimum(path);
                     var dotnet = Tool("dotnet");
-                    var sdks = dotnet == null ? (-1, "", "") : await DashboardInspector.Run(dotnet, new[] { "--list-sdks" });
+                    var sdks = dotnet == null ? (-1, "", "") : await DashboardInspector.Run(dotnet, new[] { "--list-sdks" }, cancellationToken: cancellationToken);
                     var majors = Regex.Matches(sdks.Item2, @"(?m)^(\d+)\.").Select(match => int.Parse(match.Groups[1].Value));
                     var ready = sdks.Item1 == 0 && majors.Any(major => major >= minimum);
                     Add(".NET SDK", ready ? "ok" : "error", ready ? sdks.Item2.Trim() : $"A .NET SDK {minimum} or newer is required. A runtime alone cannot build this repository.",
                         "dotnet:" + relativeDirectory, "Install SDK / restore packages");
                     if (ready && dotnet != null)
                     {
-                        var selected = await DashboardInspector.Run(dotnet, new[] { "--version" }, workingDirectory: path);
+                        var selected = await DashboardInspector.Run(dotnet, new[] { "--version" }, workingDirectory: path, cancellationToken: cancellationToken);
                         Add(".NET SDK selection", selected.Code == 0 ? "ok" : "error", selected.Code == 0 ? "Selected SDK " + selected.Output.Trim() : (selected.Output + selected.Error).Trim(),
                             guidance: selected.Code == 0 ? null : "Install the SDK selected by global.json or update that file's version/rollForward settings, then recheck.");
                     }
@@ -135,6 +139,7 @@ public static class RepositoryEnvironment
                             "dotnet:" + relativeDirectory, "Restore .NET packages");
                     }
                 }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
                 catch (Exception error) { Add(".NET SDK", "error", error.Message, "dotnet:" + relativeDirectory, "Restore .NET environment"); }
             }
             var requirements = requirementsFile == null ? Path.Combine(path, "requirements.txt") : EnvironmentSetup.Within(path, requirementsFile);
@@ -169,7 +174,7 @@ print(json.dumps(results))
                         var required = pythonModules ?? new();
                         var optional = pythonOptionalModules ?? new();
                         var modules = required.Concat(optional).Distinct().ToList();
-                        var result = await DashboardInspector.Run(python, new[] { "-c", importCheck, JsonSerializer.Serialize(modules) }, nativeEnvironment);
+                        var result = await DashboardInspector.Run(python, new[] { "-c", importCheck, JsonSerializer.Serialize(modules) }, nativeEnvironment, timeoutSeconds: 60, cancellationToken: cancellationToken);
                         if (result.Code != 0) throw new InvalidOperationException("Python could not inspect modules: " + result.Error.Trim());
                         using var json = JsonDocument.Parse(result.Output);
                         var errors = json.RootElement.EnumerateArray().Where(item => item.GetProperty("error").ValueKind != JsonValueKind.Null)
@@ -183,12 +188,13 @@ print(json.dumps(results))
                                 guidance: "This enables additional native features. Follow the repository's native dependency instructions; it does not block the base environment.", optional: true);
                         if (File.Exists(requirements) || pythonPackages?.Count > 0)
                         {
-                            result = await DashboardInspector.Run(python, new[] { "-c", RequirementCheck, File.Exists(requirements) ? requirements : "", JsonSerializer.Serialize(pythonPackages ?? new()), path }, nativeEnvironment);
+                            result = await DashboardInspector.Run(python, new[] { "-c", RequirementCheck, File.Exists(requirements) ? requirements : "", JsonSerializer.Serialize(pythonPackages ?? new()), path }, nativeEnvironment, cancellationToken: cancellationToken);
                             Add("Python requirements", result.Code == 0 ? "ok" : result.Code == 2 ? "warning" : "error", (result.Output + result.Error).Trim(),
                                 result.Code == 1 ? "python" : null, "Install Python dependencies",
                                 result.Code == 2 ? "Review unsupported entries in the requirements file before treating this environment as fully verified." : "Checks installed package versions against declared requirements.");
                         }
                     }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
                     catch (Exception error) { Add("Python inspection", "error", error.Message, canInstall ? "python" : null, "Repair Python dependencies"); }
                 }
             }
@@ -201,6 +207,7 @@ print(json.dumps(results))
             }
             if (checks.Count == 0) Add("Environment", "ok", "No additional dependencies are declared for this repository.");
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (Exception error) { Add("Environment check", "error", error.Message, guidance: "Correct the profile's dependency paths, then recheck."); }
         return checks;
     }

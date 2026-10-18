@@ -4,6 +4,71 @@ namespace BatchLauncher;
 
 public partial class Form1
 {
+    private RepositoryPreparation CreateRepositoryPreparation(WorkspaceProject project, WorkspaceRepository repo)
+    {
+        var resolved = ResolveRepository(project, repo);
+        var profileId = _activeWorkspaceProfileId;
+        var tools = EnvironmentTools();
+        var root = _workspace.Globals?.WorkspaceRoot ?? Path.GetDirectoryName(resolved.Path)!;
+        var basePython = _workspace.Globals?.Vars?.GetValueOrDefault("basePython");
+        var shell = _profiles.FirstOrDefault(profile => profile.Id == "pwsh") ?? throw new InvalidOperationException("PowerShell profile missing.");
+        if (!_terminalManager.TryResolveProfileCommand(shell, out var command)) throw new InvalidOperationException("PowerShell is unavailable.");
+        var servicePython = project.Service == null ? null : ExpandProjectValue(project, project.Service.Python);
+        var serviceRoot = project.Service == null ? null : ExpandProjectValue(project, project.Root ?? "");
+        async Task<List<HealthCheck>> Inspect(CancellationToken token)
+        {
+            foreach (var pair in PortableWorkspace.DiscoverTools(root))
+                if (!tools.TryGetValue(pair.Key, out var existing) || !File.Exists(existing)) tools[pair.Key] = pair.Value;
+            return await RepositoryEnvironment.InspectRepository(project.Id, repo.Id, resolved, tools, token).WaitAsync(token);
+        }
+        return new(async token =>
+        {
+            if (project.Service != null && File.Exists(servicePython))
+            {
+                await _serviceGate.WaitAsync(token);
+                try
+                {
+                    var status = await DashboardInspector.Run(servicePython!, new[] { Path.Combine(AppContext.BaseDirectory, "service_control.py"), "status", "--root", serviceRoot!, "--port", project.Service.Port.ToString() }, cancellationToken: token).WaitAsync(token);
+                    using var result = JsonDocument.Parse(status.Output);
+                    if (status.Code != 0 || result.RootElement.GetProperty("state").GetString() != "stopped")
+                        throw new InvalidOperationException("Stop this project's service before Prepare & Launch.");
+                }
+                finally { _serviceGate.Release(); }
+            }
+            var checks = await Inspect(token);
+            var blocked = checks.Where(check => check.State == "error").ToArray();
+            var manual = blocked.Where(check => check.FixTarget is null or "clone").ToArray();
+            if (manual.Length > 0) throw new InvalidOperationException("Prepare & Launch needs a manual step: " + string.Join("; ", manual.Select(check => check.Detail)));
+            var targets = blocked.Select(check => check.FixTarget!).Distinct().ToArray();
+            if (targets.Length == 0) return null;
+            var plan = EnvironmentSetup.Plan(resolved, root, tools, basePython, targets);
+            return EnvironmentSetup.Command(command.Application, Path.Combine(AppContext.BaseDirectory, "tools", "Setup-Environment.ps1"), plan, AppContext.BaseDirectory);
+        }, async token =>
+        {
+            var errors = (await Inspect(token)).Where(check => check.State == "error").ToArray();
+            if (errors.Length > 0) throw new InvalidOperationException("Environment still needs attention: " + string.Join("; ", errors.Select(check => check.Detail)));
+        }, token =>
+        {
+            var completion = new TaskCompletionSource<(RepositoryCommand, RepositoryCommand)>(TaskCreationOptions.RunContinuationsAsynchronously);
+            BeginInvoke(new Action(async () =>
+            {
+                try
+                {
+                    token.ThrowIfCancellationRequested();
+                    if (IsDisposed || profileId != _activeWorkspaceProfileId) throw new OperationCanceledException(token);
+                    if (_workspace.Globals?.AutoDetectTools == true) await HandleWorkspaceToolsRefreshAsync();
+                    var currentProject = _workspace.Projects!.First(item => item.Id == project.Id);
+                    var currentRepo = currentProject.Repositories!.First(item => item.Id == repo.Id);
+                    var cwd = ExpandProjectValue(currentProject, currentRepo.Path);
+                    completion.TrySetResult((CreateRepositoryCommand(currentProject, currentRepo.BrowserBuildTask ?? currentRepo.BuildTask!, cwd),
+                        CreateRepositoryCommand(currentProject, currentRepo.BrowserRunTask ?? currentRepo.RunTask!, cwd)));
+                }
+                catch (Exception error) { completion.TrySetException(error); }
+            }));
+            return completion.Task;
+        });
+    }
+
     private bool _environmentSetupChecking;
     private async Task HandleEnvironmentSetupAsync(JsonElement payload)
     {

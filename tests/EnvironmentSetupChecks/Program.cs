@@ -28,6 +28,72 @@ if (args.Length > 4)
         target.Path = PortableWorkspace.Expand(target.Path, variables);
         if (target.PythonEnvironment != null) target.PythonEnvironment = PortableWorkspace.Expand(target.PythonEnvironment, variables);
         tools["workspaceRoot"] = workspace.Globals.WorkspaceRoot!;
+        if (args.Length > 7 && args[7] == "launch")
+        {
+            Console.WriteLine("Launch logs: " + root);
+            // Explicit integration mode: runs the selected profile's real web tasks.
+            // Ordinary checks never build or launch a configured repository.
+            RepositoryCommand TaskCommand(string name)
+            {
+                var task = project.Tasks![name];
+                Check(task.DependsOn?.Count is null or 0 && task.UseTemplate == null, "Launch integration fixture requires a standalone task");
+                var cwd = PortableWorkspace.Expand(task.Cwd ?? target.Path, variables);
+                var script = "$ErrorActionPreference='Stop'\n$PSNativeCommandUseErrorActionPreference=$true\ntry {\n";
+                foreach (var step in task.Steps!) script += PortableWorkspace.Expand(step.Run, variables) + "\nif ($LASTEXITCODE) { exit $LASTEXITCODE }\n";
+                return new(shell, script + "\nexit 0\n} catch { Write-Error $_; exit 1 }", cwd);
+            }
+            using var launcher = new RepositoryRunner();
+            var build = TaskCommand(repository.BrowserBuildTask ?? repository.BuildTask!);
+            var run = TaskCommand(repository.BrowserRunTask ?? repository.RunTask!);
+            var launch = new RepositoryBrowserLaunch(PortableWorkspace.Expand(repository.BrowserUrl!, variables),
+                (repository.ReadyUrls ?? new()).Select(url => PortableWorkspace.Expand(url, variables)).ToArray(), repository.ReadyTimeoutSeconds);
+            var preparation = new RepositoryPreparation(async token =>
+            {
+                var checks = await RepositoryEnvironment.InspectRepository(project.Id, target.Id, target, tools).WaitAsync(token);
+                Check(checks.All(check => check.State != "error"), "Prepared machine must have no failed requirements");
+                return null;
+            }, _ => Task.CompletedTask);
+            var browserReady = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+            launcher.BrowserReady += (_, url) => browserReady.TrySetResult(url);
+            async Task<string> WaitReady(TimeSpan timeout)
+            {
+                var first = await Task.WhenAny(browserReady.Task, launcher.Completion("actual-launch")).WaitAsync(timeout);
+                if (first != browserReady.Task)
+                {
+                    var failed = await launcher.Completion("actual-launch");
+                    throw new Exception($"Launch ended before browser readiness: {failed.State}\n{failed.Log}");
+                }
+                return await browserReady.Task;
+            }
+            try
+            {
+                launcher.Start("actual-launch", build, run, root, "prepare-launch", launch, preparation: preparation);
+                var ready = await WaitReady(TimeSpan.FromMinutes(6));
+                Check(launcher.Snapshot().Single().BuildState == "succeeded", "Browser opened before successful build");
+                using var http = new HttpClient();
+                Check((await http.GetStringAsync(ready)).Contains("<html"), "Web client did not serve HTML");
+                Console.WriteLine("PASS: actual profile preparation, build, server readiness, browser-ready event, HTTP frontend");
+                launcher.Stop("actual-launch");
+                var stopped = await launcher.Completion("actual-launch").WaitAsync(TimeSpan.FromSeconds(20));
+                Check(stopped.State == "stopped", "Actual launch did not stop");
+                foreach (var url in launch.ReadyUrls.Append(launch.Url))
+                {
+                    try { await http.GetAsync(url); throw new Exception("Owned endpoint survived Stop: " + url); }
+                    catch (HttpRequestException) { }
+                }
+                Console.WriteLine("PASS: Stop removes frontend and worker endpoints");
+                browserReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
+                launcher.Start("actual-launch", null, run, root, "run", launch);
+                await WaitReady(TimeSpan.FromMinutes(2));
+                Console.WriteLine("PASS: restart reaches browser readiness");
+            }
+            finally { launcher.Stop("actual-launch"); await launcher.Completion("actual-launch").WaitAsync(TimeSpan.FromSeconds(20)); }
+            File.WriteAllText(Path.Combine(root, "launch-report.json"), JsonSerializer.Serialize(new { checkedAt = DateTimeOffset.UtcNow,
+                profile = Path.GetFullPath(args[4]), projectId = project.Id, repositoryId = target.Id,
+                preparation = "passed", build = "passed", browserReady = "passed", frontendHttp = "passed", stop = "passed", restart = "passed",
+                embeddedBrowserDisplay = "not-verified", logs = Directory.GetFiles(root, "*.log") }, new JsonSerializerOptions { WriteIndented = true }));
+            return;
+        }
         if (args.Length > 7 && args[7] == "inspect")
         {
             var configuredChecks = await RepositoryEnvironment.InspectRepository(project.Id, target.Id, target, tools);
@@ -153,3 +219,25 @@ for (var i = 0; i < 100 && !runner.Snapshot().Any(item => item.Key == "stop" && 
 runner.Stop("stop"); job = await runner.Completion("stop").WaitAsync(TimeSpan.FromSeconds(10));
 Check(job.State == "stopped" && job.CompletedSteps == 0 && !job.Log.Contains("STEP 2/2"), "Stop did not cancel setup and suppress remaining steps");
 Console.WriteLine("PASS: portable roots, device-local persistence, detected tools, nested variables, path confinement, real offline npm/venv setup and reuse, failure gating, progress/logs, Stop");
+var inspectionFixture = Path.Combine(root, "cancel-inspection"); Directory.CreateDirectory(inspectionFixture);
+var inspectionPid = Path.Combine(inspectionFixture, "inspection.pid");
+File.WriteAllText(Path.Combine(environment, "Lib", "site-packages", "devshell_slow_import.py"),
+    "import os,pathlib,time\npathlib.Path(" + JsonSerializer.Serialize(inspectionPid) + ").write_text(str(os.getpid()))\ntime.sleep(60)\n");
+using (var cancellation = new CancellationTokenSource())
+{
+    var inspection = RepositoryEnvironment.Inspect("p", "r", inspectionFixture, Array.Empty<string>(), environment,
+        new() { "devshell_slow_import" }, cancellationToken: cancellation.Token);
+    try
+    {
+        for (var i = 0; i < 100 && !File.Exists(inspectionPid); i++) await Task.Delay(100);
+        Check(File.Exists(inspectionPid), "Slow inspection fixture did not start");
+        var pid = int.Parse(File.ReadAllText(inspectionPid));
+        cancellation.Cancel();
+        try { await inspection.WaitAsync(TimeSpan.FromSeconds(10)); throw new Exception("Inspection ignored cancellation"); }
+        catch (OperationCanceledException) { }
+        try { Check(System.Diagnostics.Process.GetProcessById(pid).HasExited, "Inspection process survived cancellation"); }
+        catch (ArgumentException) { }
+    }
+    finally { cancellation.Cancel(); try { await inspection; } catch (OperationCanceledException) { } }
+}
+Console.WriteLine("PASS: cancellation propagates through native module inspection and terminates its process");

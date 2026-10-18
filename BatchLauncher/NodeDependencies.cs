@@ -71,27 +71,27 @@ public static class NodeDependencies
         return candidates.FirstOrDefault(path => File.Exists(Path.Combine(path, "package.json")));
     }
 
-    public static async Task<List<bool?>> MatchVersions(string? node, string? semver, List<(string Version, string Range)> versions)
+    public static async Task<List<bool?>> MatchVersions(string? node, string? semver, List<(string Version, string Range)> versions, CancellationToken cancellationToken = default)
     {
         if (node == null || semver == null) return versions.Select(_ => (bool?)null).ToList();
         const string code = "const s=require(process.argv[1]); const items=JSON.parse(process.argv[2]); console.log(JSON.stringify(items.map(i=>s.valid(i.version)&&s.validRange(i.range)?s.satisfies(i.version,i.range):null)));";
         var json = JsonSerializer.Serialize(versions.Select(item => new { version = item.Version, range = item.Range }));
-        var result = await DashboardInspector.Run(node, new[] { "-e", code, semver, json });
+        var result = await DashboardInspector.Run(node, new[] { "-e", code, semver, json }, cancellationToken: cancellationToken);
         if (result.Code != 0) throw new InvalidOperationException("Could not check Node dependency versions: " + result.Error.Trim());
         return JsonSerializer.Deserialize<List<bool?>>(result.Output.Trim())!;
     }
 
-    public static Task<(int Code, string Output, string Error)> Version(string tool, string? node = null)
+    public static Task<(int Code, string Output, string Error)> Version(string tool, string? node = null, CancellationToken cancellationToken = default)
     {
-        if (tool.EndsWith(".js", StringComparison.OrdinalIgnoreCase) && node != null) return DashboardInspector.Run(node, new[] { tool, "--version" });
+        if (tool.EndsWith(".js", StringComparison.OrdinalIgnoreCase) && node != null) return DashboardInspector.Run(node, new[] { tool, "--version" }, cancellationToken: cancellationToken);
         // Windows command shims need a shell; pass literal arguments through encoded PowerShell.
         if (tool.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase) || tool.EndsWith(".bat", StringComparison.OrdinalIgnoreCase) || File.Exists(tool + ".cmd"))
         {
             var shell = DashboardInspector.FindTool("pwsh") ?? DashboardInspector.FindTool("powershell") ?? throw new InvalidOperationException("PowerShell is required to inspect this tool.");
             if (File.Exists(tool + ".cmd")) tool += ".cmd";
             var command = "& '" + tool.Replace("'", "''") + "' --version; exit $LASTEXITCODE";
-            return DashboardInspector.Run(shell, new[] { "-NoProfile", "-EncodedCommand", Convert.ToBase64String(Encoding.Unicode.GetBytes(command)) });
+            return DashboardInspector.Run(shell, new[] { "-NoProfile", "-EncodedCommand", Convert.ToBase64String(Encoding.Unicode.GetBytes(command)) }, cancellationToken: cancellationToken);
         }
-        return DashboardInspector.Run(tool, new[] { "--version" });
+        return DashboardInspector.Run(tool, new[] { "--version" }, cancellationToken: cancellationToken);
     }
 }

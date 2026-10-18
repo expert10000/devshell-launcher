@@ -9,6 +9,8 @@ namespace BatchLauncher;
 public sealed record RepositoryCommand(string Shell, string Script, string Cwd);
 public sealed record RepositoryJobStatus(string Key, string State, string BuildState, int? ExitCode, string Log, string LogPath, string Action, string BrowserState = "not-requested", string? BrowserUrl = null, string? LastBuildFinishedAt = null, string? LastBuildState = null, int? LastBuildExitCode = null, int CompletedSteps = 0, int TotalSteps = 0, string? Step = null);
 public sealed record RepositoryBrowserLaunch(string Url, IReadOnlyList<string> ReadyUrls, int TimeoutSeconds = 120);
+public sealed record RepositoryPreparation(Func<CancellationToken, Task<RepositoryCommand?>> Check, Func<CancellationToken, Task> Verify,
+    Func<CancellationToken, Task<(RepositoryCommand Build, RepositoryCommand Run)>>? Commands = null);
 
 public sealed class RepositoryRunner : IDisposable
 {
@@ -33,7 +35,7 @@ public sealed class RepositoryRunner : IDisposable
     private readonly object _sync = new();
     private bool _disposed;
     public event Action<string, string>? BrowserReady;
-    public bool Start(string key, RepositoryCommand? build, RepositoryCommand? run, string logDirectory, string? action = null, RepositoryBrowserLaunch? browser = null, int stepCount = 0)
+    public bool Start(string key, RepositoryCommand? build, RepositoryCommand? run, string logDirectory, string? action = null, RepositoryBrowserLaunch? browser = null, int stepCount = 0, RepositoryPreparation? preparation = null)
     {
         if (browser != null)
         {
@@ -64,7 +66,7 @@ public sealed class RepositoryRunner : IDisposable
         }
         _ = Task.Run(async () =>
         {
-            await Execute(key, job, build, run, browser);
+            await Execute(key, job, build, run, browser, preparation);
             lock (job.Sync) job.Completion.TrySetResult(Status(key, job));
         });
         return true;
@@ -96,7 +98,7 @@ public sealed class RepositoryRunner : IDisposable
             job.Cancellation.Cancel();
         }
     }
-    private async Task Execute(string key, Job job, RepositoryCommand? build, RepositoryCommand? run, RepositoryBrowserLaunch? browser)
+    private async Task Execute(string key, Job job, RepositoryCommand? build, RepositoryCommand? run, RepositoryBrowserLaunch? browser, RepositoryPreparation? preparation)
     {
         try
         {
@@ -106,7 +108,7 @@ public sealed class RepositoryRunner : IDisposable
                 lock (job.Sync)
                 {
                     log.WriteLine(line);
-                    if (job.Action == "setup")
+                    if (job.Action is "setup" or "prepare-launch")
                     {
                         var step = System.Text.RegularExpressions.Regex.Match(line, @"^\[setup\] (STEP|DONE) (\d+)/(\d+)(?:: (.*))?$");
                         if (step.Success)
@@ -121,11 +123,27 @@ public sealed class RepositoryRunner : IDisposable
                 }
             }
             if (browser != null) await EnsurePortsAvailable(browser, job.Cancellation.Token);
-            foreach (var (phase, command) in new[] { ("building", build), ("running", run) })
+            RepositoryCommand? prepare = null;
+            if (preparation != null)
             {
+                lock (job.Sync) { job.State = "building"; job.Step = "Checking environment"; }
+                Append("[prepare] Checking declared tools and dependencies…");
+                prepare = await preparation.Check(job.Cancellation.Token).WaitAsync(job.Cancellation.Token);
+            }
+            foreach (var phase in new[] { "preparing", "building", "running" })
+            {
+                if (phase == "building" && preparation != null)
+                {
+                    job.Cancellation.Token.ThrowIfCancellationRequested();
+                    lock (job.Sync) job.Step = "Verifying environment";
+                    await preparation.Verify(job.Cancellation.Token).WaitAsync(job.Cancellation.Token);
+                    if (preparation.Commands != null) (build, run) = await preparation.Commands(job.Cancellation.Token).WaitAsync(job.Cancellation.Token);
+                    Append("[prepare] Environment ready.");
+                }
+                var command = phase == "preparing" ? prepare : phase == "building" ? build : run;
                 if (command == null) continue;
                 job.Cancellation.Token.ThrowIfCancellationRequested();
-                lock (job.Sync) { job.State = phase; if (phase == "building") job.BuildState = "building"; }
+                lock (job.Sync) { job.State = phase == "preparing" ? "building" : phase; if (phase == "building") { job.BuildState = "building"; job.Step = "Building app"; } else if (phase == "running") job.Step = "Running app"; }
                 Append($"[{DateTime.Now:T}] {job.Action}: {phase} — {command.Cwd}");
                 var start = new ProcessStartInfo(command.Shell) { WorkingDirectory = command.Cwd, UseShellExecute = false, CreateNoWindow = true,
                     RedirectStandardOutput = true, RedirectStandardError = true, RedirectStandardInput = true,

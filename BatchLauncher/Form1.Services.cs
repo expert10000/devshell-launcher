@@ -54,7 +54,7 @@ public partial class Form1
         try
         {
             if (profileId != _activeWorkspaceProfileId) return;
-            if (action is "start" or "restart" or "open" && _repositoryRunner.Snapshot().Any(job => job.Action == "setup" && job.State is "queued" or "building" or "running"))
+            if (action is "start" or "restart" or "open" && _repositoryRunner.Snapshot().Any(job => (job.Action is "setup" or "prepare-launch") && job.State is "queued" or "building" or "running"))
                 throw new InvalidOperationException("Finish or stop environment repair before starting services.");
             if (action != "status")
                 SendMessage(new { type = "service.status", projectId, profileId, state = "busy", message = action + "…", port = project.Service.Port });

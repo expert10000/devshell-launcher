@@ -21,6 +21,7 @@ public partial class Form1
         }
         var checks = new List<HealthCheck>();
         var repositories = new List<RepositoryStatus>();
+        void Publish() => SendMessage(new { type = "dashboard.result", profileId, repositories, checks, checkedAt = DateTimeOffset.Now.ToString("O") });
         try
         {
             if (_workspaceResolutionError != null) checks.Add(new("Workspace settings", "error", _workspaceResolutionError));
@@ -41,6 +42,7 @@ public partial class Form1
                     foreach (var task in new[] { repo.BuildTask, repo.RunTask, repo.BrowserBuildTask, repo.BrowserRunTask }.Where(task => task != null))
                         if (project.Tasks?.ContainsKey(task!) != true) checks.Add(new(repo.Name + " action", "error", $"Missing task: {task}", project.Id, repo.Id, Guidance: "Define this task in the profile or correct the repository action name."));
                     checks.AddRange(await RepositoryEnvironment.InspectRepository(project.Id, repo.Id, ResolveRepository(project, repo), EnvironmentTools()));
+                    Publish();
                 }
                 if (project.PythonEnvironment != null)
                 {
@@ -73,7 +75,7 @@ public partial class Form1
         catch (Exception error) { checks.Add(new("Profile check", "error", error.Message)); }
         finally
         {
-            SendMessage(new { type = "dashboard.result", profileId, repositories, checks, checkedAt = DateTimeOffset.Now.ToString("O") });
+            Publish();
             _dashboardGate.Release();
             if (_dashboardPending) { _dashboardPending = false; _ = HandleDashboardRequestAsync(); }
         }

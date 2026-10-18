@@ -38,7 +38,7 @@ function LogsView({ job, error, onStop, onFullLog, onRefresh, onOutputFolder }: 
   const [follow, setFollow] = useState(true); const output = useRef<HTMLPreElement>(null)
   useEffect(() => { if (follow && output.current) output.current.scrollTop = output.current.scrollHeight }, [job?.log, follow])
   const running = !!job && ['queued', 'building', 'running'].includes(job.state)
-  const built = !!job && ['build', 'launch'].includes(job.action ?? '') && (job.buildState === 'succeeded' || job.action === 'build' && job.state === 'succeeded')
+  const built = !!job && ['build', 'launch', 'prepare-launch'].includes(job.action ?? '') && (job.buildState === 'succeeded' || job.action === 'build' && job.state === 'succeeded')
   return <>
     <div className="workspace-view-toolbar"><strong role="status">{job ? `${job.action ?? 'Job'}: ${job.state}${job.exitCode != null ? ` / exit ${job.exitCode}` : ''}` : 'No job in this launcher session'}</strong><div className="service-actions">
       <label><input type="checkbox" checked={follow} onChange={event => setFollow(event.target.checked)} /> Follow output</label>

@@ -3116,7 +3116,7 @@ const App = () => {
     return () => { clearInterval(timer); bridge.removeEventListener('message', receive) }
   }, [bridge, activeWorkspaceProfileId, projects])
 
-  const repositoryAction = (projectId: string, repositoryId: string, action: 'build' | 'run' | 'stop' | 'log' | 'fetch' | 'pull' | 'clone' | 'launch' | 'diff' | 'history' | 'github' | 'commit' | 'push' | 'files' | 'pdf' | 'setup' | 'setup-plan' | 'fix' | 'fix-plan', targets?: string[]) => {
+  const repositoryAction = (projectId: string, repositoryId: string, action: 'build' | 'run' | 'stop' | 'log' | 'fetch' | 'pull' | 'clone' | 'launch' | 'prepare-launch' | 'diff' | 'history' | 'github' | 'commit' | 'push' | 'files' | 'pdf' | 'setup' | 'setup-plan' | 'fix' | 'fix-plan', targets?: string[]) => {
     const key = `${activeWorkspaceProfileId}:${projectId}:${repositoryId}`
     if (action === 'diff') { workspaceViews.open({ kind: 'diff', projectId, repositoryId }); return }
     if (action === 'log') { workspaceViews.open({ kind: 'logs', projectId, repositoryId }); return }
@@ -3132,16 +3132,16 @@ const App = () => {
       postMessage({ type: 'workspace.pdf', profileId: activeWorkspaceProfileId, projectId, repositoryId, action: 'open' }); return
     }
     setJobErrors((current) => ({ ...current, [key]: '' }))
-    if (['build', 'run', 'fetch', 'pull', 'clone', 'diff', 'history', 'commit', 'push', 'setup', 'fix'].includes(action)) {
-      setRepositoryJobs((current) => [...current.filter((job) => job.key !== key), { key, state: 'queued', buildState: action === 'build' || action === 'launch' ? 'queued' : 'not-run', action: action === 'fix' ? 'setup' : action, log: '', logPath: '' }])
+    if (['prepare-launch', 'launch', 'build', 'run', 'fetch', 'pull', 'clone', 'diff', 'history', 'commit', 'push', 'setup', 'fix'].includes(action)) {
+      setRepositoryJobs((current) => [...current.filter((job) => job.key !== key), { key, state: 'queued', buildState: ['build', 'launch', 'prepare-launch'].includes(action) ? 'queued' : 'not-run', action: action === 'fix' ? 'setup' : action, log: '', logPath: '' }])
     }
-    if (['build', 'run', 'launch', 'history', 'fetch', 'pull', 'clone', 'setup', 'fix'].includes(action)) workspaceViews.open({ kind: 'logs', projectId, repositoryId })
+    if (['prepare-launch', 'build', 'run', 'launch', 'history', 'fetch', 'pull', 'clone', 'setup', 'fix'].includes(action)) workspaceViews.open({ kind: 'logs', projectId, repositoryId })
     postMessage({ type: 'repository.job', projectId, repositoryId, action, targets, runAfter: runAfterBuild[key] ?? false })
   }
   const updateBatch = updateBatches.find((batch) => batch.profileId === activeWorkspaceProfileId)
   const anyUpdateBusy = updateBatches.some((batch) => ['running', 'starting'].includes(batch.state))
   const anyJobBusy = checkingSetupKeys.length > 0 || repositoryJobs.some((job) => ['queued', 'building', 'running'].includes(job.state))
-  const setupBusy = repositoryJobs.some((job) => job.action === 'setup' && ['queued', 'building', 'running'].includes(job.state))
+  const setupBusy = repositoryJobs.some((job) => ['setup', 'prepare-launch'].includes(job.action ?? '') && ['queued', 'building', 'running'].includes(job.state))
   useEffect(() => { setWorkspaceRootDraft(workspace.globals?.workspaceRoot ?? '') }, [workspace.globals?.workspaceRoot])
   const updateAll = () => {
     if (!activeWorkspaceProfileId) return
@@ -3160,7 +3160,7 @@ const App = () => {
         const gitFinished = jobs.some((job) => ['fetch', 'pull', 'clone', 'update', 'commit', 'push'].includes(job.action ?? '')
           && ['succeeded', 'failed', 'stopped'].includes(job.state)
           && previousRepositoryJobs.current.find((previous) => previous.key === job.key)?.state !== job.state)
-        const setupFinished = jobs.some((job) => job.action === 'setup' && ['succeeded', 'failed', 'stopped'].includes(job.state)
+        const setupFinished = jobs.some((job) => ['setup', 'prepare-launch'].includes(job.action ?? '') && ['succeeded', 'failed', 'stopped'].includes(job.state)
           && previousRepositoryJobs.current.find((previous) => previous.key === job.key)?.state !== job.state)
         previousRepositoryJobs.current = jobs
         setRepositoryJobs(jobs)
@@ -4745,13 +4745,14 @@ const App = () => {
                     <button disabled={disabled || !(repo.pdfPath || repo.runTask) || !status || !!status.error} title={repo.pdfPath ? 'Open the build output in a workspace PDF tab' : repo.runTask ?? 'No run command configured'} onClick={() => repositoryAction(project.id, repo.id, 'run')}>{repo.pdfPath ? 'Open PDF' : repo.runLabel ?? 'Run'}</button>
                     {repo.pdfDirectory && <button disabled={!status || !!status.error} title="Choose a volume or edition from the collected build PDFs" onClick={() => workspaceViews.open({ kind: 'pdf', projectId: project.id, repositoryId: repo.id, page: 1 })}>Open PDF</button>}
                     {repo.browserUrl && <button disabled={disabled || !(repo.browserBuildTask ?? repo.buildTask) || !(repo.browserRunTask ?? repo.runTask) || !status || !!status.error} title="Build the web app, start its server, and open it in DevShell only when ready" onClick={() => repositoryAction(project.id, repo.id, 'launch')}>Build + Run + Open</button>}
+                    {repo.browserUrl && <button disabled={anyJobBusy || anyUpdateBusy || !environment.length || !(repo.browserBuildTask ?? repo.buildTask) || !(repo.browserRunTask ?? repo.runTask) || !status || !!status.error} title="Check dependencies, fix missing requirements, build, start, and open the app. Stop cancels the sequence." onClick={() => repositoryAction(project.id, repo.id, 'prepare-launch')}>Prepare &amp; Launch</button>}
                     <button disabled={!busy} onClick={() => repositoryAction(project.id, repo.id, 'stop')}>Stop</button>
                     <button onClick={() => repositoryAction(project.id, repo.id, 'log')}>Logs</button>
                     <button onClick={() => repositoryAction(project.id, repo.id, 'files')}>Files</button>
                   </div>
                   {repo.buildTask && (repo.runTask || repo.pdfPath || repo.pdfDirectory) && <label className="repo-run-after"><input type="checkbox" checked={runAfterBuild[jobKey] ?? false} disabled={disabled} onChange={(event) => setRunAfterBuild((current) => ({ ...current, [jobKey]: event.target.checked }))} /> {repo.pdfDirectory ? 'Show PDF selector after successful build' : repo.pdfPath ? 'Open PDF after successful build' : 'Run after successful build'}</label>}
-                  {job && <div className={`repo-job-status ${job.state}`} role="status">{busy && <span className="job-spinner" />} {job.action ?? 'Job'}: {job.state}{['build', 'run'].includes(job.action ?? '') && ` · Build: ${job.buildState}`}{job.exitCode != null ? ` · Exit ${job.exitCode}` : ''}</div>}
-                  {job?.action === 'setup' && <div className="setup-progress" role="status"><progress value={job.completedSteps ?? 0} max={job.totalSteps || 1} aria-label={`${repo.name} setup progress`} /><span>{job.completedSteps ?? 0}/{job.totalSteps ?? 0} · {job.step ?? 'Preparing setup…'}</span></div>}
+                  {job && <div className={`repo-job-status ${job.state}`} role="status">{busy && <span className="job-spinner" />} {job.action ?? 'Job'}: {job.state}{['build', 'run', 'launch', 'prepare-launch'].includes(job.action ?? '') && ` · Build: ${job.buildState}`}{job.exitCode != null ? ` · Exit ${job.exitCode}` : ''}</div>}
+                  {job && ['setup', 'prepare-launch'].includes(job.action ?? '') && <div className="setup-progress" role="status"><progress value={job.totalSteps ? job.completedSteps ?? 0 : busy ? undefined : 1} max={job.totalSteps || 1} aria-label={`${repo.name} setup progress`} /><span>{!!job.totalSteps && `${job.completedSteps ?? 0}/${job.totalSteps} · `}{job.step ?? 'Preparing setup…'}</span></div>}
                   {jobErrors[jobKey] && <p className="check-error">{jobErrors[jobKey]}</p>}
                   {checkingSetupKeys.includes(jobKey) && <p className="service-detail" role="status">Checking requirements before repair…</p>}
                   <EnvironmentReadiness name={repo.name} checks={environment} checking={dashboardLoading} blocked={anyJobBusy || anyUpdateBusy}

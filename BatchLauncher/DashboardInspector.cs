@@ -33,8 +33,9 @@ public static class DashboardInspector
     }
 
     public static async Task<(int Code, string Output, string Error)> Run(string executable, IEnumerable<string> arguments,
-        IReadOnlyDictionary<string, string>? environment = null, string? workingDirectory = null)
+        IReadOnlyDictionary<string, string>? environment = null, string? workingDirectory = null, int timeoutSeconds = 25, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var start = new ProcessStartInfo(executable) { UseShellExecute = false, CreateNoWindow = true,
             RedirectStandardOutput = true, RedirectStandardError = true };
         if (workingDirectory != null) start.WorkingDirectory = workingDirectory;
@@ -43,9 +44,17 @@ public static class DashboardInspector
         using var process = Process.Start(start) ?? throw new InvalidOperationException($"Cannot run {executable}");
         var output = process.StandardOutput.ReadToEndAsync();
         var error = process.StandardError.ReadToEndAsync();
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
         try { await process.WaitForExitAsync(timeout.Token); }
-        catch (OperationCanceledException) { process.Kill(true); throw new InvalidOperationException("Check timed out; retry when the repository is available."); }
+        catch (OperationCanceledException)
+        {
+            try { process.Kill(true); } catch (InvalidOperationException) { }
+            await process.WaitForExitAsync();
+            await Task.WhenAll(output, error);
+            cancellationToken.ThrowIfCancellationRequested();
+            throw new InvalidOperationException("Check timed out; retry when the repository is available.");
+        }
         return (process.ExitCode, await output, await error);
     }
 

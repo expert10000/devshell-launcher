@@ -99,7 +99,7 @@ public partial class Form1
                 if (action == "stop-all") RepositoryUpdates.Stop();
                 else
                 {
-                    if (_repositoryRunner.Snapshot().Any(job => job.Action == "setup" && job.State is "queued" or "building" or "running")) throw new InvalidOperationException("Finish or stop Setup before Update All.");
+                    if (_repositoryRunner.Snapshot().Any(job => (job.Action is "setup" or "prepare-launch") && job.State is "queued" or "building" or "running")) throw new InvalidOperationException("Finish or stop Setup before Update All.");
                     var profileId = _activeWorkspaceProfileId;
                     var items = (_workspace.Projects ?? new()).SelectMany(project => (project.Repositories ?? new()).Select(repo =>
                         new RepositoryUpdateItem($"{profileId}:{project.Id}:{repo.Id}", repo.Name, () => CreateGitCommand(project, repo, "sync")))).ToList();
@@ -128,26 +128,29 @@ public partial class Form1
                 if (job != null && File.Exists(job.LogPath))
                     System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(job.LogPath) { UseShellExecute = true });
             }
-            else if (action is "build" or "run" or "fetch" or "pull" or "clone" or "launch" or "diff" or "history")
+            else if (action is "build" or "run" or "fetch" or "pull" or "clone" or "launch" or "prepare-launch" or "diff" or "history")
             {
                 if (RepositoryUpdates.Owns(key)) throw new InvalidOperationException("This repository is reserved by Update All. Stop the queue before starting another action.");
-                if (_repositoryRunner.Snapshot().Any(job => job.Action == "setup" && job.State is "queued" or "building" or "running")) throw new InvalidOperationException("Finish or stop Setup before starting another repository action.");
+                if (_repositoryRunner.Snapshot().Any(job => (job.Action is "setup" or "prepare-launch") && job.State is "queued" or "building" or "running")) throw new InvalidOperationException("Finish or stop Setup before starting another repository action.");
                 var project = _workspace.Projects?.FirstOrDefault(p => p.Id == projectId) ?? throw new InvalidOperationException("Project not found.");
                 var repo = project.Repositories?.FirstOrDefault(r => r.Id == repositoryId) ?? throw new InvalidOperationException("Repository not found.");
                 if (action == "run" && repo.PdfPath != null)
                     return OpenWorkspacePdfAsync(_activeWorkspaceProfileId, project.Id, repo.Id);
                 var cwd = ExpandProjectValue(project, repo.Path);
                 EnsureRepositoryIdle(key, cwd);
+                if (action == "prepare-launch" && (_environmentSetupChecking || RepositoryUpdates.Active || _repositoryChangesPaths.Count > 0 || _repositoryRunner.Snapshot().Any(job => job.State is "queued" or "building" or "running")))
+                    throw new InvalidOperationException("Finish or stop active repository jobs before Prepare & Launch.");
                 _repositoryActionPaths[key] = Path.GetFullPath(cwd).TrimEnd('\\', '/');
-                var build = action is "build" or "launch" ? CreateRepositoryCommand(project,
-                    (action == "launch" ? repo.BrowserBuildTask ?? repo.BuildTask : repo.BuildTask) ?? throw new InvalidOperationException("Build is not configured."), cwd) : null;
+                var launch = action is "launch" or "prepare-launch";
+                var build = action == "build" || launch ? CreateRepositoryCommand(project,
+                    (launch ? repo.BrowserBuildTask ?? repo.BuildTask : repo.BuildTask) ?? throw new InvalidOperationException("Build is not configured."), cwd) : null;
                 var runAfter = action == "build" && payload.TryGetProperty("runAfter", out var value) && value.GetBoolean();
                 var pdfAfter = runAfter && (repo.PdfPath != null || repo.PdfDirectory != null);
                 var run = action is "fetch" or "pull" or "clone" or "diff" or "history" ? CreateGitCommand(project, repo, action)
-                    : action is "run" or "launch" || runAfter && !pdfAfter ? CreateRepositoryCommand(project,
-                        (action == "launch" ? repo.BrowserRunTask ?? repo.RunTask : repo.RunTask) ?? throw new InvalidOperationException("Run is not configured."), cwd) : null;
+                    : action == "run" || launch || runAfter && !pdfAfter ? CreateRepositoryCommand(project,
+                        (launch ? repo.BrowserRunTask ?? repo.RunTask : repo.RunTask) ?? throw new InvalidOperationException("Run is not configured."), cwd) : null;
                 RepositoryBrowserLaunch? browser = null;
-                if (action == "launch")
+                if (launch)
                 {
                     var url = ExpandProjectValue(project, repo.BrowserUrl ?? throw new InvalidOperationException("Browser URL is not configured."));
                     browser = new(url, (repo.ReadyUrls ?? new()).Select(value => ExpandProjectValue(project, value)).ToArray(), repo.ReadyTimeoutSeconds);
@@ -157,7 +160,8 @@ public partial class Form1
                         _repositoryBrowserEventsHooked = true;
                     }
                 }
-                if (!_repositoryRunner.Start(key, build, run, RepositoryLogDirectory, action, browser)) throw new InvalidOperationException("A repository job is already running.");
+                var preparation = action == "prepare-launch" ? CreateRepositoryPreparation(project, repo) : null;
+                if (!_repositoryRunner.Start(key, build, run, RepositoryLogDirectory, action, browser, preparation: preparation)) throw new InvalidOperationException("A repository job is already running.");
                 if (action == "build" && (repo.PdfPath != null || repo.PdfDirectory != null))
                     _ = ObservePdfBuildAsync(key, _activeWorkspaceProfileId, project.Id, repo.Id, pdfAfter);
             }
@@ -192,7 +196,7 @@ public partial class Form1
     }
     private void EnsureRepositoryIdle(string key, string path)
     {
-        if (_repositoryRunner.Snapshot().Any(job => job.Action == "setup" && job.State is "queued" or "building" or "running")) throw new InvalidOperationException("Finish or stop Setup before modifying repositories.");
+        if (_repositoryRunner.Snapshot().Any(job => (job.Action is "setup" or "prepare-launch") && job.State is "queued" or "building" or "running")) throw new InvalidOperationException("Finish or stop Setup before modifying repositories.");
         path = Path.GetFullPath(path).TrimEnd('\\', '/');
         if (_repositoryChangesPaths.Contains(path)) throw new InvalidOperationException("This checkout is busy in the Changes panel.");
         if (RepositoryUpdates.Owns(key) || _repositoryActionPaths.Any(pair => pair.Value.Equals(path, StringComparison.OrdinalIgnoreCase) && RepositoryUpdates.Owns(pair.Key)))

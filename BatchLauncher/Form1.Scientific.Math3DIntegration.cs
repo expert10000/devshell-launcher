@@ -46,6 +46,9 @@ public partial class Form1
                 new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject
                 {
                     ["path"] = "math3d-native-cube-self-union.m3dm", ["mediaType"] = "application/octet-stream"
+                }, new System.Text.Json.Nodes.JsonObject
+                {
+                    ["path"] = "math3d-native-overlapping-cubes-union.m3dm", ["mediaType"] = "application/octet-stream"
                 }));
             _scientificJobs[profileId + ":" + runtimeId] = job;
             ScientificSend(new { type = "scientific.runtime.job", job = ScientificJobSnapshot(job) });
@@ -66,7 +69,7 @@ public partial class Form1
         try
         {
             await ScientificProcessAsync(job, prefix, node,
-                new[] { script, worker, job.Directory, job.ProfileId }, job.Directory, 90);
+                new[] { script, worker, job.Directory, job.ProfileId }, job.Directory, 120);
             using var saved = JsonDocument.Parse(File.ReadAllText(Path.Combine(job.Directory, "results.json")));
             if (!saved.RootElement.TryGetProperty("comparison", out var comparison) ||
                 !comparison.TryGetProperty("verdict", out var verdict) || verdict.GetString() != "pass")

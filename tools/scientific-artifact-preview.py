@@ -9,6 +9,7 @@ import sys
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--before')
+parser.add_argument('--second-translate-x', type=float)
 parser.add_argument('--after', required=True)
 args = parser.parse_args()
 handles = []
@@ -106,4 +107,15 @@ def preview(filename):
             'sampled': count > limit, 'note': 'Uniform triangle sample for display only; not simplified geometry.' if count > limit else 'Full triangle preview.'}
 
 
-print(json.dumps({'before': preview(args.before), 'after': preview(args.after)}, allow_nan=False), flush=True)
+before = preview(args.before)
+before_second = None
+if args.second_translate_x is not None:
+    if before is None or not math.isfinite(args.second_translate_x) or abs(args.second_translate_x) > 1000:
+        raise ValueError('Invalid second input translation')
+    before_second = preview(args.before)
+    before_second['name'] = f"{before_second['name']} ({args.second_translate_x:+g} X)"
+    before_second['positions'][0::3] = [round(value + args.second_translate_x, 7)
+                                        for value in before_second['positions'][0::3]]
+    before_second['bounds'][0] += args.second_translate_x
+    before_second['bounds'][1] += args.second_translate_x
+print(json.dumps({'before': before, 'beforeSecond': before_second, 'after': preview(args.after)}, allow_nan=False), flush=True)

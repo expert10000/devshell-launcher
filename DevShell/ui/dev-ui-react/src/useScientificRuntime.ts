@@ -7,7 +7,7 @@ export interface ScientificJob { jobId: string; profileId: string; runtimeId: st
 export interface ScientificDataset { id: string; name: string; category: string; path: string; bytes: number; sha256: string; sourcePath: string; sourceRoot: string; expectedProblem: boolean }
 export interface ScientificEnvironment { environment: Record<string, string>; vcpkgRoot: string | null; installedVcpkg: string | null; vcpkgUsed: boolean; report: ScientificRuntimeReport; evidence?: { compilerVersion?: string | null; compilerSource?: string; rendering?: ScientificRunResult['rendering'] } }
 export interface ScientificMeshPreview { name: string; positions: number[]; bounds: number[]; points: number; triangles: number; previewTriangles: number; sampled: boolean; note: string }
-export interface ScientificArtifactPreview { jobId: string; artifactPath: string; geometry: { before: ScientificMeshPreview | null; after: ScientificMeshPreview }; result: ScientificRunResult }
+export interface ScientificArtifactPreview { jobId: string; artifactPath: string; geometry: { before: ScientificMeshPreview | null; beforeSecond?: ScientificMeshPreview | null; after: ScientificMeshPreview }; result: ScientificRunResult }
 export interface ScientificHistoryEntry { jobId: string; runtimeId: string; recipeId: string; testCaseId?: string | null; state: string; durationMs: number; finishedAtUtc: string; artifactCount: number }
 export interface ScientificMatrixCase { id: string; datasetId: string; name: string; expected: 'succeeded' | 'rejected'; reason: string }
 

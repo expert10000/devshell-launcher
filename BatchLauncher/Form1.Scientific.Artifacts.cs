@@ -180,8 +180,18 @@ public partial class Form1
         var record = artifacts.First(item => item.GetProperty("path").GetString() == requested);
         if (record.TryGetProperty("sha256", out var expected) && ScientificHash(output) != expected.GetString())
             throw new InvalidOperationException("Output artifact changed since the run completed.");
+        JsonElement selectedCase = default;
+        if (job.RecipeId == "integration.math3d.native-boolean"
+            && result.TryGetProperty("comparison", out var comparison)
+            && comparison.TryGetProperty("cases", out var cases)
+            && cases.ValueKind == JsonValueKind.Array)
+            selectedCase = cases.EnumerateArray().FirstOrDefault(item => item.TryGetProperty("outputArtifact", out var named)
+                && named.ValueKind == JsonValueKind.String && named.GetString() == requested);
+        var datasetId = selectedCase.ValueKind == JsonValueKind.Object
+            && selectedCase.TryGetProperty("datasetId", out var dataset) ? dataset.GetString() : null;
         string? input = null;
-        foreach (var artifact in definition.GetProperty("inputArtifacts").EnumerateArray().Take(1))
+        foreach (var artifact in definition.GetProperty("inputArtifacts").EnumerateArray()
+            .Where(item => datasetId == null || item.TryGetProperty("datasetId", out var id) && id.GetString() == datasetId).Take(1))
         {
             var file = artifact.GetProperty("path").GetString() ?? "";
             var root = Path.Combine(ScientificDataRoot, "datasets");
@@ -193,6 +203,19 @@ public partial class Form1
                 input = file;
             }
         }
+        if (datasetId != null && input == null)
+            throw new InvalidOperationException("The selected case's registered input is unavailable for preview.");
+        double? secondOffsetX = null;
+        if (selectedCase.ValueKind == JsonValueKind.Object
+            && selectedCase.TryGetProperty("rightOperand", out var rightOperand)
+            && rightOperand.TryGetProperty("translateX", out var translation)
+            && translation.ValueKind == JsonValueKind.Number)
+        {
+            var offset = translation.GetDouble();
+            if (!double.IsFinite(offset) || Math.Abs(offset) > 1000)
+                throw new InvalidOperationException("The recorded input translation is invalid.");
+            if (offset != 0) secondOffsetX = offset;
+        }
         if (!await _scientificPreviewGate.WaitAsync(0)) throw new InvalidOperationException("A mesh preview is already loading.");
         try
         {
@@ -201,6 +224,11 @@ public partial class Form1
             { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true, WorkingDirectory = job.Directory, StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8 };
             start.ArgumentList.Add(Path.Combine(ScientificSourceRoot, "tools", "scientific-artifact-preview.py"));
             if (input != null) { start.ArgumentList.Add("--before"); start.ArgumentList.Add(input); }
+            if (secondOffsetX != null)
+            {
+                start.ArgumentList.Add("--second-translate-x");
+                start.ArgumentList.Add(secondOffsetX.Value.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
+            }
             start.ArgumentList.Add("--after"); start.ArgumentList.Add(output);
             foreach (var pair in ScientificEnvironment(prefix)) start.Environment[pair.Key] = pair.Value;
             start.Environment.Remove("PYTHONPATH");

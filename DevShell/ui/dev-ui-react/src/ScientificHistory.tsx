@@ -44,7 +44,7 @@ export function ScientificHistory({ native }: { native: ReturnType<typeof useSci
   const firstOutputHash = first?.artifacts?.find(item => item.path === comparison[0]?.path)?.sha256
   const secondOutputHash = second?.artifacts?.find(item => item.path === comparison[1]?.path)?.sha256
   const integration = result?.recipeId === 'integration.math3d.native-boolean'
-    ? (result as typeof result & { comparison?: { verdict: string; passed: number; total: number; checks: { name: string; passed: boolean }[]; cases?: { name: string; before: { faces: number }; after?: { faces: number }; metrics?: { boundsDelta: number; areaDelta: number; volumeDelta: number; sampledSurfaceDeviation: number }; tolerances?: { bounds: number; area: number; volume: number; sampledSurface: number } }[] } }).comparison
+    ? (result as typeof result & { comparison?: { verdict: string; passed: number; total: number; checks: { name: string; passed: boolean }[]; cases?: { name: string; before: { faces: number }; reference?: { bounds: number[]; volume: number }; after?: { faces: number; bounds: number[]; volume: number }; metrics?: { boundsDelta: number; areaDelta: number; volumeDelta: number; sampledSurfaceDeviation: number }; tolerances?: { bounds: number; area: number; volume: number; sampledSurface: number } }[] } }).comparison
     : undefined
   return <section className="scientific-history" aria-label="Scientific run history">
     <h3>Run history</h3>
@@ -58,7 +58,7 @@ export function ScientificHistory({ native }: { native: ReturnType<typeof useSci
     {selectedJobId && !result && <div className="scientific-history-result" role="status">Loading result <code>{selectedJobId}</code>...</div>}
     {result && <div ref={resultRef} className="scientific-history-result"><h4>{result.runtimeId} / {result.recipeId} / {result.state}</h4><p><code>{result.runId}</code> / {result.durationMs} ms</p>
       {integration && <section aria-label="MATH3D integration verdict"><h5>Native worker comparison: {integration.verdict.toUpperCase()} / {integration.passed}/{integration.total}</h5><p className="scientific-runtime-note">MATH3D self-union and DevShell validation are different operations. Surface deviation samples vertices, edge midpoints, and face centroids; it is not a full Hausdorff proof.</p><ul>{integration.checks.map(check => <li key={check.name}>{check.passed ? 'PASS' : 'FAIL'} / {check.name}</li>)}</ul>
-        {integration.cases?.map(item => <div key={item.name}><h5>{item.name} numeric comparison</h5>{item.metrics && item.tolerances ? <table><thead><tr><th>Measure</th><th>Delta</th><th>Tolerance</th></tr></thead><tbody>
+        {integration.cases?.map(item => <div key={item.name}><h5>{item.name} numeric comparison</h5>{item.reference && <p>Expected volume {item.reference.volume.toPrecision(6)}; actual {item.after?.volume.toPrecision(6) ?? 'none'}. Expected bounds [{item.reference.bounds.join(', ')}]; actual [{item.after?.bounds.join(', ') ?? 'none'}].</p>}{item.metrics && item.tolerances ? <table><thead><tr><th>Measure</th><th>Delta</th><th>Tolerance</th></tr></thead><tbody>
           <tr><td>Bounds</td><td>{item.metrics.boundsDelta.toPrecision(4)}</td><td>{item.tolerances.bounds.toPrecision(4)}</td></tr>
           <tr><td>Surface area</td><td>{item.metrics.areaDelta.toPrecision(4)}</td><td>{item.tolerances.area.toPrecision(4)}</td></tr>
           <tr><td>Enclosed volume</td><td>{item.metrics.volumeDelta.toPrecision(4)}</td><td>{item.tolerances.volume.toPrecision(4)}</td></tr>

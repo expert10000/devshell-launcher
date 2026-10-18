@@ -4,6 +4,7 @@ import type { RuntimeProfile } from './scientificRuntimeProfiles'
 import './ScientificArtifacts.css'
 
 export type Camera = { yaw: number; pitch: number; zoom: number; wire: boolean }
+type CaseMeshStats = { vertices: number; faces: number; boundaryEdges: number; nonManifoldEdges: number; closed: boolean; volume: number; bounds: number[] }
 export const initialCamera: Camera = { yaw: 0.6, pitch: 0.35, zoom: 0.85, wire: false }
 const vertexShader = `
 attribute vec3 position; attribute vec3 normal;
@@ -118,10 +119,23 @@ export function ScientificArtifacts({ runtime, native }: { runtime: RuntimeProfi
   const preview = cached?.jobId === job?.jobId && cached?.artifactPath === path ? cached : null
   const bounds = useMemo(() => {
     if (!preview) return [0, 1, 0, 1, 0, 1]
-    const meshes = [preview.geometry.before, preview.geometry.after].filter((item): item is ScientificMeshPreview => !!item)
+    const meshes = [preview.geometry.before, preview.geometry.beforeSecond, preview.geometry.after].filter((item): item is ScientificMeshPreview => !!item)
     return [0, 1, 2].flatMap(axis => [Math.min(...meshes.map(item => item.bounds[axis * 2])), Math.max(...meshes.map(item => item.bounds[axis * 2 + 1]))])
   }, [preview])
   const result = job?.result
+  const selectedCase = result?.recipeId === 'integration.math3d.native-boolean'
+    ? (result as typeof result & { comparison?: { cases?: { name: string; outputArtifact: string | null; before: CaseMeshStats; reference?: { volume: number; bounds: number[] }; after?: CaseMeshStats }[] } }).comparison?.cases?.find(item => item.outputArtifact === path)
+    : undefined
+  const beforeStats: Record<string, number | boolean> | undefined = selectedCase ? {
+    points: selectedCase.before.vertices, triangles: selectedCase.before.faces,
+    boundaryEdges: selectedCase.before.boundaryEdges, nonManifoldEdges: selectedCase.before.nonManifoldEdges,
+    closed: selectedCase.before.closed,
+  } : result?.before
+  const afterStats: Record<string, number | boolean> | undefined = selectedCase?.after ? {
+    points: selectedCase.after.vertices, triangles: selectedCase.after.faces,
+    boundaryEdges: selectedCase.after.boundaryEdges, nonManifoldEdges: selectedCase.after.nonManifoldEdges,
+    closed: selectedCase.after.closed,
+  } : result?.after
   return <section className="scientific-artifacts" aria-label="Scientific mesh artifacts">
     <h3>Mesh comparison / run artifacts</h3>
     {!job ? <p>No managed run in this session. Use Commands to run a mesh recipe; opening this page does not execute anything.</p> : <>
@@ -131,10 +145,11 @@ export function ScientificArtifacts({ runtime, native }: { runtime: RuntimeProfi
         <button onClick={() => native.send(runtime.id, 'open-output', { jobId: job.jobId })}>Open output folder</button><button onClick={() => native.send(runtime.id, 'open-log', { jobId: job.jobId })}>Open full log</button>
       </div>
       {!artifacts.length && <p>No previewable geometry in this run. Failed, cancelled, and timed-out runs do not advertise successful output artifacts.</p>}
-      {preview && <><div className="scientific-artifact-toolbar"><button onClick={() => setCamera(initialCamera)}>Fit / reset camera</button><label>Zoom<input aria-label="Mesh zoom" type="range" min="0.3" max="4" step="0.05" value={camera.zoom} onChange={event => setCamera(value => ({ ...value, zoom: Number(event.target.value) }))} /></label><label><input type="checkbox" checked={camera.wire} onChange={event => setCamera(value => ({ ...value, wire: event.target.checked }))} /> Wireframe</label><span>Drag either view to orbit both.</span></div>
-        <div className="scientific-mesh-comparison">{preview.geometry.before ? <MeshCanvas mesh={preview.geometry.before} camera={camera} setCamera={setCamera} bounds={bounds} after={false} /> : <p>Input preview is unavailable for this format. The output remains previewable.</p>}<MeshCanvas mesh={preview.geometry.after} camera={camera} setCamera={setCamera} bounds={bounds} after /></div></>}
+      {preview && <><div className="scientific-artifact-toolbar"><button onClick={() => setCamera(initialCamera)}>Fit / reset camera</button><label>Zoom<input aria-label="Mesh zoom" type="range" min="0.3" max="4" step="0.05" value={camera.zoom} onChange={event => setCamera(value => ({ ...value, zoom: Number(event.target.value) }))} /></label><label><input type="checkbox" checked={camera.wire} onChange={event => setCamera(value => ({ ...value, wire: event.target.checked }))} /> Wireframe</label><span>Drag either view to orbit all views.</span></div>
+        {selectedCase?.reference && <div className="scientific-mesh-target"><strong>{selectedCase.name}: expected versus actual</strong><span>Volume: {selectedCase.reference.volume.toPrecision(6)} / {selectedCase.after?.volume.toPrecision(6) ?? 'not recorded'}</span><span>Bounds: [{selectedCase.reference.bounds.join(', ')}] / [{selectedCase.after?.bounds.join(', ') ?? 'not recorded'}]</span></div>}
+        <div className={`scientific-mesh-comparison${preview.geometry.beforeSecond ? ' scientific-mesh-comparison--three' : ''}`}>{preview.geometry.before ? <MeshCanvas mesh={preview.geometry.before} camera={camera} setCamera={setCamera} bounds={bounds} after={false} label={preview.geometry.beforeSecond ? 'BEFORE / cube A' : 'BEFORE / input'} /> : <p>Input preview is unavailable for this format. The output remains previewable.</p>}{preview.geometry.beforeSecond && <MeshCanvas mesh={preview.geometry.beforeSecond} camera={camera} setCamera={setCamera} bounds={bounds} after={false} label="BEFORE / cube B (+1 X)" />}<MeshCanvas mesh={preview.geometry.after} camera={camera} setCamera={setCamera} bounds={bounds} after /></div></>}
       {result && <><table className="scientific-mesh-statistics"><thead><tr><th>Recorded statistic</th><th>Before</th><th>After</th><th>Change</th></tr></thead><tbody>{['points', 'triangles', 'boundaryEdges', 'nonManifoldEdges', 'closed'].map(name => {
-        const before = result.before?.[name], after = result.after?.[name]
+        const before = beforeStats?.[name], after = afterStats?.[name]
         if (before === undefined && after === undefined) return null
         return <tr key={name}><th>{name}</th><td>{String(before ?? 'Not recorded')}</td><td>{String(after ?? 'Not recorded')}</td><td>{typeof before === 'number' && typeof after === 'number' ? (after - before).toLocaleString() : 'Not applicable'}</td></tr>
       })}</tbody></table><p className="scientific-runtime-note">{result.scope}</p>

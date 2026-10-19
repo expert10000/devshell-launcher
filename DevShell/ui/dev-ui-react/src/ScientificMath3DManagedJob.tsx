@@ -34,7 +34,7 @@ export function ScientificMath3DManagedJob({ native, onHistory }: { native: Retu
 
   return <section aria-label="MATH3D native worker integration" className="scientific-history-result">
     <h3>MATH3D native worker comparison</h3>
-    <p className="scientific-runtime-note">Run registered tetrahedron and cube self-unions, then union the cube with a second copy translated +1 on X. The overlap has analytic bounds [-1, 2] x [-1, 1] x [-1, 1] and volume 12. Explicit topology and geometry tolerances are checked; this is bounded integration evidence, not broad Boolean correctness.</p>
+    <p className="scientific-runtime-note">Run registered tetrahedron and cube self-unions, then union, intersect, and subtract a second cube translated +1 on X. Expected volumes are 12, 4, and 4; X bounds are [-1, 2], [0, 1], and [-1, 0] respectively. Explicit topology and geometry tolerances are checked; this is bounded integration evidence, not broad Boolean correctness.</p>
     <div className="scientific-inspector-actions">
       <button disabled={native.busy || native.pending} onClick={() => native.send(runtimeId, 'math3d-integration')}>Run MATH3D integration test</button>
       <button disabled={native.pending} onClick={() => native.send('', 'history')}>Refresh saved verdict</button>

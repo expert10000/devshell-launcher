@@ -11,6 +11,8 @@ const fixtures = [
   { name: 'Tetrahedron', datasetId: 'math3d/basic/01_tetrahedron.obj', vertices: 4, faces: 4, output: 'math3d-native-self-union.m3dm' },
   { name: 'Cube', datasetId: 'math3d/basic/02_cube.obj', vertices: 8, faces: 12, output: 'math3d-native-cube-self-union.m3dm' },
   { name: 'Overlapping cubes', datasetId: 'math3d/basic/02_cube.obj', vertices: 8, faces: 12, offsetX: 1, output: 'math3d-native-overlapping-cubes-union.m3dm' },
+  { name: 'Overlapping cubes intersection', datasetId: 'math3d/basic/02_cube.obj', vertices: 8, faces: 12, offsetX: 1, operation: 3, output: 'math3d-native-overlapping-cubes-intersection.m3dm' },
+  { name: 'Overlapping cubes difference', datasetId: 'math3d/basic/02_cube.obj', vertices: 8, faces: 12, offsetX: 1, operation: 2, output: 'math3d-native-overlapping-cubes-difference.m3dm' },
 ];
 const worker = process.argv[2] || path.join(scientific, 'builds', 'math3d-native-worker', 'Release', 'math3d-cgal-worker.exe');
 const sha256 = data => createHash('sha256').update(data).digest('hex');
@@ -197,7 +199,7 @@ function numericComparison(input, output, before, after) {
   };
 }
 
-function makeRequest(jobId, leftMesh, rightMesh) {
+function makeRequest(jobId, leftMesh, rightMesh, operation) {
   const job = Buffer.from(jobId, 'utf8');
   const header = Buffer.alloc(28);
   header.write('M3DC', 0, 'ascii');
@@ -206,11 +208,11 @@ function makeRequest(jobId, leftMesh, rightMesh) {
   header.writeUInt32LE(job.length, 8);
   header.writeUInt32LE(leftMesh.length, 12);
   header.writeUInt32LE(rightMesh.length, 16);
-  header.writeUInt32LE(1, 20); // Boolean union
+  header.writeUInt32LE(operation, 20);
   return Buffer.concat([header, job, leftMesh, rightMesh]);
 }
 
-async function runWorker(jobId, leftMesh, rightMesh, libraryBin) {
+async function runWorker(jobId, leftMesh, rightMesh, libraryBin, operation) {
   const env = { ...process.env };
   const pathKey = Object.keys(env).find(key => key.toLowerCase() === 'path') || 'Path';
   env[pathKey] = `${libraryBin};${env[pathKey] || ''}`;
@@ -233,7 +235,7 @@ async function runWorker(jobId, leftMesh, rightMesh, libraryBin) {
       if (code !== 0) reject(new Error(`MATH3D worker exited ${code}: ${Buffer.concat(stderr).toString('utf8')}`));
       else resolve(Buffer.concat(stdout));
     });
-    child.stdin.end(makeRequest(jobId, leftMesh, rightMesh));
+    child.stdin.end(makeRequest(jobId, leftMesh, rightMesh, operation));
   });
   if (response.length < 28 || response.toString('ascii', 0, 4) !== 'M3DC' ||
       response.readUInt16LE(4) !== 1 || response.readUInt32LE(20) !== 3 || response.readUInt32LE(24) !== 0)
@@ -273,15 +275,19 @@ for (const fixture of fixtures) {
     vertices: inputMesh.vertices.map(vertex => [vertex[0] + fixture.offsetX, vertex[1], vertex[2]]),
     faces: inputMesh.faces,
   } : inputMesh;
+  const minimumX = Math.min(...inputMesh.vertices.map(vertex => vertex[0]));
   const maximumX = Math.max(...inputMesh.vertices.map(vertex => vertex[0]));
+  const operation = fixture.operation || 1;
+  const targetMinimumX = operation === 3 ? minimumX + fixture.offsetX : minimumX;
+  const targetMaximumX = operation === 2 ? minimumX + fixture.offsetX : operation === 1 ? maximumX + (fixture.offsetX || 0) : maximumX;
   const referenceMesh = fixture.offsetX ? {
-    vertices: inputMesh.vertices.map(vertex => [vertex[0] === maximumX ? vertex[0] + fixture.offsetX : vertex[0], vertex[1], vertex[2]]),
+    vertices: inputMesh.vertices.map(vertex => [vertex[0] === maximumX ? targetMaximumX : targetMinimumX, vertex[1], vertex[2]]),
     faces: inputMesh.faces,
   } : inputMesh;
   const leftBytes = encodeMesh(inputMesh), rightBytes = encodeMesh(rightMesh);
   const configure = baseline.result.steps?.find(step => step.stage === 'configure');
   if (!configure?.executable) throw new Error('Baseline does not identify the CGAL Library/bin environment');
-  const response = await runWorker(`${jobId}-${fixture.name.toLowerCase().replaceAll(' ', '-')}`, leftBytes, rightBytes, path.dirname(configure.executable));
+  const response = await runWorker(`${jobId}-${fixture.name.toLowerCase().replaceAll(' ', '-')}`, leftBytes, rightBytes, path.dirname(configure.executable), operation);
   durationMs += response.durationMs;
   const outputMesh = response.status === 0 ? decodeMesh(response.mesh) : null;
   const before = meshStats(inputMesh), reference = meshStats(referenceMesh);
@@ -291,7 +297,7 @@ for (const fixture of fixtures) {
   const caseChecks = [
     { name: 'CGAL baseline matches registered input', passed: ['vertices', 'edges', 'faces', 'boundaryEdges', 'closed'].every(key => before[key] === expected?.[key]) && baseline.result.diagnostics?.length === 0,
       expected, actual: before },
-    { name: fixture.offsetX ? 'native overlapping-cubes union accepted' : 'native Boolean self-union accepted', passed: response.status === 0 && !!outputMesh,
+    { name: fixture.offsetX ? `native overlapping-cubes ${operation === 2 ? 'difference' : operation === 3 ? 'intersection' : 'union'} accepted` : 'native Boolean self-union accepted', passed: response.status === 0 && !!outputMesh,
       expected: 'status 0 with M3DM output', actual: `status ${response.status}: ${response.message}` },
     { name: 'closed single-shell topology', passed: !!after && after.closed && after.components === 1 && after.euler === 2 && after.volume > 0,
       expected: { closed: true, components: 1, euler: 2, positiveVolume: true }, actual: after },
@@ -311,7 +317,7 @@ for (const fixture of fixtures) {
     await writeFile(path.join(runDir, fixture.output), response.mesh);
     artifacts.push({ path: fixture.output, mediaType: 'application/octet-stream', bytes: response.mesh.length, sha256: sha256(response.mesh) });
   }
-  cases.push({ name: fixture.name, datasetId: fixture.datasetId, baselineRunId: baseline.result.runId,
+  cases.push({ name: fixture.name, datasetId: fixture.datasetId, operation: operation === 2 ? 'difference' : operation === 3 ? 'intersection' : 'union', baselineRunId: baseline.result.runId,
     baselineResult: baseline.file, workerStatus: response.status, workerMessage: response.message,
     before, reference, after, ...quantitative, outputArtifact: outputMesh ? fixture.output : null,
     rightOperand: { sourceDatasetId: fixture.datasetId, translateX: fixture.offsetX || 0,
@@ -319,10 +325,10 @@ for (const fixture of fixtures) {
 }
 const passed = checks.filter(check => check.passed).length;
 const succeeded = passed === checks.length;
-const scope = `MATH3D native Boolean union: tetrahedron and cube self-unions plus overlapping cubes, ${passed}/${checks.length} checks passed. The overlap uses a registered cube and a +1 X translated operand; analytic union bounds [-1,2] x [-1,1] x [-1,1], volume 12. Sampled surface deviation is not a full Hausdorff proof.`;
+const scope = `MATH3D native Boolean comparison: tetrahedron and cube self-unions plus overlapping-cube union, intersection, and difference; ${passed}/${checks.length} checks passed. The second cube is translated +1 X. Analytic volumes: union 12, intersection 4, difference A-B 4; X bounds [-1,2], [0,1], and [-1,0] respectively. Sampled surface deviation is not a full Hausdorff proof.`;
 const result = {
   schemaVersion: 1, runId: jobId, runtimeId: 'cgal-win-conda',
-  recipeId: 'integration.math3d.native-boolean', operation: 'mesh.boolean.union',
+  recipeId: 'integration.math3d.native-boolean', operation: 'mesh.boolean',
   engine: 'MATH3D native CGAL worker', profileId: process.argv[4] || null,
   state: succeeded ? 'succeeded' : 'failed', exitCode: succeeded ? 0 : 1,
   durationMs, versions: { math3dWorker: 'protocol 1' },

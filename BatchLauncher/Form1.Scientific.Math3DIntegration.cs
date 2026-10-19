@@ -49,6 +49,12 @@ public partial class Form1
                 }, new System.Text.Json.Nodes.JsonObject
                 {
                     ["path"] = "math3d-native-overlapping-cubes-union.m3dm", ["mediaType"] = "application/octet-stream"
+                }, new System.Text.Json.Nodes.JsonObject
+                {
+                    ["path"] = "math3d-native-overlapping-cubes-intersection.m3dm", ["mediaType"] = "application/octet-stream"
+                }, new System.Text.Json.Nodes.JsonObject
+                {
+                    ["path"] = "math3d-native-overlapping-cubes-difference.m3dm", ["mediaType"] = "application/octet-stream"
                 }));
             _scientificJobs[profileId + ":" + runtimeId] = job;
             ScientificSend(new { type = "scientific.runtime.job", job = ScientificJobSnapshot(job) });

@@ -76,13 +76,14 @@ public partial class Form1
         }
     }
 
-    private async Task ScientificCgalExecuteAsync(ScientificJob job,string prefix)
+    private async Task ScientificCgalExecuteAsync(ScientificJob job,string prefix, ScientificJob? processOwner = null)
     {
+        var processJob = processOwner ?? job;
         var key=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(job.ProfileId+"|"+prefix))).Substring(0,12);
         var build=Path.Combine(ScientificDataRoot,"builds",key,"cgal-worker");
         var cmake=Path.Combine(prefix,"Library","bin","cmake.exe");
-        await ScientificProcessAsync(job,prefix,cmake,new[]{"-S",Path.Combine(ScientificSourceRoot,"scientific","cgal-worker"),"-B",build,"-G","Visual Studio 17 2022","-A","x64","-DCMAKE_PREFIX_PATH="+Path.Combine(prefix,"Library")},job.Directory,180);
-        await ScientificProcessAsync(job,prefix,cmake,new[]{"--build",build,"--config","Release","--parallel","1"},job.Directory,180);
+        await ScientificProcessAsync(processJob,prefix,cmake,new[]{"-S",Path.Combine(ScientificSourceRoot,"scientific","cgal-worker"),"-B",build,"-G","Visual Studio 17 2022","-A","x64","-DCMAKE_PREFIX_PATH="+Path.Combine(prefix,"Library")},job.Directory,180);
+        await ScientificProcessAsync(processJob,prefix,cmake,new[]{"--build",build,"--config","Release","--parallel","1"},job.Directory,180);
         var worker=Path.Combine(build,"Release","devshell_cgal_worker.exe");
         var adapter=Path.Combine(ScientificSourceRoot,"tools","scientific-cgal-worker.py");
         var condaHistory=Path.Combine(prefix,"conda-meta","history");
@@ -94,12 +95,12 @@ public partial class Form1
             var args=new[]{"run",job.RuntimeId,"--manifest-root",Path.Combine(AppContext.BaseDirectory,"runtimes"),
                 "--prefix",prefix,"--run-id",job.Id,"--output",job.Directory,"--source-root",ScientificSourceRoot,
                 "--request",Path.Combine(job.Directory,"request.json"),"--worker",worker};
-            await ScientificProcessAsync(job,prefix,lab,args,job.Directory,150);
+            await ScientificProcessAsync(processJob,prefix,lab,args,job.Directory,150);
         }
         else
         {
             var args=new[]{adapter,"--request",Path.Combine(job.Directory,"request.json"),"--worker",worker};
-            await ScientificProcessAsync(job,prefix,Path.Combine(prefix,"python.exe"),args,job.Directory,120);
+            await ScientificProcessAsync(processJob,prefix,Path.Combine(prefix,"python.exe"),args,job.Directory,120);
         }
     }
 }

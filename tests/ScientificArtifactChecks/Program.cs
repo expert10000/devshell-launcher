@@ -67,4 +67,52 @@ Reject(() => ScientificArtifactFiles.ImagePreview(directory, Element(current), "
 using (var file = File.Create(Path.Combine(directory, "render", "vtk-offscreen.png"))) file.SetLength(WorkspaceFiles.MaxImageBytes + 1L);
 current["artifacts"] = new JsonArray(ScientificArtifactFiles.Describe(directory, "render/vtk-offscreen.png"));
 Reject(() => ScientificArtifactFiles.ImagePreview(directory, Element(current), "render/vtk-offscreen.png"), "oversized image rejected");
+var dataRoot = Path.Combine(directory, "preparation");
+var mathRoot = Path.Combine(directory, "Math3D");
+var source = Path.Combine(mathRoot, "tests", "assets", "meshes", "basic", "02_cube.obj");
+Directory.CreateDirectory(Path.GetDirectoryName(source)!);
+File.WriteAllText(source, "cube source fixture");
+var sourceHash = ScientificArtifactFiles.Hash(source);
+var datasetId = ScientificMath3DPreparation.DatasetIds[1];
+ScientificMath3DPreparation.ImportFixture(dataRoot, mathRoot, datasetId);
+var manifestPath = Path.Combine(dataRoot, "datasets", "manifest.json");
+var manifest = JsonNode.Parse(File.ReadAllText(manifestPath))!;
+manifest["entries"]!.AsArray().Add(new JsonObject { ["id"] = "unrelated", ["path"] = "retained.obj" });
+File.WriteAllText(manifestPath, manifest.ToJsonString());
+ScientificMath3DPreparation.ImportFixture(dataRoot, mathRoot, datasetId);
+manifest = JsonNode.Parse(File.ReadAllText(manifestPath))!;
+Check(manifest["entries"]!.AsArray().Count == 2 && ScientificArtifactFiles.Hash(source) == sourceHash, "fixture preparation preserves unrelated datasets and source files");
+var input = new JsonObject { ["datasetId"] = datasetId, ["path"] = Path.Combine(dataRoot, "datasets", datasetId), ["sha256"] = sourceHash };
+var prefix = Path.Combine(directory, "dedicated-cgal");
+Check(ScientificMath3DPreparation.FindBaseline(dataRoot, "laptop", prefix, input) == null, "missing validation baseline requires preparation");
+var baselineFolder = Path.Combine(dataRoot, "runs", new string('b', 32));
+Directory.CreateDirectory(baselineFolder);
+File.WriteAllText(Path.Combine(baselineFolder, "validated.obj"), "validated fixture");
+var baseline = new JsonObject { ["runId"] = new string('b', 32), ["profileId"] = "laptop", ["runtimeId"] = "cgal-win-conda", ["recipeId"] = "cgal.validate", ["state"] = "succeeded",
+    ["diagnostics"] = new JsonArray(), ["inputArtifacts"] = new JsonArray(input.DeepClone()), ["artifacts"] = new JsonArray(ScientificArtifactFiles.Describe(baselineFolder, "validated.obj")),
+    ["steps"] = new JsonArray(new JsonObject { ["stage"] = "configure", ["executable"] = Path.Combine(prefix, "Library", "bin", "cmake.exe") }) };
+void SaveBaseline() => File.WriteAllText(Path.Combine(baselineFolder, "results.json"), baseline.ToJsonString());
+SaveBaseline();
+Check(ScientificMath3DPreparation.FindBaseline(dataRoot, "laptop", prefix, input) != null, "matching verified baseline reused");
+Check(ScientificMath3DPreparation.FindBaseline(dataRoot, "other-profile", prefix, input) == null, "baseline from another profile not reused");
+Check(ScientificMath3DPreparation.FindBaseline(dataRoot, "laptop", prefix + "-changed", input) == null, "baseline from another environment not reused");
+var changedInput = (JsonObject)input.DeepClone(); changedInput["sha256"] = new string('0', 64);
+Check(ScientificMath3DPreparation.FindBaseline(dataRoot, "laptop", prefix, changedInput) == null, "baseline for a changed input not reused");
+File.AppendAllText(Path.Combine(baselineFolder, "validated.obj"), "tampered");
+Check(ScientificMath3DPreparation.FindBaseline(dataRoot, "laptop", prefix, input) == null, "changed baseline output forces validation again");
+baseline["state"] = "cancelled"; SaveBaseline();
+Check(ScientificMath3DPreparation.FindBaseline(dataRoot, "laptop", prefix, input) == null, "cancelled preparation never supplies a baseline");
+Reject(() => ScientificMath3DPreparation.ImportFixture(dataRoot, mathRoot, "../unsafe.obj"), "preparation accepts only the registered integration fixtures");
+var booleanRequest = new JsonObject { ["inputAId"] = "cube-a.obj", ["inputBId"] = "cube-b.obj", ["operation"] = "difference", ["outputName"] = "result.m3dm", ["scaleB"] = 0.5,
+    ["translateB"] = new JsonArray(0, 0, 0) };
+Check(ScientificBooleanParameters.Parse(Element(booleanRequest)).ScaleB == 0.5, "Boolean parameters retain operation and placement");
+foreach (var invalid in new[] { "../result.m3dm", "operand-a.m3dm", "result.obj", "C:/result.m3dm" })
+{
+    var invalidOutput = (JsonObject)booleanRequest.DeepClone(); invalidOutput["outputName"] = invalid;
+    Reject(() => ScientificBooleanParameters.Parse(Element(invalidOutput)), "unsafe/reserved Boolean output rejected: " + invalid);
+}
+var invalidScale = (JsonObject)booleanRequest.DeepClone(); invalidScale["scaleB"] = -1;
+Reject(() => ScientificBooleanParameters.Parse(Element(invalidScale)), "negative Boolean scale rejected");
+var invalidTranslation = (JsonObject)booleanRequest.DeepClone(); invalidTranslation["translateB"] = new JsonArray(0, 0);
+Reject(() => ScientificBooleanParameters.Parse(Element(invalidTranslation)), "incomplete Boolean placement rejected");
 Console.WriteLine($"{count} checks passed. Fixtures retained at {directory}");

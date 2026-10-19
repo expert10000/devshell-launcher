@@ -197,6 +197,7 @@ public partial class Form1
             else if(action=="history-preview")data=await ScientificHistoryPreviewAsync(profileId,request);
             else if(action is "history-open-log" or "history-open-output" or "history-reveal-artifact" or "history-open-artifact")data=ScientificHistoryOpen(profileId,request,action);
             else if(action=="report")data=ScientificReport();
+            else if(action=="math3d-readiness")data=ScientificMath3DReadiness(profileId);
             else if(action=="datasets")
             {
                 var manifest=Path.Combine(ScientificDataRoot,"datasets","manifest.json");if(!File.Exists(manifest)||new FileInfo(manifest).Length>1048576)throw new InvalidOperationException("Run Import-Math3DScientificDatasets.ps1 first.");
@@ -244,9 +245,10 @@ public partial class Form1
                     }
                     catch{_scientificGate.Release();throw;}
                 }
+                else if(action=="boolean-recipe")data=ScientificBooleanStart(profileId,runtimeId,request);
                 else if(action=="cgal-recipe")data=ScientificCgalStart(profileId,runtimeId,request);
                 else if(action=="run-matrix")data=ScientificMatrixStart(profileId,runtimeId);
-                else if(action=="math3d-integration")data=ScientificMath3DIntegrationStart(profileId,runtimeId);
+                else if(action is "math3d-integration" or "math3d-prepare-run")data=ScientificMath3DIntegrationStart(profileId,runtimeId,action=="math3d-prepare-run");
                 else throw new InvalidOperationException("Unknown Scientific action.");
             }
         }

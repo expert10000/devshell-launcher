@@ -70,12 +70,13 @@ export interface ScientificRunResult {
   validatedCapabilities: string[]
   diagnostics: { severity: 'info' | 'warning' | 'error'; message: string }[]
   logReference?: string
-  artifacts: { path: string; mediaType: string; bytes?: number; sha256?: string; recoveredFromLegacyRun?: boolean }[]
+  artifacts: { path: string; mediaType: string; bytes?: number; sha256?: string; recoveredFromLegacyRun?: boolean; role?: 'result' | 'operand' }[]
   inputArtifacts?: ScientificRunRequest['inputArtifacts']
   before?: Record<string, number | boolean>
   after?: Record<string, number | boolean>
   scope?: string
   provenance?: Record<string, unknown>
+  boolean?: { operation: string; scaleB: number; translateB: number[]; empty: boolean; outputArtifact: string; operands: { role: string; datasetId: string; sha256: string; statistics: { vertices: number; faces: number; volume: number; components: number } }[] }
   rendering?: { state?: string; backend?: string; version?: string; capabilities?: string }
   matrixSummary?: { suiteId: string; total: number; passed: number; cases: { caseId: string; runId: string; expected: string; observed: string; verdict: string; durationMs: number }[] }
 }

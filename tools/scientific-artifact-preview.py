@@ -9,7 +9,9 @@ import sys
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--before')
+parser.add_argument('--before-second')
 parser.add_argument('--second-translate-x', type=float)
+parser.add_argument('--second-scale', type=float, default=1)
 parser.add_argument('--after', required=True)
 args = parser.parse_args()
 handles = []
@@ -31,6 +33,9 @@ def preview_math3d(path):
             or total_bytes != len(data) or vertex_bytes != points * 12 or face_bytes != triangles * 12
             or len(data) != 32 + vertex_bytes + face_bytes):
         raise ValueError('Invalid MATH3D mesh header or length')
+    if points == 0 and triangles == 0:
+        return {'name': path.name, 'points': 0, 'triangles': 0, 'bounds': [0, 0, 0, 0, 0, 0],
+                'positions': [], 'previewTriangles': 0, 'sampled': False, 'note': 'Empty Boolean result: no surface geometry.'}
     if not (0 < points <= 2000000 and 0 < triangles <= 2000000):
         raise ValueError('Empty mesh or preview geometry budget exceeded')
     minimum = [math.inf] * 3
@@ -108,14 +113,16 @@ def preview(filename):
 
 
 before = preview(args.before)
-before_second = None
+before_second = preview(args.before_second)
 if args.second_translate_x is not None:
     if before is None or not math.isfinite(args.second_translate_x) or abs(args.second_translate_x) > 1000:
         raise ValueError('Invalid second input translation')
+    if not math.isfinite(args.second_scale) or not 0 < args.second_scale <= 1000:
+        raise ValueError('Invalid second input scale')
     before_second = preview(args.before)
-    before_second['name'] = f"{before_second['name']} ({args.second_translate_x:+g} X)"
-    before_second['positions'][0::3] = [round(value + args.second_translate_x, 7)
-                                        for value in before_second['positions'][0::3]]
-    before_second['bounds'][0] += args.second_translate_x
-    before_second['bounds'][1] += args.second_translate_x
+    before_second['name'] = f"{before_second['name']} (scale {args.second_scale:g}, {args.second_translate_x:+g} X)"
+    before_second['positions'] = [round(value * args.second_scale + (args.second_translate_x if index % 3 == 0 else 0), 7)
+                                  for index, value in enumerate(before_second['positions'])]
+    before_second['bounds'] = [value * args.second_scale + (args.second_translate_x if index < 2 else 0)
+                              for index, value in enumerate(before_second['bounds'])]
 print(json.dumps({'before': before, 'beforeSecond': before_second, 'after': preview(args.after)}, allow_nan=False), flush=True)

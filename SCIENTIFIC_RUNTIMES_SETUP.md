@@ -154,3 +154,22 @@ Source implemented; this revision has NOT been rebuilt, executed, tested, or pus
 - Native Load comparison passed hash/scoped-file checks and displayed OBJ input plus VTP output. Both WebGL views rendered; wireframe toggled both, and a keyboard orbit in the input canvas rotated both cameras. Full statistics showed 4 points/4 triangles before and after, with zero boundary/non-manifold edges.
 - Switching to CGAL correctly displayed no managed run rather than showing VTK artifacts. Returning to the cached VTK view was not completed because the target window bounds/overlap changed; no input was sent to the overlapping Codex window.
 - Remaining validation: managed CGAL UI pipeline with the JSON wrapper, drag/zoom/reset, profile switching, mobile/no-WebGL fallback, native timeout/cancellation result finalization, modified-artifact UI rejection, and compiler/render evidence UI loading. Standalone suites passed 22/22 before the report-only fix, as recorded above. No push.
+
+
+### MATH3D Boolean integration preparation
+
+Open **RUNTIMES / Scientific > CGAL / Windows Native > Integration > MATH3D native worker comparison**.
+**Check prerequisites** inspects Node.js, the dedicated CGAL SDK/CMake/Python environment, the recorded C++ compiler, local worker/adapter files, registered fixture hashes, and saved validation baselines for the selected profile. Missing tools block execution with setup instructions. Merely opening this section runs no builds or recipes.
+
+**Prepare & Run** uses the workspace `Math3D` checkout: it copies missing tetrahedron/cube fixtures into `.scientific/datasets`, configures/builds `native/cgal-worker`, creates missing `cgal.validate` baselines, then runs the comparison. Existing unrelated datasets remain registered. A baseline is reused only when its profile, dedicated environment, input identity/hash, and output size/hash still match. **Run MATH3D integration test** skips preparation and requires all checks to be ready. **Stop** cancels the owned sequence and its processes; retry resumes by reusing completed baselines.
+
+The suite has 14 cases and 98 checks: tetrahedron/cube self-union plus union/intersection/difference for overlapping (+1 X), face-touching (+2 X), disjoint (+3 X), and contained (centered half-scale) cubes. Expected volumes are 12/4/4, 16/0/8, 16/0/8, and 8/1/7 respectively. It verifies topology, bounds, surface area, enclosed volume, and sampled surface deviation against independent analytic boundaries. Separate components and the inner cavity are expected where appropriate; empty intersections are successful 32-byte M3DM artifacts with an explicit empty preview. Saved results, all 14 artifacts, and logs remain available in History. These cases do not prove arbitrary Boolean correctness.
+
+
+### Managed Boolean operations and geometry inspection
+
+Open **RUNTIMES / Scientific > CGAL / Windows Native > Boolean**. Select registered mesh copies A and B, then Union, Intersection, or Difference (A minus B). Mesh B placement optionally applies a uniform positive scale and XYZ translation. **Run Boolean** validates both inputs with CGAL, requires closed consistently oriented solids, and invokes the native MATH3D worker. Integration > Prepare & Run prepares a missing worker. Runs own their validation/worker processes, progress, logs, and Stop cancellation.
+
+Each successful run retains the exact float32 A/B meshes used by the worker, a result M3DM, and a nonempty-result OBJ export. History records parameters, validation provenance, statistics, and hashes. An empty result is successful and retains a valid empty M3DM. Operands are limited to 100,000 triangles each and results to 200,000 triangles; this is a laboratory workflow, not an arbitrary-mesh correctness guarantee.
+
+**Inspect result** opens **Artifacts**. A, B, and result have independent visibility and opacity controls, with a combined overlay or separate views, shared orbit/zoom, wireframe, and an X/Y/Z clipping plane with position and side controls. Clipped surfaces are uncapped. These controls change only the preview, and meshes above 12,000 triangles are sampled for display. Saved Boolean previews in **History** reload the retained operands with size/hash checks, independently of later changes to the original datasets. The Scientific layout stacks its inventory when its available pane is narrow.

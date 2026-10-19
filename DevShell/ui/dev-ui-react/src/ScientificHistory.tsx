@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import type { useScientificRuntime, ScientificHistoryEntry } from './useScientificRuntime'
-import { MeshCanvas, initialCamera } from './ScientificArtifacts'
+import { MeshCanvas, initialCamera, ScientificMeshInspection } from './ScientificArtifacts'
 import type { Camera } from './ScientificArtifacts'
 import { ScientificComparisonPresets } from './ScientificComparisonPresets'
+
+const metric = (value: number | null | undefined) => typeof value === 'number' && Number.isFinite(value) ? value.toPrecision(4) : 'unavailable'
 
 function HistoryThumbnail({ entry, native, onPreview }: { entry: ScientificHistoryEntry; native: ReturnType<typeof useScientificRuntime>; onPreview: () => void }) {
   const button = useRef<HTMLButtonElement>(null)
@@ -47,7 +49,7 @@ export function ScientificHistory({ native }: { native: ReturnType<typeof useSci
   const [comparisonIds, setComparisonIds] = useState<string[]>([])
   const [paths, setPaths] = useState<Record<string, string>>({})
   const [camera, setCamera] = useState<Camera>(initialCamera)
-  const meshArtifacts = (items: { path: string }[] = []) => items.filter(item => /\.(obj|stl|ply|vtp|m3dm)$/i.test(item.path))
+  const meshArtifacts = (items: { path: string; role?: string }[] = []) => items.filter(item => item.role !== 'operand' && /\.(obj|stl|ply|vtp|m3dm)$/i.test(item.path))
   const toggleComparison = (entry: ScientificHistoryEntry) => {
     setComparisonOpen(true)
     setComparisonIds(current => current.includes(entry.jobId) ? current.filter(id => id !== entry.jobId) : [...current.slice(-1), entry.jobId])
@@ -78,7 +80,7 @@ export function ScientificHistory({ native }: { native: ReturnType<typeof useSci
   const firstOutputHash = first?.artifacts?.find(item => item.path === comparison[0]?.path)?.sha256
   const secondOutputHash = second?.artifacts?.find(item => item.path === comparison[1]?.path)?.sha256
   const integration = result?.recipeId === 'integration.math3d.native-boolean'
-    ? (result as typeof result & { comparison?: { verdict: string; passed: number; total: number; checks: { name: string; passed: boolean }[]; cases?: { name: string; before: { faces: number }; reference?: { bounds: number[]; volume: number }; after?: { faces: number; bounds: number[]; volume: number }; metrics?: { boundsDelta: number; areaDelta: number; volumeDelta: number; sampledSurfaceDeviation: number }; tolerances?: { bounds: number; area: number; volume: number; sampledSurface: number } }[] } }).comparison
+    ? (result as typeof result & { comparison?: { verdict: string; passed: number; total: number; checks: { name: string; passed: boolean }[]; cases?: { name: string; before: { faces: number }; reference?: { bounds: number[] | null; volume: number }; after?: { faces: number; bounds: number[] | null; volume: number }; metrics?: { boundsDelta: number | null; areaDelta: number | null; volumeDelta: number | null; sampledSurfaceDeviation: number | null }; tolerances?: { bounds: number; area: number; volume: number; sampledSurface: number } }[] } }).comparison
     : undefined
   return <section className="scientific-history" aria-label="Scientific run history">
     <h3>Run history</h3>
@@ -99,15 +101,16 @@ export function ScientificHistory({ native }: { native: ReturnType<typeof useSci
     </> : <p>No completed runs found for this profile.</p>)}
     {selectedVisible && !result && <div className="scientific-history-result" role="status">Loading result <code>{selectedJobId}</code>...</div>}
     {result && <div ref={resultRef} className="scientific-history-result"><h4>{result.runtimeId} / {result.recipeId} / {result.state}</h4><p><code>{result.runId}</code> / {result.durationMs} ms</p>
-      {integration && <section aria-label="MATH3D integration verdict"><h5>Native worker comparison: {integration.verdict.toUpperCase()} / {integration.passed}/{integration.total}</h5><p className="scientific-runtime-note">MATH3D native Boolean operations and DevShell validation are different operations. Surface deviation samples vertices, edge midpoints, and face centroids; it is not a full Hausdorff proof.</p><ul>{integration.checks.map(check => <li key={check.name}>{check.passed ? 'PASS' : 'FAIL'} / {check.name}</li>)}</ul>
-        {integration.cases?.map(item => <div key={item.name}><h5>{item.name} numeric comparison</h5>{item.reference && <p>Expected volume {item.reference.volume.toPrecision(6)}; actual {item.after?.volume.toPrecision(6) ?? 'none'}. Expected bounds [{item.reference.bounds.join(', ')}]; actual [{item.after?.bounds.join(', ') ?? 'none'}].</p>}{item.metrics && item.tolerances ? <table><thead><tr><th>Measure</th><th>Delta</th><th>Tolerance</th></tr></thead><tbody>
-          <tr><td>Bounds</td><td>{item.metrics.boundsDelta.toPrecision(4)}</td><td>{item.tolerances.bounds.toPrecision(4)}</td></tr>
-          <tr><td>Surface area</td><td>{item.metrics.areaDelta.toPrecision(4)}</td><td>{item.tolerances.area.toPrecision(4)}</td></tr>
-          <tr><td>Enclosed volume</td><td>{item.metrics.volumeDelta.toPrecision(4)}</td><td>{item.tolerances.volume.toPrecision(4)}</td></tr>
-          <tr><td>Sampled surface</td><td>{item.metrics.sampledSurfaceDeviation.toPrecision(4)}</td><td>{item.tolerances.sampledSurface.toPrecision(4)}</td></tr>
+      {integration && <section aria-label="MATH3D integration verdict"><h5>Native worker comparison: {integration.verdict.toUpperCase()} / {integration.passed}/{integration.total}</h5><p className="scientific-runtime-note">MATH3D native Boolean operations and DevShell validation are different operations. Surface deviation samples vertices, edge midpoints, and face centroids; it is not a full Hausdorff proof.</p><details><summary>All {integration.total} checks</summary><ul>{integration.checks.map(check => <li key={check.name}>{check.passed ? 'PASS' : 'FAIL'} / {check.name}</li>)}</ul></details>
+        <details><summary>Numeric comparisons by case</summary>{integration.cases?.map(item => <div key={item.name}><h5>{item.name} numeric comparison</h5>{item.reference && <p>Expected volume {item.reference.volume.toPrecision(6)}; actual {item.after?.volume.toPrecision(6) ?? 'none'}. Expected bounds [{item.reference.bounds?.join(', ') ?? 'empty'}]; actual [{item.after?.bounds?.join(', ') ?? (item.after ? 'empty' : 'none')}].</p>}{item.metrics && item.tolerances ? <table><thead><tr><th>Measure</th><th>Delta</th><th>Tolerance</th></tr></thead><tbody>
+          <tr><td>Bounds</td><td>{metric(item.metrics.boundsDelta)}</td><td>{item.tolerances.bounds.toPrecision(4)}</td></tr>
+          <tr><td>Surface area</td><td>{metric(item.metrics.areaDelta)}</td><td>{item.tolerances.area.toPrecision(4)}</td></tr>
+          <tr><td>Enclosed volume</td><td>{metric(item.metrics.volumeDelta)}</td><td>{item.tolerances.volume.toPrecision(4)}</td></tr>
+          <tr><td>Sampled surface</td><td>{metric(item.metrics.sampledSurfaceDeviation)}</td><td>{item.tolerances.sampledSurface.toPrecision(4)}</td></tr>
           <tr><td>Triangles</td><td>{item.before.faces} / {item.after?.faces ?? 'none'}</td><td>Topology checked separately</td></tr>
-        </tbody></table> : <p>No geometry output recorded.</p>}</div>)}
+        </tbody></table> : <p>No geometry output recorded.</p>}</div>)}</details>
       </section>}
+      {result.boolean && <p><strong>{result.boolean.operation.toUpperCase()}</strong> / {result.boolean.empty ? 'Empty result' : `Volume ${result.after?.volume ?? 'unavailable'}`} / Mesh B scale {result.boolean.scaleB}, offset [{result.boolean.translateB.join(', ')}]. Retained input snapshots reopen the same operands used for this run.</p>}
       <h5>Artifacts</h5>{result.artifacts?.length ? <ul className="scientific-history-artifacts">{result.artifacts.map(artifact => <li key={artifact.path}>
         <code>{artifact.path}</code>{artifact.bytes !== undefined && <small>{artifact.bytes.toLocaleString()} bytes</small>}
         <div className="scientific-history-actions">
@@ -125,7 +128,7 @@ export function ScientificHistory({ native }: { native: ReturnType<typeof useSci
       </figure>}
       <details><summary>Result contract</summary><pre>{JSON.stringify(result, null, 2)}</pre></details>
     </div>}
-    {comparison.length > 0 && <details className="scientific-history-result" open={comparisonOpen} onToggle={event => setComparisonOpen(event.currentTarget.open)}><summary>Compare saved outputs ({comparison.length} selected)</summary><p className="scientific-runtime-note">Select up to two successful runs. Previews use the same camera and bounds; this is visual comparison, not mesh registration or a numeric geometry diff.</p><button onClick={() => { setComparisonIds([]); setCamera(initialCamera) }}>Clear comparison</button><button onClick={() => setCamera(initialCamera)}>Reset camera</button>
+    {comparison.length > 0 && <details className="scientific-history-result" open={comparisonOpen} onToggle={event => setComparisonOpen(event.currentTarget.open)}><summary>Compare saved outputs ({comparison.length} selected)</summary><p className="scientific-runtime-note">Select up to two successful runs. Boolean runs include A/B/result inspection controls; other output previews share a camera and bounds. This is visual comparison, not mesh registration.</p><button onClick={() => { setComparisonIds([]); setCamera(initialCamera) }}>Clear comparison</button>{comparison.some(item => !item.preview?.geometry.beforeSecond) && <button onClick={() => setCamera(initialCamera)}>Reset camera</button>}
       {comparison.length === 2 && <div className="scientific-history-result" aria-label="Validation reproducibility evidence"><h5>Validation reproducibility evidence</h5>
         {!first || !second ? <p>Load both run results to compare their recorded hashes.</p>
           : !sameValidation ? <p>Choose two successful CGAL validation runs of the same registered input. Other pairs are not a reproducibility check.</p>
@@ -135,7 +138,7 @@ export function ScientificHistory({ native }: { native: ReturnType<typeof useSci
       <div className="scientific-history-compare-grid">{comparison.map((item, index) => <div className="scientific-history-compare-card" key={item.jobId}>
         <h5>Run {index + 1}: {item.entry?.runtimeId} / {item.entry?.recipeId}</h5><small>{item.jobId}</small>
         {item.artifacts.length ? <><label>Output mesh<select value={item.path} onChange={event => setPaths(previous => ({ ...previous, [item.jobId]: event.target.value }))}>{item.artifacts.map(artifact => <option key={artifact.path} value={artifact.path}>{artifact.path}</option>)}</select></label><button disabled={!item.path || native.pending} onClick={() => loadPreview(item.jobId, item.entry?.runtimeId ?? '', item.path)}>{item.preview ? 'Reload preview' : 'Load preview'}</button></> : <p>{item.entry ? 'Load the run result to see its mesh outputs.' : 'Run is no longer in the current history list.'}</p>}
-        {item.preview && <MeshCanvas mesh={item.preview.geometry.after} camera={camera} setCamera={setCamera} bounds={bounds} after={index === 1} label={`Run ${index + 1} / output`} />}
+        {item.preview && (item.preview.geometry.beforeSecond ? <ScientificMeshInspection key={`${item.jobId}|${item.path}`} geometry={item.preview.geometry} /> : <MeshCanvas mesh={item.preview.geometry.after} camera={camera} setCamera={setCamera} bounds={bounds} after={index === 1} label={`Run ${index + 1} / output`} />)}
       </div>)}</div>
     </details>}
   </section>

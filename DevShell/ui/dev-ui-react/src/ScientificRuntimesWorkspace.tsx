@@ -1,3 +1,4 @@
+import { ScientificBooleanPanel } from './ScientificBooleanPanel'
 import ScientificReadiness from './ScientificReadiness';
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createScientificProfiles, executionNames } from './scientificRuntimeProfiles'
@@ -15,7 +16,7 @@ import { ScientificMath3DIntegration } from './ScientificMath3DIntegration'
 import { ScientificMath3DManagedJob } from './ScientificMath3DManagedJob'
 
 type ScientificProject = { id: string; name: string; root?: string | null; repositories?: { id: string; name: string; path?: string | null }[] }
-const sections = ['Health', 'Environment', 'Commands', 'Tests', 'Benchmarks', 'Packages', 'Artifacts', 'History', 'Integration'] as const
+const sections = ['Health', 'Environment', 'Commands', 'Boolean', 'Tests', 'Benchmarks', 'Packages', 'Artifacts', 'History', 'Integration'] as const
 type Section = typeof sections[number]
 
 function hostRootFor(projects: ScientificProject[]) {
@@ -108,10 +109,12 @@ export function ScientificRuntimesWorkspace({ profileId, projects, bridge }: { p
         const duration = job.state === 'running' && Number.isFinite(started) ? Math.max(job.durationMs, clock - started) : job.durationMs
         const elapsed = `${Math.floor(duration / 60000)}:${String(Math.floor(duration / 1000) % 60).padStart(2, '0')}`
         return <div className="scientific-job-summary" key={job.jobId}>
+          <div className="scientific-job-info">
           <span className={`scientific-job-state ${job.state === 'running' ? 'running' : ''}`}>{job.state}</span>
           <span className="scientific-job-name" title={`${job.runtimeId} / ${job.recipeId}`}>{job.runtimeId} / {job.recipeId}</span>
           <span className="scientific-job-stage" role="status">{job.stage || job.state}</span>
           <time aria-label="Elapsed time">{elapsed}</time>
+          </div>
           <button disabled={job.state !== 'running'} onClick={() => native.send(job.runtimeId, 'stop', { jobId: job.jobId })}>Stop</button>
           <button disabled={!createScientificProfiles(hostRoot, 'windows-native').some(profile => profile.id === job.runtimeId)} onClick={() => showArtifacts(job.runtimeId)}>View artifacts</button>
         </div>
@@ -137,6 +140,7 @@ export function ScientificRuntimesWorkspace({ profileId, projects, bridge }: { p
     </div>
   )}{(runtime.id === 'cgal-win-conda' || runtime.id === 'vtk-win-conda') && <ScientificReadiness profileId={profileId ?? ""} runtimeId={runtime.id} observed={observed} native={native} />}
 <ScientificRecipePanel runtime={runtime} native={native} edited={edited} onArtifacts={() => setSection('Artifacts')} /></>}
+          {section === 'Boolean' && (runtime.id === 'cgal-win-conda' ? <ScientificBooleanPanel runtime={runtime} native={native} edited={edited} onArtifacts={() => setSection('Artifacts')} onHistory={() => setSection('History')} onPrepare={() => setSection('Integration')} /> : <p>Select CGAL / Windows Native to run Boolean operations.</p>)}
           {section === 'Tests' && (runtime.id === 'cgal-win-conda' ? <ScientificTestMatrix runtime={runtime} native={native} edited={edited} /> : <><h3>Capability acceptance tests</h3><ul className="scientific-runtime-checks">{runtime.healthChecks.map(check => <li key={check.id}><span>{check.name}{check.capability && <code>{check.capability}</code>}</span><small>Planned / not run</small></li>)}</ul><p>Tests must emit machine-readable results, logs, resolved versions, and geometry artifact references. No imported code runs by selecting a test.</p></>)}
           {section === 'Benchmarks' && <><h3>Reproducible benchmarks</h3><p>No benchmark runs. The runner will record input size, runtime/tool versions, hardware metadata, duration, and output validity before timings can be compared.</p><button disabled title="Benchmark recipes follow the managed runner">Run benchmark</button></>}
           {section === 'Packages' && <><h3>Package provenance</h3>{observed ? <div className="scientific-runtime-package-scroll"><table><thead><tr><th>Package</th><th>Version</th><th>Build</th><th>Source</th></tr></thead><tbody>{observed.packages.map((item, index) => <tr key={`${item.name}:${index}`}><td>{item.name}</td><td>{item.version}</td><td>{item.build}</td><td>{item.source}</td></tr>)}</tbody></table></div> : <p>No package inventory loaded.</p>}<p>Explicit install-missing workflow: <code>tools/Install-ScientificRuntimes.ps1 -WorkspaceRoot &lt;workspace&gt; -CondaExecutable &lt;conda.exe&gt; -PublishToLauncher</code></p><p className="scientific-runtime-note">Creates separate devshell-cgal/devshell-vtk environments. Existing MATH3D environments and system PATH are unchanged; environments with all required packages are not upgraded.</p></>}

@@ -110,7 +110,11 @@ public partial class Form1
             foreach (var artifact in definition.GetProperty("outputArtifacts").EnumerateArray())
             {
                 var relative = artifact.GetProperty("path").GetString() ?? "";
-                if (ScientificArtifactFiles.Describe(job.Directory, relative) is { } registered) artifacts.Add(registered);
+                if (ScientificArtifactFiles.Describe(job.Directory, relative) is { } registered)
+                {
+                    if (artifact.TryGetProperty("role", out var role) && role.ValueKind == JsonValueKind.String) registered["role"] = role.GetString();
+                    artifacts.Add(registered);
+                }
             }
         }
         result["artifacts"] = artifacts;
@@ -180,8 +184,10 @@ public partial class Form1
         var datasetId = selectedCase.ValueKind == JsonValueKind.Object
             && selectedCase.TryGetProperty("datasetId", out var dataset) ? dataset.GetString() : null;
         string? input = null;
+        string? inputSecond = null;
+        var retainedBoolean = job.RecipeId == "cgal.boolean";
         foreach (var artifact in definition.GetProperty("inputArtifacts").EnumerateArray()
-            .Where(item => datasetId == null || item.TryGetProperty("datasetId", out var id) && id.GetString() == datasetId).Take(1))
+            .Where(item => !retainedBoolean && (datasetId == null || item.TryGetProperty("datasetId", out var id) && id.GetString() == datasetId)).Take(1))
         {
             var file = artifact.GetProperty("path").GetString() ?? "";
             var root = Path.Combine(ScientificDataRoot, "datasets");
@@ -195,7 +201,13 @@ public partial class Form1
         }
         if (datasetId != null && input == null)
             throw new InvalidOperationException("The selected case's registered input is unavailable for preview.");
+        if (retainedBoolean)
+        {
+            input = ScientificArtifactFiles.ResolveRegistered(job.Directory, result, "operand-a.m3dm");
+            inputSecond = ScientificArtifactFiles.ResolveRegistered(job.Directory, result, "operand-b.m3dm");
+        }
         double? secondOffsetX = null;
+        double secondScale = 1;
         if (selectedCase.ValueKind == JsonValueKind.Object
             && selectedCase.TryGetProperty("rightOperand", out var rightOperand)
             && rightOperand.TryGetProperty("translateX", out var translation)
@@ -204,7 +216,10 @@ public partial class Form1
             var offset = translation.GetDouble();
             if (!double.IsFinite(offset) || Math.Abs(offset) > 1000)
                 throw new InvalidOperationException("The recorded input translation is invalid.");
-            if (offset != 0) secondOffsetX = offset;
+            if (rightOperand.TryGetProperty("scale", out var scale)) secondScale = scale.GetDouble();
+            if (!double.IsFinite(secondScale) || secondScale <= 0 || secondScale > 1000)
+                throw new InvalidOperationException("The recorded input scale is invalid.");
+            if (offset != 0 || secondScale != 1) secondOffsetX = offset;
         }
         if (!await _scientificPreviewGate.WaitAsync(0)) throw new InvalidOperationException("A mesh preview is already loading.");
         try
@@ -214,10 +229,13 @@ public partial class Form1
             { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true, WorkingDirectory = job.Directory, StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8 };
             start.ArgumentList.Add(Path.Combine(ScientificSourceRoot, "tools", "scientific-artifact-preview.py"));
             if (input != null) { start.ArgumentList.Add("--before"); start.ArgumentList.Add(input); }
+            if (inputSecond != null) { start.ArgumentList.Add("--before-second"); start.ArgumentList.Add(inputSecond); }
             if (secondOffsetX != null)
             {
                 start.ArgumentList.Add("--second-translate-x");
                 start.ArgumentList.Add(secondOffsetX.Value.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
+                start.ArgumentList.Add("--second-scale");
+                start.ArgumentList.Add(secondScale.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
             }
             start.ArgumentList.Add("--after"); start.ArgumentList.Add(output);
             foreach (var pair in ScientificEnvironment(prefix)) start.Environment[pair.Key] = pair.Value;

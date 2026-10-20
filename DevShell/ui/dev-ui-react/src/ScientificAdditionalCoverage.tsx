@@ -1,0 +1,67 @@
+import type { RuntimeKind, RuntimeProfile } from './scientificRuntimeProfiles'
+
+type CoveredKind = Extract<RuntimeKind, 'gmsh' | 'python' | 'sage'>
+
+interface Candidate {
+  name: string
+  capability: string
+  upstream: string
+  positive: string
+  rejection: string
+}
+
+const documentation: Record<CoveredKind, string> = {
+  gmsh: 'https://gmsh.info/doc/texinfo/',
+  python: 'https://docs.scipy.org/doc/scipy/reference/',
+  sage: 'https://doc.sagemath.org/html/en/reference/',
+}
+
+const candidates: Record<CoveredKind, Candidate[]> = {
+  gmsh: [
+    { name: 'CAD geometry / OpenCASCADE', capability: 'geometry.occ', upstream: 'gmsh.model.occ', positive: 'Import a closed STEP solid and record entity bounds.', rejection: 'Reject an unreadable or unsupported CAD file.' },
+    { name: '2D surface meshing', capability: 'mesh.generate', upstream: 'gmsh.model.mesh.generate(2)', positive: 'Mesh a bounded plane surface; check element count and boundary tags.', rejection: 'Reject an invalid surface loop.' },
+    { name: '3D volume meshing', capability: 'mesh.generate', upstream: 'gmsh.model.mesh.generate(3)', positive: 'Mesh a closed volume; check positive tetrahedron count and bounds.', rejection: 'Reject an open shell as a volume.' },
+    { name: 'Mesh-size fields', capability: 'mesh.size-field', upstream: 'gmsh.model.mesh.field', positive: 'Apply a local size field and compare element density.', rejection: 'Reject a field with invalid parameters.' },
+    { name: 'Physical groups', capability: 'mesh.groups', upstream: 'gmsh.model.addPhysicalGroup', positive: 'Export and reimport tagged boundary and volume groups.', rejection: 'Reject references to nonexistent entities.' },
+    { name: 'MSH read', capability: 'mesh.read', upstream: 'gmsh.open', positive: 'Read a bounded MSH fixture and verify nodes, elements, and groups.', rejection: 'Reject a truncated MSH file.' },
+    { name: 'MSH write', capability: 'mesh.write', upstream: 'gmsh.write', positive: 'Round-trip a generated mesh with stable counts and tags.', rejection: 'Reject an unsafe or unwritable output target.' },
+    { name: 'Mesh optimization', capability: 'mesh.optimize', upstream: 'gmsh.model.mesh.optimize', positive: 'Improve a poor-quality bounded mesh without losing physical groups.', rejection: 'Report a mesh that cannot be optimized within limits.' },
+  ],
+  python: [
+    { name: 'Dense linear algebra', capability: 'math.linear-algebra', upstream: 'scipy.linalg', positive: 'Solve a small conditioned system and check residual.', rejection: 'Report a singular system clearly.' },
+    { name: 'Sparse linear systems', capability: 'math.linear-algebra', upstream: 'scipy.sparse.linalg', positive: 'Solve a sparse Poisson fixture and check residual and shape.', rejection: 'Reject a non-square system.' },
+    { name: 'Spatial nearest neighbors', capability: 'math.numeric', upstream: 'scipy.spatial.cKDTree', positive: 'Query known point distances and indices.', rejection: 'Reject non-finite input coordinates.' },
+    { name: 'Convex hull / Delaunay', capability: 'math.numeric', upstream: 'scipy.spatial', positive: 'Compute a tetrahedral hull with expected volume and facets.', rejection: 'Report coplanar or degenerate input.' },
+    { name: 'Optimization', capability: 'math.numeric', upstream: 'scipy.optimize', positive: 'Minimize a convex fixture and check convergence.', rejection: 'Report invalid bounds or non-finite objective values.' },
+    { name: 'Numerical integration', capability: 'math.numeric', upstream: 'scipy.integrate', positive: 'Integrate a known function within tolerance.', rejection: 'Reject non-finite integrand output.' },
+    { name: 'Interpolation', capability: 'math.numeric', upstream: 'scipy.interpolate', positive: 'Interpolate a known sample at interior points.', rejection: 'Report malformed or duplicate sample coordinates.' },
+  ],
+  sage: [
+    { name: 'Symbolic expressions', capability: 'math.symbolic', upstream: 'Sage symbolic ring', positive: 'Differentiate and simplify a known expression exactly.', rejection: 'Report an invalid symbolic expression.' },
+    { name: 'Exact arithmetic', capability: 'math.number-theory', upstream: 'ZZ / QQ / number fields', positive: 'Preserve rational results without floating-point rounding.', rejection: 'Reject division by zero with a clear diagnostic.' },
+    { name: 'Integer factorization', capability: 'math.number-theory', upstream: 'factor', positive: 'Factor a known composite and multiply factors back.', rejection: 'Reject unsupported or unbounded input.' },
+    { name: 'Exact matrices', capability: 'math.linear-algebra', upstream: 'matrix over QQ', positive: 'Solve an exact system and verify equality.', rejection: 'Report a singular matrix.' },
+    { name: 'Polyhedra', capability: 'geometry.polyhedron', upstream: 'Polyhedron', positive: 'Construct a rational cube and verify volume and facets.', rejection: 'Reject inconsistent inequalities.' },
+    { name: 'Lattice polytopes', capability: 'geometry.lattice', upstream: 'integral_points', positive: 'Count lattice points of a small rational polytope.', rejection: 'Bound or reject unbounded enumeration.' },
+  ],
+}
+
+export function ScientificAdditionalCoverage({ runtime }: { runtime: RuntimeProfile }) {
+  if (runtime.kind !== 'gmsh' && runtime.kind !== 'python' && runtime.kind !== 'sage') return null
+  const kind = runtime.kind
+  const rows = candidates[kind]
+  const declared = rows.filter(row => runtime.capabilities.includes(row.capability)).length
+  return <section aria-label={`${runtime.name} capability coverage`}>
+    <h3>{runtime.name} capability coverage</h3>
+    <p className="scientific-runtime-note">Scoped MATH3D candidates, not a claim that the full upstream library is supported. {declared}/{rows.length} entries map to this profile's declared capabilities. Package installation and version are shown in Environment; neither proves a worker operation. No managed worker or per-capability test is registered for these entries yet.</p>
+    <p className="scientific-runtime-note"><a href={documentation[kind]} target="_blank" rel="noopener noreferrer">Upstream reference</a> · Install/package evidence: Environment · Execution evidence: History</p>
+    <div className="scientific-history-scroll"><table><thead><tr><th>Candidate / upstream API</th><th>Profile intent</th><th>Worker / contract</th><th>MATH3D UI</th><th>Opt-in test plan</th></tr></thead><tbody>{rows.map(row => <tr key={row.name}>
+      <td><strong>{row.name}</strong><br /><small><code>{row.upstream}</code></small></td>
+      <td>{runtime.capabilities.includes(row.capability) ? <><strong>Declared</strong><br /><small><code>{row.capability}</code></small></> : <><strong>Not declared</strong><br /><small><code>{row.capability}</code></small></>}</td>
+      <td>Not registered</td>
+      <td>Not assessed in this contract</td>
+      <td><strong>Not registered</strong><br /><small>Accept: {row.positive}<br />Reject: {row.rejection}</small></td>
+    </tr>)}</tbody></table></div>
+    <p className="scientific-runtime-note">Next gate: register a bounded, cancellable worker recipe, then save versions, input/output hashes, timing, diagnostics, and both acceptance and rejection results. Until then, this catalog deliberately has no Run button.</p>
+  </section>
+}

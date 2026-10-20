@@ -1,3 +1,4 @@
+import { ScientificAdditionalCoverage } from './ScientificAdditionalCoverage'
 import { ScientificBooleanPanel } from './ScientificBooleanPanel'
 import ScientificReadiness from './ScientificReadiness';
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -12,6 +13,7 @@ import { ScientificRecipePanel } from './ScientificRecipePanel'
 import { ScientificArtifacts } from './ScientificArtifacts'
 import { ScientificHistory } from './ScientificHistory'
 import { ScientificTestMatrix } from './ScientificTestMatrix'
+import { ScientificCapabilityCoverage } from './ScientificCapabilityCoverage'
 import { ScientificMath3DIntegration } from './ScientificMath3DIntegration'
 import { ScientificMath3DManagedJob } from './ScientificMath3DManagedJob'
 
@@ -141,7 +143,8 @@ export function ScientificRuntimesWorkspace({ profileId, projects, bridge }: { p
   )}{(runtime.id === 'cgal-win-conda' || runtime.id === 'vtk-win-conda') && <ScientificReadiness profileId={profileId ?? ""} runtimeId={runtime.id} observed={observed} native={native} />}
 <ScientificRecipePanel runtime={runtime} native={native} edited={edited} onArtifacts={() => setSection('Artifacts')} /></>}
           {section === 'Boolean' && (runtime.id === 'cgal-win-conda' ? <ScientificBooleanPanel runtime={runtime} native={native} edited={edited} onArtifacts={() => setSection('Artifacts')} onHistory={() => setSection('History')} onPrepare={() => setSection('Integration')} /> : <p>Select CGAL / Windows Native to run Boolean operations.</p>)}
-          {section === 'Tests' && (runtime.id === 'cgal-win-conda' ? <ScientificTestMatrix runtime={runtime} native={native} edited={edited} math3dRepositoryPath={math3dRepo?.path ?? null} /> : <><h3>Capability acceptance tests</h3><ul className="scientific-runtime-checks">{runtime.healthChecks.map(check => <li key={check.id}><span>{check.name}{check.capability && <code>{check.capability}</code>}</span><small>Planned / not run</small></li>)}</ul><p>Tests must emit machine-readable results, logs, resolved versions, and geometry artifact references. No imported code runs by selecting a test.</p></>)}
+          {section === 'Tests' && <><ScientificCapabilityCoverage runtime={runtime} native={native} edited={edited} observed={observed} />
+<ScientificAdditionalCoverage runtime={runtime} />{runtime.id === 'cgal-win-conda' ? <ScientificTestMatrix runtime={runtime} native={native} edited={edited} math3dRepositoryPath={math3dRepo?.path ?? null} /> : <><h3>Capability acceptance tests</h3><ul className="scientific-runtime-checks">{runtime.healthChecks.map(check => <li key={check.id}><span>{check.name}{check.capability && <code>{check.capability}</code>}</span><small>Planned / not run</small></li>)}</ul><p>Tests must emit machine-readable results, logs, resolved versions, and geometry artifact references. No imported code runs by selecting a test.</p></>}</>}
           {section === 'Benchmarks' && <><h3>Reproducible benchmarks</h3><p>No benchmark runs. The runner will record input size, runtime/tool versions, hardware metadata, duration, and output validity before timings can be compared.</p><button disabled title="Benchmark recipes follow the managed runner">Run benchmark</button></>}
           {section === 'Packages' && <><h3>Package provenance</h3>{observed ? <div className="scientific-runtime-package-scroll"><table><thead><tr><th>Package</th><th>Version</th><th>Build</th><th>Source</th></tr></thead><tbody>{observed.packages.map((item, index) => <tr key={`${item.name}:${index}`}><td>{item.name}</td><td>{item.version}</td><td>{item.build}</td><td>{item.source}</td></tr>)}</tbody></table></div> : <p>No package inventory loaded.</p>}<p>Explicit install-missing workflow: <code>tools/Install-ScientificRuntimes.ps1 -WorkspaceRoot &lt;workspace&gt; -CondaExecutable &lt;conda.exe&gt; -PublishToLauncher</code></p><p className="scientific-runtime-note">Creates separate devshell-cgal/devshell-vtk environments. Existing MATH3D environments and system PATH are unchanged; environments with all required packages are not upgraded.</p></>}
           {section === 'Artifacts' && <><ScientificArtifacts runtime={runtime} native={native} /><button disabled={!math3dProject || !math3dRepo} onClick={() => { if (math3dProject && math3dRepo) window.dispatchEvent(new CustomEvent('devshell.workspace.open', { detail: { kind: 'files', projectId: math3dProject.id, repositoryId: math3dRepo.id } })) }}>Open MATH3D files</button></>}

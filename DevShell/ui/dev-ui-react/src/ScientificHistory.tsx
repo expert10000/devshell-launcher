@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { useScientificRuntime, ScientificHistoryEntry } from './useScientificRuntime'
+import type { ScientificRunResult } from './scientificRuntimeProfiles'
 import { MeshCanvas, initialCamera, ScientificMeshInspection } from './ScientificArtifacts'
 import type { Camera } from './ScientificArtifacts'
 import { ScientificComparisonPresets } from './ScientificComparisonPresets'
@@ -76,7 +77,11 @@ export function ScientificHistory({ native, comparisonSeed = [] }: { native: Ret
     const entry = entries?.find(item => item.jobId === jobId) ?? (saved ? { runtimeId: saved.runtimeId, recipeId: saved.recipeId } : undefined)
     const artifacts = meshArtifacts(saved?.artifacts)
     const path = artifacts.some(item => item.path === paths[jobId]) ? paths[jobId] : artifacts[0]?.path ?? ''
-    return { jobId, entry, saved, artifacts, path, preview: native.historyPreviews[`${jobId}|${path}`] }
+    const realMeshCase = entry?.recipeId === 'matrix.cgal.real-mesh'
+      ? (saved as ScientificRunResult & { realMeshSuite?: { cases: { name: string; source: string; transformB: string; operations: { operation: string; artifact: string }[]; previewInputs?: { B: { path: string } } }[] } } | undefined)
+        ?.realMeshSuite?.cases.find(item => item.operations.some(operation => operation.artifact === path))
+      : undefined
+    return { jobId, entry, saved, artifacts, path, preview: native.historyPreviews[`${jobId}|${path}`], realMeshCase }
   })
   const meshes = comparison.flatMap(item => item.preview ? [item.preview.geometry.after] : [])
   const bounds = meshes.length ? [0, 1, 2].flatMap(axis => [Math.min(...meshes.map(mesh => mesh.bounds[axis * 2])), Math.max(...meshes.map(mesh => mesh.bounds[axis * 2 + 1]))]) : [0, 1, 0, 1, 0, 1]
@@ -140,7 +145,7 @@ export function ScientificHistory({ native, comparisonSeed = [] }: { native: Ret
       </figure>}
       <details><summary>Result contract</summary><pre>{JSON.stringify(result, null, 2)}</pre></details>
     </div>}
-    {comparison.length > 0 && <details className="scientific-history-result" open={comparisonOpen} onToggle={event => setComparisonOpen(event.currentTarget.open)}><summary>Compare saved outputs ({comparison.length} selected)</summary><p className="scientific-runtime-note">Select up to two successful runs. Boolean runs include A/B/result inspection controls; other output previews share a camera and bounds. This is visual comparison, not mesh registration.</p><button onClick={() => { setComparisonIds([]); setCamera(initialCamera) }}>Clear comparison</button>{comparison.some(item => !item.preview?.geometry.beforeSecond) && <button onClick={() => setCamera(initialCamera)}>Reset camera</button>}
+    {comparison.length > 0 && <details className="scientific-history-result" open={comparisonOpen} onToggle={event => setComparisonOpen(event.currentTarget.open)}><summary>Compare saved outputs ({comparison.length} selected)</summary><p className="scientific-runtime-note">Select up to two successful runs. Runs with saved inputs provide input/result inspection controls; output-only previews share a camera and bounds. This is visual comparison, not mesh registration.</p><button onClick={() => { setComparisonIds([]); setCamera(initialCamera) }}>Clear comparison</button>{comparison.some(item => !item.preview?.geometry.before) && <button onClick={() => setCamera(initialCamera)}>Reset camera</button>}
       {comparison.length === 2 && <div className="scientific-history-result" aria-label="Validation reproducibility evidence"><h5>Validation reproducibility evidence</h5>
         {!first || !second ? <p>Load both run results to compare their recorded hashes.</p>
           : !sameValidation ? <p>Choose two successful CGAL validation runs of the same registered input. Other pairs are not a reproducibility check.</p>
@@ -150,7 +155,8 @@ export function ScientificHistory({ native, comparisonSeed = [] }: { native: Ret
       <div className="scientific-history-compare-grid">{comparison.map((item, index) => <div className="scientific-history-compare-card" key={item.jobId}>
         <h5>Run {index + 1}: {item.entry?.runtimeId} / {item.entry?.recipeId}</h5><small>{item.jobId}</small>
         {item.artifacts.length ? <><label>Output mesh<select value={item.path} onChange={event => setPaths(previous => ({ ...previous, [item.jobId]: event.target.value }))}>{item.artifacts.map(artifact => <option key={artifact.path} value={artifact.path}>{artifact.path}</option>)}</select></label><button disabled={!item.path || native.pending} onClick={() => loadPreview(item.jobId, item.entry?.runtimeId ?? '', item.path)}>{item.preview ? 'Reload preview' : 'Load preview'}</button></> : <p>{item.entry ? 'Load the run result to see its mesh outputs.' : 'Run is no longer in the current history list.'}</p>}
-        {item.preview && (item.preview.geometry.beforeSecond ? <ScientificMeshInspection key={`${item.jobId}|${item.path}`} geometry={item.preview.geometry} /> : <MeshCanvas mesh={item.preview.geometry.after} camera={camera} setCamera={setCamera} bounds={bounds} after={index === 1} label={`Run ${index + 1} / output`} />)}
+        {item.realMeshCase && <p className="scientific-runtime-note"><strong>{item.realMeshCase.name}</strong> / {item.realMeshCase.operations.find(operation => operation.artifact === item.path)?.operation} / A: {item.realMeshCase.source} / B: {item.realMeshCase.transformB}{!item.realMeshCase.previewInputs?.B && ' / saved B snapshot unavailable for this older run'}</p>}
+        {item.preview && (item.preview.geometry.before ? <ScientificMeshInspection key={`${item.jobId}|${item.path}`} geometry={item.preview.geometry} /> : <MeshCanvas mesh={item.preview.geometry.after} camera={camera} setCamera={setCamera} bounds={bounds} after={index === 1} label={`Run ${index + 1} / output`} />)}
       </div>)}</div>
     </details>}
   </section>

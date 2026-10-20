@@ -15,6 +15,7 @@ type Capability = {
   rejection: string
   rejectionAutomated?: boolean
   rejectionCaseId?: string
+  rejectionCaseIds?: string[]
 }
 
 const catalog: Record<'cgal' | 'vtk', Capability[]> = {
@@ -23,9 +24,9 @@ const catalog: Record<'cgal' | 'vtk', Capability[]> = {
     { id: 'mesh.write', group: 'Mesh I/O', name: 'Write OBJ result', implementation: 'CGAL validation worker', math3dUi: false, test: 'cgal-matrix', positive: 'Validated OBJ output with SHA-256 and retained artifact.', rejection: 'No output artifact for a rejected input.', rejectionAutomated: true },
     { id: 'mesh.validate', group: 'Quality', name: 'Validate surface mesh', implementation: 'CGAL validation worker', math3dUi: false, test: 'cgal-matrix', positive: 'Valid closed and open fixtures produce recorded topology.', rejection: 'Problem fixtures must fail with the expected geometry reason.', rejectionAutomated: true },
     { id: 'mesh.remesh', group: 'Processing', name: 'Isotropic remesh', implementation: 'CGAL mesh worker', math3dUi: false, test: 'cgal-remesh', positive: 'Small registered mesh; one iteration; hashed OBJ output.', rejection: 'Invalid edge target or unsuitable geometry; automated rejection pending.' },
-    { id: 'mesh.boolean.union', group: 'Boolean', name: 'Union', implementation: 'MATH3D native CGAL worker', math3dUi: true, test: 'real-mesh', positive: 'Armadillo/3DBenchy transformed pairs; volume identity and output mesh.', rejection: 'Known coplanar 3DBenchy overlap must report the CGAL corefinement diagnostic.', rejectionAutomated: true },
-    { id: 'mesh.boolean.intersection', group: 'Boolean', name: 'Intersection', implementation: 'MATH3D native CGAL worker', math3dUi: true, test: 'real-mesh', positive: 'Armadillo/3DBenchy transformed pairs; volume identity and output mesh.', rejection: 'Open or non-manifold operand; automated rejection pending.' },
-    { id: 'mesh.boolean.difference', group: 'Boolean', name: 'Difference', implementation: 'MATH3D native CGAL worker', math3dUi: true, test: 'real-mesh', positive: 'Armadillo/3DBenchy transformed pairs; volume identity and output mesh.', rejection: 'Open or non-manifold operand; automated rejection pending.' },
+    { id: 'mesh.boolean.union', group: 'Boolean', name: 'Union', implementation: 'MATH3D native CGAL worker', math3dUi: true, test: 'real-mesh', positive: 'Armadillo/3DBenchy transformed pairs; volume identity and output mesh.', rejection: 'Known coplanar 3DBenchy overlap must report the CGAL corefinement diagnostic without an output.', rejectionCaseIds: ['3dbenchy-coplanar-overlap'] },
+    { id: 'mesh.boolean.intersection', group: 'Boolean', name: 'Intersection', implementation: 'MATH3D native CGAL worker', math3dUi: true, test: 'real-mesh', positive: 'Armadillo/3DBenchy transformed pairs; volume identity and output mesh.', rejection: 'Open and non-manifold operands must be rejected without outputs.', rejectionCaseIds: ['armadillo-open-intersection', 'armadillo-nonmanifold-intersection'] },
+    { id: 'mesh.boolean.difference', group: 'Boolean', name: 'Difference', implementation: 'MATH3D native CGAL worker', math3dUi: true, test: 'real-mesh', positive: 'Armadillo/3DBenchy transformed pairs; volume identity and output mesh.', rejection: 'Open and non-manifold operands must be rejected without outputs.', rejectionCaseIds: ['armadillo-open-difference', 'armadillo-nonmanifold-difference'] },
     { id: 'mesh.repair', group: 'Processing', name: 'Repair defects', implementation: null, math3dUi: false, positive: 'Hole, winding, and degenerate-face fixtures.', rejection: 'Unrepairable topology with explicit diagnostics.' },
     { id: 'mesh.decimate', group: 'Processing', name: 'Simplify / decimate', implementation: null, math3dUi: false, positive: 'Closed mesh with bounded reduction and topology checks.', rejection: 'Target that violates the geometry budget.' },
     { id: 'geometry.aabb', group: 'Geometry', name: 'AABB queries', implementation: null, math3dUi: false, positive: 'Known point-to-mesh and ray queries.', rejection: 'Empty or invalid acceleration input.' },
@@ -115,9 +116,12 @@ export function ScientificCapabilityCoverage({ runtime, native, edited, observed
     const state = live?.state === 'running' ? 'running' : result?.state ?? (entry ? 'loading' : 'not run')
     const output = outputByTest[test]
     const artifact = output ? result?.artifacts?.find(item => item.path === output) : undefined
-    const suite = (result as ScientificRunResult & { realMeshSuite?: { passed: number; total: number; cases: { operations: { operation: string }[] }[] } } | undefined)?.realMeshSuite
+    const suite = (result as ScientificRunResult & { realMeshSuite?: { passed: number; total: number; cases: { name: string; status: string; operations: { operation: string; artifactSha256?: string }[] }[] } } | undefined)?.realMeshSuite
+    const positiveCases = ['armadillo-shift', 'armadillo-rotated', '3dbenchy-cutter', '3dbenchy-second-cutter']
+    const realMeshPositive = positiveCases.every(name => suite?.cases.some(item => item.name === name && item.status === 'passed'
+      && ['union', 'intersection', 'difference'].every(operation => item.operations.some(value => value.operation === operation && !!value.artifactSha256))))
     const passed = state === 'succeeded' && (test === 'cgal-matrix' ? !!result?.matrixSummary?.total && result.matrixSummary.passed === result.matrixSummary.total
-      : test === 'real-mesh' ? !!suite?.total && suite.passed === suite.total && suite.cases.some(item => item.operations.some(operation => ['union', 'intersection', 'difference'].includes(operation.operation)))
+      : test === 'real-mesh' ? !!suite?.total && suite.passed === suite.total && realMeshPositive
       : output ? !!artifact?.sha256 : true)
     return { entry, result, state, passed, artifact, live }
   }
@@ -134,17 +138,21 @@ export function ScientificCapabilityCoverage({ runtime, native, edited, observed
         const disabled = !available || !row.test || (needsFixture && !fixture) || (row.test === 'cgal-matrix' && !native.datasets?.entries.length)
         const version = runtime.kind === 'cgal' ? evidence?.result?.versions?.cgal : evidence?.result?.versions?.vtk
         const rejectionCase = rejectionSummary?.cases.find(item => item.caseId === row.rejectionCaseId)
-        const unionSuite = row.id === 'mesh.boolean.union' ? (evidence?.result as ScientificRunResult & { realMeshSuite?: { cases: { name: string; status: string; expectedOutcome?: string; observedOutcome?: string }[] } } | undefined)?.realMeshSuite : undefined
-        const unionRejectionPassed = !!unionSuite?.cases.some(item => item.name === '3dbenchy-coplanar-overlap' && item.status === 'passed' && item.expectedOutcome === 'rejected' && item.observedOutcome === 'rejected')
-        const rejectionPassed = unionRejectionPassed || (!!rejectionCase && rejectionResult?.state === 'succeeded' && rejectionCase.verdict === 'pass')
-        const fullyPassed = !!evidence?.passed && (rejectionPassed || (row.rejectionAutomated && row.id !== 'mesh.boolean.union'))
+        const realMeshSuite = (evidence?.result as ScientificRunResult & { realMeshSuite?: { cases: { name: string; status: string; expectedOutcome?: string; observedOutcome?: string; rejection?: { operation?: string; artifactAbsent?: boolean } }[] } } | undefined)?.realMeshSuite
+        const realMeshRejections = row.rejectionCaseIds?.map(id => realMeshSuite?.cases.find(item => item.name === id))
+        const realMeshRejectionPassed = !!row.rejectionCaseIds?.length && !!realMeshRejections?.every(item => item?.status === 'passed'
+          && item.expectedOutcome === 'rejected' && item.observedOutcome === 'rejected'
+          && item.rejection?.operation === row.id.split('.').at(-1) && item.rejection?.artifactAbsent)
+        const vtkRejectionPassed = !!rejectionCase && rejectionResult?.state === 'succeeded' && rejectionCase.verdict === 'pass'
+        const rejectionPassed = realMeshRejectionPassed || vtkRejectionPassed
+        const fullyPassed = !!evidence?.passed && (rejectionPassed || (!!row.rejectionAutomated && !row.rejectionCaseIds))
         return <tr key={row.id}>
-          <td><strong>{row.name}</strong><br /><small>{row.group} / <code>{row.id}</code></small><details><summary>Acceptance scope</summary><small>Valid: {row.positive}<br />Rejection: {row.rejection}<br />{row.rejectionAutomated ? 'Valid and rejection cases automated.' : row.rejectionCaseId ? 'Rejection case runs in the VTK suite.' : 'Rejection case is not yet automated.'}</small></details></td>
+          <td><strong>{row.name}</strong><br /><small>{row.group} / <code>{row.id}</code></small><details><summary>Acceptance scope</summary><small>Valid: {row.positive}<br />Rejection: {row.rejection}<br />{row.rejectionAutomated || row.rejectionCaseIds ? 'Valid and rejection cases automated.' : row.rejectionCaseId ? 'Rejection case runs in the VTK suite.' : 'Rejection case is not yet automated.'}</small></details></td>
           <td>{observed && observed.state !== 'missing' && observed.state !== 'failed' ? `Recorded ${observed.version ?? 'version unknown'}` : observed?.state ?? 'Not loaded'}</td>
           <td>{row.implementation ?? 'Not implemented'}{row.implementation && <><br /><small>{row.implementation}</small></>}</td>
           <td>{row.implementation ? 'Structured request/result' : 'Not exposed'}</td>
           <td>{row.math3dUi ? 'Connected' : 'Not this contract'}</td>
-          <td>{evidence ? <><strong>{evidence.state === 'running' ? 'Running' : fullyPassed ? 'Passed' : evidence.passed ? 'Positive smoke passed / rejection pending' : rejectionPassed ? 'Rejection passed / positive pending' : evidence.state === 'succeeded' ? 'Incomplete evidence' : evidence.state}</strong>{evidence.result && <small><br />{version ? `${version} / ` : ''}{evidence.result.durationMs} ms / input <code>{evidence.result.inputArtifacts?.[0]?.sha256?.slice(0, 12) ?? '-'}</code> / output <code>{evidence.artifact?.sha256?.slice(0, 12) ?? evidence.result.artifacts?.[0]?.sha256?.slice(0, 12) ?? '-'}</code></small>}{rejectionCase && <small><br />Reject {rejectionCase.caseId}: {rejectionCase.verdict} / {rejectionCase.diagnostic}</small>}{evidence.result?.diagnostics?.filter(item => item.severity === 'error').map((item, index) => <p key={index} role="alert">{item.message}</p>)}{evidence.live?.error && <p role="alert">{evidence.live.error}</p>}<br /><button disabled={disabled} onClick={() => row.test && run(row.test)}>Run opt-in check</button>{needsFixture && !fixture && <small> Load local copies first.</small>}{evidence.entry && <button onClick={() => native.send(runtime.id, 'history-open-log', { jobId: evidence.entry!.jobId })}>Log</button>}</> : <span>Not available</span>}</td>
+          <td>{evidence ? <><strong>{evidence.state === 'running' ? 'Running' : fullyPassed ? 'Passed' : evidence.passed ? 'Positive smoke passed / rejection pending' : rejectionPassed ? 'Rejection passed / positive pending' : evidence.state === 'succeeded' ? 'Incomplete evidence' : evidence.state}</strong>{evidence.result && <small><br />{version ? `${version} / ` : ''}{evidence.result.durationMs} ms / input <code>{evidence.result.inputArtifacts?.[0]?.sha256?.slice(0, 12) ?? '-'}</code> / output <code>{evidence.artifact?.sha256?.slice(0, 12) ?? evidence.result.artifacts?.[0]?.sha256?.slice(0, 12) ?? '-'}</code></small>}{realMeshRejections && <small><br />Rejections: {realMeshRejections.filter(item => item?.status === 'passed' && item.rejection?.artifactAbsent).length}/{realMeshRejections.length} passed with no output</small>}{rejectionCase && <small><br />Reject {rejectionCase.caseId}: {rejectionCase.verdict} / {rejectionCase.diagnostic}</small>}{evidence.result?.diagnostics?.filter(item => item.severity === 'error').map((item, index) => <p key={index} role="alert">{item.message}</p>)}{evidence.live?.error && <p role="alert">{evidence.live.error}</p>}<br /><button disabled={disabled} onClick={() => row.test && run(row.test)}>Run opt-in check</button>{needsFixture && !fixture && <small> Load local copies first.</small>}{evidence.entry && <button onClick={() => native.send(runtime.id, 'history-open-log', { jobId: evidence.entry!.jobId })}>Log</button>}</> : <span>Not available</span>}</td>
         </tr>
       })}
     </tbody></table></div>

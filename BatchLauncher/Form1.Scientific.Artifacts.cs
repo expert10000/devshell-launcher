@@ -223,6 +223,22 @@ public partial class Form1
                 || !string.Equals(recordedInput.GetProperty("path").GetString(), input, StringComparison.OrdinalIgnoreCase)
                 || ScientificHash(input) != recordedInput.GetProperty("sha256").GetString())
                 throw new InvalidOperationException("The real-mesh source copy changed since the run completed.");
+            if (matchedCase.TryGetProperty("previewInputs", out var previewInputs)
+                && previewInputs.TryGetProperty("B", out var secondSnapshot))
+            {
+                var caseName = matchedCase.GetProperty("name").GetString();
+                if (caseName is not ("armadillo-shift" or "armadillo-rotated"
+                    or "3dbenchy-cutter" or "3dbenchy-second-cutter"))
+                    throw new InvalidOperationException("The selected real-mesh case is not registered for input preview.");
+                var relative = "inputs/" + caseName + "-b.obj";
+                if (secondSnapshot.GetProperty("path").GetString() != relative)
+                    throw new InvalidOperationException("The recorded second input path is invalid.");
+                inputSecond = ScientificScopedFile(job.Directory, relative);
+                if (!File.Exists(inputSecond) || new FileInfo(inputSecond).Length > 33554432
+                    || new FileInfo(inputSecond).Length != secondSnapshot.GetProperty("bytes").GetInt64()
+                    || ScientificHash(inputSecond) != secondSnapshot.GetProperty("sha256").GetString())
+                    throw new InvalidOperationException("The transformed real-mesh input changed since the run completed.");
+            }
         }
         if (retainedBoolean)
         {

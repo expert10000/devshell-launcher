@@ -8,7 +8,7 @@ $suite=Join-Path $root ('.scientific/tests/mesh-'+[DateTime]::UtcNow.ToString('y
 $checks=[System.Collections.Generic.List[object]]::new()
 $before=@{}
 foreach($entry in $manifest.entries){$before[$entry.id]=(Get-FileHash -LiteralPath (Join-Path $datasets $entry.path) -Algorithm SHA256).Hash.ToLowerInvariant()}
-function Invoke-Case([string]$Id,[string]$Kind,[string]$Operation,[string]$InputId,[hashtable]$Parameters,[bool]$Success){
+function Invoke-Case([string]$Id,[string]$Kind,[string]$Operation,[string]$InputId,[hashtable]$Parameters,[bool]$Success,[string]$OutputName='output.vtp'){
     $directory=Join-Path $suite $Id;[void](New-Item -ItemType Directory -Path $directory)
     $prefix=Join-Path $RuntimeRoot ('devshell-'+$Kind)
     $inputFile=Join-Path $datasets $InputId
@@ -24,7 +24,7 @@ function Invoke-Case([string]$Id,[string]$Kind,[string]$Operation,[string]$Input
         foreach($argument in @($Operation,$inputFile,(Join-Path $directory 'output.obj'),[string]$Parameters.targetEdge,[string]$Parameters.iterations,[string]$Parameters.preserveBoundary)){$info.ArgumentList.Add($argument)}
     }else{
         $info.FileName=Join-Path $prefix 'python.exe'
-        $request=@{schemaVersion=1;runId=$Id;runtimeId='vtk-win-conda';recipeId=('mesh.'+$Operation);datasetRoot=$datasets;workingDirectory=$directory;parameters=$Parameters;inputArtifacts=@(@{path=$inputFile});outputArtifacts=@(@{path='output.vtp'})}
+        $request=@{schemaVersion=1;runId=$Id;runtimeId='vtk-win-conda';recipeId=('mesh.'+$Operation);datasetRoot=$datasets;workingDirectory=$directory;parameters=$Parameters;inputArtifacts=@(@{path=$inputFile});outputArtifacts=@(@{path=$OutputName})}
         $requestPath=Join-Path $directory 'request.json'
         $request | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $requestPath -Encoding utf8
         $info.ArgumentList.Add((Join-Path $root 'tools/scientific-mesh-worker.py'));$info.ArgumentList.Add('--request');$info.ArgumentList.Add($requestPath)
@@ -47,6 +47,8 @@ function Invoke-Case([string]$Id,[string]$Kind,[string]$Operation,[string]$Input
                 'cgal-reject-budget' {'conservative laboratory budget'}
                 'vtk-reject-open-auto-orient' {'Auto orientation requires a closed manifold surface'}
                 'vtk-reject-truncated-ply' {'Reader failed or surface is empty|Operation failed or surface is empty'}
+                'vtk-reject-invalid-reduction' {'Target reduction must be between 0 and 0.95'}
+                'vtk-reject-unsafe-output' {'Output must be a safe mesh basename'}
                 default {'(?!)'}
             }
             $passed=$passed -and $reason -match $expectedReason -and -not(Test-Path -LiteralPath $artifact)
@@ -67,6 +69,8 @@ Invoke-Case 'vtk-simplify-torus' vtk simplify 'math3d/basic/05_torus.obj' @{targ
 Invoke-Case 'vtk-normals-cube' vtk normals 'math3d/basic/02_cube.obj' @{featureAngle=30;autoOrient=$false} $true
 Invoke-Case 'vtk-reject-open-auto-orient' vtk normals 'math3d/import/triangle.obj' @{featureAngle=30;autoOrient=$true} $false
 Invoke-Case 'vtk-reject-truncated-ply' vtk inspect 'math3d/import/truncated-ascii.ply' @{} $false
+Invoke-Case 'vtk-reject-invalid-reduction' vtk simplify 'math3d/basic/05_torus.obj' @{targetReduction=1.2} $false
+Invoke-Case 'vtk-reject-unsafe-output' vtk inspect 'math3d/basic/01_tetrahedron.obj' @{} $false '../escape.vtp'
 $unchanged=$true;$provenance=$true
 foreach($entry in $manifest.entries){
     $hash=(Get-FileHash -LiteralPath (Join-Path $datasets $entry.path) -Algorithm SHA256).Hash.ToLowerInvariant()

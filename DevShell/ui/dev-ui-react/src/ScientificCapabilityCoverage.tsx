@@ -14,6 +14,7 @@ type Capability = {
   positive: string
   rejection: string
   rejectionAutomated?: boolean
+  rejectionCaseId?: string
 }
 
 const catalog: Record<'cgal' | 'vtk', Capability[]> = {
@@ -22,7 +23,7 @@ const catalog: Record<'cgal' | 'vtk', Capability[]> = {
     { id: 'mesh.write', group: 'Mesh I/O', name: 'Write OBJ result', implementation: 'CGAL validation worker', math3dUi: false, test: 'cgal-matrix', positive: 'Validated OBJ output with SHA-256 and retained artifact.', rejection: 'No output artifact for a rejected input.', rejectionAutomated: true },
     { id: 'mesh.validate', group: 'Quality', name: 'Validate surface mesh', implementation: 'CGAL validation worker', math3dUi: false, test: 'cgal-matrix', positive: 'Valid closed and open fixtures produce recorded topology.', rejection: 'Problem fixtures must fail with the expected geometry reason.', rejectionAutomated: true },
     { id: 'mesh.remesh', group: 'Processing', name: 'Isotropic remesh', implementation: 'CGAL mesh worker', math3dUi: false, test: 'cgal-remesh', positive: 'Small registered mesh; one iteration; hashed OBJ output.', rejection: 'Invalid edge target or unsuitable geometry; automated rejection pending.' },
-    { id: 'mesh.boolean.union', group: 'Boolean', name: 'Union', implementation: 'MATH3D native CGAL worker', math3dUi: true, test: 'real-mesh', positive: 'Armadillo/3DBenchy transformed pairs; volume identity and output mesh.', rejection: 'Open or non-manifold operand; automated rejection pending.' },
+    { id: 'mesh.boolean.union', group: 'Boolean', name: 'Union', implementation: 'MATH3D native CGAL worker', math3dUi: true, test: 'real-mesh', positive: 'Armadillo/3DBenchy transformed pairs; volume identity and output mesh.', rejection: 'Known coplanar 3DBenchy overlap must report the CGAL corefinement diagnostic.', rejectionAutomated: true },
     { id: 'mesh.boolean.intersection', group: 'Boolean', name: 'Intersection', implementation: 'MATH3D native CGAL worker', math3dUi: true, test: 'real-mesh', positive: 'Armadillo/3DBenchy transformed pairs; volume identity and output mesh.', rejection: 'Open or non-manifold operand; automated rejection pending.' },
     { id: 'mesh.boolean.difference', group: 'Boolean', name: 'Difference', implementation: 'MATH3D native CGAL worker', math3dUi: true, test: 'real-mesh', positive: 'Armadillo/3DBenchy transformed pairs; volume identity and output mesh.', rejection: 'Open or non-manifold operand; automated rejection pending.' },
     { id: 'mesh.repair', group: 'Processing', name: 'Repair defects', implementation: null, math3dUi: false, positive: 'Hole, winding, and degenerate-face fixtures.', rejection: 'Unrepairable topology with explicit diagnostics.' },
@@ -34,11 +35,11 @@ const catalog: Record<'cgal' | 'vtk', Capability[]> = {
     { id: 'pointset.process', group: 'Point sets', name: 'Point-set processing', implementation: null, math3dUi: false, positive: 'Noisy sample with measured output.', rejection: 'Empty or non-finite sample.' },
   ],
   vtk: [
-    { id: 'mesh.read', group: 'Mesh I/O', name: 'Read OBJ/STL/PLY/VTP', implementation: 'VTK mesh worker', math3dUi: false, test: 'vtk-inspect', positive: 'Registered mesh copy loads into vtkPolyData.', rejection: 'Unreadable or unsupported input; automated rejection pending.' },
-    { id: 'mesh.write', group: 'Mesh I/O', name: 'Write VTP', implementation: 'VTK mesh worker', math3dUi: false, test: 'vtk-inspect', positive: 'VTP output artifact has a recorded SHA-256.', rejection: 'Unsafe output path; automated rejection pending.' },
-    { id: 'geometry.polydata', group: 'Geometry', name: 'PolyData inspection', implementation: 'VTK mesh worker', math3dUi: false, test: 'vtk-inspect', positive: 'Inspect a registered small mesh and record point/face counts.', rejection: 'Empty or invalid mesh; automated rejection pending.' },
-    { id: 'mesh.filter', group: 'Processing', name: 'Topology-preserving simplify', implementation: 'VTK mesh worker', math3dUi: false, test: 'vtk-simplify', positive: 'Reduce a small mesh by 25% and retain VTP artifact.', rejection: 'Invalid target reduction; automated rejection pending.' },
-    { id: 'mesh.normals', group: 'Processing', name: 'Compute normals', implementation: 'VTK mesh worker', math3dUi: false, test: 'vtk-normals', positive: 'Compute normals on a registered mesh.', rejection: 'Auto-orient an open surface; automated rejection pending.' },
+    { id: 'mesh.read', group: 'Mesh I/O', name: 'Read OBJ/STL/PLY/VTP', implementation: 'VTK mesh worker', math3dUi: false, test: 'vtk-inspect', positive: 'Registered mesh copy loads into vtkPolyData.', rejection: 'Malformed PLY must fail without an output artifact.', rejectionCaseId: 'read-truncated-ply' },
+    { id: 'mesh.write', group: 'Mesh I/O', name: 'Write VTP', implementation: 'VTK mesh worker', math3dUi: false, test: 'vtk-inspect', positive: 'VTP output artifact has a recorded SHA-256.', rejection: 'Unsafe output path must be rejected.', rejectionCaseId: 'write-unsafe-path' },
+    { id: 'geometry.polydata', group: 'Geometry', name: 'PolyData inspection', implementation: 'VTK mesh worker', math3dUi: false, test: 'vtk-inspect', positive: 'Inspect a registered small mesh and record point/face counts.', rejection: 'Malformed surface must fail without an output artifact.', rejectionCaseId: 'read-truncated-ply' },
+    { id: 'mesh.filter', group: 'Processing', name: 'Topology-preserving simplify', implementation: 'VTK mesh worker', math3dUi: false, test: 'vtk-simplify', positive: 'Reduce a small mesh by 25% and retain VTP artifact.', rejection: 'Invalid target reduction must be rejected.', rejectionCaseId: 'simplify-invalid-reduction' },
+    { id: 'mesh.normals', group: 'Processing', name: 'Compute normals', implementation: 'VTK mesh worker', math3dUi: false, test: 'vtk-normals', positive: 'Compute normals on a registered mesh.', rejection: 'Auto-orient an open surface must be rejected.', rejectionCaseId: 'normals-open-auto-orient' },
     { id: 'render.offscreen', group: 'Rendering', name: 'Offscreen rendering', implementation: 'VTK smoke recipe', math3dUi: false, test: 'vtk-offscreen', positive: 'Registered test-all smoke and offscreen check.', rejection: 'Unavailable graphics backend; automated rejection pending.' },
     { id: 'render.interactive', group: 'Rendering', name: 'Interactive VTK window', implementation: null, math3dUi: false, positive: 'Camera and interaction smoke.', rejection: 'Unavailable display backend.' },
     { id: 'image.filters', group: 'Imaging', name: 'Image filters', implementation: null, math3dUi: false, positive: 'Known voxel field and analytic filter output.', rejection: 'Invalid image extent.' },
@@ -65,23 +66,37 @@ export function ScientificCapabilityCoverage({ runtime, native, edited, observed
 }) {
   const rows = runtime.kind === 'cgal' || runtime.kind === 'vtk' ? catalog[runtime.kind] : []
   const requested = useRef(new Set<string>())
+  const refreshedSuite = useRef('')
   const loadedHistory = useRef(native.history)
   useEffect(() => {
     if (loadedHistory.current !== native.history) { loadedHistory.current = native.history; requested.current.clear() }
-    for (const test of new Set(rows.map(row => row.test).filter((item): item is TestKey => !!item))) {
-      const entry = native.history?.find(item => item.runtimeId === runtime.id && item.recipeId === recipeByTest[test])
+    const recipeIds = new Set(rows.map(row => row.test).filter((item): item is TestKey => !!item).map(test => recipeByTest[test]))
+    if (runtime.kind === 'vtk') recipeIds.add('matrix.vtk.rejections')
+    for (const recipeId of recipeIds) {
+      const entry = native.history?.find(item => item.runtimeId === runtime.id && item.recipeId === recipeId)
       if (entry && !native.historyResults[entry.jobId] && !requested.current.has(entry.jobId)) {
         requested.current.add(entry.jobId)
         native.send(runtime.id, 'history-result', { jobId: entry.jobId })
       }
     }
   }, [runtime.id, native.history, native.historyResults, native.send])
+  const activeSuite = native.jobs[runtime.id]
+  useEffect(() => {
+    if (activeSuite?.recipeId === 'matrix.vtk.rejections' && activeSuite.state !== 'running' && refreshedSuite.current !== activeSuite.jobId) {
+      refreshedSuite.current = activeSuite.jobId
+      native.send('', 'history')
+    }
+  }, [activeSuite?.jobId, activeSuite?.recipeId, activeSuite?.state, native.send])
 
   if (!rows.length) return null
   const available = runtime.execution === 'windows-native' && !edited && !native.busy && !native.pending
   const inputs = native.datasets?.entries ?? []
   const fixture = inputs.find(item => item.id === 'math3d/basic/02_cube.obj')
     ?? inputs.find(item => !item.expectedProblem && /\.(obj|stl|ply|off)$/i.test(item.path))
+  const rejectionEntry = runtime.kind === 'vtk' ? native.history?.find(item => item.runtimeId === runtime.id && item.recipeId === 'matrix.vtk.rejections') : undefined
+  const rejectionResult = activeSuite?.recipeId === 'matrix.vtk.rejections' ? activeSuite.result ?? (rejectionEntry ? native.historyResults[rejectionEntry.jobId] : undefined)
+    : rejectionEntry ? native.historyResults[rejectionEntry.jobId] : undefined
+  const rejectionSummary = rejectionResult?.rejectionSummary
   const run = (test: TestKey) => {
     if (test === 'cgal-matrix') native.send(runtime.id, 'run-matrix')
     else if (test === 'real-mesh') native.send(runtime.id, 'real-mesh-suite')
@@ -110,23 +125,29 @@ export function ScientificCapabilityCoverage({ runtime, native, edited, observed
   return <section aria-label="Scientific capability coverage" style={{ marginBottom: 20 }}>
     <h3>MATH3D-scoped capability catalog</h3>
     <p className="scientific-runtime-note">{rows.length} relevant {runtime.name} capabilities. This is not the entire library API. Installed means recorded package evidence, not algorithm readiness. Worker, contract, MATH3D UI, and test are independent states. Saved evidence is not a live check.</p>
-    <div className="scientific-inspector-actions"><button disabled={native.pending} onClick={() => { native.send('', 'datasets'); native.send('', 'history') }}>Load local copies and saved evidence</button></div>
+    <div className="scientific-inspector-actions"><button disabled={native.pending} onClick={() => { native.send('', 'datasets'); native.send('', 'history') }}>Load local copies and saved evidence</button>{runtime.kind === 'vtk' && <button disabled={!available || !native.datasets?.entries.length} onClick={() => native.send(runtime.id, 'vtk-rejections')}>Run VTK rejection checks</button>}</div>
+    {runtime.kind === 'vtk' && <p className="scientific-runtime-note">VTK rejection suite: {activeSuite?.recipeId === 'matrix.vtk.rejections' && activeSuite.state === 'running' ? `Running ${activeSuite.stage ?? ''}` : rejectionSummary ? `${rejectionSummary.passed}/${rejectionSummary.total} cases passed; saved ${rejectionResult?.state ?? 'unknown'}` : 'No saved evidence loaded.'}{rejectionEntry && <> <button onClick={() => native.send(runtime.id, 'history-open-log', { jobId: rejectionEntry.jobId })}>Suite log</button></>}</p>}
     <div className="scientific-history-scroll"><table><thead><tr><th>Capability</th><th>Installed</th><th>Worker</th><th>Contract</th><th>MATH3D UI</th><th>Test evidence / action</th></tr></thead><tbody>
       {rows.map(row => {
         const evidence = row.test ? testEvidence(row.test) : undefined
         const needsFixture = row.test && !['real-mesh', 'vtk-offscreen'].includes(row.test)
         const disabled = !available || !row.test || (needsFixture && !fixture) || (row.test === 'cgal-matrix' && !native.datasets?.entries.length)
         const version = runtime.kind === 'cgal' ? evidence?.result?.versions?.cgal : evidence?.result?.versions?.vtk
+        const rejectionCase = rejectionSummary?.cases.find(item => item.caseId === row.rejectionCaseId)
+        const unionSuite = row.id === 'mesh.boolean.union' ? (evidence?.result as ScientificRunResult & { realMeshSuite?: { cases: { name: string; status: string; expectedOutcome?: string; observedOutcome?: string }[] } } | undefined)?.realMeshSuite : undefined
+        const unionRejectionPassed = !!unionSuite?.cases.some(item => item.name === '3dbenchy-coplanar-overlap' && item.status === 'passed' && item.expectedOutcome === 'rejected' && item.observedOutcome === 'rejected')
+        const rejectionPassed = unionRejectionPassed || (!!rejectionCase && rejectionResult?.state === 'succeeded' && rejectionCase.verdict === 'pass')
+        const fullyPassed = !!evidence?.passed && (rejectionPassed || (row.rejectionAutomated && row.id !== 'mesh.boolean.union'))
         return <tr key={row.id}>
-          <td><strong>{row.name}</strong><br /><small>{row.group} / <code>{row.id}</code></small><details><summary>Acceptance scope</summary><small>Valid: {row.positive}<br />Rejection: {row.rejection}<br />{row.rejectionAutomated ? 'Valid and rejection cases automated.' : 'Rejection case is not yet automated.'}</small></details></td>
+          <td><strong>{row.name}</strong><br /><small>{row.group} / <code>{row.id}</code></small><details><summary>Acceptance scope</summary><small>Valid: {row.positive}<br />Rejection: {row.rejection}<br />{row.rejectionAutomated ? 'Valid and rejection cases automated.' : row.rejectionCaseId ? 'Rejection case runs in the VTK suite.' : 'Rejection case is not yet automated.'}</small></details></td>
           <td>{observed && observed.state !== 'missing' && observed.state !== 'failed' ? `Recorded ${observed.version ?? 'version unknown'}` : observed?.state ?? 'Not loaded'}</td>
           <td>{row.implementation ?? 'Not implemented'}{row.implementation && <><br /><small>{row.implementation}</small></>}</td>
           <td>{row.implementation ? 'Structured request/result' : 'Not exposed'}</td>
           <td>{row.math3dUi ? 'Connected' : 'Not this contract'}</td>
-          <td>{evidence ? <><strong>{evidence.state === 'running' ? 'Running' : evidence.passed ? row.rejectionAutomated ? 'Passed' : 'Positive smoke passed / rejection pending' : evidence.state === 'succeeded' ? 'Incomplete evidence' : evidence.state}</strong>{evidence.result && <small><br />{version ? `${version} / ` : ''}{evidence.result.durationMs} ms / input <code>{evidence.result.inputArtifacts?.[0]?.sha256?.slice(0, 12) ?? '-'}</code> / output <code>{evidence.artifact?.sha256?.slice(0, 12) ?? evidence.result.artifacts?.[0]?.sha256?.slice(0, 12) ?? '-'}</code></small>}{evidence.result?.diagnostics?.filter(item => item.severity === 'error').map((item, index) => <p key={index} role="alert">{item.message}</p>)}{evidence.live?.error && <p role="alert">{evidence.live.error}</p>}<br /><button disabled={disabled} onClick={() => row.test && run(row.test)}>Run opt-in check</button>{needsFixture && !fixture && <small> Load local copies first.</small>}{evidence.entry && <button onClick={() => native.send(runtime.id, 'history-open-log', { jobId: evidence.entry!.jobId })}>Log</button>}</> : <span>Not available</span>}</td>
+          <td>{evidence ? <><strong>{evidence.state === 'running' ? 'Running' : fullyPassed ? 'Passed' : evidence.passed ? 'Positive smoke passed / rejection pending' : rejectionPassed ? 'Rejection passed / positive pending' : evidence.state === 'succeeded' ? 'Incomplete evidence' : evidence.state}</strong>{evidence.result && <small><br />{version ? `${version} / ` : ''}{evidence.result.durationMs} ms / input <code>{evidence.result.inputArtifacts?.[0]?.sha256?.slice(0, 12) ?? '-'}</code> / output <code>{evidence.artifact?.sha256?.slice(0, 12) ?? evidence.result.artifacts?.[0]?.sha256?.slice(0, 12) ?? '-'}</code></small>}{rejectionCase && <small><br />Reject {rejectionCase.caseId}: {rejectionCase.verdict} / {rejectionCase.diagnostic}</small>}{evidence.result?.diagnostics?.filter(item => item.severity === 'error').map((item, index) => <p key={index} role="alert">{item.message}</p>)}{evidence.live?.error && <p role="alert">{evidence.live.error}</p>}<br /><button disabled={disabled} onClick={() => row.test && run(row.test)}>Run opt-in check</button>{needsFixture && !fixture && <small> Load local copies first.</small>}{evidence.entry && <button onClick={() => native.send(runtime.id, 'history-open-log', { jobId: evidence.entry!.jobId })}>Log</button>}</> : <span>Not available</span>}</td>
         </tr>
       })}
     </tbody></table></div>
-    <p className="scientific-runtime-note">Each click starts only the registered check shown in its row. Shared checks (CGAL validation matrix and real-mesh Boolean suite) cover several capabilities. Generic recipe checks are positive smoke tests until their rejection cases are automated. Run folders retain request/result JSON, logs, hashes, timings, diagnostics, and output artifacts when the worker supplies them.</p>
+    <p className="scientific-runtime-note">Each click starts only the registered check shown in its row. Shared checks cover several capabilities. A capability passes only when its positive evidence and registered rejection evidence have both passed. Run folders retain request/result JSON, logs, hashes, timings, diagnostics, and output artifacts when the worker supplies them.</p>
   </section>
 }

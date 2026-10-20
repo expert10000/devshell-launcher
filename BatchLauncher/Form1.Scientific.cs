@@ -250,6 +250,7 @@ public partial class Form1
                 else if(action=="boolean-recipe")data=ScientificBooleanStart(profileId,runtimeId,request);
                 else if(action=="cgal-recipe")data=ScientificCgalStart(profileId,runtimeId,request);
                 else if(action=="run-matrix")data=ScientificMatrixStart(profileId,runtimeId);
+                else if(action=="vtk-rejections")data=ScientificVtkRejectionsStart(profileId,runtimeId);
                 else if(action=="real-mesh-suite")data=ScientificRealMeshStart(profileId,runtimeId,request);
                 else if(action is "math3d-integration" or "math3d-prepare-run")data=ScientificMath3DIntegrationStart(profileId,runtimeId,action=="math3d-prepare-run");
                 else throw new InvalidOperationException("Unknown Scientific action.");

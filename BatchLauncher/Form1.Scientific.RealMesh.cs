@@ -59,7 +59,7 @@ public partial class Form1
                     ["bytes"] = new FileInfo(copy).Length, ["sourcePath"] = original, ["mediaType"] = ScientificMediaType(copy) });
             }
             var outputs = new JsonArray();
-            foreach (var name in new[] { "armadillo-shift", "armadillo-rotated", "3dbenchy-cutter", "3dbenchy-shift" })
+            foreach (var name in new[] { "armadillo-shift", "armadillo-rotated", "3dbenchy-cutter", "3dbenchy-second-cutter" })
                 foreach (var operation in new[] { "union", "intersection", "difference" })
                     outputs.Add(new JsonObject { ["path"] = name + "-" + operation + ".obj", ["mediaType"] = "model/obj" });
             var job = new ScientificJob { Id = runId, ProfileId = profileId, RuntimeId = runtimeId,

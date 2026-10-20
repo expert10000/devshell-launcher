@@ -81,6 +81,7 @@ export interface ScientificRunResult {
   boolean?: { operation: string; scaleB: number; translateB: number[]; empty: boolean; outputArtifact: string; operands: { role: string; datasetId: string; sha256: string; statistics: { vertices: number; faces: number; volume: number; components: number } }[] }
   rendering?: { state?: string; backend?: string; version?: string; capabilities?: string }
   matrixSummary?: { suiteId: string; total: number; passed: number; cases: { caseId: string; runId: string; expected: string; observed: string; verdict: string; durationMs: number }[] }
+  rejectionSummary?: { suiteId: string; total: number; passed: number; cases: { caseId: string; recipeId: string; expected: string; observed: string; verdict: string; durationMs: number; diagnostic: string; inputSha256?: string; requestPath: string; resultPath?: string }[] }
 }
 
 const definitions: { kind: RuntimeKind; name: string; capabilities: string[]; checks: RuntimeProbe[] }[] = [

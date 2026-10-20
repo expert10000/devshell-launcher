@@ -188,8 +188,9 @@ public partial class Form1
         string? input = null;
         string? inputSecond = null;
         var retainedBoolean = job.RecipeId == "cgal.boolean";
+        var realMeshSuite = job.RecipeId == "matrix.cgal.real-mesh";
         foreach (var artifact in definition.GetProperty("inputArtifacts").EnumerateArray()
-            .Where(item => !retainedBoolean && (datasetId == null || item.TryGetProperty("datasetId", out var id) && id.GetString() == datasetId)).Take(1))
+            .Where(item => !retainedBoolean && !realMeshSuite && (datasetId == null || item.TryGetProperty("datasetId", out var id) && id.GetString() == datasetId)).Take(1))
         {
             var file = artifact.GetProperty("path").GetString() ?? "";
             var root = Path.Combine(ScientificDataRoot, "datasets");
@@ -203,6 +204,26 @@ public partial class Form1
         }
         if (datasetId != null && input == null)
             throw new InvalidOperationException("The selected case's registered input is unavailable for preview.");
+        if (realMeshSuite)
+        {
+            var matchedCase = result.GetProperty("realMeshSuite").GetProperty("cases").EnumerateArray()
+                .FirstOrDefault(item => item.GetProperty("operations").EnumerateArray()
+                    .Any(operation => operation.TryGetProperty("artifact", out var name) && name.GetString() == requested));
+            if (matchedCase.ValueKind != JsonValueKind.Object)
+                throw new InvalidOperationException("The selected real-mesh output has no recorded source case.");
+            var sourceName = matchedCase.GetProperty("source").GetString();
+            if (sourceName is not ("11_armadillo.obj" or "10_3dbenchy.stl"))
+                throw new InvalidOperationException("The selected real-mesh source is not registered.");
+            var recordedInput = definition.GetProperty("inputArtifacts").EnumerateArray()
+                .FirstOrDefault(item => Path.GetFileName(item.GetProperty("path").GetString()) == sourceName);
+            if (recordedInput.ValueKind != JsonValueKind.Object)
+                throw new InvalidOperationException("The selected real-mesh source copy is missing from the request.");
+            input = ScientificScopedFile(job.Directory, "inputs/" + sourceName);
+            if (!File.Exists(input) || new FileInfo(input).Length > 33554432
+                || !string.Equals(recordedInput.GetProperty("path").GetString(), input, StringComparison.OrdinalIgnoreCase)
+                || ScientificHash(input) != recordedInput.GetProperty("sha256").GetString())
+                throw new InvalidOperationException("The real-mesh source copy changed since the run completed.");
+        }
         if (retainedBoolean)
         {
             input = ScientificArtifactFiles.ResolveRegistered(job.Directory, result, "operand-a.m3dm");

@@ -30,6 +30,7 @@ export function ScientificRuntimesWorkspace({ profileId, projects, bridge }: { p
   const hostRoot = hostRootFor(projects)
   const [execution, setExecution] = useState<RuntimeExecution>('windows-native')
   const [runtimeKind, setRuntimeKind] = useState('cgal')
+  const [historyComparison, setHistoryComparison] = useState<string[]>([])
   const [section, setSection] = useState<Section>('Health')
   const [overrides, setOverrides] = useState<Record<string, Partial<RuntimeProfile>>>({})
   const [copyStatus, setCopyStatus] = useState('')
@@ -37,7 +38,7 @@ export function ScientificRuntimesWorkspace({ profileId, projects, bridge }: { p
   const [reportError, setReportError] = useState('')
   const [reportLoading, setReportLoading] = useState(false)
   const reportGeneration = useRef(0)
-  useEffect(() => { reportGeneration.current++; setExecution('windows-native'); setRuntimeKind('cgal'); setSection('Health'); setOverrides({}); setCopyStatus(''); setReport(null); setReportError(''); setReportLoading(false); return () => { reportGeneration.current++ } }, [profileId])
+  useEffect(() => { reportGeneration.current++; setExecution('windows-native'); setRuntimeKind('cgal'); setSection('Health'); setHistoryComparison([]); setOverrides({}); setCopyStatus(''); setReport(null); setReportError(''); setReportLoading(false); return () => { reportGeneration.current++ } }, [profileId])
   const profiles = useMemo(() => createScientificProfiles(hostRoot, execution), [hostRoot, execution])
   const seed = profiles.find(profile => profile.kind === runtimeKind) ?? profiles[0]
   const observed = report?.runtimes.find(item => item.id === seed.id)
@@ -72,6 +73,10 @@ export function ScientificRuntimesWorkspace({ profileId, projects, bridge }: { p
   }
   const native = useScientificRuntime(bridge, profileId, () => { void loadReport() })
   useEffect(() => { if (bridge && profileId) void loadReport() }, [bridge, profileId])
+  useEffect(() => {
+    if (!native.booleanDraft) return
+    setExecution('windows-native'); setRuntimeKind('cgal'); setSection('Boolean')
+  }, [native.booleanDraft?.draftId])
   const matrixEntry = native.history?.find(item => item.runtimeId === 'cgal-win-conda' && item.recipeId === 'matrix.cgal.validation')
   const matrixHistory = useRef(native.history)
   const requestedMatrix = useRef<string | null>(null)
@@ -142,13 +147,13 @@ export function ScientificRuntimesWorkspace({ profileId, projects, bridge }: { p
     </div>
   )}{(runtime.id === 'cgal-win-conda' || runtime.id === 'vtk-win-conda') && <ScientificReadiness profileId={profileId ?? ""} runtimeId={runtime.id} observed={observed} native={native} />}
 <ScientificRecipePanel runtime={runtime} native={native} edited={edited} onArtifacts={() => setSection('Artifacts')} /></>}
-          {section === 'Boolean' && (runtime.id === 'cgal-win-conda' ? <ScientificBooleanPanel runtime={runtime} native={native} edited={edited} onArtifacts={() => setSection('Artifacts')} onHistory={() => setSection('History')} onPrepare={() => setSection('Integration')} /> : <p>Select CGAL / Windows Native to run Boolean operations.</p>)}
+          {section === 'Boolean' && (runtime.id === 'cgal-win-conda' ? <ScientificBooleanPanel runtime={runtime} native={native} edited={edited} onArtifacts={() => setSection('Artifacts')} onHistory={() => setSection('History')} onPrepare={() => setSection('Integration')} onCompare={(original, rerun) => { setHistoryComparison([original, rerun]); native.send('', 'history'); setSection('History') }} /> : <p>Select CGAL / Windows Native to run Boolean operations.</p>)}
           {section === 'Tests' && <><ScientificCapabilityCoverage runtime={runtime} native={native} edited={edited} observed={observed} />
 <ScientificAdditionalCoverage runtime={runtime} />{runtime.id === 'cgal-win-conda' ? <ScientificTestMatrix runtime={runtime} native={native} edited={edited} math3dRepositoryPath={math3dRepo?.path ?? null} /> : <><h3>Capability acceptance tests</h3><ul className="scientific-runtime-checks">{runtime.healthChecks.map(check => <li key={check.id}><span>{check.name}{check.capability && <code>{check.capability}</code>}</span><small>Planned / not run</small></li>)}</ul><p>Tests must emit machine-readable results, logs, resolved versions, and geometry artifact references. No imported code runs by selecting a test.</p></>}</>}
           {section === 'Benchmarks' && <><h3>Reproducible benchmarks</h3><p>No benchmark runs. The runner will record input size, runtime/tool versions, hardware metadata, duration, and output validity before timings can be compared.</p><button disabled title="Benchmark recipes follow the managed runner">Run benchmark</button></>}
           {section === 'Packages' && <><h3>Package provenance</h3>{observed ? <div className="scientific-runtime-package-scroll"><table><thead><tr><th>Package</th><th>Version</th><th>Build</th><th>Source</th></tr></thead><tbody>{observed.packages.map((item, index) => <tr key={`${item.name}:${index}`}><td>{item.name}</td><td>{item.version}</td><td>{item.build}</td><td>{item.source}</td></tr>)}</tbody></table></div> : <p>No package inventory loaded.</p>}<p>Explicit install-missing workflow: <code>tools/Install-ScientificRuntimes.ps1 -WorkspaceRoot &lt;workspace&gt; -CondaExecutable &lt;conda.exe&gt; -PublishToLauncher</code></p><p className="scientific-runtime-note">Creates separate devshell-cgal/devshell-vtk environments. Existing MATH3D environments and system PATH are unchanged; environments with all required packages are not upgraded.</p></>}
           {section === 'Artifacts' && <><ScientificArtifacts runtime={runtime} native={native} /><button disabled={!math3dProject || !math3dRepo} onClick={() => { if (math3dProject && math3dRepo) window.dispatchEvent(new CustomEvent('devshell.workspace.open', { detail: { kind: 'files', projectId: math3dProject.id, repositoryId: math3dRepo.id } })) }}>Open MATH3D files</button></>}
-          {section === 'History' && <ScientificHistory native={native} />}
+          {section === 'History' && <ScientificHistory native={native} comparisonSeed={historyComparison} />}
           {section === 'Integration' && <><ScientificMath3DIntegration runtime={runtime} native={native} edited={edited} onHistory={() => setSection('History')} /><ScientificMath3DManagedJob native={native} onHistory={() => setSection('History')} /><h3>MATH3D execution contract</h3><p>This is a request-schema preview, not a submitted job. Worker transport must consume structured requests/results, not parse terminal presentation.</p><pre>{JSON.stringify(contract, null, 2)}</pre><button onClick={copyProfile}>Copy profile definition</button><p>Outputs include exit state, duration, resolved versions, validated capabilities, diagnostics, log references, and scoped artifact references.</p></>}
           {(section === 'Health' || section === 'Environment') && <>
 <ScientificReadiness profileId={profileId ?? ""} runtimeId={runtime.id} observed={observed} native={native} />
@@ -157,7 +162,7 @@ export function ScientificRuntimesWorkspace({ profileId, projects, bridge }: { p
           {section === 'Environment' && observed && <details><summary>Installed tools / SDK evidence</summary><pre>{JSON.stringify({ environmentRoot: observed.environmentRoot, executable: observed.executable, compiler: report?.compiler, sdk: observed.sdk, tools: observed.tools }, null, 2)}</pre></details>}
           {copyStatus && <p role="status">{copyStatus}</p>}
         </div>
-        <footer className="scientific-runtime-capabilities"><strong>Declared capabilities / evidence-specific, not blanket readiness</strong><div>{runtime.capabilities.map(capability => { const recorded = observed?.validatedCapabilities.includes(capability) || native.jobs[runtime.id]?.result?.validatedCapabilities.includes(capability); return <code key={capability}>{capability} / {recorded ? 'recorded pass' : 'not validated'}</code> })}</div></footer>
+        <footer className="scientific-runtime-capabilities"><strong>Declared capabilities / evidence-specific, not blanket readiness</strong><div>{runtime.capabilities.map(capability => { const recorded = observed?.validatedCapabilities?.includes(capability) || native.jobs[runtime.id]?.result?.validatedCapabilities?.includes(capability); return <code key={capability}>{capability} / {recorded ? 'recorded pass' : 'not validated'}</code> })}</div></footer>
       </section>
     </div>
   </main>

@@ -20,6 +20,13 @@ foreach($relative in $files){
     Copy-Item -LiteralPath $source -Destination $target -Force
     $entries += [ordered]@{id=$local;name=$item.Name;category=$category;path=$local;bytes=$item.Length;sha256=(Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant();sourcePath=$relative;sourceRoot=$Math3DPath;expectedProblem=($category -eq 'problematic'-or $item.Name -eq 'truncated-ascii.ply')}
 }
+$existingManifest=Join-Path $Destination 'manifest.json'
+if (Test-Path -LiteralPath $existingManifest) {
+    if ((Get-Item -LiteralPath $existingManifest).Length -gt 1048576) { throw 'Dataset registry exceeds 1 MiB.' }
+    $existing=Get-Content -LiteralPath $existingManifest -Raw | ConvertFrom-Json
+    $replacedIds=@($entries | ForEach-Object { $_.id })
+    $entries += @($existing.entries | Where-Object { $_.id -notin $replacedIds })
+}
 $provenance=Join-Path $Destination 'provenance'
 [IO.Directory]::CreateDirectory($provenance)|Out-Null
 foreach($relative in @('LICENSE','tests/assets/meshes/README.md','tests/assets/meshes/manifest.json','tests/assets/meshes/registry.json')){

@@ -192,6 +192,8 @@ public partial class Form1
             if(action=="status")data=_scientificJobs.Values.Where(job=>job.ProfileId==profileId).Select(ScientificJobSnapshot).ToArray();
             else if(action=="history")data=ScientificHistoryList(profileId);
             else if(action=="history-result")data=ScientificHistoryResult(profileId,request.GetProperty("jobId").GetString()??"");
+            else if(action=="history-boolean-draft")data=ScientificBooleanDraft(profileId,request.GetProperty("jobId").GetString()??"");
+            else if(action=="import-meshes")data=ScientificMeshImportStart(profileId,runtimeId);
             else if(action=="test-matrix")data=ScientificMatrixCases();
             else if(action=="history-thumbnail")data=ScientificHistoryThumbnail(profileId,request);
             else if(action=="history-image-preview")data=ScientificHistoryImagePreview(profileId,request);
@@ -201,8 +203,7 @@ public partial class Form1
             else if(action=="math3d-readiness")data=ScientificMath3DReadiness(profileId);
             else if(action=="datasets")
             {
-                var manifest=Path.Combine(ScientificDataRoot,"datasets","manifest.json");if(!File.Exists(manifest)||new FileInfo(manifest).Length>1048576)throw new InvalidOperationException("Run Import-Math3DScientificDatasets.ps1 first.");
-                using var document=JsonDocument.Parse(File.ReadAllText(manifest));data=document.RootElement.Clone();
+                data=ScientificMeshImports.ReadManifest(ScientificDataRoot);
             }
             else if(action is "open-log" or "open-output" or "stop" or "artifacts")
             {

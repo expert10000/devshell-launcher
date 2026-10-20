@@ -29,7 +29,7 @@ function HistoryThumbnail({ entry, native, onPreview }: { entry: ScientificHisto
   </button>
 }
 
-export function ScientificHistory({ native }: { native: ReturnType<typeof useScientificRuntime> }) {
+export function ScientificHistory({ native, comparisonSeed = [] }: { native: ReturnType<typeof useScientificRuntime>; comparisonSeed?: string[] }) {
   const entries = native.history
   const [runtimeFilter, setRuntimeFilter] = useState('')
   const [stateFilter, setStateFilter] = useState('')
@@ -49,6 +49,15 @@ export function ScientificHistory({ native }: { native: ReturnType<typeof useSci
   const [comparisonIds, setComparisonIds] = useState<string[]>([])
   const [paths, setPaths] = useState<Record<string, string>>({})
   const [camera, setCamera] = useState<Camera>(initialCamera)
+  const seededComparison = useRef('')
+  const seedKey = comparisonSeed.join('|')
+  useEffect(() => {
+    if (!seedKey || seededComparison.current === seedKey || native.pending || !native.history) return
+    seededComparison.current = seedKey
+    const ids = comparisonSeed.slice(0, 2)
+    setComparisonIds(ids); setComparisonOpen(true)
+    ids.forEach(jobId => native.send('cgal-win-conda', 'history-result', { jobId }))
+  }, [seedKey, native.history, native.pending])
   const meshArtifacts = (items: { path: string; role?: string }[] = []) => items.filter(item => item.role !== 'operand' && /\.(obj|stl|ply|vtp|m3dm)$/i.test(item.path))
   const toggleComparison = (entry: ScientificHistoryEntry) => {
     setComparisonOpen(true)
@@ -63,8 +72,8 @@ export function ScientificHistory({ native }: { native: ReturnType<typeof useSci
     native.send(runtimeId, 'history-preview', { jobId, artifactPath: path })
   }
   const comparison = comparisonIds.map(jobId => {
-    const entry = entries?.find(item => item.jobId === jobId)
     const saved = native.historyResults[jobId]
+    const entry = entries?.find(item => item.jobId === jobId) ?? (saved ? { runtimeId: saved.runtimeId, recipeId: saved.recipeId } : undefined)
     const artifacts = meshArtifacts(saved?.artifacts)
     const path = artifacts.some(item => item.path === paths[jobId]) ? paths[jobId] : artifacts[0]?.path ?? ''
     return { jobId, entry, saved, artifacts, path, preview: native.historyPreviews[`${jobId}|${path}`] }
@@ -96,7 +105,7 @@ export function ScientificHistory({ native }: { native: ReturnType<typeof useSci
         native.send(entry.runtimeId, 'history-result', { jobId: entry.jobId })
         native.send(entry.runtimeId, 'history-image-preview', { jobId: entry.jobId, artifactPath: entry.thumbnailPath })
       }} /></td><td>{new Date(entry.finishedAtUtc).toLocaleString()}</td><td>{entry.runtimeId}<br /><strong>{entry.recipeId}</strong></td><td>{entry.state}</td><td>{(entry.durationMs / 1000).toFixed(1)} s</td><td>{entry.artifactCount}</td>
-      <td><div className="scientific-history-actions"><button aria-pressed={selectedJobId === entry.jobId} onClick={() => { setSelectedJobId(entry.jobId); native.send(entry.runtimeId, 'history-result', { jobId: entry.jobId }) }}>{selectedJobId === entry.jobId ? 'Viewing' : 'Result'}</button><button onClick={() => native.send(entry.runtimeId, 'history-open-log', { jobId: entry.jobId })}>Log</button><button onClick={() => native.send(entry.runtimeId, 'history-open-output', { jobId: entry.jobId })}>Folder</button><button disabled={entry.state !== 'succeeded' || !(entry.meshArtifactCount ?? entry.artifactCount)} aria-pressed={comparisonIds.includes(entry.jobId)} onClick={() => toggleComparison(entry)}>{comparisonIds.includes(entry.jobId) ? 'Selected' : 'Compare'}</button></div></td>
+      <td><div className="scientific-history-actions"><button aria-pressed={selectedJobId === entry.jobId} onClick={() => { setSelectedJobId(entry.jobId); native.send(entry.runtimeId, 'history-result', { jobId: entry.jobId }) }}>{selectedJobId === entry.jobId ? 'Viewing' : 'Result'}</button>{entry.recipeId === 'cgal.boolean' && <button disabled={native.pending || native.busy} onClick={() => native.send(entry.runtimeId, 'history-boolean-draft', { jobId: entry.jobId })}>Rerun...</button>}<button onClick={() => native.send(entry.runtimeId, 'history-open-log', { jobId: entry.jobId })}>Log</button><button onClick={() => native.send(entry.runtimeId, 'history-open-output', { jobId: entry.jobId })}>Folder</button><button disabled={entry.state !== 'succeeded' || !(entry.meshArtifactCount ?? entry.artifactCount)} aria-pressed={comparisonIds.includes(entry.jobId)} onClick={() => toggleComparison(entry)}>{comparisonIds.includes(entry.jobId) ? 'Selected' : 'Compare'}</button></div></td>
     </tr>)}</tbody></table></div> : <p role="status">No runs match these filters. Clear filters to show all runs.</p>}
     </> : <p>No completed runs found for this profile.</p>)}
     {selectedVisible && !result && <div className="scientific-history-result" role="status">Loading result <code>{selectedJobId}</code>...</div>}
@@ -110,6 +119,9 @@ export function ScientificHistory({ native }: { native: ReturnType<typeof useSci
           <tr><td>Triangles</td><td>{item.before.faces} / {item.after?.faces ?? 'none'}</td><td>Topology checked separately</td></tr>
         </tbody></table> : <p>No geometry output recorded.</p>}</div>)}</details>
       </section>}
+      {result.recipeId === 'cgal.boolean' && <button disabled={native.pending || native.busy} onClick={() => native.send(result.runtimeId, 'history-boolean-draft', { jobId: result.runId })}>Rerun with these settings...</button>}
+      {result.rerunOf && <p>Rerun of <code>{result.rerunOf}</code>. The original result remains in History.</p>}
+      {result.imports && <section aria-label="Saved mesh import results"><h5>Imported meshes</h5><ul>{result.imports.map((item, index) => <li key={index}>{item.name} / {item.state} / {item.triangles ?? 'unknown'} triangles<p>{item.message}</p></li>)}</ul></section>}
       {result.boolean && <p><strong>{result.boolean.operation.toUpperCase()}</strong> / {result.boolean.empty ? 'Empty result' : `Volume ${result.after?.volume ?? 'unavailable'}`} / Mesh B scale {result.boolean.scaleB}, offset [{result.boolean.translateB.join(', ')}]. Retained input snapshots reopen the same operands used for this run.</p>}
       <h5>Artifacts</h5>{result.artifacts?.length ? <ul className="scientific-history-artifacts">{result.artifacts.map(artifact => <li key={artifact.path}>
         <code>{artifact.path}</code>{artifact.bytes !== undefined && <small>{artifact.bytes.toLocaleString()} bytes</small>}

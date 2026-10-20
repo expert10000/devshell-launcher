@@ -4,7 +4,8 @@ import type { ScientificRunRequest, ScientificRunResult } from './scientificRunt
 
 export type ScientificBridge = { postMessage: (message: unknown) => void; addEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void; removeEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void }
 export interface ScientificJob { jobId: string; profileId: string; runtimeId: string; recipeId: string; state: string; stage?: string; startedAtUtc?: string; durationMs: number; log: string; error?: string; outputDirectory: string; request?: ScientificRunRequest; result?: ScientificRunResult }
-export interface ScientificDataset { id: string; name: string; category: string; path: string; bytes: number; sha256: string; sourcePath: string; sourceRoot: string; expectedProblem: boolean }
+export interface BooleanDraft { draftId: string; sourceJobId: string; parameters: { inputAId: string; inputBId: string; operation: string; outputName: string; scaleB: number; translateB: number[] } }
+export interface ScientificDataset { id: string; name: string; category: string; path: string; bytes: number; sha256: string; sourcePath: string; sourceRoot: string; expectedProblem: boolean; validation?: { state: string; closed?: boolean; triangles?: number; message?: string; profileId?: string } }
 export interface ScientificEnvironment { environment: Record<string, string>; vcpkgRoot: string | null; installedVcpkg: string | null; vcpkgUsed: boolean; report: ScientificRuntimeReport; evidence?: { compilerVersion?: string | null; compilerSource?: string; rendering?: ScientificRunResult['rendering'] } }
 export interface ScientificMeshPreview { name: string; positions: number[]; bounds: number[]; points: number; triangles: number; previewTriangles: number; sampled: boolean; note: string }
 export interface ScientificArtifactPreview { jobId: string; artifactPath: string; geometry: { before: ScientificMeshPreview | null; beforeSecond?: ScientificMeshPreview | null; after: ScientificMeshPreview }; result: ScientificRunResult }
@@ -26,6 +27,7 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
   const [historyImages, setHistoryImages] = useState<Record<string, ScientificHistoryImagePreview>>({})
   const [historyThumbnails, setHistoryThumbnails] = useState<Record<string, ScientificHistoryThumbnail>>({})
   const [testMatrix, setTestMatrix] = useState<ScientificMatrixCase[] | null>(null)
+  const [booleanDraft, setBooleanDraft] = useState<BooleanDraft | null>(null)
   const [math3dReadiness, setMath3dReadiness] = useState<Math3DReadiness | null>(null)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
@@ -49,12 +51,12 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
     const thumbnailKey = background ? `${extra.jobId}|${extra.artifactPath}` : undefined
     if (!background) { setError(''); setNotice(''); setPending(true) }
     else if (thumbnailKey) setHistoryThumbnails(previous => ({ ...previous, [thumbnailKey]: { jobId: String(extra.jobId), artifactPath: String(extra.artifactPath) } }))
-    const timer = setTimeout(() => { requests.current.delete(requestId); setPending([...requests.current.values()].some(item => item.action !== 'history-thumbnail')); if (thumbnailKey) setHistoryThumbnails(previous => ({ ...previous, [thumbnailKey]: { jobId: String(extra.jobId), artifactPath: String(extra.artifactPath), error: 'Thumbnail timed out.' } })); else setError(`${action} response timed out. Inspect job status before retrying a run.`) }, action === 'export' ? 600000 : 30000)
+    const timer = setTimeout(() => { requests.current.delete(requestId); setPending([...requests.current.values()].some(item => item.action !== 'history-thumbnail')); if (thumbnailKey) setHistoryThumbnails(previous => ({ ...previous, [thumbnailKey]: { jobId: String(extra.jobId), artifactPath: String(extra.artifactPath), error: 'Thumbnail timed out.' } })); else setError(`${action} response timed out. Inspect job status before retrying a run.`) }, action === 'export' ? 600000 : action === 'import-meshes' ? 300000 : 30000)
     requests.current.set(requestId, { action, thumbnailKey, timer })
     bridge.postMessage({ type: 'scientific.runtime', profileId, runtimeId, requestId, action, ...extra })
   }
   useEffect(() => {
-    setJobs({}); setEnvironments({}); setPreviews({}); setDatasets(null); setHistory(null); setHistoryResult(null); setHistoryResults({}); setHistoryPreviews({}); setHistoryImages({}); setHistoryThumbnails({}); setTestMatrix(null); setMath3dReadiness(null); setError(''); setNotice(''); setPending(false); completed.current.clear()
+    setJobs({}); setEnvironments({}); setPreviews({}); setDatasets(null); setHistory(null); setHistoryResult(null); setHistoryResults({}); setHistoryPreviews({}); setHistoryImages({}); setHistoryThumbnails({}); setTestMatrix(null); setMath3dReadiness(null); setBooleanDraft(null); setError(''); setNotice(''); setPending(false); completed.current.clear()
     if (!bridge || !profileId) return
     const receive = (event: MessageEvent) => {
       let message: { type?: string; profileId?: string; runtimeId?: string; requestId?: string; action?: string; error?: string; job?: ScientificJob; data?: unknown }
@@ -74,6 +76,8 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
       if (message.error) { setError(message.error); return }
       if (message.action === 'status' && Array.isArray(message.data)) message.data.forEach(item => mergeJob(item as ScientificJob))
       else if (message.action === 'history' && Array.isArray(message.data)) { setHistory(message.data as ScientificHistoryEntry[]); setHistoryResult(null); setHistoryResults({}); setHistoryPreviews({}); setHistoryImages({}); setHistoryThumbnails({}) }
+      else if (message.action === 'history-boolean-draft' && message.data) setBooleanDraft({ ...message.data as Omit<BooleanDraft, 'draftId'>, draftId: message.requestId })
+      else if (message.action === 'import-meshes' && message.data) { const imported = message.data as ScientificJob & { cancelled?: boolean }; if (imported.cancelled) setNotice('Mesh import cancelled.'); else mergeJob(imported) }
       else if (message.action === 'history-result' && message.data) { const result = message.data as ScientificRunResult; setHistoryResult(result); setHistoryResults(previous => ({ ...previous, [result.runId]: result })) }
       else if (message.action === 'history-image-preview' && message.data) { const preview = message.data as ScientificHistoryImagePreview; setHistoryImages(previous => ({ ...previous, [`${preview.jobId}|${preview.artifactPath}`]: preview })) }
       else if (message.action === 'history-preview' && message.data) { const preview = message.data as ScientificArtifactPreview; setHistoryPreviews(previous => ({ ...previous, [`${preview.jobId}|${preview.artifactPath}`]: preview })) }
@@ -93,5 +97,5 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
     // Callback refs keep completed diagnostics from restarting subscriptions.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bridge, profileId])
-  return { profileId, jobs, environments, previews, datasets, history, historyResult, historyResults, historyPreviews, historyImages, historyThumbnails, testMatrix, math3dReadiness, pending, error, notice, send, busy: Object.values(jobs).some(job => job.state === 'running') }
+  return { profileId, jobs, environments, previews, datasets, history, historyResult, historyResults, historyPreviews, historyImages, historyThumbnails, testMatrix, math3dReadiness, booleanDraft, pending, error, notice, send, busy: Object.values(jobs).some(job => job.state === 'running') }
 }

@@ -38,7 +38,7 @@ public partial class Form1
         };
     }
     private static void ScientificWriteRequest(ScientificJob job, JsonElement? parameters, JsonObject? input = null, string? output = null,
-        JsonArray? additionalInputs = null, JsonArray? additionalOutputs = null, int timeoutSeconds = 120)
+        JsonArray? additionalInputs = null, JsonArray? additionalOutputs = null, int timeoutSeconds = 120, string? rerunOf = null)
     {
         var inputs = input == null ? new JsonArray() : new JsonArray(input.DeepClone());
         var outputs = output == null ? new JsonArray() : new JsonArray(new JsonObject { ["path"] = output, ["mediaType"] = ScientificMediaType(output) });
@@ -56,6 +56,7 @@ public partial class Form1
             ["outputArtifacts"] = outputs,
             ["provenance"] = new JsonObject { ["inputPolicy"] = "Registered local copies; SHA-256 checked before execution", ["transport"] = "JSON request / argv-owned adapter; no shell" }
         };
+        if (rerunOf != null) request["rerunOf"] = rerunOf;
         var json = request.ToJsonString(ScientificJson);
         job.Request = JsonSerializer.SerializeToElement(request, ScientificJson);
         File.WriteAllText(Path.Combine(job.Directory, "request.json"), json, new UTF8Encoding(false));
@@ -95,6 +96,7 @@ public partial class Form1
             result["testCaseId"] = testCaseId.GetString();
         result["state"] = job.State; result["exitCode"] = job.State is "cancelled" or "timed-out" ? null : job.State == "succeeded" ? 0 : job.ExitCode is > 0 ? job.ExitCode : 1;
         result["durationMs"] = job.DurationMs; result["workerDurationMs"] = workerDuration;
+        if (job.Request is { } savedRequest && savedRequest.TryGetProperty("rerunOf", out var parentRun)) result["rerunOf"] = parentRun.GetString();
         result["stage"] = job.Stage; result["logReference"] = "full.log";
         result["before"] = ScientificStatistics(result["before"]); result["after"] = ScientificStatistics(result["after"]);
         var versions = result["versions"] as JsonObject ?? new JsonObject();

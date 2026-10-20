@@ -76,6 +76,8 @@ export interface ScientificRunResult {
   after?: Record<string, number | boolean>
   scope?: string
   provenance?: Record<string, unknown>
+  rerunOf?: string
+  imports?: { name: string; id?: string; state: string; bytes?: number; sha256?: string; closed?: boolean; triangles?: number; message?: string }[]
   boolean?: { operation: string; scaleB: number; translateB: number[]; empty: boolean; outputArtifact: string; operands: { role: string; datasetId: string; sha256: string; statistics: { vertices: number; faces: number; volume: number; components: number } }[] }
   rendering?: { state?: string; backend?: string; version?: string; capabilities?: string }
   matrixSummary?: { suiteId: string; total: number; passed: number; cases: { caseId: string; runId: string; expected: string; observed: string; verdict: string; durationMs: number }[] }

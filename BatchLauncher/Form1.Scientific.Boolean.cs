@@ -16,6 +16,14 @@ public partial class Form1
         if (!File.Exists(script) || !File.Exists(Math3DWorker)) throw new InvalidOperationException("Prepare the MATH3D native worker under Integration > Prepare & Run first.");
         var inputA = ScientificDatasetArtifact(parameters.InputAId);
         var inputB = ScientificDatasetArtifact(parameters.InputBId);
+        var rerunOf = request.TryGetProperty("rerunOf", out var replay) ? replay.GetString() : null;
+        if (rerunOf != null)
+        {
+            var (saved, _) = ScientificBooleanSavedRequest(profileId, rerunOf);
+            foreach (var original in saved.GetProperty("inputArtifacts").EnumerateArray())
+                foreach (var current in new[] { inputA, inputB }.Where(item => item["datasetId"]?.GetValue<string>() == original.GetProperty("datasetId").GetString()))
+                    ScientificBooleanReplay.VerifyInput(original, current);
+        }
         foreach (var input in new[] { inputA, inputB })
             if (!new[] { ".obj", ".stl", ".ply", ".off" }.Contains(Path.GetExtension(input["path"]!.GetValue<string>()).ToLowerInvariant()))
                 throw new InvalidOperationException("Boolean inputs must be registered OBJ/STL/PLY/OFF mesh copies.");
@@ -30,7 +38,7 @@ public partial class Form1
             var outputs = new JsonArray(new JsonObject { ["path"] = Path.ChangeExtension(parameters.OutputName, ".obj"), ["mediaType"] = "model/obj", ["role"] = "result" },
                 new JsonObject { ["path"] = "operand-a.m3dm", ["mediaType"] = "application/octet-stream", ["role"] = "operand" },
                 new JsonObject { ["path"] = "operand-b.m3dm", ["mediaType"] = "application/octet-stream", ["role"] = "operand" });
-            ScientificWriteRequest(job, JsonSerializer.SerializeToElement(parameters, ScientificJson), inputA, parameters.OutputName, new JsonArray(inputB), outputs);
+            ScientificWriteRequest(job, JsonSerializer.SerializeToElement(parameters, ScientificJson), inputA, parameters.OutputName, new JsonArray(inputB), outputs, rerunOf: rerunOf);
             _scientificJobs[profileId + ":" + runtimeId] = job;
             ScientificSend(new { type = "scientific.runtime.job", job = ScientificJobSnapshot(job) });
             _ = ScientificBooleanRunAsync(job, prefix, node, script, parameters);

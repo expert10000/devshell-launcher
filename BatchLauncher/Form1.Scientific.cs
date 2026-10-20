@@ -93,7 +93,7 @@ public partial class Form1
         }
         ScientificSend(new{type="scientific.runtime.job",job=ScientificJobSnapshot(job)});
     }
-    private async Task ScientificProcessAsync(ScientificJob job,string prefix,string executable,string[] arguments,string directory,int timeoutSeconds)
+    private async Task ScientificProcessAsync(ScientificJob job,string prefix,string executable,string[] arguments,string directory,int timeoutSeconds,string? extraPath=null)
     {
         job.Cancellation.Token.ThrowIfCancellationRequested();
         job.Stage=arguments.Contains("--build")?"build":arguments.Contains("-S")?"configure":executable.EndsWith("python.exe",StringComparison.OrdinalIgnoreCase)?"worker":"run";
@@ -101,6 +101,7 @@ public partial class Form1
         var start=new ProcessStartInfo(executable){WorkingDirectory=directory,UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true,StandardOutputEncoding=Encoding.UTF8,StandardErrorEncoding=Encoding.UTF8};
         foreach(var argument in arguments)start.ArgumentList.Add(argument);
         foreach(var pair in ScientificEnvironment(prefix))start.Environment[pair.Key]=pair.Value;
+        if(extraPath!=null)start.Environment["PATH"]=extraPath+Path.PathSeparator+start.Environment["PATH"];
         start.Environment.Remove("PYTHONPATH");
         ScientificLog(job,"$ "+executable+" "+string.Join(" ",arguments.Select(argument=>JsonSerializer.Serialize(argument)))+"\n");
         using var process=new Process{StartInfo=start};using var owner=new OwnedProcessJob();
@@ -246,6 +247,7 @@ public partial class Form1
                 }
                 else if(action=="cgal-recipe")data=ScientificCgalStart(profileId,runtimeId,request);
                 else if(action=="run-matrix")data=ScientificMatrixStart(profileId,runtimeId);
+                else if(action=="real-mesh-suite")data=ScientificRealMeshStart(profileId,runtimeId,request);
                 else if(action=="math3d-integration")data=ScientificMath3DIntegrationStart(profileId,runtimeId);
                 else throw new InvalidOperationException("Unknown Scientific action.");
             }

@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react'
 import type { RuntimeProfile } from './scientificRuntimeProfiles'
 import type { useScientificRuntime } from './useScientificRuntime'
+import { ScientificRealMeshSuite } from './ScientificRealMeshSuite'
 
-export function ScientificTestMatrix({ runtime, native, edited }: {
-  runtime: RuntimeProfile; native: ReturnType<typeof useScientificRuntime>; edited: boolean
+export function ScientificTestMatrix({ runtime, native, edited, math3dRepositoryPath }: {
+  runtime: RuntimeProfile; native: ReturnType<typeof useScientificRuntime>; edited: boolean; math3dRepositoryPath?: string | null
 }) {
   const requested = useRef(new Set<string>())
   const loadedHistory = useRef(native.history)
@@ -24,6 +25,7 @@ export function ScientificTestMatrix({ runtime, native, edited }: {
   const load = () => { native.send(runtime.id, 'test-matrix'); native.send('', 'datasets'); native.send('', 'history') }
   const summary = native.jobs[runtime.id]?.result?.matrixSummary
   return <section aria-label="CGAL test matrix">
+    <ScientificRealMeshSuite runtimeId={runtime.id} native={native} available={available} repositoryPath={math3dRepositoryPath ?? null} />
     <h3>CGAL validation test matrix</h3>
     <p className="scientific-runtime-note">Manifest-declared expectations for duplicated local fixtures. Saved outcomes are recorded evidence, not live health checks. Loading the matrix never runs a recipe.</p>
     <button disabled={native.pending} onClick={load}>{native.history && native.datasets ? 'Refresh saved evidence' : 'Load local copies and saved evidence'}</button>

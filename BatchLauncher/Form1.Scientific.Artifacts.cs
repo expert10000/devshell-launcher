@@ -38,7 +38,7 @@ public partial class Form1
         };
     }
     private static void ScientificWriteRequest(ScientificJob job, JsonElement? parameters, JsonObject? input = null, string? output = null,
-        JsonArray? additionalInputs = null, JsonArray? additionalOutputs = null)
+        JsonArray? additionalInputs = null, JsonArray? additionalOutputs = null, int timeoutSeconds = 120)
     {
         var inputs = input == null ? new JsonArray() : new JsonArray(input.DeepClone());
         var outputs = output == null ? new JsonArray() : new JsonArray(new JsonObject { ["path"] = output, ["mediaType"] = ScientificMediaType(output) });
@@ -52,7 +52,7 @@ public partial class Form1
             ["runtimeId"] = job.RuntimeId, ["recipeId"] = job.RecipeId, ["operation"] = job.RecipeId,
             ["parameters"] = parameters is { ValueKind: JsonValueKind.Object } value ? JsonNode.Parse(value.GetRawText()) : new JsonObject(),
             ["workingDirectory"] = job.Directory, ["datasetRoot"] = Path.Combine(ScientificDataRoot, "datasets"),
-            ["timeoutSeconds"] = 120, ["inputArtifacts"] = inputs,
+            ["timeoutSeconds"] = timeoutSeconds, ["inputArtifacts"] = inputs,
             ["outputArtifacts"] = outputs,
             ["provenance"] = new JsonObject { ["inputPolicy"] = "Registered local copies; SHA-256 checked before execution", ["transport"] = "JSON request / argv-owned adapter; no shell" }
         };
@@ -105,7 +105,7 @@ public partial class Form1
             result["provenance"] = job.Request is { } invocation ? JsonNode.Parse(invocation.GetRawText())?["provenance"]?.DeepClone() ?? new JsonObject() : new JsonObject();
         result["steps"] = JsonSerializer.SerializeToNode(job.Steps, ScientificJson);
         var artifacts = new JsonArray();
-        if (job.State == "succeeded" && job.Request is { } definition)
+        if ((job.State == "succeeded" || job.RecipeId == "matrix.cgal.real-mesh") && job.Request is { } definition)
         {
             foreach (var artifact in definition.GetProperty("outputArtifacts").EnumerateArray())
             {

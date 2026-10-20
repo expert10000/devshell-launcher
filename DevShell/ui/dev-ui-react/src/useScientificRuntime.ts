@@ -80,7 +80,7 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
       else if (message.action === 'environment' && message.data && message.runtimeId) setEnvironments(previous => ({ ...previous, [message.runtimeId!]: message.data as ScientificEnvironment }))
       else if (message.action === 'datasets' && message.data) setDatasets(message.data as { importedAt: string; note: string; entries: ScientificDataset[] })
       else if (message.action === 'test-matrix' && Array.isArray(message.data)) setTestMatrix(message.data as ScientificMatrixCase[])
-      else if (message.action === 'run-matrix' && message.data) mergeJob(message.data as ScientificJob)
+      else if ((message.action === 'run-matrix' || message.action === 'real-mesh-suite') && message.data) mergeJob(message.data as ScientificJob)
       else if (message.action === 'export') { const result = message.data as { path?: string; cancelled?: boolean }; setNotice(result.cancelled ? 'Profile export cancelled.' : `Profile exported: ${result.path ?? ''}`) }
       else if (message.action === 'terminal') setNotice('External scientific PowerShell opened; not a VS developer shell.')
     }

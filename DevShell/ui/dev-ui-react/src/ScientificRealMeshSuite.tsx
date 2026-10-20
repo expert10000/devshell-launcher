@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { useScientificRuntime } from './useScientificRuntime'
 
 type OperationEvidence = { operation: string; status: string; durationMs: number; metrics: { volume: number; triangles: number; bounds: number[] }; artifact?: string; artifactSha256?: string }
@@ -9,6 +9,7 @@ export function ScientificRealMeshSuite({ runtimeId, native, available, reposito
   runtimeId: string; native: ReturnType<typeof useScientificRuntime>; available: boolean; repositoryPath: string | null
 }) {
   const requested = useRef<string | null>(null)
+  const [startRequested, setStartRequested] = useState(false)
   const saved = native.history?.find(item => item.runtimeId === runtimeId && item.recipeId === 'matrix.cgal.real-mesh')
   useEffect(() => { native.send('', 'history') }, [runtimeId])
   useEffect(() => {
@@ -24,9 +25,11 @@ export function ScientificRealMeshSuite({ runtimeId, native, available, reposito
   return <section aria-label="Real-mesh CGAL qualification" style={{ border: '1px solid #327e91', borderRadius: 8, padding: 12, marginBottom: 18 }}>
     <h3>Real-mesh qualification / opt-in</h3>
     <p>One click runs native CGAL union, intersection, and difference on copied Armadillo and 3DBenchy meshes. Nothing runs when this page opens.</p>
-    <button disabled={!available || !repositoryPath || native.busy || native.pending} onClick={() => native.send(runtimeId, 'real-mesh-suite', { repositoryPath })}>Run Armadillo + 3DBenchy suite</button>{' '}
+    <p>Math3D source: <code>{repositoryPath?.includes('${') ? 'configured project variable (resolved by DevShell)' : repositoryPath ?? 'not configured'}</code></p>
+    <button disabled={!available || !repositoryPath || native.busy || native.pending} onClick={() => { setStartRequested(true); native.send(runtimeId, 'real-mesh-suite', { repositoryPath }) }}>Run Armadillo + 3DBenchy suite</button>{' '}
     <button disabled={native.pending} onClick={() => native.send('', 'history')}>Refresh saved evidence</button>
     {!repositoryPath && <p role="alert">Configure the Math3D repository path to enable this suite.</p>}
+    {startRequested && !live && native.error && <p role="alert">Could not start the real-mesh suite: {native.error}</p>}
     {live?.state === 'running' && <p role="status">Running: {live.stage}. Use Stop in the managed-jobs bar to cancel.</p>}
     {suite ? <>
       <p><strong>{suite.passed}/{suite.total} cases passed</strong> / {result?.state ?? live?.state ?? 'recorded'} / recorded CGAL {suite.worker.recordedCgalVersion} / worker {suite.worker.version} / SHA-256 <code>{suite.worker.sha256.slice(0, 16)}</code></p>

@@ -12,13 +12,26 @@ public partial class Form1
             throw new InvalidOperationException("The real-mesh suite requires Windows Native CGAL.");
         var cgalPrefix = ScientificPrefix(runtimeId);
         var vtkPrefix = ScientificPrefix("vtk-win-conda");
-        var repository = Path.GetFullPath(request.GetProperty("repositoryPath").GetString() ?? "");
-        if (!string.Equals(Path.GetFileName(repository.TrimEnd(Path.DirectorySeparatorChar)), "Math3D", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Select the configured Math3D repository.");
+        var configured = (_workspace.Projects ?? new()).SelectMany(project =>
+            (project.Repositories ?? new())
+                .Where(repo => string.Equals(repo.Id, "math3d", StringComparison.OrdinalIgnoreCase))
+                .Select(repo => new { Project = project, Repository = repo }))
+            .FirstOrDefault();
+        if (configured == null)
+            throw new InvalidOperationException("Configure a local Math3D repository before running the real-mesh suite.");
+        var configuredPath = ExpandProjectValue(configured.Project, configured.Repository.Path ?? "");
+        if (string.IsNullOrWhiteSpace(configuredPath) || configuredPath.Contains("${", StringComparison.Ordinal))
+            throw new InvalidOperationException("The configured Math3D repository path contains an unresolved project variable.");
+        var candidate = Path.GetFullPath(configuredPath);
+        const string scriptRelativePath = "scripts/qualify-cgal-native-real-mesh.py";
+        var repository = File.Exists(Path.Combine(candidate, scriptRelativePath))
+            ? candidate : Path.GetFullPath(Path.Combine(candidate, "Math3D"));
         var script = Path.Combine(repository, "scripts", "qualify-cgal-native-real-mesh.py");
         var worker = Path.Combine(ScientificDataRoot, "builds", "math3d-native-worker", "Release", "math3d-cgal-worker.exe");
-        if (!File.Exists(script) || !File.Exists(worker))
-            throw new FileNotFoundException("Build the MATH3D native worker and update the local Math3D repository first.");
+        if (!File.Exists(script))
+            throw new FileNotFoundException($"The configured Math3D location '{candidate}' has no real-mesh qualification script. Select the Math3D repository or its parent folder.");
+        if (!File.Exists(worker))
+            throw new FileNotFoundException("Build the MATH3D native worker before running the real-mesh suite.");
         var sources = new[] { "11_armadillo.obj", "10_3dbenchy.stl" };
         foreach (var source in sources)
         {

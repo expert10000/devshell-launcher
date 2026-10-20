@@ -80,6 +80,7 @@ public static class PortableWorkspace
             foreach (var pair in project.Vars ?? new()) variables[pair.Key] = pair.Value;
             if (project.Vars != null) foreach (var key in project.Vars.Keys.ToList()) project.Vars[key] = Expand(project.Vars[key], variables);
         }
+        WorkspaceStore.DiscoverProjectRepositories(workspace);
         return workspace;
     }
     public static string ValidateRoot(string root)

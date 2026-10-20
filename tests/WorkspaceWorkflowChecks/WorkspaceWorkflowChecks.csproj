@@ -8,5 +8,9 @@
     <Compile Include="../../BatchLauncher/WorkspaceFiles.cs" Link="WorkspaceFiles.cs" />
     <Compile Include="../../BatchLauncher/WorkspaceNavigationStore.cs" Link="WorkspaceNavigationStore.cs" />
     <Compile Include="../../BatchLauncher/WorkspaceLayoutStore.cs" Link="WorkspaceLayoutStore.cs" />
+    <Compile Include="../../BatchLauncher/WorkspaceStore.cs" Link="WorkspaceStore.cs" />
+    <Compile Include="../../BatchLauncher/PortableWorkspace.cs" Link="PortableWorkspace.cs" />
+    <Compile Include="../../BatchLauncher/DashboardInspector.cs" Link="DashboardInspector.cs" />
+    <Compile Include="../../BatchLauncher/AppPaths.cs" Link="AppPaths.cs" />
   </ItemGroup>
 </Project>

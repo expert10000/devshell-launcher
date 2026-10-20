@@ -3146,7 +3146,8 @@ const App = () => {
   const updateAll = () => {
     if (!activeWorkspaceProfileId) return
     setJobErrors((current) => ({ ...current, [`${activeWorkspaceProfileId}:update-all`]: '' }))
-    const total = projects.reduce((count, project) => count + (project.repositories?.length ?? 0), 0)
+    const total = new Set(projects.flatMap((project) => (project.repositories ?? [])
+      .map((repo) => repo.path.replace(/[\\/]+$/, '').toLowerCase()))).size
     setUpdateBatches((current) => [...current.filter((batch) => batch.profileId !== activeWorkspaceProfileId), { profileId: activeWorkspaceProfileId, state: 'starting', completed: 0, total, results: [] }])
     postMessage({ type: 'repository.job', action: 'update-all' })
   }

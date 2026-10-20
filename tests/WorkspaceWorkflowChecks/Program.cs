@@ -8,6 +8,20 @@ File.WriteAllText(Path.Combine(root, "secret.env"), "PRIVATE=never-preview");
 var workspace = new WorkspaceConfig { Projects = new() { new() { Id = "p", Name = "Project", Repositories = new() { new() { Id = "r", Name = "Repo", Path = root } } } } };
 void Check(string label, bool condition) { if (!condition) throw new Exception(label); Console.WriteLine("PASS: " + label); }
 void Reject(string label, Action action) { try { action(); } catch (ArgumentException) { Check(label, true); return; } throw new Exception(label); }
+var checkout = Path.Combine(root, "checkout");
+var nestedWorkspace = Path.Combine(checkout, "JupyterWorkspace");
+Directory.CreateDirectory(Path.Combine(checkout, ".git"));
+Directory.CreateDirectory(nestedWorkspace);
+var portableProfile = Path.Combine(root, "portable-profile.json");
+File.WriteAllText(portableProfile, JsonSerializer.Serialize(new WorkspaceConfig
+{
+    Globals = new WorkspaceGlobals { AutoDetectTools = true, WorkspaceRoot = root },
+    Projects = new() { new WorkspaceProject { Id = "jupyter", Name = "Jupyter Studio", Root = "${workspaceRoot}\\checkout\\JupyterWorkspace" } }
+}));
+var loadedPortable = WorkspaceStore.LoadWorkspace(portableProfile);
+Check("portable project discovery waits for workspace root resolution", loadedPortable.Projects![0].Repositories == null);
+var resolvedPortable = PortableWorkspace.Resolve(loadedPortable, root, new Dictionary<string, string>());
+Check("nested portable workspace discovers its containing repository", resolvedPortable.Projects![0].Repositories is { Count: 1 } repos && repos[0].Path == checkout);
 WorkspaceFileReference Reference(string path) => new("p", "r", path, "text");
 var navigation = new WorkspaceNavigationState(); WorkspaceNavigationStore.Remember(navigation, Reference("source.cs")); WorkspaceNavigationStore.Remember(navigation, Reference("result.csv")); WorkspaceNavigationStore.Remember(navigation, Reference("source.cs"));
 Check("recents are deduplicated and most-recent first", navigation.Recent.Count == 2 && navigation.Recent[0].Path == "source.cs");

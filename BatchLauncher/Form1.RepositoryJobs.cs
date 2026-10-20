@@ -101,8 +101,12 @@ public partial class Form1
                 {
                     if (_repositoryRunner.Snapshot().Any(job => (job.Action is "setup" or "prepare-launch") && job.State is "queued" or "building" or "running")) throw new InvalidOperationException("Finish or stop Setup before Update All.");
                     var profileId = _activeWorkspaceProfileId;
+                    var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                     var items = (_workspace.Projects ?? new()).SelectMany(project => (project.Repositories ?? new()).Select(repo =>
-                        new RepositoryUpdateItem($"{profileId}:{project.Id}:{repo.Id}", repo.Name, () => CreateGitCommand(project, repo, "sync")))).ToList();
+                        new { Project = project, Repo = repo, Path = ExpandProjectValue(project, repo.Path).TrimEnd('\\', '/') }))
+                        .Where(item => seenPaths.Add(item.Path))
+                        .Select(item => new RepositoryUpdateItem($"{profileId}:{item.Project.Id}:{item.Repo.Id}", item.Repo.Name,
+                            () => CreateGitCommand(item.Project, item.Repo, "sync"))).ToList();
                     // Resolve commands on the UI thread, since shell profiles belong to the form.
                     var commands = new Dictionary<string, RepositoryCommand>();
                     var errors = new Dictionary<string, Exception>();

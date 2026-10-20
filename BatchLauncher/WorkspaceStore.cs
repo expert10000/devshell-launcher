@@ -43,7 +43,7 @@ internal static class WorkspaceStore
             foreach (var repo in (workspace.Projects ?? new()).SelectMany(project => project.Repositories ?? new()))
                 if (repo.RunLabel == "Open PDF" && repo.PdfPath == null) repo.PdfPath = "build/main.pdf";
             ConfigureMathPdfActions(workspace);
-            DiscoverProjectRepositories(workspace);
+            if (workspace.Globals?.AutoDetectTools != true) DiscoverProjectRepositories(workspace);
             return true;
         }
         catch (Exception ex)
@@ -78,12 +78,12 @@ internal static class WorkspaceStore
         }
     }
 
-    private static void DiscoverProjectRepositories(WorkspaceConfig workspace)
+    internal static void DiscoverProjectRepositories(WorkspaceConfig workspace)
     {
         foreach (var project in workspace.Projects ?? new())
         {
             if (project.Repositories?.Count > 0 || string.IsNullOrWhiteSpace(project.Root)) continue;
-            var root = project.Root;
+            var root = project.Root.Replace("${workspaceRoot}", workspace.Globals?.WorkspaceRoot ?? "", StringComparison.OrdinalIgnoreCase);
             var variables = new Dictionary<string, string>(workspace.Globals?.Vars ?? new());
             foreach (var pair in project.Vars ?? new()) variables[pair.Key] = pair.Value;
             foreach (var pair in variables) root = root.Replace("${vars." + pair.Key + "}", pair.Value);

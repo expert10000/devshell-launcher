@@ -146,6 +146,13 @@ async Task<RepositoryJobStatus> Run(string key, EnvironmentSetupPlan setup)
 var job = await Run("success", plan);
 Check(job.State == "succeeded" && job.CompletedSteps == plan.Steps.Count && File.Exists(Path.Combine(environment, "Scripts", "python.exe"))
     && File.ReadAllText(job.LogPath).Contains("[setup] SUCCEEDED"), "Setup execution/progress/logs failed: " + job.Log);
+var windowsPowerShell = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+var shellPlan = new EnvironmentSetupPlan(root, tools, new() { new("Install PowerShell 7", "tool", root, "pwsh", Target: "tool:pwsh") }, new());
+Check(runner.Start("shell-setup", null, EnvironmentSetup.Command(windowsPowerShell, helper, shellPlan, root), root, "setup", stepCount: 1),
+    "PowerShell 7 setup could not launch through Windows PowerShell");
+job = await runner.Completion("shell-setup").WaitAsync(TimeSpan.FromSeconds(30));
+Check(job.State == "succeeded" && job.CompletedSteps == 1, "Windows PowerShell could not run the PowerShell 7 setup plan: " + job.Log);
+Console.WriteLine("PASS: missing PowerShell 7 setup can use Windows PowerShell");
 job = await Run("reuse", plan); Check(job.State == "succeeded", "Existing environment cannot be reused: " + job.Log);
 // One repair must not reinstall unrelated Node/.NET dependencies or be blocked by an unrelated manual tool.
 File.WriteAllText(Path.Combine(fixture, "package.json"), "{\"engines\":{\"node\":\">=999.0.0\"},\"packageManager\":\"npm@99.0.0\",\"dependencies\":{\"missing-package\":\"^2.0.0\"}}");

@@ -471,6 +471,13 @@ const App = () => {
   const [healthOpen, setHealthOpen] = useState(false)
   const [dashboardLoading, setDashboardLoading] = useState(false)
   const [serviceStatuses, setServiceStatuses] = useState<Record<string, { state: string; message: string }>>({})
+  const [serviceLogs, setServiceLogs] = useState<Record<string, string>>({})
+  const [openServiceLogKey, setOpenServiceLogKey] = useState<string | null>(null)
+  const [inspectorView, setInspectorView] = useState<'tasks' | 'services'>('tasks')
+  const [sidebarTaskQuery, setSidebarTaskQuery] = useState('')
+  const [collapsedSidebarGroups, setCollapsedSidebarGroups] = useState<Record<string, boolean>>({})
+  const [missingShellProfileId, setMissingShellProfileId] = useState<string | null>(null)
+  const profileAvailabilityRef = useRef<TerminalProfile[]>([])
   const [projectTaskMenuOpen, setProjectTaskMenuOpen] = useState(true)
   const [runAllSessions, setRunAllSessions] = useState(false)
   const [recentProjectIds, setRecentProjectIds] = useState<string[]>([])
@@ -496,6 +503,7 @@ const App = () => {
   const hostResizeRafs = useRef<Map<string, number>>(new Map())
 
   const bridge = useMemo(getBridge, [])
+  useEffect(() => { setSidebarTaskQuery('') }, [activeWorkspaceProfileId, activeProjectId])
   const workspaceViews = useWorkspaceTabs(activeWorkspaceProfileId, bridge, (tab) => {
     setScientificView(false)
     setRepositoriesView(false)
@@ -552,6 +560,20 @@ const App = () => {
 
   const getProfileById = (profileId?: string | null) =>
     profiles.find((profile) => profile.id === profileId) ?? null
+
+  const blockUnavailableShell = (profileId: string) => {
+    const knownProfiles = profileAvailabilityRef.current.length ? profileAvailabilityRef.current : profiles
+    if (knownProfiles.length === 0) return false
+    const profile = knownProfiles.find((item) => item.id === profileId)
+    if (profile && profile.isAvailable !== false) return false
+    setMissingShellProfileId(profileId)
+    return true
+  }
+
+  useEffect(() => {
+    if (missingShellProfileId && profiles.some(profile => profile.id === missingShellProfileId && profile.isAvailable !== false))
+      setMissingShellProfileId(null)
+  }, [missingShellProfileId, profiles])
 
   const ensureFolderState = (pane: SessionInfo | null) => {
     if (!pane) {
@@ -861,7 +883,8 @@ const App = () => {
   const groupTasksByGroup = (tasks: ResolvedTask[]) => {
     const grouped = new Map<string, ResolvedTask[]>()
     tasks.forEach((task) => {
-      const group = task.group || 'Other'
+      const group = (task.group && task.group !== 'Other' ? task.group : null) ||
+        task.name.match(/^([^–-]{2,32})\s+-\s+/)?.[1]?.trim() || 'Other'
       const existing = grouped.get(group)
       if (existing) {
         existing.push(task)
@@ -1046,6 +1069,7 @@ const App = () => {
     const resolvedProfileId = profiles.some((profile) => profile.id === targetProfileId)
       ? targetProfileId
       : selectedProfileId
+    if (blockUnavailableShell(resolvedProfileId)) return
     const shellMismatch =
       Boolean(activePane?.profileId) && task.shell
         ? task.shell.toLowerCase() !== activePane?.profileId.toLowerCase()
@@ -1433,6 +1457,7 @@ const App = () => {
   ) => {
     const paneId = crypto.randomUUID()
     const profile = profiles.find((item) => item.id === profileId)
+    const shouldStart = autoStart && !blockUnavailableShell(profileId)
     const defaultProjectRoot = activeProjectId
       ? projects.find((project) => project.id === activeProjectId)?.root
       : undefined
@@ -1441,9 +1466,9 @@ const App = () => {
       id: paneId,
       title,
       profileId,
-      status: autoStart ? 'starting' : 'disconnected',
+      status: autoStart ? shouldStart ? 'starting' : 'missing shell' : 'disconnected',
       sessionId: null,
-      pendingStart: autoStart,
+      pendingStart: shouldStart,
       cwd: overrides?.cwd ?? defaultProjectRoot ?? profile?.workingDirectory,
       cols: overrides?.cols,
       rows: overrides?.rows,
@@ -1452,7 +1477,7 @@ const App = () => {
       startOrder: overrides?.startOrder,
     }
 
-    if (autoStart) {
+    if (shouldStart) {
       startSessionForPane(paneId, profileId, pane)
     }
 
@@ -1520,6 +1545,11 @@ const App = () => {
     profileId: string,
     overrides?: Partial<SessionInfo>
   ) => {
+    if (blockUnavailableShell(profileId)) {
+      setTabs(current => current.map(tab => ({ ...tab, groups: tab.groups.map(group => ({ ...group,
+        tabs: group.tabs.map(pane => pane.id === paneId ? { ...pane, status: 'missing shell', pendingStart: false } : pane) })) })))
+      return
+    }
     pendingStart.current.set(paneId, paneId)
     postMessage({
       type: 'start',
@@ -2082,7 +2112,9 @@ const App = () => {
           const incomingWorkspace = message.workspace
           const incomingState = message.statePayload
           const incomingEnvironment = message.environment ?? {}
-          setProfiles(normalizeProfileList(incomingProfiles))
+          const normalizedProfiles = normalizeProfileList(incomingProfiles)
+          profileAvailabilityRef.current = normalizedProfiles
+          setProfiles(normalizedProfiles)
           setEnvironment(incomingEnvironment)
           if (incomingWorkspace) {
             setWorkspace(incomingWorkspace)
@@ -2138,7 +2170,9 @@ const App = () => {
         }
         case 'profiles.list': {
           const incomingProfiles = message.profiles ?? []
-          setProfiles(normalizeProfileList(incomingProfiles))
+          const normalizedProfiles = normalizeProfileList(incomingProfiles)
+          profileAvailabilityRef.current = normalizedProfiles
+          setProfiles(normalizedProfiles)
           break
         }
         case 'tasks.list': {
@@ -2333,6 +2367,13 @@ const App = () => {
             message.clientId ?? (message.sessionId ? sessionToPane.current.get(message.sessionId) : null)
           if (!paneId) {
             return
+          }
+          if (message.message?.startsWith('Command not found for profile')) {
+            const missingId = findPaneById(paneId)?.profileId ?? selectedProfileId
+            profileAvailabilityRef.current = profileAvailabilityRef.current.map(profile =>
+              profile.id === missingId ? { ...profile, isAvailable: false } : profile)
+            setProfiles(profileAvailabilityRef.current)
+            setMissingShellProfileId(missingId)
           }
           writePaneOutput(paneId, `\r\n[error] ${message.message ?? 'unknown error'}\r\n`)
           setTabs((current) =>
@@ -3042,6 +3083,7 @@ const App = () => {
       window.alert('Task is missing a command.')
       return
     }
+    if (task.profileId && blockUnavailableShell(task.profileId)) return
 
     if (runAllSessions) {
       const targetPanes = tabs
@@ -3077,6 +3119,7 @@ const App = () => {
       return
     }
     const profileId = task.profileId ?? selectedProfileId
+    if (blockUnavailableShell(profileId)) return
     const taskId = task.id ?? task.name
     createTab(profileId, true, {
       title: task.name,
@@ -3193,8 +3236,13 @@ const App = () => {
     if (!bridge || !activeWorkspaceProfileId) return
     const receive = (event: MessageEvent) => {
       const message = parseMessage(event)
-      if (message?.type !== 'service.status' || !message.projectId || message.profileId !== activeWorkspaceProfileId) return
+      if (!message?.projectId || message.profileId !== activeWorkspaceProfileId) return
       const key = `${message.profileId}:${message.projectId}`
+      if (message.type === 'service.log.result') {
+        setServiceLogs(current => ({ ...current, [key]: message.data ?? '' }))
+        return
+      }
+      if (message.type !== 'service.status') return
       setServiceStatuses((current) => ({ ...current, [key]: {
         state: message.state ?? 'error', message: message.message ?? '',
       } }))
@@ -3228,6 +3276,7 @@ const App = () => {
       window.alert('Task is missing steps.')
       return
     }
+    if (task.shell && blockUnavailableShell(task.shell)) return
 
     if (runAllSessions) {
       const targetPanes = tabs
@@ -3992,14 +4041,26 @@ const App = () => {
   const panelTaskCount = isWorkspaceV2
     ? panelWorkspaceTasks.length
     : panelLegacyTasks.length
+  const sidebarTaskQueryLower = sidebarTaskQuery.trim().toLowerCase()
+  const panelFilteredWorkspaceTasks = sidebarTaskQueryLower
+    ? panelWorkspaceTasks.filter(task => `${task.name} ${task.group} ${task.steps.map(step => step.run).join(' ')}`.toLowerCase().includes(sidebarTaskQueryLower))
+    : panelWorkspaceTasks
+  const panelFilteredLegacyTasks = sidebarTaskQueryLower
+    ? panelLegacyTasks.filter(task => `${task.name} ${task.command ?? ''} ${task.path ?? ''}`.toLowerCase().includes(sidebarTaskQueryLower))
+    : panelLegacyTasks
   const panelGroupedTasks = isWorkspaceV2
-    ? groupTasksByGroup(panelWorkspaceTasks)
+    ? groupTasksByGroup(panelFilteredWorkspaceTasks)
     : []
-  const panelQuickTasks = isWorkspaceV2 && panelProject
-    ? (panelProject.quickTasks ?? [])
-        .map((taskName) => findResolvedTask(buildTaskKey(panelProject.id, taskName)))
-        .filter((task): task is ResolvedTask => Boolean(task))
-    : []
+  const configuredServices = projects.filter(project => project.service)
+  const browserServices = projects.flatMap(project => (project.repositories ?? [])
+    .filter(repo => repo.browserUrl && (repo.browserBuildTask ?? repo.buildTask) && (repo.browserRunTask ?? repo.runTask))
+    .map(repo => ({ project, repo })))
+  const runningServiceCount = configuredServices.filter(project =>
+    serviceStatuses[`${activeWorkspaceProfileId}:${project.id}`]?.state === 'running').length +
+    browserServices.filter(({ project, repo }) => {
+      const job = repositoryJobs.find(item => item.key === `${activeWorkspaceProfileId}:${project.id}:${repo.id}`)
+      return job?.state === 'running' && job.browserState === 'ready'
+    }).length
   const profileQueryLower = profileQuery.trim().toLowerCase()
   const filteredProfiles = profiles.filter((profile) =>
     profileQueryLower ? profile.name.toLowerCase().includes(profileQueryLower) : true
@@ -4248,6 +4309,11 @@ const App = () => {
       </div>
     )
   }
+
+  const missingShellProfile = profiles.find(profile => profile.id === missingShellProfileId)
+  const shellSetupKey = `${activeWorkspaceProfileId}:shell:pwsh`
+  const shellSetupJob = repositoryJobs.find(job => job.key === shellSetupKey)
+  const shellSetupBusy = shellSetupJob && ['queued', 'building', 'running'].includes(shellSetupJob.state)
 
   return (
     <div className={`shell-app theme-${theme}`}>
@@ -4788,6 +4854,20 @@ const App = () => {
         })}
       </main>}
       <main className="terminal-pane" style={{ display: repositoriesView ? 'none' : undefined }}>
+        {missingShellProfileId && <section className="shell-dependency-alert" role="alert" aria-label="Missing terminal shell">
+          <div><strong>{missingShellProfile?.name ?? missingShellProfileId} is unavailable.</strong>
+            <span> DevShell cannot start a task with {missingShellProfile?.command ?? 'this shell'}.</span>
+            {shellSetupJob && <span> Setup: {shellSetupJob.state}{shellSetupJob.completedSteps != null && shellSetupJob.totalSteps ? ` · ${shellSetupJob.completedSteps}/${shellSetupJob.totalSteps}` : ''}.</span>}
+            {jobErrors[shellSetupKey] && <span> {jobErrors[shellSetupKey]}</span>}
+          </div>
+          <div className="shell-dependency-actions">
+            {missingShellProfileId === 'pwsh' && missingShellProfile && <button disabled={!!shellSetupBusy} onClick={() => { setJobErrors(current => ({ ...current, [shellSetupKey]: '' })); postMessage({ type: 'shell.setup', profileId: 'pwsh', action: 'install' }) }}>Install PowerShell 7</button>}
+            {shellSetupBusy && <button onClick={() => postMessage({ type: 'repository.job', projectId: 'shell', repositoryId: 'pwsh', action: 'stop' })}>Stop setup</button>}
+            {shellSetupJob && <button onClick={() => postMessage({ type: 'repository.job', projectId: 'shell', repositoryId: 'pwsh', action: 'log' })}>Open setup log</button>}
+            <button onClick={() => { postMessage({ type: 'profiles.request' }); postMessage({ type: 'workspace.tools.refresh' }) }}>Recheck shells</button>
+            <button onClick={() => setMissingShellProfileId(null)}>Dismiss</button>
+          </div>
+        </section>}
         {panelProject && <RepositoryStrip key={`${activeWorkspaceProfileId}:${panelProject.id}`} project={panelProject} profileId={activeWorkspaceProfileId}
           activeFilesRepoId={workspaceViews.tabs.find(tab => tab.id === workspaceViews.activeId && tab.kind === 'files' && tab.projectId === panelProject.id)?.repositoryId}
           onSelectFilesRepo={repoId => { const existing = workspaceViews.tabs.find(tab => tab.kind === 'files' && tab.projectId === panelProject.id && tab.repositoryId === repoId); if (existing) workspaceViews.select(existing.id); else workspaceViews.open({ kind: 'files', projectId: panelProject.id, repositoryId: repoId }) }}
@@ -5046,62 +5126,78 @@ const App = () => {
         <div className="sidebar-resizer right" onMouseDown={rightResize} />
         <aside className="task-sidebar">
           <div className="task-sidebar-header">
-            <div className="task-sidebar-title">Tasks</div>
-            <div className="task-sidebar-subtitle">
-              {panelProject ? `${panelProject.name} • ${panelTaskCount}` : 'Select a project'}
+            <div className="inspector-tabs" role="tablist" aria-label="Project inspector">
+              <button role="tab" aria-selected={inspectorView === 'tasks'} className={inspectorView === 'tasks' ? 'active' : ''} onClick={() => setInspectorView('tasks')}>Tasks</button>
+              <button role="tab" aria-selected={inspectorView === 'services'} className={inspectorView === 'services' ? 'active' : ''} onClick={() => setInspectorView('services')}>Services <span className="inspector-count">{runningServiceCount}</span></button>
             </div>
+            {inspectorView === 'tasks' ? <>
+              <div className="task-sidebar-subtitle">{panelProject ? `${panelProject.name} • ${panelTaskCount} tasks` : 'Select a project'}</div>
+              {panelProject && <input type="search" className="task-sidebar-search" aria-label="Search project tasks" placeholder="Search tasks…" value={sidebarTaskQuery} onChange={event => setSidebarTaskQuery(event.target.value)} />}
+            </> : <div className="task-sidebar-subtitle">{runningServiceCount} running · {configuredServices.length + browserServices.length} configured</div>}
           </div>
-          {panelProject?.service && (() => {
-            const service = panelProject.service
-            const status = serviceStatuses[`${activeWorkspaceProfileId}:${panelProject.id}`]
-            const state = status?.state ?? 'checking'
-            const busy = state === 'busy' || state === 'checking'
-            return (
-              <section className="service-card" aria-label={`${service.name} service controls`}>
+          {inspectorView === 'services' ? <div className="services-list" aria-label="Project services">
+            {configuredServices.map(project => {
+              const service = project.service!
+              const key = `${activeWorkspaceProfileId}:${project.id}`
+              const status = serviceStatuses[key]
+              const state = status?.state ?? 'checking'
+              const busy = state === 'busy' || state === 'checking'
+              return <section className="service-card" key={key} aria-label={`${service.name} service controls`}>
+                <div className="service-project">{project.name}</div>
                 <div className="service-heading"><strong>{service.name}</strong><span className={`service-state ${state}`}>{state}</span></div>
                 <div className="service-detail">Port {service.port}</div>
                 <div className="service-detail" role="status">{status?.message ?? 'Checking server…'}</div>
                 <div className="service-actions">
-                  <button className="task-run" disabled={busy || state === 'blocked'} onClick={() => controlService(panelProject.id, 'start')}>{state === 'running' ? 'Open' : 'Start'}</button>
-                  <button className="task-run" disabled={busy || state !== 'running'} onClick={() => controlService(panelProject.id, 'stop')}>Stop</button>
-                  <button className="task-run" disabled={busy || state === 'blocked'} onClick={() => controlService(panelProject.id, 'restart')}>Restart</button>
-                  <button className="task-run" disabled={busy} onClick={() => controlService(panelProject.id, 'status')}>Refresh</button>
-                  <button className="task-run" disabled={busy || state === 'blocked'} onClick={() => controlService(panelProject.id, 'open', undefined, 'external')}>Open externally</button>
+                  <button disabled={busy || state === 'blocked'} onClick={() => controlService(project.id, state === 'running' ? 'open' : 'start')}>{state === 'running' ? 'Open' : 'Start'}</button>
+                  <button disabled={busy || state !== 'running'} onClick={() => controlService(project.id, 'stop')}>Stop</button>
+                  <button disabled={busy || state === 'blocked'} onClick={() => controlService(project.id, 'restart')}>Restart</button>
+                  <button onClick={() => { if (openServiceLogKey === key) setOpenServiceLogKey(null); else { setOpenServiceLogKey(key); postMessage({ type: 'service.log', projectId: project.id }) } }}>Logs</button>
+                  <button disabled={busy} onClick={() => controlService(project.id, 'status')}>Refresh</button>
+                </div>
+                {openServiceLogKey === key && <div className="service-log-panel"><button onClick={() => postMessage({ type: 'service.log', projectId: project.id })}>Refresh logs</button><pre>{serviceLogs[key] ?? 'Loading log…'}</pre></div>}
+              </section>
+            })}
+            {browserServices.map(({ project, repo }) => {
+              const key = `${activeWorkspaceProfileId}:${project.id}:${repo.id}`
+              const job = repositoryJobs.find(item => item.key === key)
+              const active = !!job && ['queued', 'building', 'running'].includes(job.state)
+              const ready = job?.state === 'running' && job.browserState === 'ready'
+              const state = ready ? 'running' : active ? job!.state : job?.state ?? 'idle'
+              const url = job?.browserUrl ?? repo.browserUrl!
+              let port = ''
+              try { port = new URL(url).port } catch { /* URL may contain an unresolved profile variable. */ }
+              return <section className="service-card" key={key} aria-label={`${repo.name} service controls`}>
+                <div className="service-project">{project.name}</div>
+                <div className="service-heading"><strong>{repo.name}</strong><span className={`service-state ${state}`}>{state}</span></div>
+                <div className="service-detail">{port ? `Port ${port}` : 'Managed web app'}{job?.browserState && job.browserState !== 'not-requested' ? ` · ${job.browserState}` : ''}</div>
+                {jobErrors[key] && <div className="service-detail check-error" role="alert">{jobErrors[key]}</div>}
+                <div className="service-actions">
+                  <button disabled={active} onClick={() => repositoryAction(project.id, repo.id, 'launch')}>Start</button>
+                  <button disabled={!ready} onClick={() => postMessage({ type: 'browser.open', url, projectId: project.id, repositoryId: repo.id })}>Open</button>
+                  <button disabled={!active} onClick={() => repositoryAction(project.id, repo.id, 'stop')}>Stop</button>
+                  <button disabled={!ready} onClick={() => { setJobErrors(current => ({ ...current, [key]: '' })); postMessage({ type: 'repository.service.restart', projectId: project.id, repositoryId: repo.id }) }}>Restart</button>
+                  <button onClick={() => repositoryAction(project.id, repo.id, 'log')}>Logs</button>
                 </div>
               </section>
-            )
-          })()}
-          {panelProject && panelQuickTasks.length > 0 && (
-            <div className="task-sidebar-quick">
-              <div className="task-panel-section-title">Quick</div>
-              <div className="task-sidebar-quick-list">
-                {panelQuickTasks.map((task) => (
-                  <button
-                    key={task.key}
-                    className="task-chip"
-                    title={getWorkspaceTaskSubtitle(task)}
-                    onClick={() => handleWorkspaceTaskSelect(task)}
-                  >
-                    {task.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          <div className="task-sidebar-list">
+            })}
+            {configuredServices.length + browserServices.length === 0 && <div className="task-sidebar-empty">No services are configured in this profile.</div>}
+          </div> : <div className="task-sidebar-list">
             {!panelProject && (
               <div className="task-sidebar-empty">Select a project to see tasks.</div>
             )}
             {panelProject && panelTaskCount === 0 && (
               <div className="task-sidebar-empty">No tasks for this project.</div>
             )}
+            {panelProject && panelTaskCount > 0 && sidebarTaskQueryLower && panelFilteredWorkspaceTasks.length + panelFilteredLegacyTasks.length === 0 && <div className="task-sidebar-empty">No tasks match “{sidebarTaskQuery}”.</div>}
             {panelProject &&
               panelTaskCount > 0 &&
               (isWorkspaceV2 ? (
-                panelGroupedTasks.map((group) => (
-                  <div key={group.group} className="task-panel-section">
-                    <div className="task-panel-section-title">{group.group}</div>
-                    {group.tasks.map((task) => (
+                panelGroupedTasks.map((group) => {
+                  const groupKey = `${activeWorkspaceProfileId}:${panelProject.id}:${group.group}`
+                  const collapsed = !sidebarTaskQueryLower && (collapsedSidebarGroups[groupKey] ?? panelTaskCount > 8)
+                  return <div key={group.group} className="task-panel-section">
+                    <button className="task-panel-section-toggle" aria-expanded={!collapsed} disabled={!!sidebarTaskQueryLower} title={sidebarTaskQueryLower ? 'Clear search to collapse groups' : undefined} onClick={() => setCollapsedSidebarGroups(current => ({ ...current, [groupKey]: !(current[groupKey] ?? panelTaskCount > 8) }))}>{collapsed ? '▸' : '▾'} {group.group} <span>{group.tasks.length}</span></button>
+                    {!collapsed && group.tasks.map((task) => (
                       <div key={task.key} className="task-panel-row">
                         <div className="row-main">
                           <div className="row-title">{task.name}</div>
@@ -5126,9 +5222,9 @@ const App = () => {
                       </div>
                     ))}
                   </div>
-                ))
+                })
               ) : (
-                panelLegacyTasks.map((task) => (
+                panelFilteredLegacyTasks.map((task) => (
                   <div key={task.id ?? task.name} className="task-panel-row">
                     <div className="row-main">
                       <div className="row-title">{task.name}</div>
@@ -5151,7 +5247,7 @@ const App = () => {
                   </div>
                 ))
               ))}
-          </div>
+          </div>}
         </aside>
       </div>
 

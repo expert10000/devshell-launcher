@@ -159,6 +159,8 @@ Acceptance: common workspace operations stay discoverable and portable without m
 
 ## Immediate next slice
 
+Delivered 2026-10-27: the inspector now has a profile-wide Services view for configured Jupyter and managed web services, with status, port, Open, Logs, Restart, and Stop. Jupyter logs are bounded and redact authentication tokens. The Tasks view replaces Quick pills with search and collapsible groups, using task-name prefixes when no group is configured. The Windows build and live Playwright checks passed Jupyter lifecycle and task filtering; a separate live Math3D check passed service Start, Open, Logs, Restart, and Stop. The real missing-PowerShell installation check still awaits a clean Windows VM.
+
 Scientific-runtime laboratory: see [SCIENTIFIC_RUNTIMES_ROADMAP.md](SCIENTIFIC_RUNTIMES_ROADMAP.md). Start with the dedicated Scientific Runtimes workspace, then implement validated runtime profiles and explicit environment probes. CGAL and VTK environment definitions must remain separate from proof of installation or capability readiness.
 
 Delivered workspace additions through 2026-10-09:

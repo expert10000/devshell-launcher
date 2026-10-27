@@ -95,7 +95,8 @@ internal static class Program
             var manifest = JsonSerializer.Deserialize<RuntimeManifest>(File.ReadAllText(file), Json)
                 ?? throw new InvalidDataException($"Invalid manifest: {file}");
             if (manifest.SchemaVersion != 1 || string.IsNullOrWhiteSpace(manifest.Id)
-                || manifest.Probes.Count == 0 || manifest.Execution != "windows-native")
+                || manifest.Probes.Count == 0 || manifest.Execution is not ("windows-native" or "wsl")
+                || (manifest.Execution == "wsl" && manifest.Kind != "sage"))
                 throw new InvalidDataException($"Unsupported manifest: {file}");
             if (manifest.Probes.Any(p => string.IsNullOrWhiteSpace(p.Id) || p.Arguments.Count == 0
                 || p.TimeoutSeconds is < 1 or > 120))
@@ -116,33 +117,45 @@ internal static class Program
     {
         Directory.CreateDirectory(output);
         var started = DateTimeOffset.UtcNow;
-        var executable = Path.Combine(prefix, "python.exe");
+        var executable = manifest.Execution == "wsl"
+            ? Path.Combine(Environment.SystemDirectory, "wsl.exe")
+            : Path.Combine(prefix, "python.exe");
         var probes = new List<ProbeResult>();
         var diagnostics = new List<string>();
         if (!File.Exists(executable))
-            diagnostics.Add($"Python executable missing from selected prefix: {executable}");
+            diagnostics.Add($"Registered probe executable missing: {executable}");
         else
         {
             foreach (var definition in manifest.Probes)
             {
                 cancellation.ThrowIfCancellationRequested();
                 Console.WriteLine($"[{manifest.Id}] {definition.Id}: starting");
-                var probe = await RunProbeAsync(definition, executable, prefix, cancellation);
+                var probe = await RunProbeAsync(definition, executable, prefix, manifest.Execution, cancellation);
                 probes.Add(probe);
                 Console.WriteLine($"[{manifest.Id}] {definition.Id}: {probe.Status}");
+                if (!string.IsNullOrWhiteSpace(probe.Stdout)) Console.WriteLine(probe.Stdout[..Math.Min(1024, probe.Stdout.Length)].Trim());
+                if (probe.Status != "passed" && !string.IsNullOrWhiteSpace(probe.Stderr))
+                    Console.Error.WriteLine(probe.Stderr[..Math.Min(1024, probe.Stderr.Length)].Trim());
                 if (probe.Status != "passed") diagnostics.Add($"{definition.Id}: {probe.Status}");
             }
         }
         var status = diagnostics.Count == 0 && probes.Count == manifest.Probes.Count ? "succeeded" : "failed";
+        var completed = DateTimeOffset.UtcNow;
+        var versions = probes.Where(p => p.Status == "passed" && p.Id.EndsWith(".version", StringComparison.Ordinal))
+            .ToDictionary(p => p.Id[..^8], p => p.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim() ?? "unknown");
         var result = new
         {
             schemaVersion = 1,
             runId,
             runtimeId = manifest.Id,
             recipeId = "lab.probe",
+            state = status,
             status,
+            exitCode = status == "succeeded" ? 0 : 1,
+            durationMs = (long)(completed - started).TotalMilliseconds,
+            versions,
             startedAtUtc = started,
-            completedAtUtc = DateTimeOffset.UtcNow,
+            completedAtUtc = completed,
             environmentSnapshot = new
             {
                 execution = manifest.Execution,
@@ -153,9 +166,11 @@ internal static class Program
             },
             probeResults = probes,
             validatedCapabilities = manifest.Probes.Where(p => p.Capability is not null
-                && probes.Any(r => r.Id == p.Id && r.Status == "passed"))
+                && !p.Id.EndsWith(".reject", StringComparison.Ordinal)
+                && probes.Any(r => r.Id == p.Id && r.Status == "passed")
+                && probes.Where(r => r.Id == p.Id + ".reject").All(r => r.Status == "passed"))
                 .Select(p => p.Capability).Distinct().ToArray(),
-            diagnostics,
+            diagnostics = diagnostics.Select(message => new { severity = "error", message }).ToArray(),
             artifacts = Array.Empty<object>()
         };
         var target = Path.Combine(output, "results.json");
@@ -243,7 +258,7 @@ internal static class Program
     }
 
     private static async Task<ProbeResult> RunProbeAsync(ProbeDefinition definition,
-        string executable, string prefix, CancellationToken cancellation)
+        string executable, string prefix, string execution, CancellationToken cancellation)
     {
         var start = DateTimeOffset.UtcNow;
         var watch = Stopwatch.StartNew();
@@ -253,17 +268,20 @@ internal static class Program
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             CreateNoWindow = true,
-            WorkingDirectory = prefix
+            WorkingDirectory = Directory.Exists(prefix) ? prefix : Environment.CurrentDirectory
         };
         foreach (var argument in definition.Arguments) info.ArgumentList.Add(argument);
-        info.Environment.Remove("PYTHONPATH");
-        info.Environment.Remove("PYTHONHOME");
-        info.Environment["PYTHONNOUSERSITE"] = "1";
-        info.Environment["CONDA_PREFIX"] = prefix;
-        info.Environment.TryGetValue("PATH", out var inheritedPath);
-        info.Environment["PATH"] = string.Join(Path.PathSeparator,
-            new[] { prefix, Path.Combine(prefix, "Scripts"), Path.Combine(prefix, "Library", "bin"),
-                inheritedPath ?? "" });
+        if (execution == "windows-native")
+        {
+            info.Environment.Remove("PYTHONPATH");
+            info.Environment.Remove("PYTHONHOME");
+            info.Environment["PYTHONNOUSERSITE"] = "1";
+            info.Environment["CONDA_PREFIX"] = prefix;
+            info.Environment.TryGetValue("PATH", out var inheritedPath);
+            info.Environment["PATH"] = string.Join(Path.PathSeparator,
+                new[] { prefix, Path.Combine(prefix, "Scripts"), Path.Combine(prefix, "Library", "bin"),
+                    inheritedPath ?? "" });
+        }
         try
         {
             using var process = new Process { StartInfo = info };

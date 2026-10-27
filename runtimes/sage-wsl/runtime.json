@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "id": "sage-wsl",
+  "kind": "sage",
+  "execution": "wsl",
+  "description": "Opt-in SageMath WSL version, exact symbolic calculation, and expected rejection.",
+  "probes": [
+    {
+      "id": "sage.version",
+      "readinessLevel": "L1",
+      "timeoutSeconds": 30,
+      "arguments": ["--exec", "sage", "-c", "print(version())"]
+    },
+    {
+      "id": "sage.symbolic",
+      "readinessLevel": "L3",
+      "capability": "math.symbolic",
+      "timeoutSeconds": 45,
+      "arguments": ["--exec", "sage", "-c", "from sage.all import *\nx = var('x')\nassert diff(x**3 + 2*x, x) == 3*x**2 + 2\nassert QQ(1)/QQ(3) + QQ(1)/QQ(6) == QQ(1)/QQ(2)\nprint('exact symbolic and rational checks passed')"]
+    },
+    {
+      "id": "sage.symbolic.reject",
+      "readinessLevel": "L3",
+      "timeoutSeconds": 45,
+      "arguments": ["--exec", "sage", "-c", "from sage.all import *\ntry:\n QQ(1)/QQ(0)\nexcept ZeroDivisionError as error:\n print('expected rejection:', type(error).__name__, str(error)[:200])\nelse:\n raise AssertionError('division by zero was accepted')"]
+    },
+    {
+      "id": "sage.factor",
+      "readinessLevel": "L3",
+      "capability": "math.symbolic",
+      "timeoutSeconds": 45,
+      "arguments": [
+        "--exec",
+        "sage",
+        "-python",
+        "-c",
+        "import json\nfrom sage.all import PolynomialRing, QQ, ZZ\nrequest = {'schemaVersion': 1, 'jobId': 'probe-factor', 'operation': 'symbolic.factor', 'parameters': {'coefficients': ['-1', '0', '1']}}\ncoefficients = request['parameters']['coefficients']\nassert len(coefficients) == 3 and all(value.lstrip('-').isdigit() for value in coefficients)\nring = PolynomialRing(QQ, 'x')\npolynomial = ring([ZZ(value) for value in coefficients])\nfactorization = polynomial.factor()\nreconstructed = ring(factorization.unit())\nfactors = []\nfor factor, multiplicity in factorization:\n reconstructed *= factor ** multiplicity\n factors.append({'coefficients': [str(value) for value in factor.list()], 'multiplicity': int(multiplicity)})\nassert reconstructed == polynomial and len(factors) == 2\nreply = {'schemaVersion': 1, 'jobId': request['jobId'], 'operation': request['operation'], 'status': 'succeeded', 'result': {'inputCoefficients': coefficients, 'unit': str(factorization.unit()), 'factors': factors, 'verified': True}}\nprint(json.dumps(reply, separators=(',', ':')))"
+      ]
+    },
+    {
+      "id": "sage.factor.reject",
+      "readinessLevel": "L3",
+      "timeoutSeconds": 45,
+      "arguments": [
+        "--exec",
+        "sage",
+        "-python",
+        "-c",
+        "from sage.all import ZZ\ncoefficients = ['1', 'not-an-integer']\ntry:\n [ZZ(value) for value in coefficients]\nexcept (TypeError, ValueError) as error:\n print('rejected invalid coefficient:', type(error).__name__)\nelse:\n raise AssertionError('invalid coefficient was accepted')"
+      ]
+    }
+  ]
+}

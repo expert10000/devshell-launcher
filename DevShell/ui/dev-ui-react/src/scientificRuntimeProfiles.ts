@@ -80,6 +80,7 @@ export interface ScientificRunResult {
   imports?: { name: string; id?: string; state: string; bytes?: number; sha256?: string; closed?: boolean; triangles?: number; message?: string }[]
   boolean?: { operation: string; scaleB: number; translateB: number[]; empty: boolean; outputArtifact: string; operands: { role: string; datasetId: string; sha256: string; statistics: { vertices: number; faces: number; volume: number; components: number } }[] }
   rendering?: { state?: string; backend?: string; version?: string; capabilities?: string }
+  probeResults?: { id: string; readinessLevel: string; status: string; exitCode: number | null; startedAtUtc: string; durationMs: number; stdout: string; stderr: string }[]
   matrixSummary?: { suiteId: string; total: number; passed: number; cases: { caseId: string; runId: string; expected: string; observed: string; verdict: string; durationMs: number }[] }
   rejectionSummary?: { suiteId: string; total: number; passed: number; cases: { caseId: string; recipeId: string; expected: string; observed: string; verdict: string; durationMs: number; diagnostic: string; inputSha256?: string; requestPath: string; resultPath?: string }[] }
 }

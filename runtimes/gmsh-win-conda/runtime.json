@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "gmsh-win-conda",
+  "kind": "gmsh",
+  "execution": "windows-native",
+  "description": "Opt-in Gmsh Python import, bounded surface meshing, and expected rejection.",
+  "probes": [
+    {
+      "id": "python.version",
+      "readinessLevel": "L1",
+      "timeoutSeconds": 15,
+      "arguments": ["-I", "-c", "import sys; print(sys.version.split()[0]); print(sys.executable)"]
+    },
+    {
+      "id": "gmsh.version",
+      "readinessLevel": "L2",
+      "timeoutSeconds": 20,
+      "arguments": ["-I", "-c", "import gmsh; print(gmsh.__version__)"]
+    },
+    {
+      "id": "gmsh.surface2d",
+      "readinessLevel": "L3",
+      "capability": "mesh.generate",
+      "timeoutSeconds": 30,
+      "arguments": ["-I", "-c", "import gmsh\ngmsh.initialize()\ntry:\n gmsh.option.setNumber('General.Terminal', 0)\n gmsh.model.add('bounded-square')\n gmsh.model.occ.addRectangle(0, 0, 0, 1, 1)\n gmsh.model.occ.synchronize()\n gmsh.model.mesh.generate(2)\n types, elements, nodes = gmsh.model.mesh.getElements(2)\n count = sum(len(tags) for tags in elements)\n assert count > 0, 'no surface elements'\n print('surface elements:', count)\nfinally:\n gmsh.finalize()"]
+    },
+    {
+      "id": "gmsh.surface2d.reject",
+      "readinessLevel": "L3",
+      "timeoutSeconds": 20,
+      "arguments": ["-I", "-c", "import gmsh\ngmsh.initialize()\ntry:\n gmsh.option.setNumber('General.Terminal', 0)\n try:\n  gmsh.open('__devshell_missing_fixture__.msh')\n except Exception as error:\n  print('expected rejection:', type(error).__name__, str(error)[:200])\n else:\n  raise AssertionError('missing mesh was accepted')\nfinally:\n gmsh.finalize()"]
+    }
+  ]
+}

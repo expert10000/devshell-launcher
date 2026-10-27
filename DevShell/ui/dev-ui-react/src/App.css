@@ -1015,6 +1015,25 @@
   min-height: 0;
 }
 
+.shell-dependency-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  border: 1px solid #d49341;
+  border-radius: 12px;
+  background: #3b2a18;
+  color: #fff3da;
+  font-size: 13px;
+}
+
+.shell-dependency-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.shell-dependency-actions button { padding: 5px 9px; border: 1px solid #daa45a; border-radius: 7px; background: #59401f; color: inherit; cursor: pointer; }
+.shell-dependency-actions button:disabled { opacity: .5; cursor: default; }
+
 .terminal-frame {
   flex: 1;
   min-width: 0;

@@ -2,6 +2,19 @@ using BatchLauncher;
 using System.Text;
 
 var pwsh = args.Length > 0 ? args[0] : @"C:\Program Files\PowerShell\7\pwsh.exe";
+var installedAlias = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Microsoft", "WindowsApps", "pwsh.exe");
+if (File.Exists(installedAlias))
+{
+    var originalPath = Environment.GetEnvironmentVariable("PATH");
+    try
+    {
+        Environment.SetEnvironmentVariable("PATH", Environment.GetFolderPath(Environment.SpecialFolder.System));
+        using var resolver = new TerminalManager(new[] { new TerminalProfile { Id = "pwsh", Name = "PowerShell 7", Command = "pwsh.exe" } });
+        if (!resolver.TryResolveProfileCommand(resolver.GetProfile("pwsh")!, out var resolved) || !File.Exists(resolved.Application))
+            throw new Exception("Installed PowerShell 7 was not found outside PATH.");
+    }
+    finally { Environment.SetEnvironmentVariable("PATH", originalPath); }
+}
 await Check(pwsh, "-NoLogo -NoProfile", "Write-Output ('TERMINAL_' + 'OUTPUT_OK')\r");
 await Check(Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe", "/d /q", "set \"marker=TERMINAL_\"\r\necho %marker%OUTPUT_OK\r\n");
 Console.WriteLine("PASS: PowerShell and CMD input, ConPTY output, resize, and exit notification.");

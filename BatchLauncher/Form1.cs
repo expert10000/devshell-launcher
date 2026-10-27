@@ -158,6 +158,7 @@ public partial class Form1 : Form
             "workspace.root.save" => HandleWorkspaceRootSaveAsync(doc.RootElement),
             "workspace.root.pick" => HandleWorkspaceRootPickAsync(),
             "workspace.tools.refresh" => HandleWorkspaceToolsRefreshAsync(),
+            "shell.setup" => HandleShellSetupAsync(doc.RootElement),
             "tasks.request" => HandleTasksRequestAsync(),
             "task.run" => HandleTaskRunAsync(doc.RootElement),
             "service.control" => HandleServiceControlAsync(doc.RootElement),

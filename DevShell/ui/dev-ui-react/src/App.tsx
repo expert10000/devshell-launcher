@@ -471,6 +471,8 @@ const App = () => {
   const [healthOpen, setHealthOpen] = useState(false)
   const [dashboardLoading, setDashboardLoading] = useState(false)
   const [serviceStatuses, setServiceStatuses] = useState<Record<string, { state: string; message: string }>>({})
+  const [missingShellProfileId, setMissingShellProfileId] = useState<string | null>(null)
+  const profileAvailabilityRef = useRef<TerminalProfile[]>([])
   const [projectTaskMenuOpen, setProjectTaskMenuOpen] = useState(true)
   const [runAllSessions, setRunAllSessions] = useState(false)
   const [recentProjectIds, setRecentProjectIds] = useState<string[]>([])
@@ -552,6 +554,20 @@ const App = () => {
 
   const getProfileById = (profileId?: string | null) =>
     profiles.find((profile) => profile.id === profileId) ?? null
+
+  const blockUnavailableShell = (profileId: string) => {
+    const knownProfiles = profileAvailabilityRef.current.length ? profileAvailabilityRef.current : profiles
+    if (knownProfiles.length === 0) return false
+    const profile = knownProfiles.find((item) => item.id === profileId)
+    if (profile && profile.isAvailable !== false) return false
+    setMissingShellProfileId(profileId)
+    return true
+  }
+
+  useEffect(() => {
+    if (missingShellProfileId && profiles.some(profile => profile.id === missingShellProfileId && profile.isAvailable !== false))
+      setMissingShellProfileId(null)
+  }, [missingShellProfileId, profiles])
 
   const ensureFolderState = (pane: SessionInfo | null) => {
     if (!pane) {
@@ -1046,6 +1062,7 @@ const App = () => {
     const resolvedProfileId = profiles.some((profile) => profile.id === targetProfileId)
       ? targetProfileId
       : selectedProfileId
+    if (blockUnavailableShell(resolvedProfileId)) return
     const shellMismatch =
       Boolean(activePane?.profileId) && task.shell
         ? task.shell.toLowerCase() !== activePane?.profileId.toLowerCase()
@@ -1433,6 +1450,7 @@ const App = () => {
   ) => {
     const paneId = crypto.randomUUID()
     const profile = profiles.find((item) => item.id === profileId)
+    const shouldStart = autoStart && !blockUnavailableShell(profileId)
     const defaultProjectRoot = activeProjectId
       ? projects.find((project) => project.id === activeProjectId)?.root
       : undefined
@@ -1441,9 +1459,9 @@ const App = () => {
       id: paneId,
       title,
       profileId,
-      status: autoStart ? 'starting' : 'disconnected',
+      status: autoStart ? shouldStart ? 'starting' : 'missing shell' : 'disconnected',
       sessionId: null,
-      pendingStart: autoStart,
+      pendingStart: shouldStart,
       cwd: overrides?.cwd ?? defaultProjectRoot ?? profile?.workingDirectory,
       cols: overrides?.cols,
       rows: overrides?.rows,
@@ -1452,7 +1470,7 @@ const App = () => {
       startOrder: overrides?.startOrder,
     }
 
-    if (autoStart) {
+    if (shouldStart) {
       startSessionForPane(paneId, profileId, pane)
     }
 
@@ -1520,6 +1538,11 @@ const App = () => {
     profileId: string,
     overrides?: Partial<SessionInfo>
   ) => {
+    if (blockUnavailableShell(profileId)) {
+      setTabs(current => current.map(tab => ({ ...tab, groups: tab.groups.map(group => ({ ...group,
+        tabs: group.tabs.map(pane => pane.id === paneId ? { ...pane, status: 'missing shell', pendingStart: false } : pane) })) })))
+      return
+    }
     pendingStart.current.set(paneId, paneId)
     postMessage({
       type: 'start',
@@ -2082,7 +2105,9 @@ const App = () => {
           const incomingWorkspace = message.workspace
           const incomingState = message.statePayload
           const incomingEnvironment = message.environment ?? {}
-          setProfiles(normalizeProfileList(incomingProfiles))
+          const normalizedProfiles = normalizeProfileList(incomingProfiles)
+          profileAvailabilityRef.current = normalizedProfiles
+          setProfiles(normalizedProfiles)
           setEnvironment(incomingEnvironment)
           if (incomingWorkspace) {
             setWorkspace(incomingWorkspace)
@@ -2138,7 +2163,9 @@ const App = () => {
         }
         case 'profiles.list': {
           const incomingProfiles = message.profiles ?? []
-          setProfiles(normalizeProfileList(incomingProfiles))
+          const normalizedProfiles = normalizeProfileList(incomingProfiles)
+          profileAvailabilityRef.current = normalizedProfiles
+          setProfiles(normalizedProfiles)
           break
         }
         case 'tasks.list': {
@@ -2333,6 +2360,13 @@ const App = () => {
             message.clientId ?? (message.sessionId ? sessionToPane.current.get(message.sessionId) : null)
           if (!paneId) {
             return
+          }
+          if (message.message?.startsWith('Command not found for profile')) {
+            const missingId = findPaneById(paneId)?.profileId ?? selectedProfileId
+            profileAvailabilityRef.current = profileAvailabilityRef.current.map(profile =>
+              profile.id === missingId ? { ...profile, isAvailable: false } : profile)
+            setProfiles(profileAvailabilityRef.current)
+            setMissingShellProfileId(missingId)
           }
           writePaneOutput(paneId, `\r\n[error] ${message.message ?? 'unknown error'}\r\n`)
           setTabs((current) =>
@@ -3042,6 +3076,7 @@ const App = () => {
       window.alert('Task is missing a command.')
       return
     }
+    if (task.profileId && blockUnavailableShell(task.profileId)) return
 
     if (runAllSessions) {
       const targetPanes = tabs
@@ -3077,6 +3112,7 @@ const App = () => {
       return
     }
     const profileId = task.profileId ?? selectedProfileId
+    if (blockUnavailableShell(profileId)) return
     const taskId = task.id ?? task.name
     createTab(profileId, true, {
       title: task.name,
@@ -3228,6 +3264,7 @@ const App = () => {
       window.alert('Task is missing steps.')
       return
     }
+    if (task.shell && blockUnavailableShell(task.shell)) return
 
     if (runAllSessions) {
       const targetPanes = tabs
@@ -4249,6 +4286,11 @@ const App = () => {
     )
   }
 
+  const missingShellProfile = profiles.find(profile => profile.id === missingShellProfileId)
+  const shellSetupKey = `${activeWorkspaceProfileId}:shell:pwsh`
+  const shellSetupJob = repositoryJobs.find(job => job.key === shellSetupKey)
+  const shellSetupBusy = shellSetupJob && ['queued', 'building', 'running'].includes(shellSetupJob.state)
+
   return (
     <div className={`shell-app theme-${theme}`}>
       <div
@@ -4788,6 +4830,20 @@ const App = () => {
         })}
       </main>}
       <main className="terminal-pane" style={{ display: repositoriesView ? 'none' : undefined }}>
+        {missingShellProfileId && <section className="shell-dependency-alert" role="alert" aria-label="Missing terminal shell">
+          <div><strong>{missingShellProfile?.name ?? missingShellProfileId} is unavailable.</strong>
+            <span> DevShell cannot start a task with {missingShellProfile?.command ?? 'this shell'}.</span>
+            {shellSetupJob && <span> Setup: {shellSetupJob.state}{shellSetupJob.completedSteps != null && shellSetupJob.totalSteps ? ` · ${shellSetupJob.completedSteps}/${shellSetupJob.totalSteps}` : ''}.</span>}
+            {jobErrors[shellSetupKey] && <span> {jobErrors[shellSetupKey]}</span>}
+          </div>
+          <div className="shell-dependency-actions">
+            {missingShellProfileId === 'pwsh' && missingShellProfile && <button disabled={!!shellSetupBusy} onClick={() => { setJobErrors(current => ({ ...current, [shellSetupKey]: '' })); postMessage({ type: 'shell.setup', profileId: 'pwsh', action: 'install' }) }}>Install PowerShell 7</button>}
+            {shellSetupBusy && <button onClick={() => postMessage({ type: 'repository.job', projectId: 'shell', repositoryId: 'pwsh', action: 'stop' })}>Stop setup</button>}
+            {shellSetupJob && <button onClick={() => postMessage({ type: 'repository.job', projectId: 'shell', repositoryId: 'pwsh', action: 'log' })}>Open setup log</button>}
+            <button onClick={() => { postMessage({ type: 'profiles.request' }); postMessage({ type: 'workspace.tools.refresh' }) }}>Recheck shells</button>
+            <button onClick={() => setMissingShellProfileId(null)}>Dismiss</button>
+          </div>
+        </section>}
         {panelProject && <RepositoryStrip key={`${activeWorkspaceProfileId}:${panelProject.id}`} project={panelProject} profileId={activeWorkspaceProfileId}
           activeFilesRepoId={workspaceViews.tabs.find(tab => tab.id === workspaceViews.activeId && tab.kind === 'files' && tab.projectId === panelProject.id)?.repositoryId}
           onSelectFilesRepo={repoId => { const existing = workspaceViews.tabs.find(tab => tab.kind === 'files' && tab.projectId === panelProject.id && tab.repositoryId === repoId); if (existing) workspaceViews.select(existing.id); else workspaceViews.open({ kind: 'files', projectId: panelProject.id, repositoryId: repoId }) }}

@@ -5,6 +5,8 @@
     <Compile Include="../../BatchLauncher/OwnedProcessJob.cs" Link="OwnedProcessJob.cs" />
     <Compile Include="../../BatchLauncher/EnvironmentSetup.cs" Link="EnvironmentSetup.cs" />
     <Compile Include="../../BatchLauncher/PortableWorkspace.cs" Link="PortableWorkspace.cs" />
+    <Compile Include="../../BatchLauncher/WorkspaceStore.cs" Link="WorkspaceStore.cs" />
+    <Compile Include="../../BatchLauncher/AppPaths.cs" Link="AppPaths.cs" />
     <Compile Include="../../BatchLauncher/WorkspaceRootStore.cs" Link="WorkspaceRootStore.cs" />
     <Compile Include="../../BatchLauncher/WorkspaceConfig.cs" Link="WorkspaceConfig.cs" />
     <Compile Include="../../BatchLauncher/ProjectDefinition.cs" Link="ProjectDefinition.cs" />

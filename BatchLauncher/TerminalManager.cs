@@ -154,6 +154,16 @@ public sealed class TerminalManager : IDisposable
             }
         }
 
+        if (command.Equals("pwsh", StringComparison.OrdinalIgnoreCase) || command.Equals("pwsh.exe", StringComparison.OrdinalIgnoreCase))
+        {
+            var candidates = new[]
+            {
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "PowerShell", "7", "pwsh.exe"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Microsoft", "WindowsApps", "pwsh.exe")
+            };
+            return candidates.FirstOrDefault(File.Exists);
+        }
+
         return null;
     }
 

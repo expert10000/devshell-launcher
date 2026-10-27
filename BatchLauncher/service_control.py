@@ -69,6 +69,24 @@ def stop(root, port):
         if not port_busy(port) and (process is None or not process.is_running()):
             return {'state': 'stopped', 'message': 'Stopped'}
         time.sleep(0.25)
+    # An open Lab tab can keep the server alive after its shutdown request.
+    # The user explicitly requested Stop or Restart, so finish stopping the
+    # matching server process while keeping unrelated listeners untouched.
+    if process is not None and process.is_running():
+        try:
+            process.terminate()
+            try:
+                process.wait(timeout=10)
+            except psutil.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=5)
+        except psutil.NoSuchProcess:
+            pass
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        if not port_busy(port):
+            return {'state': 'stopped', 'message': 'Stopped'}
+        time.sleep(0.25)
     raise RuntimeError('Jupyter has not released its port yet. Check its terminals and retry.')
 
 

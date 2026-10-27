@@ -28,19 +28,23 @@ await page.evaluate(() => {
 const waitForMessage = (type, detail) => page.waitForFunction(({ type, detail }) =>
   window.__jupyterCheckMessages.some(message => message.type === type &&
     (detail == null || message.servicePath === detail)), { type, detail }, { timeout: 90000 })
-const service = page.locator('.task-sidebar .service-card')
+const service = page.locator('.services-list .service-card[aria-label="Jupyter Lab service controls"]')
 const waitForState = state => page.waitForFunction(state =>
-  document.querySelector('.service-card .service-state')?.textContent?.trim() === state,
+  document.querySelector('[aria-label="Jupyter Lab service controls"] .service-state')?.textContent?.trim() === state,
   state, { timeout: 90000 })
 
 try {
   assert.equal(await page.locator('#workspace-profile-select').inputValue(), 'profile-laptop')
   await page.getByRole('button', { name: /Jupyter Studio D:/ }).click()
   await page.locator('.tab-strip .tab').filter({ hasText: 'Shell' }).click()
+  await page.getByRole('tab', { name: /Services/ }).click()
   await service.waitFor()
+  assert.ok(await page.locator('.services-list .service-card').count() > 1, 'Services view should include other configured projects')
   console.log('PASS: Jupyter Studio service controls visible in laptop profile')
 
-  await page.getByRole('button', { name: 'Jupyter - Environment Check', exact: true }).click()
+  await page.getByRole('tab', { name: 'Tasks' }).click()
+  await page.getByRole('searchbox', { name: 'Search project tasks' }).fill('Environment Check')
+  await page.locator('.task-panel-row').filter({ hasText: 'Jupyter - Environment Check' }).getByRole('button', { name: 'Run' }).click()
   await page.waitForFunction(() => window.__jupyterCheckMessages
     .filter(message => message.type === 'output').map(message => message.data ?? '').join('').includes('JupyterLab '))
   const output = await page.evaluate(() => window.__jupyterCheckMessages
@@ -49,17 +53,44 @@ try {
   assert.doesNotMatch(output, /Command not found for profile/)
   console.log('PASS: Environment Check runs in a DevShell terminal')
 
+  await page.getByRole('tab', { name: /Services/ }).click()
   await service.getByRole('button', { name: 'Start', exact: true }).click()
   await waitForState('running')
   await waitForMessage('workspace.browser.opened', null)
   console.log('PASS: Lab starts and opens inside DevShell')
 
-  await page.getByRole('button', { name: 'Jupyter - Open Start Here', exact: true }).click()
+  await service.getByRole('button', { name: 'Logs', exact: true }).click()
+  await service.locator('.service-log-panel pre').filter({ hasText: /ServerApp|No service log/ }).waitFor()
+  const log = await service.locator('.service-log-panel pre').innerText()
+  assert.doesNotMatch(log, /[?&]token=[a-f0-9]{20,}/i)
+  console.log('PASS: Service log opens with authentication tokens redacted')
+
+  await page.getByRole('tab', { name: 'Tasks' }).click()
+  await page.getByRole('searchbox', { name: 'Search project tasks' }).fill('Open Start Here')
+  await page.locator('.task-panel-row').filter({ hasText: 'Jupyter - Open Start Here' }).getByRole('button', { name: 'Run' }).click()
   await waitForMessage('workspace.browser.opened', 'notebooks/00_start_here.ipynb')
   console.log('PASS: Start Here notebook opens inside DevShell')
 
+  await page.getByRole('tab', { name: /Services/ }).click()
+  const restartMarker = await page.evaluate(() => window.__jupyterCheckMessages.length)
   await service.getByRole('button', { name: 'Restart', exact: true }).click()
-  await waitForState('running')
+  try {
+    await page.waitForFunction(marker => {
+      const statuses = window.__jupyterCheckMessages.slice(marker).filter(message => message.type === 'service.status')
+      const busyIndex = statuses.findIndex(message => message.state === 'busy' && message.message?.startsWith('restart'))
+      return busyIndex >= 0 && statuses.slice(busyIndex + 1).some(message => message.state === 'running')
+    }, restartMarker, { timeout: 90000 })
+    await waitForState('running')
+  }
+  catch (error) {
+    const statuses = await page.evaluate(() => window.__jupyterCheckMessages
+      .filter(message => message.type === 'service.status')
+      .map(message => `${message.state}: ${message.message}`)
+      .filter((value, index, values) => index === 0 || value !== values[index - 1]))
+    console.error('Service status transitions:', statuses)
+    console.error('Service card:', await service.innerText())
+    throw error
+  }
   console.log('PASS: Lab restarts')
 
   await service.getByRole('button', { name: 'Stop', exact: true }).click()

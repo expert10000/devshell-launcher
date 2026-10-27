@@ -162,6 +162,8 @@ public partial class Form1 : Form
             "tasks.request" => HandleTasksRequestAsync(),
             "task.run" => HandleTaskRunAsync(doc.RootElement),
             "service.control" => HandleServiceControlAsync(doc.RootElement),
+            "service.log" => HandleServiceLogAsync(doc.RootElement),
+            "repository.service.restart" => HandleRepositoryServiceRestartAsync(doc.RootElement),
             "browser.open" => HandleBrowserOpenAsync(doc.RootElement),
             "browser.toggle" => HandleBrowserToggleAsync(),
             "dashboard.request" => HandleDashboardRequestAsync(),

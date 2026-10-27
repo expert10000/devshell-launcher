@@ -174,6 +174,41 @@ public partial class Form1
         SendRepositoryJobs();
         return Task.CompletedTask;
     }
+
+    private async Task HandleRepositoryServiceRestartAsync(JsonElement payload)
+    {
+        var profileId = _activeWorkspaceProfileId;
+        var projectId = payload.GetProperty("projectId").GetString();
+        var repositoryId = payload.GetProperty("repositoryId").GetString();
+        var key = $"{profileId}:{projectId}:{repositoryId}";
+        try
+        {
+            var project = _workspace.Projects?.FirstOrDefault(item => item.Id == projectId)
+                ?? throw new InvalidOperationException("Project not found.");
+            var repo = project.Repositories?.FirstOrDefault(item => item.Id == repositoryId)
+                ?? throw new InvalidOperationException("Repository not found.");
+            if (repo.BrowserUrl == null || (repo.BrowserBuildTask ?? repo.BuildTask) == null ||
+                (repo.BrowserRunTask ?? repo.RunTask) == null)
+                throw new InvalidOperationException("This repository has no managed web service to restart.");
+            var current = _repositoryRunner.Snapshot().FirstOrDefault(item => item.Key == key);
+            if (current?.State is "queued" or "building" or "running")
+            {
+                if (current.Action is not ("launch" or "prepare-launch" or "run"))
+                    throw new InvalidOperationException("Finish the active repository job before restarting its service.");
+                _repositoryRunner.Stop(key);
+                SendRepositoryJobs();
+                await _repositoryRunner.Completion(key);
+            }
+            if (IsDisposed || profileId != _activeWorkspaceProfileId) return;
+            using var launch = JsonDocument.Parse(JsonSerializer.Serialize(new { action = "launch", projectId, repositoryId }));
+            await HandleRepositoryJobAsync(launch.RootElement);
+        }
+        catch (Exception error)
+        {
+            if (!IsDisposed && profileId == _activeWorkspaceProfileId)
+                SendMessage(new { type = "repository.job.error", key, message = error.Message });
+        }
+    }
     private async Task OpenRepositoryGithubAsync(string? projectId, string? repositoryId, string key)
     {
         var profileId = _activeWorkspaceProfileId;

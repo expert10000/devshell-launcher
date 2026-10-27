@@ -267,7 +267,7 @@
 .task-sidebar {
   flex: 0 0 var(--right-width, clamp(200px, 20vw, 280px));
   display: grid;
-  grid-template-rows: auto auto 1fr;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 12px;
   padding: 16px;
   border-radius: 22px;
@@ -330,8 +330,15 @@
 
 .task-sidebar-header {
   display: grid;
-  gap: 4px;
+  gap: 8px;
 }
+
+.inspector-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.inspector-tabs button { border: 1px solid rgba(138, 209, 255, .22); border-radius: 9px; background: rgba(138, 209, 255, .06); color: inherit; padding: 7px 5px; cursor: pointer; font: inherit; font-size: .75rem; }
+.inspector-tabs button.active { background: rgba(49, 148, 225, .28); border-color: rgba(138, 209, 255, .65); font-weight: 700; }
+.inspector-count { display: inline-block; min-width: 17px; border-radius: 999px; margin-left: 3px; padding: 1px 3px; background: #238a54; color: white; font-size: .65rem; }
+.task-sidebar-search { width: 100%; min-width: 0; border: 1px solid rgba(138, 209, 255, .3); border-radius: 9px; padding: 8px 9px; background: rgba(4, 10, 18, .8); color: inherit; font: inherit; font-size: .75rem; }
+.task-sidebar-search:focus-visible, .inspector-tabs button:focus-visible, .task-panel-section-toggle:focus-visible { outline: 2px solid #64bbf6; outline-offset: 2px; }
 
 .task-sidebar-title {
   font-size: 0.9rem;
@@ -380,6 +387,24 @@
   text-transform: uppercase;
   color: rgba(219, 231, 247, 0.55);
 }
+
+.task-panel-section-toggle { width: 100%; display: flex; gap: 5px; align-items: center; text-align: left; border: 0; border-bottom: 1px solid rgba(138, 209, 255, .25); padding: 6px 3px; background: transparent; color: rgba(219, 231, 247, .82); cursor: pointer; font: inherit; font-size: .73rem; font-weight: 700; }
+.task-panel-section-toggle span { margin-left: auto; font-size: .67rem; opacity: .7; }
+.task-panel-section-toggle:disabled { cursor: default; }
+.services-list { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; overflow-x: hidden; min-height: 0; padding-right: 4px; }
+.services-list .service-card { margin: 0; padding: 10px; min-width: 0; }
+.service-project { color: rgba(138, 209, 255, .8); font-size: .66rem; margin-bottom: 6px; }
+.services-list .service-heading { font-size: .78rem; overflow-wrap: anywhere; }
+.services-list .service-actions { gap: 5px; }
+.services-list .service-actions button { font-size: .68rem; padding: 5px 7px; }
+.service-log-panel { margin-top: 10px; min-width: 0; }
+.service-log-panel button { border: 1px solid #8997a7; border-radius: 7px; padding: 4px 7px; background: transparent; color: inherit; cursor: pointer; }
+.service-log-panel pre { max-height: 220px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 8px; border-radius: 8px; background: rgba(0, 0, 0, .25); font-size: .67rem; }
+.theme-daylight .task-sidebar-search { background: white; color: #182638; }
+.theme-daylight .task-panel-section-toggle { color: #213447; border-color: #94a3b8; }
+.theme-daylight .inspector-tabs button { color: #213447; border-color: #94a3b8; }
+.theme-daylight .inspector-tabs button.active { background: #b9dcf8; border-color: #2b7fe5; }
+.theme-daylight .service-project { color: #245f93; }
 
 .task-panel-row {
   display: flex;
@@ -2276,7 +2301,12 @@
   }
 }
 
-@media (max-width: 1200px) {
+@media (min-width: 1051px) and (max-width: 1350px) {
+  .project-sidebar { flex: 0 0 280px; }
+  .task-sidebar { flex: 0 0 250px; }
+}
+
+@media (max-width: 1050px) {
   .shell-app {
     height: auto;
     min-height: 100vh;

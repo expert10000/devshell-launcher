@@ -40,6 +40,16 @@ try {
   assert.equal(await page.locator('#workspace-profile-select').inputValue(), 'profile-laptop')
   await page.getByRole('button', { name: /Jupyter Studio D:/ }).click()
   await page.locator('.tab-strip .tab').filter({ hasText: 'Shell' }).click()
+  await page.getByRole('tab', { name: 'Tasks' }).click()
+  assert.match((await page.locator('.task-panel-section-toggle').allTextContents()).join(' '), /Jupyter.*Theory/)
+  const group = page.locator('.task-panel-section-toggle').first()
+  assert.equal(await group.getAttribute('aria-expanded'), 'false')
+  await group.click()
+  assert.equal(await group.getAttribute('aria-expanded'), 'true')
+  await group.click()
+  await page.getByRole('searchbox', { name: 'Search project tasks' }).fill('Environment Check')
+  assert.equal(await page.locator('.task-panel-row').count(), 1)
+  console.log('PASS: Task groups collapse and search reveals matching tasks')
   await page.evaluate(profiles => window.chrome.webview.dispatchEvent(new MessageEvent('message', {
     data: JSON.stringify({ type: 'profiles.list', profiles: profiles.map(profile =>
       profile.id === 'pwsh' ? { ...profile, isAvailable: false } : profile) })

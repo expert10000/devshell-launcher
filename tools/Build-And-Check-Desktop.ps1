@@ -1,6 +1,7 @@
 param(
     [switch]$UseRunningApp,
     [switch]$SkipBuild,
+    [switch]$WithManagedService,
     [int]$CdpPort = 9237
 )
 
@@ -55,7 +56,11 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Missing-shell Playwright check failed.' }
     & node (Join-Path $root 'tests\jupyter-studio-ui-checks.mjs')
     if ($LASTEXITCODE -ne 0) { throw 'Jupyter Playwright check failed.' }
-    Write-Host 'PASS: desktop build and both Playwright UI checks'
+    if ($WithManagedService) {
+        & node (Join-Path $root 'tests\services-dashboard-ui-checks.mjs')
+        if ($LASTEXITCODE -ne 0) { throw 'Managed-service Playwright check failed.' }
+    }
+    Write-Host 'PASS: desktop build and selected Playwright UI checks'
 }
 finally {
     [Environment]::SetEnvironmentVariable('WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS', $previousCdpArgs, 'Process')

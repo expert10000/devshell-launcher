@@ -1,5 +1,7 @@
 using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace BatchLauncher;
 
@@ -104,5 +106,38 @@ public partial class Form1
             SendMessage(new { type = "service.status", projectId, profileId, state = "error", message = ex.Message, port = project.Service.Port });
         }
         finally { _serviceGate.Release(); }
+    }
+
+    private async Task HandleServiceLogAsync(JsonElement payload)
+    {
+        var profileId = _activeWorkspaceProfileId;
+        var projectId = payload.GetProperty("projectId").GetString();
+        try
+        {
+            var project = _workspace.Projects?.FirstOrDefault(item => item.Id == projectId && item.Service != null)
+                ?? throw new InvalidOperationException("Service not found in this profile.");
+            var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "DevShellLauncher", "logs", $"jupyter-{project.Service!.Port}.log");
+            string log;
+            if (!File.Exists(path)) log = "No service log has been created yet.";
+            else
+            {
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                var offset = Math.Max(0, stream.Length - 32768);
+                stream.Seek(offset, SeekOrigin.Begin);
+                using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: false);
+                log = await reader.ReadToEndAsync();
+                if (offset > 0 && log.Contains('\n')) log = log[(log.IndexOf('\n') + 1)..];
+                log = Regex.Replace(log, @"(?i)([?&]token=)[^\s&""']+", "$1[redacted]");
+                log = Regex.Replace(log, @"(?i)(authorization:\s*token\s+)\S+", "$1[redacted]");
+            }
+            if (!IsDisposed && profileId == _activeWorkspaceProfileId)
+                SendMessage(new { type = "service.log.result", profileId, projectId, data = log });
+        }
+        catch (Exception error)
+        {
+            if (!IsDisposed && profileId == _activeWorkspaceProfileId)
+                SendMessage(new { type = "service.log.result", profileId, projectId, data = "Log unavailable: " + error.Message });
+        }
     }
 }

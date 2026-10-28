@@ -1,5 +1,15 @@
 # Local scientific environments
 
+## Managed MATH3D web service on desktop five
+
+The `desktop-five` workspace profile launches MATH3D at `http://127.0.0.1:5181/`
+with its local worker proxy at `http://127.0.0.1:8790/`. Use **Configuration →
+Reload** in DevShell after editing the profile, then **Repositories → Math3D →
+Build + Run + Open** (or **Services → Math3D → Start**). The previously started standalone 5181/8790
+processes must be stopped before the managed launch can claim those ports. The
+browser URL and worker readiness check use the same port pair. MATH3D's Symbolic
+Mathematics panel lets you choose Local WSL or the separate Docker SageMath service.
+
 ## This workstation: installed 2026-10-09
 
 | Component | CGAL environment | VTK environment |

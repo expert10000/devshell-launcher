@@ -291,7 +291,7 @@
         "Math3D - Run Web": {
           "steps": [
             {
-              "run": "$env:MATH3D_PYTHON = '${vars.math3dPython}'; $env:PATH = '${vars.nodeDirectory};${vars.math3dEnvironment};${vars.math3dEnvironment}\\Library\\bin;${vars.math3dEnvironment}\\Scripts;' + $env:PATH; & '${vars.nodeDirectory}\\node.exe' '${vars.npmCli}' exec -- concurrently --kill-others-on-fail \"npm run dev:web:proxy\" \"npm --prefix renderer run dev -- --host 127.0.0.1 --port 5180 --strictPort\""
+              "run": "$env:MATH3D_PYTHON = '${vars.math3dPython}'; $env:MATH3D_WEB_WORKER_PROXY_PORT = '8790'; $env:MATH3D_WEB_WORKER_PROXY_TARGET = 'http://127.0.0.1:8790'; $env:PATH = '${vars.nodeDirectory};${vars.math3dEnvironment};${vars.math3dEnvironment}\\Library\\bin;${vars.math3dEnvironment}\\Scripts;' + $env:PATH; & '${vars.nodeDirectory}\\node.exe' '${vars.npmCli}' exec -- concurrently --kill-others-on-fail \"npm run dev:web:proxy\" \"npm --prefix renderer run dev -- --host 127.0.0.1 --port 5181 --strictPort\""
             }
           ],
           "cwd": "${vars.math3dRepoPath}",
@@ -344,9 +344,9 @@
           ],
           "browserBuildTask": "Math3D - Build Web",
           "browserRunTask": "Math3D - Run Web",
-          "browserUrl": "http://127.0.0.1:5180",
+          "browserUrl": "http://127.0.0.1:5181",
           "readyUrls": [
-            "http://127.0.0.1:8787/api/worker/cgal/health"
+            "http://127.0.0.1:8790/api/worker/cgal/health"
           ],
           "readyTimeoutSeconds": 120
         },

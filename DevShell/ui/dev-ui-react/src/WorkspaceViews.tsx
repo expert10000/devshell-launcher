@@ -119,6 +119,7 @@ export function WorkspaceViews({ tabs, activeId, profileId, projects, jobs, erro
   const [compact, setCompact] = useState(false)
   const [resizing, setResizing] = useState(false)
   const grid = useRef<HTMLDivElement>(null)
+  const browserSlot = useRef<HTMLDivElement>(null)
   const drag = useRef<{ id: number; direction: 'right' | 'below' } | null>(null)
   const ids = tabs.map(tab => tab.id)
   const layout = resolveWorkspaceSplit(split, profileId, ids, activeId)
@@ -131,6 +132,40 @@ export function WorkspaceViews({ tabs, activeId, profileId, projects, jobs, erro
     observer.observe(element); return () => observer.disconnect()
   }, [])
   useEffect(() => { drag.current = null; setResizing(false) }, [profileId, direction])
+  useEffect(() => {
+    if (!bridge) return
+    const selected = tabs.find(tab => tab.id === activeId && (tab.kind === 'browser' || tab.kind === 'jupyter'))
+    const slot = browserSlot.current
+    const visible = selected && (selected.id === layout.primaryId || selected.id === layout.secondaryId)
+    if (!visible || !slot) {
+      bridge.postMessage({ type: 'workspace.browser.slot', profileId, action: 'hide' })
+      return
+    }
+    let frame = 0
+    const publish = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        const bounds = slot.getBoundingClientRect()
+        bridge.postMessage({ type: 'workspace.browser.slot', action: 'show', profileId, tabId: selected.id,
+          kind: selected.kind, projectId: selected.projectId, repositoryId: selected.repositoryId,
+          url: selected.kind === 'browser' ? selected.url : undefined, servicePath: selected.servicePath,
+          x: bounds.left, y: bounds.top, width: bounds.width, height: bounds.height,
+          viewportWidth: window.innerWidth, viewportHeight: window.innerHeight })
+      })
+    }
+    const observer = new ResizeObserver(publish)
+    observer.observe(slot)
+    window.addEventListener('resize', publish)
+    window.addEventListener('scroll', publish, true)
+    publish()
+    return () => {
+      cancelAnimationFrame(frame)
+      observer.disconnect()
+      window.removeEventListener('resize', publish)
+      window.removeEventListener('scroll', publish, true)
+      bridge.postMessage({ type: 'workspace.browser.slot', profileId, action: 'hide' })
+    }
+  }, [bridge, profileId, activeId, layout.primaryId, layout.secondaryId, layout.ratio, direction, tabs])
   function focusPane(id: string) {
     if (activeId !== id) window.dispatchEvent(new CustomEvent('devshell.workspace.select', { detail: { profileId, id } }))
   }
@@ -171,10 +206,10 @@ export function WorkspaceViews({ tabs, activeId, profileId, projects, jobs, erro
       {tab.kind === 'diff' && <DiffView tab={tab} profileId={profileId} bridge={bridge} active={visible && !!activeId} busy={busy} onChange={changes => onChange(tab.id, changes)} />}
       {tab.kind === 'files' && <FilesWorkspaceView tab={tab} profileId={profileId} bridge={bridge} repos={projects.find(project => project.id === tab.projectId)?.repositories ?? []} active={visible && !!activeId} onFolder={path => onChange(tab.id, { filePath: path })} job={job} />}
       {tab.kind === 'pdf' && <><WorkspaceFileNavigation profileId={profileId} projectId={tab.projectId} bridge={bridge} selected={tab.filePath && tab.projectId && tab.repositoryId ? { projectId: tab.projectId, repositoryId: tab.repositoryId, path: tab.filePath, kind: 'pdf' } : undefined} /><PdfWorkspaceView tab={tab} profileId={profileId} bridge={bridge} job={job} directory={projects.find(project => project.id === tab.projectId)?.repositories?.find(repo => repo.id === tab.repositoryId)?.pdfDirectory} onPage={page => onChange(tab.id, { page })} /></>}
-      {(tab.kind === 'browser' || tab.kind === 'jupyter') && <div className="workspace-browser-entry"><h3>{tab.kind === 'jupyter' ? 'Jupyter in the native browser pane' : 'Browser page in the native pane'}</h3><p>{tab.kind === 'jupyter' ? tab.servicePath ?? 'JupyterLab workspace' : tab.url}</p>
-        <p>Workspace navigation is linked to the existing browser pane. Restoring this entry does not navigate, start a service, or replay a task.</p>
-        <button onClick={() => tab.kind === 'jupyter' ? bridge?.postMessage({ type: 'service.control', projectId: tab.projectId, action: 'open', path: tab.servicePath }) : bridge?.postMessage({ type: 'browser.open', projectId: tab.projectId, repositoryId: tab.repositoryId, url: tab.url })}>{tab.kind === 'jupyter' ? 'Open Jupyter' : 'Open / focus browser page'}</button>
-        <p className="workspace-view-caption">Use Show/hide browser to toggle the native pane. Closing this workspace entry does not close the page.{tab.kind === 'browser' ? ' Saved links omit credentials, query strings, and fragments; use the original task when parameters are required.' : ' Notebook access is reopened through the service controller; authentication URLs are never stored here.'}</p>
+      {(tab.kind === 'browser' || tab.kind === 'jupyter') && <div className="workspace-browser-entry"><h3>{tab.kind === 'jupyter' ? 'Jupyter workspace' : 'Browser workspace'}</h3><p>{tab.kind === 'jupyter' ? tab.servicePath ?? 'JupyterLab workspace' : tab.url}</p>
+        <div className="workspace-browser-actions"><button onClick={() => tab.kind === 'jupyter' ? bridge?.postMessage({ type: 'service.control', projectId: tab.projectId, action: 'open', path: tab.servicePath }) : bridge?.postMessage({ type: 'browser.open', projectId: tab.projectId, repositoryId: tab.repositoryId, url: tab.url })}>{tab.kind === 'jupyter' ? 'Open Jupyter' : 'Open / focus browser page'}</button><span className="workspace-view-caption">Restored tabs wait for an explicit Open. Selecting a tab never starts a service or navigates.</span></div>
+        <div ref={activeId === tab.id ? browserSlot : undefined} className="workspace-native-browser-slot" aria-label={tab.kind === 'jupyter' ? 'Jupyter browser area' : 'Browser page area'}><span>Open this page to display it here. Existing pages in this launcher session appear when selected.</span></div>
+        <p className="workspace-view-caption">Closing this workspace entry leaves its browser page open.{tab.kind === 'browser' ? ' Saved links omit credentials, query strings, and fragments; use the original task when parameters are required.' : ' Notebook access is reopened through the service controller; authentication URLs are never stored here.'}</p>
       </div>}
     </section>
   })}

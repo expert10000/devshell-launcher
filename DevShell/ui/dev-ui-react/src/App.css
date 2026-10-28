@@ -2728,7 +2728,12 @@
 .workspace-diff-output { white-space: pre; overflow-wrap: normal; }
 .workspace-diff-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
 .workspace-diff-controls select { max-width: min(380px, 75vw); }
-.workspace-browser-entry { max-width: 780px; overflow-y: auto; line-height: 1.7; }
+.workspace-browser-entry { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; line-height: 1.5; }
+.workspace-browser-entry h3 { margin: 0 0 6px; }
+.workspace-browser-entry > p { margin: 4px 0 10px; overflow-wrap: anywhere; }
+.workspace-browser-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+.workspace-native-browser-slot { display: flex; align-items: center; justify-content: center; flex: 1; min-height: 210px; border: 1px solid #8997a755; border-radius: 10px; background: #06121d; color: #a7bad0; text-align: center; padding: 18px; }
+.theme-daylight .workspace-native-browser-slot { background: #eaf2f8; color: #536579; }
 .theme-daylight .workspace-view { color: #182638; background: linear-gradient(125deg, #fbfdff, #eff6fa); }
 .theme-daylight .workspace-tab-kind.logs { color: #176b54; }
 .theme-daylight .workspace-tab-kind.diff { color: #8b5916; }

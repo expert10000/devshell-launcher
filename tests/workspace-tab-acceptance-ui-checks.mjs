@@ -88,10 +88,10 @@ try {
       await jupyterTab.waitFor(); await browserTab.waitFor()
       const beforeSelection = (await sent()).length
       await jupyterTab.click()
-      await page.getByRole('tabpanel', { name: 'Jupyter Studio', exact: true }).getByRole('heading', { name: 'Jupyter in the native browser pane' }).waitFor()
+      await page.getByRole('tabpanel', { name: 'Jupyter Studio', exact: true }).getByRole('heading', { name: 'Jupyter workspace' }).waitFor()
       await browserTab.click()
       const browserEntry = page.getByRole('tabpanel', { name: 'Math3D Browser' })
-      await browserEntry.getByRole('heading', { name: 'Browser page in the native pane' }).waitFor()
+      await browserEntry.getByRole('heading', { name: 'Browser workspace' }).waitFor()
       assert.equal(forbidden((await sent()).slice(beforeSelection)).length, 0)
       console.log('PASS: selecting Jupyter/Browser entries does not start a service or navigate')
 

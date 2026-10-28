@@ -39,6 +39,7 @@ internal sealed class BrowserPane : UserControl
     private string? _statePath;
     private bool _restoring, _workspaceVisible, _disposing;
     private BrowserTab? ActiveTab => _pages.FirstOrDefault(tab => tab.Page == _tabs.SelectedTab);
+    public string? ActiveTabId => ActiveTab?.Id;
 
     public event EventHandler? CloseRequested;
     public event EventHandler? HideRequested;
@@ -127,6 +128,17 @@ internal sealed class BrowserPane : UserControl
         uri.Scheme is "http" or "https" && string.IsNullOrEmpty(uri.UserInfo);
 
     public void SetWorkspaceVisible(bool visible) { _workspaceVisible = visible; ScheduleSave(); }
+
+    // Workspace selection may focus a page already opened in this launcher session.
+    // Restored pages are not initialized here: selecting a saved descriptor must not navigate.
+    public bool TrySelectInitializedTab(string id)
+    {
+        var tab = _pages.FirstOrDefault(page => page.Id == id && page.View.CoreWebView2 != null && !page.Page.IsDisposed);
+        if (tab == null) return false;
+        _tabs.SelectedTab = tab.Page;
+        UpdateNavigation(tab);
+        return true;
+    }
 
     // Tasks reuse an identical URL, otherwise open a new tab; address-bar navigation stays in its tab.
     public async Task OpenTabAsync(string url)

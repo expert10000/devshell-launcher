@@ -166,6 +166,7 @@ public partial class Form1 : Form
             "repository.service.restart" => HandleRepositoryServiceRestartAsync(doc.RootElement),
             "browser.open" => HandleBrowserOpenAsync(doc.RootElement),
             "browser.toggle" => HandleBrowserToggleAsync(),
+            "workspace.browser.slot" => HandleWorkspaceBrowserSlotAsync(doc.RootElement),
             "dashboard.request" => HandleDashboardRequestAsync(),
             "repository.job" => HandleRepositoryJobAsync(doc.RootElement),
             "session.attach" => HandleSessionAttachAsync(doc.RootElement),

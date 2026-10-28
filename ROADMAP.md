@@ -55,7 +55,7 @@ Delivered and checked on 2026-10-01:
 
 ### Group 2: Browser and mixed workspace tabs
 
-Status: browser-tab foundation and workspace Logs/Diff/navigation slice implemented, built, and checked in the live desktop UI. Focused PDF/Files fixture acceptance and native PDF display passed; real Math/Theory document cases remain.
+Status: Browser and Jupyter now use the existing native browser in center workspace tabs. Logs/Diff and focused PDF/Files acceptance passed; real Math/Theory document cases remain.
 
 - [x] Separate browser pages with New/Close tab and navigation controls.
 - [x] Restore browser tabs and visibility per profile without persisting URL authentication tokens.
@@ -64,6 +64,7 @@ Status: browser-tab foundation and workspace Logs/Diff/navigation slice implemen
 - [x] Add read-only workspace Diff tabs with file selection, working/staged comparison, Refresh, and opening a preview from Changes.
 - [x] Restore validated tab descriptors per profile without saving log/diff contents or replaying jobs, Git writes, or service startup.
 - [x] Link browser/Jupyter openings into workspace navigation while keeping the existing native browser pane and authenticated service controller.
+- [x] Display Browser/Jupyter pages in the selected center workspace tab, using the existing native browser and Jupyter service controls.
 - [x] Add PDF workspace entries with Open/Refresh/Open externally, an explicitly saved Go-to-page target, and native document navigation/zoom/search controls.
 - [x] Route Theory's repository/quick-task Open PDF and build-success opening into the native viewer; refresh a visible PDF after a successful managed build.
 - [x] Restrict PDF requests to one validated relative PDF within a configured checkout, rejecting path traversal and symlinks/junctions; disable the launcher bridge, permissions, document links, and downloads.
@@ -87,7 +88,8 @@ Status: browser-tab foundation and workspace Logs/Diff/navigation slice implemen
 - [ ] Unify center tab types: Terminal, Browser, Jupyter, Diff, Markdown, Files, and Logs.
 - [ ] Add Copy URL, DevTools, project URL shortcuts, and device-size presets.
 - [ ] Let service records advertise Open actions once healthy.
-- [ ] Validate restoration, profile isolation, hide/show, popup links, failed navigation, and local services that are not running.
+- [x] Check center Browser/Jupyter switching, passive restart/profile restoration, failed local navigation, and token-safe saved URLs.
+- [ ] Check native hide/show and popup links for center Browser/Jupyter tabs.
 
 Acceptance: GitHub, Jupyter, local apps, reports, and documentation coexist in the workspace rather than replacing one page or requiring external windows.
 
@@ -186,12 +188,14 @@ Verified 2026-10-28: after a real DevShell process restart, Logs and Diff descri
 
 Verified 2026-10-28: the isolated Group 2 live harness passed Files preview, refresh, missing-folder recovery, PDF open/refresh, missing-file recovery, collection list refresh to empty and back, explicit page 2, and profile isolation. After a real launcher restart, the PDF and Files descriptors showed passive saved-entry states, the page target remained 2, and Logs had no current-session job. Logs Stop cancelled a real disposable PowerShell build job and left a persistent log. The native PDF viewer loaded both fixture pages at page 2 with page, zoom, and search controls present. External opening, large Theory output, Math's real PDF collection, and authenticated Jupyter reopening remain separate live cases.
 
-Next: complete authenticated Jupyter reopening and the real Math/Theory PDF cases, then move native Browser/Jupyter controls into the center workspace.
+Verified 2026-10-28: the existing native browser and authenticated Jupyter service opened in center workspace tabs. Switching Browser, Jupyter, and Logs tabs reused live pages without a new navigation or service action. A real restart restored Browser/Jupyter descriptors passively; switching to the portable profile hid the laptop entries and switching back restored them without replay. The stopped local fixture showed `ERR_CONNECTION_REFUSED` in the native browser and left the workspace usable. Saved workspace and native browser tab JSON omitted a synthetic URL token, query string, and fragment. The test Jupyter service was stopped after the check. Authenticated Jupyter reopening after a restart and the native hide/show button remain separate cases.
+
+Next: complete authenticated Jupyter reopening and the real Math/Theory PDF cases.
 
 - Introduce typed workspace tabs while preserving existing terminal sessions, splits, and profile switching.
 - Open job Logs in a persistent workspace tab with live output, exit status, and the existing full-log action.
 - Open read-only file Diff tabs with repository, file, and staged/working-side identity; leave staging and commit confirmation in the Changes flow.
 - Restore tab descriptors per profile, not captured log/diff contents or authentication tokens. Reopening must not execute Git writes or replay task commands.
-- Then integrate Browser/Jupyter tab selection with the existing native browser pane before attempting to move or recreate WebView controls in the center workspace.
+- Integrate Browser/Jupyter tab selection with the existing native browser pane in the center workspace while keeping saved descriptors passive.
 
 Before Group 1 sign-off, finish the remaining isolated Commit/Push and multiple-remote/worktree checks above. Do not treat implementation checkmarks as proof that every edge case has been exercised.

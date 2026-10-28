@@ -60,15 +60,18 @@ export function ScientificAdditionalCoverage({ runtime, observed, native }: { ru
   const result = native.historyResult?.runtimeId === runtime.id && native.historyResult.recipeId === 'lab.probe' ? native.historyResult : job?.result
   const probeResults = result?.probeResults ?? []
   const registered = rows.filter(row => row.probeId).length
+  const runnable = runtime.kind === 'sage' ? runtime.id === 'sage-wsl' : runtime.execution === 'windows-native'
   return <section aria-label={`${runtime.name} capability coverage`}>
     <h3>{runtime.name} capability coverage</h3>
     <p className="scientific-runtime-note">Scoped MATH3D candidates, not a claim that the full upstream library is supported. {declared}/{rows.length} entries map to this profile's declared capabilities; {registered} has a bounded positive and rejection probe. Package installation and version do not prove a worker operation.</p>
     <p className="scientific-runtime-note"><a href={documentation[kind]} target="_blank" rel="noopener noreferrer">Upstream reference</a> · Install/package evidence: Environment · Execution evidence: History</p>
     <div className="scientific-runtime-actions">
-      <button type="button" disabled={native.pending || native.busy} onClick={() => native.send(runtime.id, 'lab-probe')}>Run {runtime.name} probes</button>
+      <button type="button" disabled={!runnable || native.pending || native.busy} onClick={() => native.send(runtime.id, 'lab-probe')}>{native.pending ? 'Starting probes...' : `Run ${runtime.name} probes`}</button>
       <button type="button" onClick={() => native.send('', 'history')}>Refresh saved evidence</button>
       {saved && <button type="button" onClick={() => native.send(runtime.id, 'history-result', { jobId: saved.jobId })}>Load saved result</button>}
     </div>
+    {!runnable && <p className="scientific-runtime-note">{runtime.kind === 'sage' ? 'Select WSL Ubuntu under Environment to run the installed SageMath probes.' : 'Select Windows Native under Environment to run the registered probes.'}</p>}
+    {native.error && <p role="alert" className="scientific-runtime-note">Probe request failed: {native.error}</p>}
     <p className="scientific-runtime-note">{job ? `Managed job: ${job.state}` : 'No managed probe job in this session.'} {saved ? `Saved run: ${saved.jobId}` : 'No saved probe result loaded.'} {observed?.version ? `Installed version: ${observed.version}.` : 'Installed version not recorded.'}</p>
     {result && <p className="scientific-runtime-note">Probe evidence: {probeResults.filter(probe => probe.status === 'passed').length}/{probeResults.length} passed. {probeResults.map(probe => `${probe.id}: ${probe.status} (${probe.durationMs} ms)`).join('; ')}</p>}
     <div className="scientific-history-scroll"><table><thead><tr><th>Candidate / upstream API</th><th>Profile intent</th><th>Worker / contract</th><th>MATH3D UI</th><th>Opt-in test plan</th></tr></thead><tbody>{rows.map(row => <tr key={row.name}>

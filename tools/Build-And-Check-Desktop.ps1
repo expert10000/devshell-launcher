@@ -56,6 +56,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Missing-shell Playwright check failed.' }
     & node (Join-Path $root 'tests\jupyter-studio-ui-checks.mjs')
     if ($LASTEXITCODE -ne 0) { throw 'Jupyter Playwright check failed.' }
+    & node (Join-Path $root 'tests\workspace-logs-diff-ui-checks.mjs')
+    if ($LASTEXITCODE -ne 0) { throw 'Workspace Logs/Diff Playwright check failed.' }
     if ($WithManagedService) {
         & node (Join-Path $root 'tests\services-dashboard-ui-checks.mjs')
         if ($LASTEXITCODE -ne 0) { throw 'Managed-service Playwright check failed.' }

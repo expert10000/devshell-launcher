@@ -1,6 +1,6 @@
 # DevShell workspace roadmap
 
-Updated: 2026-10-09
+Updated: 2026-10-28
 
 ## Direction
 
@@ -55,7 +55,7 @@ Delivered and checked on 2026-10-01:
 
 ### Group 2: Browser and mixed workspace tabs
 
-Status: browser-tab foundation and workspace Logs/Diff/navigation slice implemented and built. PDF workspace entries and native viewing are implemented but not yet built or runtime-tested. UI acceptance checks remain pending.
+Status: browser-tab foundation and workspace Logs/Diff/navigation slice implemented, built, and checked in the live desktop UI. Focused PDF/Files fixture acceptance and native PDF display passed; real Math/Theory document cases remain.
 
 - [x] Separate browser pages with New/Close tab and navigation controls.
 - [x] Restore browser tabs and visibility per profile without persisting URL authentication tokens.
@@ -75,11 +75,15 @@ Status: browser-tab foundation and workspace Logs/Diff/navigation slice implemen
 - [x] Add Files and Build PDFs/Open PDF actions directly to the repository strip.
 - [x] Add standalone Files & Artifacts workspace tabs with repository switching, folder navigation, filename/artifact filters, bounded read-only text previews, and PDF opening; no terminal session is needed.
 - [x] Restore Files folder descriptors without saving previews or search contents. Scoped requests block Git internals, path escapes, and symlink/junction traversal.
-- [ ] Run the new WorkspaceFilesChecks and focused PDF/Files UI flow checks before marking this slice verified.
+- [x] Run WorkspaceFilesChecks, including Logs/Diff descriptor normalization.
+- [x] Run focused PDF/Files UI flow checks with a disposable repository, including missing files, collection refresh, page selection, profile isolation, and passive restart restoration.
 - Math's user-run build completed on 2026-10-03: 20 PDFs collected under build/pdf, all eight canonical volumes passed document QA, and the managed job exited 0. The stale selector did not automatically refresh; the auto-refresh fix and folder-PDF changes are not yet rebuilt or UI-tested.
 - [ ] Build and check Math's PDF collection, empty/missing output, volume selection, build/QA failures, profile restoration, and preservation of its VS Code action. No Math document builds have been run as part of this implementation.
 - [ ] Build and check PDF display, large Theory output, native toolbar controls, refreshed output after rebuild, missing/invalid PDFs, explicit page restoration, profile isolation, and external opening. Native scrolling is not tracked in this first version.
-- [ ] Build and test the new slice: live output/Stop, side switching/Refresh, terminal preservation, profile restoration/isolation, and browser/Jupyter navigation.
+- [x] Build and check Logs output/status, Stop and full-log requests, Diff side switching/Refresh, and terminal preservation in the live UI with simulated bridge replies.
+- [x] Check Logs/Diff restoration and profile isolation after process restart, passive Browser/Jupyter selection, and failed browser navigation in the live app.
+- [x] Check Logs Stop against a real disposable managed job in the live UI.
+- [ ] Check authenticated Jupyter reopen after restart.
 - [ ] Unify center tab types: Terminal, Browser, Jupyter, Diff, Markdown, Files, and Logs.
 - [ ] Add Copy URL, DevTools, project URL shortcuts, and device-size presets.
 - [ ] Let service records advertise Open actions once healthy.
@@ -176,7 +180,13 @@ Delivered workspace additions through 2026-10-09:
 
 The older Group 2 acceptance list below remains useful for edge cases; the completed baseline above supersedes its earlier unbuilt status statements.
 
-Next: build and verify the implemented Group 2 Logs/Diff/navigation slice before moving native WebView controls into the center workspace.
+Verified 2026-10-28: the source frontend and native launcher build. A focused live WebView2 check passed Logs output/status, Stop and full-log requests, tab closing without stopping a job, Diff working/staged switching and Refresh, and terminal preservation. The check simulates bridge replies and performs no Git writes; the separate RepositoryChangesChecks passed against a disposable repository. WorkspaceFilesChecks passed descriptor normalization for Logs/Diff, including rejection of invalid paths and excluding log contents and URL data. A toolbar overlap that blocked closing the last tab was corrected. The combined missing-shell, Jupyter lifecycle, and Logs/Diff UI check passed. Profile restoration/isolation and Browser/Jupyter navigation were checked in the next pass.
+
+Verified 2026-10-28: after a real DevShell process restart, Logs and Diff descriptors restored in the laptop profile with the active Logs tab, no current-session job output, and a passive Diff placeholder. Switching to the portable profile hid those entries; switching back restored them. Selecting saved Jupyter and Browser workspace entries sent no service-start or browser-open request. An invalid browser scheme was rejected, and opening the stopped Math3D URL displayed `ERR_CONNECTION_REFUSED` with `Navigation failed: ConnectionAborted` in the native pane; the workspace remained usable. Reopening a saved browser entry initially lost its repository label; the bridge now carries its repository ID and the frontend preserves existing browser metadata when a URL is reopened. These checks did not exercise a real repository job's Stop button in Logs or an authenticated Jupyter reopen after a restart. The original profile selection and workspace tab descriptors were restored after the check; native browser tabs kept their original IDs and URLs.
+
+Verified 2026-10-28: the isolated Group 2 live harness passed Files preview, refresh, missing-folder recovery, PDF open/refresh, missing-file recovery, collection list refresh to empty and back, explicit page 2, and profile isolation. After a real launcher restart, the PDF and Files descriptors showed passive saved-entry states, the page target remained 2, and Logs had no current-session job. Logs Stop cancelled a real disposable PowerShell build job and left a persistent log. The native PDF viewer loaded both fixture pages at page 2 with page, zoom, and search controls present. External opening, large Theory output, Math's real PDF collection, and authenticated Jupyter reopening remain separate live cases.
+
+Next: complete authenticated Jupyter reopening and the real Math/Theory PDF cases, then move native Browser/Jupyter controls into the center workspace.
 
 - Introduce typed workspace tabs while preserving existing terminal sessions, splits, and profile switching.
 - Open job Logs in a persistent workspace tab with live output, exit status, and the existing full-log action.

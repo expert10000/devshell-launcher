@@ -546,9 +546,11 @@
 }
 
 .shell-toolbar .tab-strip {
-  grid-column: 1 / -1;
+  grid-column: 1;
   grid-row: 2;
-  justify-self: start;
+  justify-self: stretch;
+  min-width: 0;
+  width: 100%;
   max-width: 100%;
   overflow: auto;
   padding: 4px;
@@ -2336,6 +2338,11 @@
   .shell-toolbar {
     grid-template-columns: 1fr;
     justify-items: start;
+  }
+
+  .shell-toolbar .status {
+    grid-column: 1;
+    grid-row: 3;
   }
 
   .status {

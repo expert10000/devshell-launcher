@@ -51,9 +51,10 @@ public partial class Form1
     {
         var url = message.TryGetProperty("url", out var value) ? value.GetString() : null;
         var projectId = message.TryGetProperty("projectId", out var project) ? project.GetString() : null;
+        var repositoryId = message.TryGetProperty("repositoryId", out var repository) ? repository.GetString() : null;
         if (url != null && !BrowserPane.IsWebUrl(url))
             throw new ArgumentException("Browser tasks require an HTTP or HTTPS URL.");
-        return ShowBrowserAsync(url, _activeWorkspaceProfileId, "browser", projectId);
+        return ShowBrowserAsync(url, _activeWorkspaceProfileId, "browser", projectId, repositoryId);
     }
 
     private void ExpandBrowserHost()

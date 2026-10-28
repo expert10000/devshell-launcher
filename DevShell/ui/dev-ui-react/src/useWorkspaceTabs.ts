@@ -38,7 +38,9 @@ export function useWorkspaceTabs(profileId: string | null, bridge: Bridge | null
     if (safe.kind === 'browser' && !safe.url) return
     const existing = previous.tabs.find(tab => identity(tab) === identity(safe))
     if (!existing && previous.tabs.length >= 24) { commit({ ...previous, error: 'Close a workspace tab before opening another (limit: 24).' }); return }
-    const tab: WorkspaceViewTab = existing ? { ...existing, ...safe, restored: false } : { ...safe, id: crypto.randomUUID(), restored: false }
+    const tab: WorkspaceViewTab = existing ? { ...existing, ...safe,
+      ...(safe.kind === 'browser' ? { projectId: safe.projectId ?? existing.projectId, repositoryId: safe.repositoryId ?? existing.repositoryId } : {}),
+      restored: false } : { ...safe, id: crypto.randomUUID(), restored: false }
     const source = previous.tabs.find(item => item.id === previous.activeId)
     if (tab.kind === 'pdf' && source && source.id !== tab.id && (source.kind === 'files' || source.kind === 'pdf')) {
       returnTargets.current.set(tab.id, source.id)

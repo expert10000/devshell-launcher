@@ -31,6 +31,16 @@ var state = new WorkspaceTabsState { Tabs = new() {
 var normalized = WorkspaceTabsStore.Normalize(state, workspace);
 Check(normalized.Tabs.Count(tab => tab.Kind == "pdf") == 1, "restored PDF selectors deduplicated");
 Check(normalized.Tabs.Single(tab => tab.Kind == "files").FilePath == "build/pdf", "files descriptor stores scoped location only");
+var viewDescriptors = WorkspaceTabsStore.Normalize(new WorkspaceTabsState { Tabs = new() {
+    new() { Kind = "logs", ProjectId = "project", RepositoryId = "repo", FilePath = "README.md", Side = "staged", Url = "https://example.test/?token=secret" },
+    new() { Kind = "diff", ProjectId = "project", RepositoryId = "repo", FilePath = "README.md", Side = "staged" },
+    new() { Kind = "diff", ProjectId = "project", RepositoryId = "repo", FilePath = "../escape", Side = "working" }
+} }, workspace);
+var logDescriptor = viewDescriptors.Tabs.Single(tab => tab.Kind == "logs");
+Check(logDescriptor.FilePath == null && logDescriptor.Side == null && logDescriptor.Url == null, "logs restore only repository identity, never output or URL data");
+var diffDescriptor = viewDescriptors.Tabs.Single(tab => tab.Kind == "diff");
+Check(diffDescriptor.FilePath == "README.md" && diffDescriptor.Side == "staged", "diff restores selected file and side without reading Git");
+Check(viewDescriptors.Tabs.Count == 2, "invalid diff path rejected during restoration");
 Console.WriteLine("Fixtures retained at " + root);
 File.WriteAllText(Path.Combine(root, "sample.py"), "print('read-only')\n");
 File.WriteAllText(Path.Combine(root, "sample.html"), "<script>throw new Error('never execute')</script>");

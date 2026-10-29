@@ -35,6 +35,9 @@ async Task<RepositoryJobStatus> Run(string action, string path, string? configur
 }
 var job = await Run("clone", target);
 Check(job.State == "succeeded" && File.Exists(Path.Combine(target, "file.txt")), "Clone failed: " + job.Log);
+var nestedTarget = Path.Combine(root, "new-workspace", "repos", "Math3D");
+job = await Run("clone", nestedTarget);
+Check(job.State == "succeeded" && File.Exists(Path.Combine(nestedTarget, "file.txt")), "Clone did not create missing parent and repository folders: " + job.Log);
 await File.WriteAllTextAsync(Path.Combine(source, "remote.txt"), "remote change");
 await Git(source, "add", "."); await Git(source, "commit", "-m", "remote change"); await Git(source, "push");
 await File.WriteAllTextAsync(Path.Combine(target, "local.txt"), "keep me");

@@ -4314,8 +4314,29 @@ const App = () => {
   const shellSetupKey = `${activeWorkspaceProfileId}:shell:pwsh`
   const shellSetupJob = repositoryJobs.find(job => job.key === shellSetupKey)
   const shellSetupBusy = shellSetupJob && ['queued', 'building', 'running'].includes(shellSetupJob.state)
-  const missingWorkspaceTools = workspace.globals?.autoDetectTools
-    ? (['pwsh', 'git'] as const).filter(tool => !workspace.globals?.tools?.[tool]) : []
+  const requiredWorkspaceTools = new Map<string, Set<string>>()
+  const requireTool = (tool: string, source: string) => {
+    const name = tool.trim().toLowerCase()
+    if (!name || name.includes('\\') || name.includes('/')) return
+    if (!requiredWorkspaceTools.has(name)) requiredWorkspaceTools.set(name, new Set())
+    requiredWorkspaceTools.get(name)!.add(source)
+  }
+  if (workspace.globals?.autoDetectTools) {
+    requireTool('pwsh', 'DevShell tasks and setup')
+    if (projects.some(project => project.repositories?.length)) requireTool('git', 'Repository clone and update')
+    for (const project of projects) {
+      for (const tool of project.requiredTools ?? []) requireTool(tool, project.name)
+      if (project.pythonEnvironment) requireTool('python', project.name)
+      for (const repo of project.repositories ?? []) {
+        for (const tool of repo.requiredTools ?? []) requireTool(tool, repo.name)
+        if (repo.pythonEnvironment) requireTool('python', repo.name)
+      }
+    }
+  }
+  const missingDeclaredTools = [...requiredWorkspaceTools].filter(([tool]) => !workspace.globals?.tools?.[tool])
+  const missingWorkspaceTools = missingDeclaredTools.filter(([tool]) => tool !== 'npm' || !!workspace.globals?.tools?.node)
+  const installableWorkspaceTools = new Set(['pwsh', 'git', 'node', 'npm', 'python', 'dotnet', 'code'])
+  const workspaceToolNames: Record<string, string> = { pwsh: 'PowerShell 7', git: 'Git', node: 'Node.js and npm', npm: 'npm', python: 'Python', dotnet: '.NET SDK', code: 'VS Code', latexmk: 'LaTeX (latexmk)' }
   const gitAvailable = !workspace.globals?.autoDetectTools || !!workspace.globals.tools?.git
 
   return (
@@ -4771,23 +4792,29 @@ const App = () => {
           <p className="service-detail">Saved on this computer for this profile. Repository folders and Python environments follow this root; existing terminal tabs keep their current folders.</p>
           <details><summary>Detected tools · {Object.keys(workspace.globals.tools ?? {}).length} found</summary><ul className="detected-tools">{Object.entries(workspace.globals.tools ?? {}).map(([name, path]) => <li key={name}><strong>{name}</strong><span>{path}</span></li>)}</ul></details>
         </section>}
-        {missingWorkspaceTools.map(tool => {
-          const name = tool === 'pwsh' ? 'PowerShell 7' : 'Git'
-          const key = `${activeWorkspaceProfileId}:shell:${tool}`
-          const job = repositoryJobs.find(item => item.key === key)
-          const busy = job && ['queued', 'building', 'running'].includes(job.state)
-          return <section className="environment-readiness blocked" aria-label={`${name} setup`} key={tool}>
-            <div className="environment-heading"><strong>{name} is missing</strong><span>{tool === 'git' ? 'Git is required to clone and update repositories.' : 'PowerShell 7 is required for setup and project tasks.'}</span></div>
-            <div className="environment-actions">
-              <button disabled={anyJobBusy || anyUpdateBusy || !workspace.globals?.tools?.winget} onClick={() => { setJobErrors(current => ({ ...current, [key]: '' })); postMessage({ type: 'tool.setup', toolId: tool, action: 'install' }) }}>Install {name}</button>
-              {busy && <button onClick={() => postMessage({ type: 'repository.job', projectId: 'shell', repositoryId: tool, action: 'stop' })}>Stop</button>}
-              {job && <button onClick={() => postMessage({ type: 'repository.job', projectId: 'shell', repositoryId: tool, action: 'log' })}>Open setup log</button>}
-            </div>
-            {!workspace.globals?.tools?.winget && <p className="service-detail">WinGet is required for automatic installation.</p>}
-            {job && <p role="status">Setup: {job.state}{job.completedSteps != null && job.totalSteps ? ` · ${job.completedSteps}/${job.totalSteps}` : ''}</p>}
-            {jobErrors[key] && <p className="check-error" role="alert">{jobErrors[key]}</p>}
-          </section>
-        })}
+        {!!missingWorkspaceTools.length && <section className="environment-readiness blocked" aria-label="Required tools">
+          <div className="environment-heading"><strong>Required tools · {missingDeclaredTools.length} missing</strong><button onClick={() => { postMessage({ type: 'workspace.tools.refresh' }); refreshDashboard() }}>Recheck</button></div>
+          <ul className="environment-issues">{missingWorkspaceTools.map(([tool, sources]) => {
+            const name = workspaceToolNames[tool] ?? tool
+            const requiredBy = tool === 'node' && !workspace.globals?.tools?.npm
+              ? new Set([...sources, ...(requiredWorkspaceTools.get('npm') ?? [])]) : sources
+            const key = `${activeWorkspaceProfileId}:shell:${tool}`
+            const job = repositoryJobs.find(item => item.key === key)
+            const busy = job && ['queued', 'building', 'running'].includes(job.state)
+            return <li className="environment-issue error" key={tool}>
+              <strong>{name}</strong><p>Required by {Array.from(requiredBy).join(', ')}.</p>
+              <div className="environment-actions">
+                {installableWorkspaceTools.has(tool) ? <button disabled={anyJobBusy || anyUpdateBusy || !workspace.globals?.tools?.winget} onClick={() => { setJobErrors(current => ({ ...current, [key]: '' })); postMessage({ type: 'tool.setup', toolId: tool, action: 'install' }) }}>Install {name}</button>
+                  : <span className="service-detail">Install this tool manually, then Recheck.</span>}
+                {busy && <button onClick={() => postMessage({ type: 'repository.job', projectId: 'shell', repositoryId: tool, action: 'stop' })}>Stop</button>}
+                {job && <button onClick={() => postMessage({ type: 'repository.job', projectId: 'shell', repositoryId: tool, action: 'log' })}>Open setup log</button>}
+              </div>
+              {job && <p role="status">Setup: {job.state}{job.completedSteps != null && job.totalSteps ? ` · ${job.completedSteps}/${job.totalSteps}` : ''}</p>}
+              {jobErrors[key] && <p className="check-error" role="alert">{jobErrors[key]}</p>}
+            </li>
+          })}</ul>
+          {!workspace.globals?.tools?.winget && <p className="service-detail">WinGet is required for automatic installation.</p>}
+        </section>}
         {jobErrors[`${activeWorkspaceProfileId}:update-all`] && <p className="check-error" role="alert">{jobErrors[`${activeWorkspaceProfileId}:update-all`]}</p>}
         {anyUpdateBusy && !updateBatch && <p role="status">Update All is running in another profile.</p>}
         {updateBatch && <section className="repository-update-panel" aria-label="Update All progress">
@@ -4827,7 +4854,7 @@ const App = () => {
                     <button disabled={!gitAvailable || disabled || !status || !!status.error || !status.upstream || status.branch === '(detached)'} title="Confirm destination before pushing without force" onClick={() => repositoryAction(project.id, repo.id, 'push')}>Push</button>
                     <button disabled={!gitAvailable || disabled || !status || !!status.error} title="Fetch remote changes and refresh ahead/behind counts" onClick={() => repositoryAction(project.id, repo.id, 'fetch')}>Fetch</button>
                     <button disabled={!gitAvailable || disabled || !status || !!status.error || status.changed > 0 || !status.upstream || status.branch === '(detached)'} title={status?.changed ? 'Commit or stash local changes before pulling' : !status?.upstream ? 'A tracking branch is required' : 'Pull the current tracking branch, fast-forward only'} onClick={() => repositoryAction(project.id, repo.id, 'pull')}>Pull</button>
-                    <button disabled={!gitAvailable || disabled || !repo.url || !status?.error} title={!gitAvailable ? 'Install Git before cloning' : !repo.url ? 'Configure this repository’s URL to enable Clone' : !status?.error ? 'This repository already exists' : `Clone ${repo.url}`} onClick={() => repositoryAction(project.id, repo.id, 'clone')}>Clone</button>
+                    <button disabled={!gitAvailable || disabled || !repo.url || !status?.error} title={!gitAvailable ? 'Install Git before cloning' : !repo.url ? 'Configure this repository’s URL to enable Clone' : !status?.error ? 'This repository already exists' : `Clone ${repo.url}; create missing destination folders`} onClick={() => repositoryAction(project.id, repo.id, 'clone')}>Clone</button>
                     <button disabled={disabled || !repo.buildTask || !status || !!status.error} title={repo.buildTask ?? 'No build command configured for this repository'} onClick={() => repositoryAction(project.id, repo.id, 'build')}>{repo.pdfDirectory ? 'Build PDFs' : 'Build'}</button>
                     <button disabled={disabled || !(repo.pdfPath || repo.runTask) || !status || !!status.error} title={repo.pdfPath ? 'Open the build output in a workspace PDF tab' : repo.runTask ?? 'No run command configured'} onClick={() => repositoryAction(project.id, repo.id, 'run')}>{repo.pdfPath ? 'Open PDF' : repo.runLabel ?? 'Run'}</button>
                     {repo.pdfDirectory && <button disabled={!status || !!status.error} title="Choose a volume or edition from the collected build PDFs" onClick={() => workspaceViews.open({ kind: 'pdf', projectId: project.id, repositoryId: repo.id, page: 1 })}>Open PDF</button>}

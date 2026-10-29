@@ -12,8 +12,8 @@ public partial class Form1
         var key = $"{profileId}:shell:{toolId}";
         try
         {
-            if (toolId is not ("pwsh" or "git") || payload.GetProperty("action").GetString() != "install")
-                throw new InvalidOperationException("Only PowerShell 7 and Git installation are supported here.");
+            if (toolId == null || !EnvironmentSetup.InstallableTools.Contains(toolId) || payload.GetProperty("action").GetString() != "install")
+                throw new InvalidOperationException("This tool does not support managed installation.");
 
             if (toolId == "pwsh" && _profiles.FirstOrDefault(profile => profile.Id == "pwsh") is { } pwsh &&
                 _terminalManager.TryResolveProfileCommand(pwsh, out _))
@@ -21,9 +21,11 @@ public partial class Form1
                 SendProfiles();
                 return Task.CompletedTask;
             }
-            if (toolId == "git" && PortableWorkspace.DiscoverTools(_workspace.Globals?.WorkspaceRoot ?? AppPaths.ConfigDirectory).ContainsKey("git"))
+            var root = _workspace.Globals?.WorkspaceRoot ?? AppPaths.ConfigDirectory;
+            RefreshInstalledToolPath(toolId);
+            if (PortableWorkspace.DiscoverTools(root).ContainsKey(toolId))
             {
-                RefreshInstalledToolPath("git");
+                SendProfiles();
                 _ = HandleWorkspaceToolsRefreshAsync();
                 _ = HandleDashboardRequestAsync();
                 return Task.CompletedTask;
@@ -33,7 +35,7 @@ public partial class Form1
             if (DashboardInspector.FindTool("winget") == null)
                 throw new InvalidOperationException("WinGet is unavailable. Install this tool manually, then select Detect tools.");
 
-            var installerProfiles = toolId == "git" ? new[] { "pwsh", "powershell" } : new[] { "powershell", "pwsh" };
+            var installerProfiles = toolId == "pwsh" ? new[] { "powershell", "pwsh" } : new[] { "pwsh", "powershell" };
             string? shell = null;
             foreach (var id in installerProfiles)
             {
@@ -46,9 +48,8 @@ public partial class Form1
             }
             if (shell == null)
                 throw new InvalidOperationException("A PowerShell shell is unavailable. Install this tool manually, then select Detect tools.");
-            var root = _workspace.Globals?.WorkspaceRoot ?? AppPaths.ConfigDirectory;
-            if (!Directory.Exists(root)) throw new DirectoryNotFoundException($"Workspace folder is missing: {root}");
-            var displayName = toolId == "git" ? "Git" : "PowerShell 7";
+            Directory.CreateDirectory(root);
+            var displayName = toolId switch { "git" => "Git", "pwsh" => "PowerShell 7", "node" => "Node.js", "npm" => "npm", "python" => "Python", "dotnet" => ".NET SDK", "code" => "VS Code", _ => toolId };
             var plan = new EnvironmentSetupPlan(root, PortableWorkspace.DiscoverTools(root),
                 new List<EnvironmentSetupStep> { new($"Install {displayName}", "tool", root, toolId, Target: $"tool:{toolId}") },
                 new List<string>()) { Targets = new List<string> { $"tool:{toolId}" } };

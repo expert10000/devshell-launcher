@@ -32,6 +32,7 @@ Status: implemented, with focused backend and Playwright checks passed. Remainin
 - [x] Add Open GitHub using the embedded browser.
 - [x] Add a compact repository strip for the selected project above its workspace.
 - [x] Add repository selection for multi-repository projects, including Jupyter workspaces with an actual Git root.
+- [x] Surface missing declared project/repository tools before Clone, with explicit managed WinGet install actions; Clone creates missing parent folders and preserves occupied non-Git destinations.
 - [x] Add explicit Commit/Push flows with selected/staged files, commit-message entry, destination preview, and confirmation.
 - [x] Add a Changes panel with separate working/staged file lists, per-file previews, and Stage selected / Unstage selected.
 - [x] Keep partial staging visible on both sides; preserve working edits when unstaging; never stage everything or discard edits automatically.

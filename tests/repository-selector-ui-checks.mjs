@@ -51,16 +51,26 @@ try {
     const workspace = structuredClone(window.__toolSetupWorkspace)
     delete workspace.globals.tools.git
     delete workspace.globals.tools.pwsh
+    delete workspace.globals.tools.node
+    delete workspace.globals.tools.npm
+    delete workspace.globals.tools.python
+    delete workspace.globals.tools.dotnet
     window.chrome.webview.dispatchEvent(new MessageEvent('message', { data: JSON.stringify({ type: 'workspace.tools.refreshed', workspace }) }))
   })
   await page.locator('.tab-strip > .tab').filter({ hasText: 'Repositories' }).click()
   await page.getByRole('button', { name: 'Install Git' }).click()
   await page.getByRole('button', { name: 'Install PowerShell 7' }).click()
+  await page.getByRole('button', { name: 'Install Node.js and npm' }).click()
+  await page.getByRole('button', { name: 'Install Python' }).click()
+  await page.getByRole('button', { name: 'Install .NET SDK' }).click()
   assert.equal(await page.getByRole('button', { name: 'Update All' }).isDisabled(), true)
   const sent = await page.evaluate(() => window.__toolSetupSent)
   assert.ok(sent.some(message => message.toolId === 'git' && message.action === 'install'))
   assert.ok(sent.some(message => message.toolId === 'pwsh' && message.action === 'install'))
-  console.log('PASS: Missing Git and PowerShell 7 show install actions; Update All waits for Git')
+  assert.ok(sent.some(message => message.toolId === 'node' && message.action === 'install'))
+  assert.ok(sent.some(message => message.toolId === 'python' && message.action === 'install'))
+  assert.ok(sent.some(message => message.toolId === 'dotnet' && message.action === 'install'))
+  console.log('PASS: Declared project/repository tools show install actions before cloning; Update All waits for Git')
 } finally {
   await page.evaluate(() => {
     window.chrome.webview.postMessage = window.__toolSetupOriginalPost

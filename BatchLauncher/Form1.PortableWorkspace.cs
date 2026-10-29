@@ -19,6 +19,8 @@ public partial class Form1
     private string? _workspaceResolutionError;
     private Task HandleWorkspaceToolsRefreshAsync()
     {
+        // WinGet may have updated the machine or user PATH after DevShell started.
+        RefreshInstalledToolPath("git");
         if (WorkspaceStore.TryLoadWorkspace(_scriptsPath, out var source, out var error))
         {
             _workspace = ResolveWorkspace(source, _activeWorkspaceProfileId);

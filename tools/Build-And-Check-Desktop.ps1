@@ -2,6 +2,7 @@ param(
     [switch]$UseRunningApp,
     [switch]$SkipBuild,
     [switch]$WithManagedService,
+    [switch]$OnlyRepositorySelector,
     [int]$CdpPort = 9237
 )
 
@@ -52,13 +53,17 @@ try {
     }
     if (!$ready) { throw "DevShell WebView2 did not appear at $cdpUrl." }
 
-    & node (Join-Path $root 'tests\shell-preflight-ui-checks.mjs')
-    if ($LASTEXITCODE -ne 0) { throw 'Missing-shell Playwright check failed.' }
-    & node (Join-Path $root 'tests\jupyter-studio-ui-checks.mjs')
-    if ($LASTEXITCODE -ne 0) { throw 'Jupyter Playwright check failed.' }
-    & node (Join-Path $root 'tests\workspace-logs-diff-ui-checks.mjs')
-    if ($LASTEXITCODE -ne 0) { throw 'Workspace Logs/Diff Playwright check failed.' }
-    if ($WithManagedService) {
+    if (!$OnlyRepositorySelector) {
+        & node (Join-Path $root 'tests\shell-preflight-ui-checks.mjs')
+        if ($LASTEXITCODE -ne 0) { throw 'Missing-shell Playwright check failed.' }
+        & node (Join-Path $root 'tests\jupyter-studio-ui-checks.mjs')
+        if ($LASTEXITCODE -ne 0) { throw 'Jupyter Playwright check failed.' }
+        & node (Join-Path $root 'tests\workspace-logs-diff-ui-checks.mjs')
+        if ($LASTEXITCODE -ne 0) { throw 'Workspace Logs/Diff Playwright check failed.' }
+    }
+    & node (Join-Path $root 'tests\repository-selector-ui-checks.mjs')
+    if ($LASTEXITCODE -ne 0) { throw 'Repository selector Playwright check failed.' }
+    if ($WithManagedService -and !$OnlyRepositorySelector) {
         & node (Join-Path $root 'tests\services-dashboard-ui-checks.mjs')
         if ($LASTEXITCODE -ne 0) { throw 'Managed-service Playwright check failed.' }
     }

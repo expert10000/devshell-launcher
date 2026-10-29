@@ -7,38 +7,55 @@ public partial class Form1
     private Task HandleShellSetupAsync(JsonElement payload)
     {
         var profileId = _activeWorkspaceProfileId;
-        var key = $"{profileId}:shell:pwsh";
+        var toolId = payload.TryGetProperty("toolId", out var toolProperty) ? toolProperty.GetString()
+            : payload.TryGetProperty("profileId", out var profileProperty) ? profileProperty.GetString() : null;
+        var key = $"{profileId}:shell:{toolId}";
         try
         {
-            if (payload.GetProperty("profileId").GetString() != "pwsh" ||
-                payload.GetProperty("action").GetString() != "install")
-                throw new InvalidOperationException("Only PowerShell 7 installation is supported here.");
+            if (toolId is not ("pwsh" or "git") || payload.GetProperty("action").GetString() != "install")
+                throw new InvalidOperationException("Only PowerShell 7 and Git installation are supported here.");
 
-            var pwsh = _profiles.FirstOrDefault(profile => profile.Id == "pwsh")
-                ?? throw new InvalidOperationException("The PowerShell 7 profile is missing from profile.json.");
-            if (_terminalManager.TryResolveProfileCommand(pwsh, out _))
+            if (toolId == "pwsh" && _profiles.FirstOrDefault(profile => profile.Id == "pwsh") is { } pwsh &&
+                _terminalManager.TryResolveProfileCommand(pwsh, out _))
             {
                 SendProfiles();
                 return Task.CompletedTask;
             }
+            if (toolId == "git" && PortableWorkspace.DiscoverTools(_workspace.Globals?.WorkspaceRoot ?? AppPaths.ConfigDirectory).ContainsKey("git"))
+            {
+                RefreshInstalledToolPath("git");
+                _ = HandleWorkspaceToolsRefreshAsync();
+                _ = HandleDashboardRequestAsync();
+                return Task.CompletedTask;
+            }
             if (_repositoryRunner.Snapshot().Any(job => job.State is "queued" or "building" or "running"))
-                throw new InvalidOperationException("Finish or stop the active job before installing PowerShell 7.");
+                throw new InvalidOperationException("Finish or stop the active job before installing another tool.");
             if (DashboardInspector.FindTool("winget") == null)
-                throw new InvalidOperationException("WinGet is unavailable. Install PowerShell 7, then select Recheck shells.");
+                throw new InvalidOperationException("WinGet is unavailable. Install this tool manually, then select Detect tools.");
 
-            var windowsPowerShell = _profiles.FirstOrDefault(profile => profile.Id == "powershell")
-                ?? throw new InvalidOperationException("Windows PowerShell is required to install PowerShell 7.");
-            if (!_terminalManager.TryResolveProfileCommand(windowsPowerShell, out var shell))
-                throw new InvalidOperationException("Windows PowerShell is unavailable. Install PowerShell 7 manually, then recheck shells.");
+            var installerProfiles = toolId == "git" ? new[] { "pwsh", "powershell" } : new[] { "powershell", "pwsh" };
+            string? shell = null;
+            foreach (var id in installerProfiles)
+            {
+                var candidate = _profiles.FirstOrDefault(profile => profile.Id == id);
+                if (candidate != null && _terminalManager.TryResolveProfileCommand(candidate, out var resolved))
+                {
+                    shell = resolved.Application;
+                    break;
+                }
+            }
+            if (shell == null)
+                throw new InvalidOperationException("A PowerShell shell is unavailable. Install this tool manually, then select Detect tools.");
             var root = _workspace.Globals?.WorkspaceRoot ?? AppPaths.ConfigDirectory;
             if (!Directory.Exists(root)) throw new DirectoryNotFoundException($"Workspace folder is missing: {root}");
+            var displayName = toolId == "git" ? "Git" : "PowerShell 7";
             var plan = new EnvironmentSetupPlan(root, PortableWorkspace.DiscoverTools(root),
-                new List<EnvironmentSetupStep> { new("Install PowerShell 7", "tool", root, "pwsh", Target: "tool:pwsh") },
-                new List<string>()) { Targets = new List<string> { "tool:pwsh" } };
-            var command = EnvironmentSetup.Command(shell.Application,
+                new List<EnvironmentSetupStep> { new($"Install {displayName}", "tool", root, toolId, Target: $"tool:{toolId}") },
+                new List<string>()) { Targets = new List<string> { $"tool:{toolId}" } };
+            var command = EnvironmentSetup.Command(shell,
                 Path.Combine(AppContext.BaseDirectory, "tools", "Setup-Environment.ps1"), plan, AppContext.BaseDirectory);
             if (!_repositoryRunner.Start(key, null, command, RepositoryLogDirectory, "setup", stepCount: 1))
-                throw new InvalidOperationException("PowerShell 7 setup is already running.");
+                throw new InvalidOperationException($"{displayName} setup is already running.");
             SendRepositoryJobs();
             _ = Task.Run(async () =>
             {
@@ -47,8 +64,10 @@ public partial class Form1
                 BeginInvoke(new Action(async () =>
                 {
                     if (IsDisposed || profileId != _activeWorkspaceProfileId) return;
+                    RefreshInstalledToolPath(toolId);
                     SendProfiles();
                     if (_workspace.Globals?.AutoDetectTools == true) await HandleWorkspaceToolsRefreshAsync();
+                    _ = HandleDashboardRequestAsync();
                     SendRepositoryJobs();
                 }));
             });
@@ -58,5 +77,26 @@ public partial class Form1
             SendMessage(new { type = "repository.job.error", key, message = error.Message });
         }
         return Task.CompletedTask;
+    }
+
+    private static void RefreshInstalledToolPath(string toolId)
+    {
+        var paths = new[] {
+            Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine),
+            Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User),
+            Environment.GetEnvironmentVariable("PATH")
+        }.Where(path => !string.IsNullOrWhiteSpace(path))
+            .SelectMany(path => path!.Split(';', StringSplitOptions.RemoveEmptyEntries))
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (toolId == "git")
+        {
+            var git = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Git", "cmd");
+            if (File.Exists(Path.Combine(git, "git.exe")))
+            {
+                paths.RemoveAll(path => string.Equals(path.TrimEnd('\\'), git, StringComparison.OrdinalIgnoreCase));
+                paths.Insert(0, git);
+            }
+        }
+        Environment.SetEnvironmentVariable("PATH", string.Join(';', paths));
     }
 }

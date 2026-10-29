@@ -33,7 +33,7 @@ export function RepositoryStrip({ project, profileId, statuses, jobs, errors, re
   const detached = status?.branch === '(detached)'
   return <section className="repository-strip" aria-label={`${project.name} repositories`}>
     <div className="repository-strip-selector" role="group" aria-label="Select repository">
-      {repos.map((repo) => <button key={repo.id} aria-pressed={repo.id === selected.id} title={statusOf(repo)?.path ?? repo.path} onClick={() => { setSelectedId(repo.id); if (activeFilesRepoId) onSelectFilesRepo?.(repo.id) }}>
+      {repos.map((repo) => <button key={repo.id} aria-pressed={repo.id === selected.id} title={statusOf(repo)?.path ?? repo.path} onClick={() => { setSelectedId(repo.id); onSelectFilesRepo?.(repo.id) }}>
         <strong>{repo.name}</strong><span>{summary(statusOf(repo))}</span>
       </button>)}
     </div>

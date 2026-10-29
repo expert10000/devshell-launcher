@@ -4314,6 +4314,9 @@ const App = () => {
   const shellSetupKey = `${activeWorkspaceProfileId}:shell:pwsh`
   const shellSetupJob = repositoryJobs.find(job => job.key === shellSetupKey)
   const shellSetupBusy = shellSetupJob && ['queued', 'building', 'running'].includes(shellSetupJob.state)
+  const missingWorkspaceTools = workspace.globals?.autoDetectTools
+    ? (['pwsh', 'git'] as const).filter(tool => !workspace.globals?.tools?.[tool]) : []
+  const gitAvailable = !workspace.globals?.autoDetectTools || !!workspace.globals.tools?.git
 
   return (
     <div className={`shell-app theme-${theme}`}>
@@ -4761,13 +4764,30 @@ const App = () => {
       </header>
       {scientificView && <ScientificRuntimesWorkspace profileId={activeWorkspaceProfileId} projects={projects} bridge={bridge} />}
       {!scientificView && repositoriesView && <main className="repositories-page" aria-label="Repositories">
-        <div className="repositories-title"><div><h1>Repositories</h1><p>Your repositories, build actions, and working changes.</p></div><div className="repository-toolbar"><button className="action" disabled={anyUpdateBusy || setupBusy || !projects.some((project) => project.repositories?.length) || repositoryJobs.some((job) => job.key.startsWith(`${activeWorkspaceProfileId}:`) && ['queued', 'building', 'running'].includes(job.state))} onClick={updateAll}>Update All</button><button className="action ghost" onClick={() => { setHealthOpen(true); refreshDashboard() }}>Environment checks</button></div></div>
+        <div className="repositories-title"><div><h1>Repositories</h1><p>Your repositories, build actions, and working changes.</p></div><div className="repository-toolbar"><button className="action" disabled={!gitAvailable || anyUpdateBusy || setupBusy || !projects.some((project) => project.repositories?.length) || repositoryJobs.some((job) => job.key.startsWith(`${activeWorkspaceProfileId}:`) && ['queued', 'building', 'running'].includes(job.state))} title={gitAvailable ? 'Clone missing repositories and fast-forward existing checkouts' : 'Install Git before updating repositories'} onClick={updateAll}>Update All</button><button className="action ghost" onClick={() => { setHealthOpen(true); refreshDashboard() }}>Environment checks</button></div></div>
         {workspace.globals?.autoDetectTools && <section className="portable-workspace" aria-label="Portable workspace settings">
           <label htmlFor="workspace-root">Workspace root</label>
           <div className="workspace-root-row"><input id="workspace-root" value={workspaceRootDraft} disabled={anyJobBusy || anyUpdateBusy} onChange={(event) => setWorkspaceRootDraft(event.target.value)} placeholder="D:\\masters" /><button disabled={anyJobBusy || anyUpdateBusy || !workspaceRootDraft.trim() || workspaceRootDraft === workspace.globals?.workspaceRoot} onClick={() => postMessage({ type: 'workspace.root.save', path: workspaceRootDraft })}>Apply</button><button disabled={anyJobBusy || anyUpdateBusy} onClick={() => postMessage({ type: 'workspace.root.pick' })}>Browse…</button><button disabled={anyJobBusy || anyUpdateBusy} onClick={() => { postMessage({ type: 'workspace.tools.refresh' }); refreshDashboard() }}>Detect tools</button></div>
           <p className="service-detail">Saved on this computer for this profile. Repository folders and Python environments follow this root; existing terminal tabs keep their current folders.</p>
           <details><summary>Detected tools · {Object.keys(workspace.globals.tools ?? {}).length} found</summary><ul className="detected-tools">{Object.entries(workspace.globals.tools ?? {}).map(([name, path]) => <li key={name}><strong>{name}</strong><span>{path}</span></li>)}</ul></details>
         </section>}
+        {missingWorkspaceTools.map(tool => {
+          const name = tool === 'pwsh' ? 'PowerShell 7' : 'Git'
+          const key = `${activeWorkspaceProfileId}:shell:${tool}`
+          const job = repositoryJobs.find(item => item.key === key)
+          const busy = job && ['queued', 'building', 'running'].includes(job.state)
+          return <section className="environment-readiness blocked" aria-label={`${name} setup`} key={tool}>
+            <div className="environment-heading"><strong>{name} is missing</strong><span>{tool === 'git' ? 'Git is required to clone and update repositories.' : 'PowerShell 7 is required for setup and project tasks.'}</span></div>
+            <div className="environment-actions">
+              <button disabled={anyJobBusy || anyUpdateBusy || !workspace.globals?.tools?.winget} onClick={() => { setJobErrors(current => ({ ...current, [key]: '' })); postMessage({ type: 'tool.setup', toolId: tool, action: 'install' }) }}>Install {name}</button>
+              {busy && <button onClick={() => postMessage({ type: 'repository.job', projectId: 'shell', repositoryId: tool, action: 'stop' })}>Stop</button>}
+              {job && <button onClick={() => postMessage({ type: 'repository.job', projectId: 'shell', repositoryId: tool, action: 'log' })}>Open setup log</button>}
+            </div>
+            {!workspace.globals?.tools?.winget && <p className="service-detail">WinGet is required for automatic installation.</p>}
+            {job && <p role="status">Setup: {job.state}{job.completedSteps != null && job.totalSteps ? ` · ${job.completedSteps}/${job.totalSteps}` : ''}</p>}
+            {jobErrors[key] && <p className="check-error" role="alert">{jobErrors[key]}</p>}
+          </section>
+        })}
         {jobErrors[`${activeWorkspaceProfileId}:update-all`] && <p className="check-error" role="alert">{jobErrors[`${activeWorkspaceProfileId}:update-all`]}</p>}
         {anyUpdateBusy && !updateBatch && <p role="status">Update All is running in another profile.</p>}
         {updateBatch && <section className="repository-update-panel" aria-label="Update All progress">
@@ -4801,13 +4821,13 @@ const App = () => {
                   </>}
                   <div className="service-actions">
                     <button disabled={!status || !!status.error} title="Open a read-only workspace Diff tab" onClick={() => repositoryAction(project.id, repo.id, 'diff')}>Diff</button>
-                    <button disabled={disabled || !status || !!status.error || !status.lastCommit} title="View the latest 50 local commits in Logs" onClick={() => repositoryAction(project.id, repo.id, 'history')}>History</button>
+                    <button disabled={!gitAvailable || disabled || !status || !!status.error || !status.lastCommit} title="View the latest 50 local commits in Logs" onClick={() => repositoryAction(project.id, repo.id, 'history')}>History</button>
                     <button disabled={!repo.url && !status?.remotes?.length} title="Open the repository in an embedded browser tab" onClick={() => repositoryAction(project.id, repo.id, 'github')}>GitHub</button>
-                    <button disabled={disabled || !status || !!status.error || status.branch === '(detached)'} title="Preview and commit staged changes only" onClick={() => repositoryAction(project.id, repo.id, 'commit')}>Commit</button>
-                    <button disabled={disabled || !status || !!status.error || !status.upstream || status.branch === '(detached)'} title="Confirm destination before pushing without force" onClick={() => repositoryAction(project.id, repo.id, 'push')}>Push</button>
-                    <button disabled={disabled || !status || !!status.error} title="Fetch remote changes and refresh ahead/behind counts" onClick={() => repositoryAction(project.id, repo.id, 'fetch')}>Fetch</button>
-                    <button disabled={disabled || !status || !!status.error || status.changed > 0 || !status.upstream || status.branch === '(detached)'} title={status?.changed ? 'Commit or stash local changes before pulling' : !status?.upstream ? 'A tracking branch is required' : 'Pull the current tracking branch, fast-forward only'} onClick={() => repositoryAction(project.id, repo.id, 'pull')}>Pull</button>
-                    <button disabled={disabled || !repo.url || !status?.error} title={!repo.url ? 'Configure this repository’s URL to enable Clone' : !status?.error ? 'This repository already exists' : `Clone ${repo.url}`} onClick={() => repositoryAction(project.id, repo.id, 'clone')}>Clone</button>
+                    <button disabled={!gitAvailable || disabled || !status || !!status.error || status.branch === '(detached)'} title="Preview and commit staged changes only" onClick={() => repositoryAction(project.id, repo.id, 'commit')}>Commit</button>
+                    <button disabled={!gitAvailable || disabled || !status || !!status.error || !status.upstream || status.branch === '(detached)'} title="Confirm destination before pushing without force" onClick={() => repositoryAction(project.id, repo.id, 'push')}>Push</button>
+                    <button disabled={!gitAvailable || disabled || !status || !!status.error} title="Fetch remote changes and refresh ahead/behind counts" onClick={() => repositoryAction(project.id, repo.id, 'fetch')}>Fetch</button>
+                    <button disabled={!gitAvailable || disabled || !status || !!status.error || status.changed > 0 || !status.upstream || status.branch === '(detached)'} title={status?.changed ? 'Commit or stash local changes before pulling' : !status?.upstream ? 'A tracking branch is required' : 'Pull the current tracking branch, fast-forward only'} onClick={() => repositoryAction(project.id, repo.id, 'pull')}>Pull</button>
+                    <button disabled={!gitAvailable || disabled || !repo.url || !status?.error} title={!gitAvailable ? 'Install Git before cloning' : !repo.url ? 'Configure this repository’s URL to enable Clone' : !status?.error ? 'This repository already exists' : `Clone ${repo.url}`} onClick={() => repositoryAction(project.id, repo.id, 'clone')}>Clone</button>
                     <button disabled={disabled || !repo.buildTask || !status || !!status.error} title={repo.buildTask ?? 'No build command configured for this repository'} onClick={() => repositoryAction(project.id, repo.id, 'build')}>{repo.pdfDirectory ? 'Build PDFs' : 'Build'}</button>
                     <button disabled={disabled || !(repo.pdfPath || repo.runTask) || !status || !!status.error} title={repo.pdfPath ? 'Open the build output in a workspace PDF tab' : repo.runTask ?? 'No run command configured'} onClick={() => repositoryAction(project.id, repo.id, 'run')}>{repo.pdfPath ? 'Open PDF' : repo.runLabel ?? 'Run'}</button>
                     {repo.pdfDirectory && <button disabled={!status || !!status.error} title="Choose a volume or edition from the collected build PDFs" onClick={() => workspaceViews.open({ kind: 'pdf', projectId: project.id, repositoryId: repo.id, page: 1 })}>Open PDF</button>}
@@ -4825,7 +4845,7 @@ const App = () => {
                   <EnvironmentReadiness name={repo.name} checks={environment} checking={dashboardLoading} blocked={anyJobBusy || anyUpdateBusy}
                     plan={setupPlans[jobKey]} onFix={(targets) => repositoryAction(project.id, repo.id, 'fix', targets)}
                     onPreview={(targets) => repositoryAction(project.id, repo.id, 'fix-plan', targets)} onSetup={() => repositoryAction(project.id, repo.id, 'setup')}
-                    onRecheck={refreshDashboard} onClone={repo.url && status?.error ? () => repositoryAction(project.id, repo.id, 'clone') : undefined} />
+                    onRecheck={refreshDashboard} onClone={gitAvailable && repo.url && status?.error ? () => repositoryAction(project.id, repo.id, 'clone') : undefined} />
                   {!repo.buildTask && <div className="service-detail">Build: not configured</div>}
                   {job?.browserState && job.browserState !== 'not-requested' && <div className="service-detail" role="status">Browser: {job.browserState}{job.browserUrl ? ` · ${job.browserUrl}` : ''}</div>}
                 </article>
@@ -4870,7 +4890,7 @@ const App = () => {
         </section>}
         {panelProject && <RepositoryStrip key={`${activeWorkspaceProfileId}:${panelProject.id}`} project={panelProject} profileId={activeWorkspaceProfileId}
           activeFilesRepoId={workspaceViews.tabs.find(tab => tab.id === workspaceViews.activeId && tab.kind === 'files' && tab.projectId === panelProject.id)?.repositoryId}
-          onSelectFilesRepo={repoId => { const existing = workspaceViews.tabs.find(tab => tab.kind === 'files' && tab.projectId === panelProject.id && tab.repositoryId === repoId); if (existing) workspaceViews.select(existing.id); else workspaceViews.open({ kind: 'files', projectId: panelProject.id, repositoryId: repoId }) }}
+          onSelectFilesRepo={repoId => { setScientificView(false); setRepositoriesView(false); const existing = workspaceViews.tabs.find(tab => tab.kind === 'files' && tab.projectId === panelProject.id && tab.repositoryId === repoId); if (existing) workspaceViews.select(existing.id); else workspaceViews.open({ kind: 'files', projectId: panelProject.id, repositoryId: repoId }) }}
           statuses={dashboard?.repositories ?? []} jobs={repositoryJobs} errors={jobErrors}
           reservedKeys={new Set(updateBatches.filter((batch) => batch.state === 'running').flatMap((batch) => batch.results.map((result) => result.key)))}
           onAction={(repoId, action) => repositoryAction(panelProject.id, repoId, action)} />}

@@ -21,6 +21,12 @@ if (args.Length > 0 && args[0] == "--validate")
                 var environment = Path.Combine(imported.Root!, ".venv");
                 Check(imported.PythonEnvironment == environment && imported.Service.Python == Path.Combine(environment, "Scripts", "python.exe"),
                     "Imported Jupyter environment and service paths disagree");
+                var setupRepository = new WorkspaceRepository { Path = imported.Root!, PythonEnvironment = imported.PythonEnvironment,
+                    PythonModules = imported.PythonModules, PythonPackages = imported.PythonPackages, RequiredTools = imported.RequiredTools };
+                var plan = EnvironmentSetup.Plan(setupRepository, imported.Root!, new Dictionary<string, string>(), targets: new[] { "python" });
+                Check(plan.Issues.Count == 0 && plan.Steps.Any(step => step.Kind == "python-create" && step.Environment == environment)
+                    && plan.Steps.Any(step => step.Kind == "python-install" && step.Arguments?.Contains("-r") == true),
+                    "Jupyter setup did not plan environment creation and requirements installation");
             }
         }
         finally { File.Delete(tempProfile); }

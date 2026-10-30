@@ -1,7 +1,7 @@
 param(
     [string]$RepositoryUrl,
     [Parameter(Mandatory = $true)][string]$Destination,
-    [ValidateSet('sync', 'fetch', 'pull', 'clone')][string]$Action = 'sync'
+    [ValidateSet('sync', 'fetch', 'pull', 'clone', 'restore-workspace', 'create-workspace')][string]$Action = 'sync'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -35,7 +35,7 @@ try {
     } else { $clone = $true }
 
     if ($clone) {
-        if ($Action -in @('fetch', 'pull')) { throw 'Repository is missing. Use Clone first.' }
+        if ($Action -in @('fetch', 'pull', 'restore-workspace')) { throw 'Repository is missing. Use Clone first.' }
         if (-not $RepositoryUrl) { throw 'Configure a repository URL before cloning.' }
         $parent = Split-Path -Parent $path
         New-Item -ItemType Directory -Path $parent -Force | Out-Null
@@ -50,6 +50,22 @@ try {
         $origin = & git -C $path config --get remote.origin.url
         Assert-GitSuccess 'Read origin'
         if ($RepositoryUrl -and (Normalize-Origin $origin) -cne (Normalize-Origin $RepositoryUrl)) { throw "Unexpected origin: $origin" }
+        if ($Action -in @('restore-workspace', 'create-workspace')) {
+            $workspace = Join-Path $path 'JupyterWorkspace'
+            if (Test-Path -LiteralPath $workspace) {
+                if ($Action -eq 'create-workspace') { Write-Host '[sync] JupyterWorkspace already exists'; return }
+                throw 'JupyterWorkspace already exists. Nothing was changed.'
+            }
+            $tracked = & git -C $path ls-files -- 'JupyterWorkspace/'
+            Assert-GitSuccess 'Inspect JupyterWorkspace'
+            if (-not $tracked) { throw 'This checkout does not track JupyterWorkspace. Nothing was changed.' }
+            Write-Host '[sync] Restoring JupyterWorkspace from the current checkout'
+            & git -C $path restore --source=HEAD --worktree -- 'JupyterWorkspace/'
+            Assert-GitSuccess 'Restore JupyterWorkspace'
+            if (-not (Test-Path -LiteralPath $workspace -PathType Container)) { throw 'Restore finished without creating JupyterWorkspace.' }
+            Write-Host '[sync] SUCCEEDED' -ForegroundColor Green
+            return
+        }
         if ($Action -eq 'fetch') {
             Write-Host '[sync] Fetching origin (working files are unchanged)'
             & git -C $path fetch --prune --progress origin

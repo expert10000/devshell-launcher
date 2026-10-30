@@ -16,6 +16,8 @@ var target = Path.Combine(root, "cloned ' unicode ż");
 await Git(root, "init", "--bare", "-b", "main", remote);
 await Git(root, "init", "-b", "main", source);
 await File.WriteAllTextAsync(Path.Combine(source, "file.txt"), "initial");
+Directory.CreateDirectory(Path.Combine(source, "JupyterWorkspace"));
+await File.WriteAllTextAsync(Path.Combine(source, "JupyterWorkspace", "guide.html"), "<html>Jupyter workspace</html>");
 await Git(source, "add", "."); await Git(source, "commit", "-m", "initial");
 await Git(source, "remote", "add", "origin", remote); await Git(source, "push", "-u", "origin", "main");
 const string url = "https://devshell.invalid/repository.git";
@@ -35,9 +37,23 @@ async Task<RepositoryJobStatus> Run(string action, string path, string? configur
 }
 var job = await Run("clone", target);
 Check(job.State == "succeeded" && File.Exists(Path.Combine(target, "file.txt")), "Clone failed: " + job.Log);
+Directory.Delete(Path.Combine(target, "JupyterWorkspace"), true);
+job = await Run("restore-workspace", target);
+Check(job.State == "succeeded" && File.Exists(Path.Combine(target, "JupyterWorkspace", "guide.html")), "Missing Jupyter workspace was not restored from HEAD: " + job.Log);
+job = await Run("restore-workspace", target);
+Check(job.State == "failed" && job.Log.Contains("already exists"), "Existing Jupyter workspace was not protected");
+var workspaceTarget = Path.Combine(root, "new-workspace", "repos", "devshell-launcher");
+job = await Run("create-workspace", workspaceTarget);
+Check(job.State == "succeeded" && File.Exists(Path.Combine(workspaceTarget, "JupyterWorkspace", "guide.html")), "Create workspace did not clone into missing parent folders: " + job.Log);
+Directory.Delete(Path.Combine(workspaceTarget, "JupyterWorkspace"), true);
+job = await Run("create-workspace", workspaceTarget);
+Check(job.State == "succeeded" && File.Exists(Path.Combine(workspaceTarget, "JupyterWorkspace", "guide.html")), "Create workspace did not restore a missing tracked folder: " + job.Log);
+job = await Run("create-workspace", workspaceTarget);
+Check(job.State == "succeeded" && job.Log.Contains("already exists"), "Create workspace was not safe to retry");
 var nestedTarget = Path.Combine(root, "new-workspace", "repos", "Math3D");
 job = await Run("clone", nestedTarget);
-Check(job.State == "succeeded" && File.Exists(Path.Combine(nestedTarget, "file.txt")), "Clone did not create missing parent and repository folders: " + job.Log);
+Check(job.State == "succeeded" && File.Exists(Path.Combine(nestedTarget, "file.txt")) &&
+    File.Exists(Path.Combine(nestedTarget, "JupyterWorkspace", "guide.html")), "Clone did not create missing parent, repository, and Jupyter workspace folders: " + job.Log);
 await File.WriteAllTextAsync(Path.Combine(source, "remote.txt"), "remote change");
 await Git(source, "add", "."); await Git(source, "commit", "-m", "remote change"); await Git(source, "push");
 await File.WriteAllTextAsync(Path.Combine(target, "local.txt"), "keep me");
@@ -60,6 +76,8 @@ job = await Run("pull", target); Check(job.State == "failed" && job.Log.Contains
 var occupied = Path.Combine(root, "occupied"); Directory.CreateDirectory(occupied); File.WriteAllText(Path.Combine(occupied, "keep.txt"), "safe");
 job = await Run("clone", occupied);
 Check(job.State == "failed" && File.ReadAllText(Path.Combine(occupied, "keep.txt")) == "safe", "Clone overwrote a nonempty folder");
+job = await Run("create-workspace", occupied);
+Check(job.State == "failed" && File.ReadAllText(Path.Combine(occupied, "keep.txt")) == "safe", "Create workspace overwrote a nonempty folder");
 job = await Run("clone", Path.Combine(root, "no-url"), null); Check(job.State == "failed" && job.Log.Contains("Configure a repository URL"), "Missing clone URL was not reported");
 
 using var queue = new RepositoryUpdateQueue(runner);
@@ -84,6 +102,9 @@ queue.Stop(); batch = await WaitQueue();
 Check(batch.State == "stopped" && batch.Results[0].State == "stopped" && batch.Results[1].State == "skipped" && !runner.Snapshot().Any(item => item.Key == "pending"), "Stop did not cancel the active job and skip pending work");
 
 var environmentPath = Path.Combine(root, "environment"); Directory.CreateDirectory(environmentPath);
+var missingJupyter = Path.Combine(root, "devshell-launcher", "JupyterWorkspace");
+var jupyterChecks = await RepositoryEnvironment.Inspect("jupyter-studio", "environment", missingJupyter, Array.Empty<string>());
+Check(jupyterChecks.Count == 1 && jupyterChecks[0].Name == "Jupyter workspace folder" && jupyterChecks[0].FixTarget == "clone" && jupyterChecks[0].FixLabel == "Create workspace", "Missing Jupyter workspace did not offer Create workspace");
 File.WriteAllText(Path.Combine(environmentPath, "package.json"), "{\"dependencies\":{\"fake-package\":\"1.0.0\"},\"devDependencies\":{\"@scope/fake-dev\":\"1.0.0\"}}");
 var checks = await RepositoryEnvironment.Inspect("p", "r", environmentPath, new[] { "missing-devshell-tool" }, Path.Combine(root, "missing-python"));
 Check(checks.Any(check => check.Name == "Node packages" && check.State == "error" && check.Detail.Contains("2 missing")) && checks.Any(check => check.Name == "missing-devshell-tool" && check.State == "error") && checks.Any(check => check.Name == "Python environment" && check.State == "error"), "Missing environment dependencies were not detected");
@@ -91,4 +112,4 @@ Check(checks.All(check => check.ProjectId == "p" && check.RepositoryId == "r"), 
 foreach (var name in new[] { "fake-package", "@scope/fake-dev" }) { var folder = Path.Combine(environmentPath, "node_modules", name); Directory.CreateDirectory(folder); File.WriteAllText(Path.Combine(folder, "package.json"), "{}"); }
 checks = await RepositoryEnvironment.Inspect("p", "r", environmentPath, Array.Empty<string>());
 Check(checks.Any(check => check.Name == "Node packages" && check.State == "ok"), "Installed Node packages were not recognized");
-Console.WriteLine("PASS: Clone, dirty Fetch, safe fast-forward Pull, dirty/diverged/detached/origin/nonempty safeguards, Update All results/continuation/Stop, repository dependency checks");
+Console.WriteLine("PASS: Clone, create workspace, dirty Fetch, safe fast-forward Pull, dirty/diverged/detached/origin/nonempty safeguards, Update All results/continuation/Stop, repository dependency checks");

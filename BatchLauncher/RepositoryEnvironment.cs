@@ -45,7 +45,14 @@ public static class RepositoryEnvironment
             checks.Add(new(name, state, detail, projectId, repositoryId, target, label, guidance, optional));
         string? Tool(string name) => DashboardInspector.FindTool(toolPaths?.GetValueOrDefault(name) ?? name);
         var tools = new HashSet<string>(requiredTools, StringComparer.OrdinalIgnoreCase);
-        if (!Directory.Exists(path)) { Add("Repository folder", "error", "Missing " + path, "clone", "Clone repository", "Clone this repository before installing dependencies."); return checks; }
+        if (!Directory.Exists(path))
+        {
+            if (projectId == "jupyter-studio" && repositoryId == "environment" && Path.GetFileName(Path.TrimEndingDirectorySeparator(path)).Equals("JupyterWorkspace", StringComparison.OrdinalIgnoreCase))
+                Add("Jupyter workspace folder", "error", "Missing " + path, "clone", "Create workspace",
+                    "Create the workspace from the DevShell repository before installing Jupyter dependencies.");
+            else Add("Repository folder", "error", "Missing " + path, "clone", "Clone repository", "Clone this repository before installing dependencies.");
+            return checks;
+        }
         var nodeTarget = "node:" + relativeDirectory;
         try
         {

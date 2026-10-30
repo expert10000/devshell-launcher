@@ -8,7 +8,7 @@ namespace BatchLauncher;
 
 public sealed record RepositoryCommand(string Shell, string Script, string Cwd);
 public sealed record RepositoryJobStatus(string Key, string State, string BuildState, int? ExitCode, string Log, string LogPath, string Action, string BrowserState = "not-requested", string? BrowserUrl = null, string? LastBuildFinishedAt = null, string? LastBuildState = null, int? LastBuildExitCode = null, int CompletedSteps = 0, int TotalSteps = 0, string? Step = null);
-public sealed record RepositoryBrowserLaunch(string Url, IReadOnlyList<string> ReadyUrls, int TimeoutSeconds = 120);
+public sealed record RepositoryBrowserLaunch(string Url, IReadOnlyList<string> ReadyUrls, int TimeoutSeconds = 120, bool AutoOpen = true);
 public sealed record RepositoryPreparation(Func<CancellationToken, Task<RepositoryCommand?>> Check, Func<CancellationToken, Task> Verify,
     Func<CancellationToken, Task<(RepositoryCommand Build, RepositoryCommand Run)>>? Commands = null);
 
@@ -244,8 +244,8 @@ public sealed class RepositoryRunner : IDisposable
                         if (job.Cancellation.IsCancellationRequested) return;
                         job.BrowserState = "ready";
                     }
-                    append("[browser] Ready. Opening in DevShell: " + browser.Url);
-                    BrowserReady?.Invoke(key, browser.Url);
+                    append(browser.AutoOpen ? "[browser] Ready. Opening in DevShell: " + browser.Url : "[service] Ready: " + browser.Url);
+                    if (browser.AutoOpen) BrowserReady?.Invoke(key, browser.Url);
                     return;
                 }
                 await Task.Delay(750, deadline.Token);

@@ -29,7 +29,7 @@ public partial class Form1
             var environment = ExpandProjectValue(project, project.PythonEnvironment);
             var scripts = Path.Combine(environment, "Scripts");
             if (!File.Exists(Path.Combine(scripts, "python.exe")))
-                throw new InvalidOperationException($"Python environment is missing: {environment}");
+                return null;
             return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 ["VIRTUAL_ENV"] = environment,
@@ -58,9 +58,22 @@ public partial class Form1
             if (profileId != _activeWorkspaceProfileId) return;
             if (action is "start" or "restart" or "open" && _repositoryRunner.Snapshot().Any(job => (job.Action is "setup" or "prepare-launch") && job.State is "queued" or "building" or "running"))
                 throw new InvalidOperationException("Finish or stop environment repair before starting services.");
+            if (project.Service.Kind == "process")
+            {
+                await HandleProcessServiceControlAsync(project, profileId, action, openExternally);
+                return;
+            }
+            if (project.Service.Kind != "jupyter") throw new InvalidOperationException("Unknown service kind: " + project.Service.Kind);
+            var jupyterPython = ExpandProjectValue(project, project.Service.Python);
+            if (!File.Exists(jupyterPython))
+            {
+                SendMessage(new { type = "service.status", projectId, profileId, state = "blocked",
+                    message = "Jupyter Python environment is missing. Open Setup / Fix to create it.", port = project.Service.Port });
+                return;
+            }
             if (action != "status")
                 SendMessage(new { type = "service.status", projectId, profileId, state = "busy", message = action + "…", port = project.Service.Port });
-            var start = new ProcessStartInfo(ExpandProjectValue(project, project.Service.Python))
+            var start = new ProcessStartInfo(jupyterPython)
             {
                 UseShellExecute = false,
                 CreateNoWindow = true,
@@ -116,6 +129,14 @@ public partial class Form1
         {
             var project = _workspace.Projects?.FirstOrDefault(item => item.Id == projectId && item.Service != null)
                 ?? throw new InvalidOperationException("Service not found in this profile.");
+            if (project.Service!.Kind == "process")
+            {
+                var job = _repositoryRunner.Snapshot().FirstOrDefault(item => item.Key == $"{profileId}:{project.Id}:service");
+                var output = job?.Log ?? "No worker log has been created yet.";
+                if (!IsDisposed && profileId == _activeWorkspaceProfileId)
+                    SendMessage(new { type = "service.log.result", profileId, projectId, data = RedactServiceLog(output) });
+                return;
+            }
             var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "DevShellLauncher", "logs", $"jupyter-{project.Service!.Port}.log");
             string log;
@@ -128,8 +149,7 @@ public partial class Form1
                 using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: false);
                 log = await reader.ReadToEndAsync();
                 if (offset > 0 && log.Contains('\n')) log = log[(log.IndexOf('\n') + 1)..];
-                log = Regex.Replace(log, @"(?i)([?&]token=)[^\s&""']+", "$1[redacted]");
-                log = Regex.Replace(log, @"(?i)(authorization:\s*token\s+)\S+", "$1[redacted]");
+                log = RedactServiceLog(log);
             }
             if (!IsDisposed && profileId == _activeWorkspaceProfileId)
                 SendMessage(new { type = "service.log.result", profileId, projectId, data = log });
@@ -139,5 +159,48 @@ public partial class Form1
             if (!IsDisposed && profileId == _activeWorkspaceProfileId)
                 SendMessage(new { type = "service.log.result", profileId, projectId, data = "Log unavailable: " + error.Message });
         }
+    }
+
+    private static string RedactServiceLog(string log)
+    {
+        log = Regex.Replace(log, @"(?i)([?&]token=)[^\s&""']+", "$1[redacted]");
+        return Regex.Replace(log, @"(?i)(authorization:\s*token\s+)\S+", "$1[redacted]");
+    }
+
+    private async Task HandleProcessServiceControlAsync(WorkspaceProject project, string profileId, string action, bool openExternally)
+    {
+        var service = project.Service!;
+        var key = $"{profileId}:{project.Id}:service";
+        RepositoryJobStatus? Current() => _repositoryRunner.Snapshot().FirstOrDefault(item => item.Key == key);
+        if (action is "stop" or "restart" && Current() is { State: "queued" or "building" or "running" })
+        {
+            SendMessage(new { type = "service.status", projectId = project.Id, profileId, state = "busy", message = action + "…" });
+            _repositoryRunner.Stop(key);
+            await _repositoryRunner.Completion(key).WaitAsync(TimeSpan.FromSeconds(30));
+        }
+        if (action is "start" or "restart")
+        {
+            if (Current() is { State: "queued" or "building" or "running" }) throw new InvalidOperationException("This worker is already running.");
+            var shell = _profiles.FirstOrDefault(item => item.Id == "pwsh") ?? throw new InvalidOperationException("PowerShell profile missing.");
+            if (!_terminalManager.TryResolveProfileCommand(shell, out var resolvedShell)) throw new InvalidOperationException("PowerShell is unavailable.");
+            var run = ProcessServiceCommand.Create(service, resolvedShell.Application, project.Root ?? "", value => ExpandProjectValue(project, value));
+            var readyUrl = service.ReadyUrl == null ? null : ExpandProjectValue(project, service.ReadyUrl);
+            var readiness = readyUrl == null ? null : new RepositoryBrowserLaunch(readyUrl, new[] { readyUrl }, service.ReadyTimeoutSeconds, AutoOpen: false);
+            if (!_repositoryRunner.Start(key, null, run, RepositoryLogDirectory, "service", readiness)) throw new InvalidOperationException("This worker is already running.");
+            SendRepositoryJobs();
+        }
+        if (action == "open")
+        {
+            if (ProcessServiceCommand.State(Current()) != "running") throw new InvalidOperationException("Start the worker before opening it.");
+            var url = service.OpenUrl == null ? null : ExpandProjectValue(project, service.OpenUrl);
+            if (url == null || !BrowserPane.IsWebUrl(url)) throw new InvalidOperationException("This worker has no valid Open URL.");
+            if (openExternally) Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+            else await ShowBrowserAsync(url, profileId, "browser", project.Id);
+        }
+        var job = Current();
+        var state = ProcessServiceCommand.State(job);
+        SendMessage(new { type = "service.status", projectId = project.Id, profileId, state,
+            message = job == null ? "Stopped" : state == "running" ? "Running in this DevShell session" :
+                state == "starting" ? "Starting and checking readiness…" : state == "failed" ? "Worker failed; open Logs" : "Stopped" });
     }
 }

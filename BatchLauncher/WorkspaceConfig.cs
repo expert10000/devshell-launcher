@@ -68,8 +68,16 @@ public sealed class WorkspaceProject
 public sealed class WorkspaceService
 {
     public string Name { get; set; } = "Jupyter Lab";
+    public string Kind { get; set; } = "jupyter";
     public string Python { get; set; } = string.Empty;
     public int Port { get; set; } = 8889;
+    public string? Command { get; set; }
+    public List<string>? Arguments { get; set; }
+    public string? Cwd { get; set; }
+    public Dictionary<string, string>? Environment { get; set; }
+    public string? ReadyUrl { get; set; }
+    public string? OpenUrl { get; set; }
+    public int ReadyTimeoutSeconds { get; set; } = 120;
 }
 
 public sealed class WorkspaceRepository

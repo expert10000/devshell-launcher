@@ -13,7 +13,7 @@ public partial class Form1
         var basePython = _workspace.Globals?.Vars?.GetValueOrDefault("basePython");
         var shell = _profiles.FirstOrDefault(profile => profile.Id == "pwsh") ?? throw new InvalidOperationException("PowerShell profile missing.");
         if (!_terminalManager.TryResolveProfileCommand(shell, out var command)) throw new InvalidOperationException("PowerShell is unavailable.");
-        var servicePython = project.Service == null ? null : ExpandProjectValue(project, project.Service.Python);
+        var servicePython = project.Service?.Kind != "jupyter" ? null : ExpandProjectValue(project, project.Service.Python);
         var serviceRoot = project.Service == null ? null : ExpandProjectValue(project, project.Root ?? "");
         async Task<List<HealthCheck>> Inspect(CancellationToken token)
         {
@@ -23,7 +23,7 @@ public partial class Form1
         }
         return new(async token =>
         {
-            if (project.Service != null && File.Exists(servicePython))
+            if (project.Service?.Kind == "jupyter" && File.Exists(servicePython))
             {
                 await _serviceGate.WaitAsync(token);
                 try
@@ -107,7 +107,7 @@ public partial class Form1
                 if (RepositoryUpdates.Active || _repositoryChangesPaths.Count > 0 || _repositoryRunner.Snapshot().Any(job => job.State is "queued" or "building" or "running"))
                     throw new InvalidOperationException("Finish or stop active repository jobs before repairing dependencies.");
                 // A service can be running even when its last UI status is stale.
-                if (project.Service != null)
+                if (project.Service?.Kind == "jupyter")
                 {
                     serviceLocked = await _serviceGate.WaitAsync(0);
                     if (!serviceLocked) throw new InvalidOperationException("A service operation is in progress. Retry when it finishes.");

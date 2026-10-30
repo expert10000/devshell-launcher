@@ -45,8 +45,17 @@ try {
   await page.getByRole('tab', { name: 'Tasks' }).click()
   await page.getByRole('searchbox', { name: 'Search project tasks' }).fill('Environment Check')
   await page.locator('.task-panel-row').filter({ hasText: 'Jupyter - Environment Check' }).getByRole('button', { name: 'Run' }).click()
-  await page.waitForFunction(() => window.__jupyterCheckMessages
-    .filter(message => message.type === 'output').map(message => message.data ?? '').join('').includes('JupyterLab '))
+  try {
+    // Cold scientific imports can take 25 seconds; terminal startup adds more time.
+    await page.waitForFunction(() => window.__jupyterCheckMessages
+      .filter(message => message.type === 'output').map(message => message.data ?? '').join('').includes('JupyterLab '),
+    null, { timeout: 120000 })
+  } catch (error) {
+    const output = await page.evaluate(() => window.__jupyterCheckMessages
+      .filter(message => message.type === 'output').map(message => message.data ?? '').join(''))
+    console.error('Environment Check terminal output:', output.slice(-4000))
+    throw error
+  }
   const output = await page.evaluate(() => window.__jupyterCheckMessages
     .filter(message => message.type === 'output').map(message => message.data ?? '').join(''))
   assert.match(output, /JupyterLab\s+\d/)
@@ -55,8 +64,18 @@ try {
 
   await page.getByRole('tab', { name: /Services/ }).click()
   await service.getByRole('button', { name: 'Start', exact: true }).click()
-  await waitForState('running')
-  await waitForMessage('workspace.browser.opened', null)
+  try {
+    await waitForState('running')
+    await waitForMessage('workspace.browser.opened', null)
+  } catch (error) {
+    const messages = await page.evaluate(() => window.__jupyterCheckMessages
+      .filter(message => message.type === 'service.status' || message.type === 'workspace.browser.opened')
+      .map(message => ({ type: message.type, state: message.state, message: message.message,
+        kind: message.kind, projectId: message.projectId, servicePath: message.servicePath })))
+    console.error('Jupyter service/browser events:', messages)
+    console.error('Service card:', await service.innerText())
+    throw error
+  }
   console.log('PASS: Lab starts and opens inside DevShell')
 
   await service.getByRole('button', { name: 'Logs', exact: true }).click()

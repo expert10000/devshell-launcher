@@ -54,14 +54,23 @@ public partial class Form1
                 {
                     try
                     {
-                        var result = await DashboardInspector.Run(Expand(project, project.Service.Python), new[] {
-                            Path.Combine(AppContext.BaseDirectory, "service_control.py"), "status", "--root", path, "--port", project.Service.Port.ToString() });
-                        if (result.Code != 0) throw new InvalidOperationException("Service status check failed; verify the Python environment.");
-                        using var document = JsonDocument.Parse(result.Output);
-                        var state = document.RootElement.GetProperty("state").GetString();
-                        checks.Add(new(project.Service.Name + " port " + project.Service.Port,
-                            state is "running" or "stopped" ? "ok" : "error",
-                            state == "stopped" ? "Port available; service stopped" : document.RootElement.GetProperty("message").GetString() ?? state ?? "Unknown"));
+                        if (project.Service.Kind == "process")
+                        {
+                            var executable = project.Service.Command == null ? null : DashboardInspector.FindTool(Expand(project, project.Service.Command));
+                            checks.Add(new(project.Service.Name + " worker", executable == null ? "error" : "ok",
+                                executable ?? "Worker command is unavailable. Configure command or install the executable."));
+                        }
+                        else
+                        {
+                            var result = await DashboardInspector.Run(Expand(project, project.Service.Python), new[] {
+                                Path.Combine(AppContext.BaseDirectory, "service_control.py"), "status", "--root", path, "--port", project.Service.Port.ToString() });
+                            if (result.Code != 0) throw new InvalidOperationException("Service status check failed; verify the Python environment.");
+                            using var document = JsonDocument.Parse(result.Output);
+                            var state = document.RootElement.GetProperty("state").GetString();
+                            checks.Add(new(project.Service.Name + " port " + project.Service.Port,
+                                state is "running" or "stopped" ? "ok" : "error",
+                                state == "stopped" ? "Port available; service stopped" : document.RootElement.GetProperty("message").GetString() ?? state ?? "Unknown"));
+                        }
                     }
                     catch (Exception error) { checks.Add(new(project.Service.Name, "error", error.Message)); }
                 }

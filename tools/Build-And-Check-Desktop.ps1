@@ -2,7 +2,10 @@ param(
     [switch]$UseRunningApp,
     [switch]$SkipBuild,
     [switch]$WithManagedService,
+    [switch]$OnlyManagedService,
+    [switch]$OnlyServiceControls,
     [switch]$OnlyRepositorySelector,
+    [switch]$OnlyJupyter,
     [int]$CdpPort = 9237
 )
 
@@ -20,6 +23,7 @@ try {
     if ($UseRunningApp -and !$SkipBuild) {
         throw 'UseRunningApp requires SkipBuild; a running app would not include the newly built files.'
     }
+    if ($OnlyManagedService -and !$WithManagedService) { throw 'OnlyManagedService requires WithManagedService.' }
     if (!$UseRunningApp -and (Get-Process BatchLauncher -ErrorAction SilentlyContinue)) {
         throw 'Close the running DevShell app before this check, or use -UseRunningApp -SkipBuild.'
     }
@@ -53,19 +57,29 @@ try {
     }
     if (!$ready) { throw "DevShell WebView2 did not appear at $cdpUrl." }
 
-    if (!$OnlyRepositorySelector) {
-        & node (Join-Path $root 'tests\shell-preflight-ui-checks.mjs')
-        if ($LASTEXITCODE -ne 0) { throw 'Missing-shell Playwright check failed.' }
+    if (!$OnlyRepositorySelector -and !$OnlyManagedService -and !$OnlyServiceControls) {
+        if (!$OnlyJupyter) {
+            & node (Join-Path $root 'tests\shell-preflight-ui-checks.mjs')
+            if ($LASTEXITCODE -ne 0) { throw 'Missing-shell Playwright check failed.' }
+        }
         & node (Join-Path $root 'tests\jupyter-studio-ui-checks.mjs')
         if ($LASTEXITCODE -ne 0) { throw 'Jupyter Playwright check failed.' }
+    }
+    if (!$OnlyRepositorySelector -and !$OnlyJupyter -and !$OnlyManagedService -and !$OnlyServiceControls) {
         & node (Join-Path $root 'tests\workspace-logs-diff-ui-checks.mjs')
         if ($LASTEXITCODE -ne 0) { throw 'Workspace Logs/Diff Playwright check failed.' }
     }
-    & node (Join-Path $root 'tests\repository-selector-ui-checks.mjs')
-    if ($LASTEXITCODE -ne 0) { throw 'Repository selector Playwright check failed.' }
-    if ($WithManagedService -and !$OnlyRepositorySelector) {
-        & node (Join-Path $root 'tests\services-dashboard-ui-checks.mjs')
-        if ($LASTEXITCODE -ne 0) { throw 'Managed-service Playwright check failed.' }
+    if (!$OnlyJupyter -and !$OnlyManagedService -and !$OnlyServiceControls) {
+        & node (Join-Path $root 'tests\repository-selector-ui-checks.mjs')
+        if ($LASTEXITCODE -ne 0) { throw 'Repository selector Playwright check failed.' }
+    }
+    if (($WithManagedService -or $OnlyServiceControls) -and !$OnlyRepositorySelector -and !$OnlyJupyter) {
+        & node (Join-Path $root 'tests\process-service-ui-checks.mjs')
+        if ($LASTEXITCODE -ne 0) { throw 'Process-service Playwright check failed.' }
+        if (!$OnlyServiceControls) {
+            & node (Join-Path $root 'tests\services-dashboard-ui-checks.mjs')
+            if ($LASTEXITCODE -ne 0) { throw 'Managed-service Playwright check failed.' }
+        }
     }
     Write-Host 'PASS: desktop build and selected Playwright UI checks'
 }

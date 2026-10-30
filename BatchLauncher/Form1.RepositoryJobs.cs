@@ -132,7 +132,7 @@ public partial class Form1
                 if (job != null && File.Exists(job.LogPath))
                     System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(job.LogPath) { UseShellExecute = true });
             }
-            else if (action is "build" or "run" or "fetch" or "pull" or "clone" or "launch" or "prepare-launch" or "diff" or "history")
+            else if (action is "build" or "run" or "fetch" or "pull" or "clone" or "restore-workspace" or "create-workspace" or "launch" or "prepare-launch" or "diff" or "history")
             {
                 if (RepositoryUpdates.Owns(key)) throw new InvalidOperationException("This repository is reserved by Update All. Stop the queue before starting another action.");
                 if (_repositoryRunner.Snapshot().Any(job => (job.Action is "setup" or "prepare-launch") && job.State is "queued" or "building" or "running")) throw new InvalidOperationException("Finish or stop Setup before starting another repository action.");
@@ -150,7 +150,7 @@ public partial class Form1
                     (launch ? repo.BrowserBuildTask ?? repo.BuildTask : repo.BuildTask) ?? throw new InvalidOperationException("Build is not configured."), cwd) : null;
                 var runAfter = action == "build" && payload.TryGetProperty("runAfter", out var value) && value.GetBoolean();
                 var pdfAfter = runAfter && (repo.PdfPath != null || repo.PdfDirectory != null);
-                var run = action is "fetch" or "pull" or "clone" or "diff" or "history" ? CreateGitCommand(project, repo, action)
+                var run = action is "fetch" or "pull" or "clone" or "restore-workspace" or "create-workspace" or "diff" or "history" ? CreateGitCommand(project, repo, action)
                     : action == "run" || launch || runAfter && !pdfAfter ? CreateRepositoryCommand(project,
                         (launch ? repo.BrowserRunTask ?? repo.RunTask : repo.RunTask) ?? throw new InvalidOperationException("Run is not configured."), cwd) : null;
                 RepositoryBrowserLaunch? browser = null;

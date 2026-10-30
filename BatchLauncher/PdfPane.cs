@@ -13,6 +13,8 @@ internal sealed class PdfPane : UserControl
     private CoreWebView2Environment? _environment;
     private Task? _initialization;
     private string? _documentUrl, _root;
+    private ulong? _currentNavigationId;
+    private readonly HashSet<ulong> _supersededNavigationIds = new();
     public string? ProjectId { get; private set; }
     public string? RepositoryId { get; private set; }
     public string? FilePath { get; private set; }
@@ -57,10 +59,14 @@ internal sealed class PdfPane : UserControl
         {
             if (e.Uri != "about:blank" && !IsDocumentUrl(e.Uri))
             { e.Cancel = true; _status.Text = "Only the selected PDF can be opened in this viewer."; }
+            else _currentNavigationId = e.NavigationId;
         };
         core.NavigationCompleted += (_, e) =>
         {
             if (IsDisposed) return;
+            if (_currentNavigationId == e.NavigationId) _currentNavigationId = null;
+            // Refresh and switching documents intentionally stop the previous load.
+            if (_supersededNavigationIds.Remove(e.NavigationId)) return;
             _status.Text = e.IsSuccess ? "PDF / use the document toolbar for page navigation, zoom, and search" : "PDF navigation failed: " + e.WebErrorStatus;
             if (!e.IsSuccess) Failed?.Invoke(_status.Text);
         };
@@ -95,6 +101,7 @@ internal sealed class PdfPane : UserControl
         await (_initialization ??= InitializeAsync(storagePath));
         if (IsDisposed) return;
         PdfFile.Resolve(root, relativePath);
+        if (_currentNavigationId is { } previous) _supersededNavigationIds.Add(previous);
         _view.CoreWebView2.Stop();
         // A fresh endpoint avoids reopening a cached pre-build PDF. No bytes are persisted by this app.
         _root = root; ProjectId = projectId; RepositoryId = repositoryId; FilePath = relativePath; Page = page;

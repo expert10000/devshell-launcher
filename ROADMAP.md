@@ -85,7 +85,7 @@ Status: Browser and Jupyter now use the existing native browser in center worksp
 - [x] Build and check Logs output/status, Stop and full-log requests, Diff side switching/Refresh, and terminal preservation in the live UI with simulated bridge replies.
 - [x] Check Logs/Diff restoration and profile isolation after process restart, passive Browser/Jupyter selection, and failed browser navigation in the live app.
 - [x] Check Logs Stop against a real disposable managed job in the live UI.
-- [ ] Check authenticated Jupyter reopen after restart.
+- [x] Check authenticated Jupyter reopen after restart.
 - [ ] Unify center tab types: Terminal, Browser, Jupyter, Diff, Markdown, Files, and Logs.
 - [ ] Add Copy URL, DevTools, project URL shortcuts, and device-size presets.
 - [ ] Let service records advertise Open actions once healthy.
@@ -96,19 +96,19 @@ Acceptance: GitHub, Jupyter, local apps, reports, and documentation coexist in t
 
 ### Group 3: Generalized Tasks and Services
 
-Status: planned; build on managed jobs and the Jupyter controller.
+Status: first lifecycle slice implemented. Jupyter, managed web apps, and declared process workers now share one Services card and the same Start, Open, Stop, Restart, Logs, Refresh, and status vocabulary. Worker commands run as owned process trees with optional HTTP readiness; PID, uptime, and resource metrics remain open.
 
-- [ ] Separate finite Tasks from long-running Services and sequencing Workflows.
-- [ ] Give services explicit commands, cwd, environment, readiness checks, and URLs.
+- [x] Separate finite Tasks from long-running Services in the inspector; sequencing Workflows remains open.
+- [x] Give declared process workers explicit commands, cwd, environment, readiness checks, and URLs.
 - [ ] Expose Running/Stopped/Failed, PID, ports, uptime, CPU/RAM, Open, Logs, Restart, and Stop.
-- [ ] Define ownership, restart/reuse, app-close behavior, and occupied-port rules before adding adapters.
-- [ ] Adapt Jupyter, Vite, APIs, and workers to the same lifecycle model.
+- [x] Keep process workers owned by their launcher job, stop them on app close, and reject occupied local readiness ports. Jupyter keeps its authenticated controller; web apps keep their owned repository jobs.
+- [x] Adapt Jupyter, managed web apps, and process workers to the same Services controls and normalized status display. Shared backend metrics remain open.
 
 Acceptance: each managed service has a clear owner and observable lifecycle; unrelated processes are never killed or reused merely because their port matches.
 
 ### Group 4: Declarative project manifests
 
-Status: planned.
+Status: in progress. Version 1 manifest preview and import are implemented in Project Editor, with a disposable example and validation checks. Richer health checks, artifacts, workflows, and profile overrides remain.
 
 - [ ] Define a versioned `devshell.project.json` schema for repositories, terminals, tasks, services, URLs, health checks, artifacts, and workflows.
 - [ ] Keep shared project definitions separate from machine/profile path and environment overrides.
@@ -191,7 +191,11 @@ Verified 2026-10-28: the isolated Group 2 live harness passed Files preview, ref
 
 Verified 2026-10-28: the existing native browser and authenticated Jupyter service opened in center workspace tabs. Switching Browser, Jupyter, and Logs tabs reused live pages without a new navigation or service action. A real restart restored Browser/Jupyter descriptors passively; switching to the portable profile hid the laptop entries and switching back restored them without replay. The stopped local fixture showed `ERR_CONNECTION_REFUSED` in the native browser and left the workspace usable. Saved workspace and native browser tab JSON omitted a synthetic URL token, query string, and fragment. The test Jupyter service was stopped after the check. Authenticated Jupyter reopening after a restart and the native hide/show button remain separate cases.
 
-Next: complete authenticated Jupyter reopening and the real Math/Theory PDF cases.
+Verified 2026-10-29: the live Jupyter Environment Check imports took about 25 seconds directly, leaving too little room in its previous 30-second UI wait for terminal startup. The check now allows 120 seconds and prints terminal output on failure. An isolated two-launch check opened authenticated Jupyter, restarted the DevShell process while the server remained running, confirmed the saved workspace tab stayed passive, then explicitly reopened it in the center browser area. The controller reacquired a token, an authenticated contents request succeeded, and saved tab files omitted token parameters. The test restores the prior profile and browser state and stops the server only if the test started it. The focused Jupyter UI run and the broader desktop UI suite passed.
+
+Verified 2026-10-29: the real Math/Theory PDF acceptance runner used the laptop profile without writing to either repository. Theory's configured `build/main.pdf` and Math's `build/pdf` collection were absent. The 18 MB Theory release master opened at page 2 and refreshed; an existing Math content PDF opened. Restart restored both document descriptors and the empty selector passively, and explicit Theory reopening succeeded. The live check exposed `ConnectionAborted` reports from intentionally superseded PDF loads; the native pane now ignores only those navigation IDs. Document builds/QA, the native toolbar, and external opening remain to be checked.
+
+Next: complete Math/Theory document builds and QA, native PDF toolbar controls, and external opening.
 
 - Introduce typed workspace tabs while preserving existing terminal sessions, splits, and profile switching.
 - Open job Logs in a persistent workspace tab with live output, exit status, and the existing full-log action.

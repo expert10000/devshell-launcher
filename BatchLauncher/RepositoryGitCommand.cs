@@ -23,7 +23,7 @@ public static class RepositoryGitCommand
 
     public static RepositoryCommand Create(string shell, string scriptPath, string path, string? url, string action, string workingDirectory)
     {
-        if (action is not ("fetch" or "pull" or "clone" or "sync")) throw new ArgumentException("Unknown Git action.");
+        if (action is not ("fetch" or "pull" or "clone" or "sync" or "restore-workspace" or "create-workspace")) throw new ArgumentException("Unknown Git action.");
         if (!File.Exists(scriptPath)) throw new FileNotFoundException("Repository sync helper is missing.", scriptPath);
         if (!Path.IsPathFullyQualified(path)) throw new ArgumentException("An absolute repository path is required.");
         string Quote(string value) => "'" + value.Replace("'", "''") + "'";

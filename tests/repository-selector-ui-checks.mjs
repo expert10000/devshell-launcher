@@ -33,6 +33,7 @@ console.log('PASS: Math3D selector switches from Shell to one reusable Files tab
 await page.evaluate(() => {
   const webview = window.chrome.webview
   window.__toolSetupSent = []
+  window.__toolCloneSent = []
   window.__toolSetupOriginalPost = webview.postMessage.bind(webview)
   webview.addEventListener('message', event => {
     const message = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
@@ -41,6 +42,8 @@ await page.evaluate(() => {
   webview.postMessage = message => {
     const parsed = typeof message === 'string' ? JSON.parse(message) : message
     if (parsed?.type === 'tool.setup') { window.__toolSetupSent.push(parsed); return }
+    if (parsed?.type === 'repository.job' && parsed.action === 'clone') { window.__toolCloneSent.push(parsed); return }
+    if (window.__toolSetupHoldDashboard && parsed?.type === 'dashboard.request') return
     window.__toolSetupOriginalPost(message)
   }
   window.__toolSetupOriginalPost({ type: 'workspace.tools.refresh' })
@@ -58,11 +61,12 @@ try {
     window.chrome.webview.dispatchEvent(new MessageEvent('message', { data: JSON.stringify({ type: 'workspace.tools.refreshed', workspace }) }))
   })
   await page.locator('.tab-strip > .tab').filter({ hasText: 'Repositories' }).click()
-  await page.getByRole('button', { name: 'Install Git' }).click()
-  await page.getByRole('button', { name: 'Install PowerShell 7' }).click()
-  await page.getByRole('button', { name: 'Install Node.js and npm' }).click()
-  await page.getByRole('button', { name: 'Install Python' }).click()
-  await page.getByRole('button', { name: 'Install .NET SDK' }).click()
+  const requiredTools = page.getByRole('region', { name: 'Required tools' })
+  await requiredTools.getByRole('button', { name: 'Install Git' }).click()
+  await requiredTools.getByRole('button', { name: 'Install PowerShell 7' }).click()
+  await requiredTools.getByRole('button', { name: 'Install Node.js and npm' }).click()
+  await requiredTools.getByRole('button', { name: 'Install Python' }).click()
+  await requiredTools.getByRole('button', { name: 'Install .NET SDK' }).click()
   assert.equal(await page.getByRole('button', { name: 'Update All' }).isDisabled(), true)
   const sent = await page.evaluate(() => window.__toolSetupSent)
   assert.ok(sent.some(message => message.toolId === 'git' && message.action === 'install'))
@@ -71,13 +75,35 @@ try {
   assert.ok(sent.some(message => message.toolId === 'python' && message.action === 'install'))
   assert.ok(sent.some(message => message.toolId === 'dotnet' && message.action === 'install'))
   console.log('PASS: Declared project/repository tools show install actions before cloning; Update All waits for Git')
+  await page.getByRole('button', { name: 'General setup' }).click()
+  const setup = page.getByRole('dialog', { name: 'General setup' })
+  await setup.getByRole('region', { name: 'Required tools' }).getByRole('button', { name: 'Install PowerShell 7' }).click()
+  assert.ok((await page.evaluate(() => window.__toolSetupSent)).filter(message => message.toolId === 'pwsh').length >= 2)
+  await page.evaluate(() => {
+    window.__toolSetupHoldDashboard = true
+    window.chrome.webview.dispatchEvent(new MessageEvent('message', { data: JSON.stringify({
+      type: 'workspace.tools.refreshed', workspace: window.__toolSetupWorkspace
+    }) }))
+  })
+  await page.waitForTimeout(1000)
+  await page.evaluate(() => {
+    const profileId = document.querySelector('#workspace-profile-select').value
+    window.chrome.webview.dispatchEvent(new MessageEvent('message', { data: JSON.stringify({ type: 'dashboard.result', profileId,
+      checkedAt: new Date().toISOString(), repositories: [{ projectId: 'github', id: 'math3d', path: 'D:\\masters\\Math3D', changed: 0, files: [], error: 'Repository folder is missing.' }],
+      checks: [{ projectId: 'github', repositoryId: 'math3d', name: 'Repository folder', state: 'error', detail: 'Missing D:\\masters\\Math3D', fixTarget: 'clone', fixLabel: 'Clone repository' }]
+    }) }))
+  })
+  await setup.getByRole('article', { name: 'Math3D setup' }).getByRole('button', { name: 'Clone repository' }).click()
+  assert.ok((await page.evaluate(() => window.__toolCloneSent)).some(message => message.projectId === 'github' && message.repositoryId === 'math3d'))
+  console.log('PASS: General setup exposes missing PowerShell and repository clone actions')
+  await setup.getByRole('button', { name: 'Close' }).click()
 } finally {
   await page.evaluate(() => {
     window.chrome.webview.postMessage = window.__toolSetupOriginalPost
     if (window.__toolSetupWorkspace) window.chrome.webview.dispatchEvent(new MessageEvent('message', {
       data: JSON.stringify({ type: 'workspace.tools.refreshed', workspace: window.__toolSetupWorkspace })
     }))
-  })
+  }).catch(() => {})
 }
 if (!filesBefore) await page.getByRole('button', { name: 'Close Math3D Files' }).click()
 process.exit(0)

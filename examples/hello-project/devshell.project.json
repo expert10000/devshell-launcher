@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "project": {
+    "id": "hello-project",
+    "name": "Hello project",
+    "root": ".",
+    "repositories": [
+      {
+        "id": "source",
+        "name": "Hello project files",
+        "path": "."
+      }
+    ],
+    "tasks": {
+      "Show location": {
+        "group": "Other",
+        "shell": "pwsh",
+        "cwd": ".",
+        "steps": [{ "run": "Get-Location" }]
+      }
+    },
+    "quickTasks": ["Show location"]
+  }
+}

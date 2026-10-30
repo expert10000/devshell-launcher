@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0-windows</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../BatchLauncher/RepositoryRunner.cs" Link="RepositoryRunner.cs" />
+    <Compile Include="../../BatchLauncher/OwnedProcessJob.cs" Link="OwnedProcessJob.cs" />
+    <Compile Include="../../BatchLauncher/ProcessServiceCommand.cs" Link="ProcessServiceCommand.cs" />
+    <Compile Include="../../BatchLauncher/WorkspaceConfig.cs" Link="WorkspaceConfig.cs" />
+    <Compile Include="../../BatchLauncher/ProjectDefinition.cs" Link="ProjectDefinition.cs" />
+    <Compile Include="../../BatchLauncher/DashboardInspector.cs" Link="DashboardInspector.cs" />
+  </ItemGroup>
+</Project>

@@ -151,6 +151,8 @@ public partial class Form1 : Form
             "workspace.profile.select" => HandleWorkspaceProfileSelectAsync(doc.RootElement),
             "workspace.profile.reload" => HandleWorkspaceProfileReloadAsync(),
             "workspace.profile.openFolder" => HandleWorkspaceProfileOpenFolderAsync(),
+            "project.manifest.pick" => HandleProjectManifestPickAsync(),
+            "project.manifest.import" => HandleProjectManifestImportAsync(),
             "workspace.tabs" => HandleWorkspaceTabsAsync(doc.RootElement),
             "workspace.pdf" => HandleWorkspacePdfAsync(doc.RootElement),
             "workspace.files" => HandleWorkspaceFilesAsync(doc.RootElement),

@@ -12,6 +12,7 @@ import { useWorkspaceTabs } from './useWorkspaceTabs'
 import { WorkspaceTabButtons, WorkspaceViews } from './WorkspaceViews'
 import { ScientificRuntimesWorkspace } from './ScientificRuntimesWorkspace'
 import { EnvironmentReadiness, type EnvironmentHealthCheck, type EnvironmentSetupPlan } from './EnvironmentReadiness'
+import { ServiceCard } from './ServiceCard'
 import { FitAddon } from 'xterm-addon-fit'
 import { SearchAddon } from 'xterm-addon-search'
 import { WebLinksAddon } from 'xterm-addon-web-links'
@@ -53,6 +54,14 @@ type BackendMessage = {
   scriptsPath?: string
   workspaceProfiles?: WorkspaceProfileInfo[]
   activeWorkspaceProfileId?: string
+  preview?: ProjectManifestPreview
+}
+
+type ProjectManifestPreview = {
+  manifestPath: string
+  project?: ProjectDefinition | null
+  errors: string[]
+  warnings: string[]
 }
 
 type WebViewBridge = {
@@ -173,7 +182,7 @@ type ProjectDefinition = {
   requiredTools?: string[]
   pythonModules?: string[]
   pythonPackages?: string[]
-  service?: { name: string; python: string; port: number }
+  service?: { name: string; kind?: 'jupyter' | 'process'; python?: string; port?: number; command?: string; arguments?: string[]; cwd?: string; environment?: Record<string, string>; readyUrl?: string; openUrl?: string; readyTimeoutSeconds?: number }
   pythonEnvironment?: string
   id: string
   name: string
@@ -185,6 +194,7 @@ type ProjectDefinition = {
   quickTasks?: string[]
   layout?: ProjectLayout
 }
+type RepositoryDefinition = NonNullable<ProjectDefinition['repositories']>[number]
 
 type ResolvedTaskStep = {
   run: string
@@ -420,6 +430,8 @@ const App = () => {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const [taskMenuOpen, setTaskMenuOpen] = useState(false)
   const [projectEditorOpen, setProjectEditorOpen] = useState(false)
+  const [manifestPreview, setManifestPreview] = useState<ProjectManifestPreview | null>(null)
+  const [manifestImporting, setManifestImporting] = useState(false)
   const [projectEditorQuery, setProjectEditorQuery] = useState('')
   const [projectEditorTab, setProjectEditorTab] = useState<'basics' | 'layout' | 'tasks'>('basics')
   const [projectEditorProjectId, setProjectEditorProjectId] = useState<string | null>(null)
@@ -473,6 +485,7 @@ const App = () => {
   const [serviceStatuses, setServiceStatuses] = useState<Record<string, { state: string; message: string }>>({})
   const [serviceLogs, setServiceLogs] = useState<Record<string, string>>({})
   const [openServiceLogKey, setOpenServiceLogKey] = useState<string | null>(null)
+  const [openServiceSetupKey, setOpenServiceSetupKey] = useState<string | null>(null)
   const [inspectorView, setInspectorView] = useState<'tasks' | 'services'>('tasks')
   const [sidebarTaskQuery, setSidebarTaskQuery] = useState('')
   const [collapsedSidebarGroups, setCollapsedSidebarGroups] = useState<Record<string, boolean>>({})
@@ -2149,6 +2162,8 @@ const App = () => {
           break
         }
         case 'workspace.profile.changed': {
+          setManifestPreview(null)
+          setManifestImporting(false)
           const incomingWorkspace = message.workspace ?? { version: 1, projects: message.projects ?? [] }
           setWorkspace(incomingWorkspace)
           setProjects(incomingWorkspace.projects ?? message.projects ?? [])
@@ -2166,6 +2181,23 @@ const App = () => {
         }
         case 'workspace.profile.error': {
           window.alert(message.message ?? 'Workspace profile could not be loaded.')
+          break
+        }
+        case 'project.manifest.preview': {
+          setManifestImporting(false)
+          setManifestPreview(message.preview ?? null)
+          setProjectEditorOpen(true)
+          break
+        }
+        case 'project.manifest.imported': {
+          setManifestImporting(false)
+          setManifestPreview(null)
+          if (message.projectId) setProjectEditorProjectId(message.projectId)
+          break
+        }
+        case 'project.manifest.error': {
+          setManifestImporting(false)
+          window.alert(message.message ?? 'Could not import project manifest.')
           break
         }
         case 'profiles.list': {
@@ -3159,7 +3191,7 @@ const App = () => {
     return () => { clearInterval(timer); bridge.removeEventListener('message', receive) }
   }, [bridge, activeWorkspaceProfileId, projects])
 
-  const repositoryAction = (projectId: string, repositoryId: string, action: 'build' | 'run' | 'stop' | 'log' | 'fetch' | 'pull' | 'clone' | 'launch' | 'prepare-launch' | 'diff' | 'history' | 'github' | 'commit' | 'push' | 'files' | 'pdf' | 'setup' | 'setup-plan' | 'fix' | 'fix-plan', targets?: string[]) => {
+  const repositoryAction = (projectId: string, repositoryId: string, action: 'build' | 'run' | 'stop' | 'log' | 'fetch' | 'pull' | 'clone' | 'restore-workspace' | 'create-workspace' | 'launch' | 'prepare-launch' | 'diff' | 'history' | 'github' | 'commit' | 'push' | 'files' | 'pdf' | 'setup' | 'setup-plan' | 'fix' | 'fix-plan', targets?: string[]) => {
     const key = `${activeWorkspaceProfileId}:${projectId}:${repositoryId}`
     if (action === 'diff') { workspaceViews.open({ kind: 'diff', projectId, repositoryId }); return }
     if (action === 'log') { workspaceViews.open({ kind: 'logs', projectId, repositoryId }); return }
@@ -3175,10 +3207,10 @@ const App = () => {
       postMessage({ type: 'workspace.pdf', profileId: activeWorkspaceProfileId, projectId, repositoryId, action: 'open' }); return
     }
     setJobErrors((current) => ({ ...current, [key]: '' }))
-    if (['prepare-launch', 'launch', 'build', 'run', 'fetch', 'pull', 'clone', 'diff', 'history', 'commit', 'push', 'setup', 'fix'].includes(action)) {
+    if (['prepare-launch', 'launch', 'build', 'run', 'fetch', 'pull', 'clone', 'restore-workspace', 'create-workspace', 'diff', 'history', 'commit', 'push', 'setup', 'fix'].includes(action)) {
       setRepositoryJobs((current) => [...current.filter((job) => job.key !== key), { key, state: 'queued', buildState: ['build', 'launch', 'prepare-launch'].includes(action) ? 'queued' : 'not-run', action: action === 'fix' ? 'setup' : action, log: '', logPath: '' }])
     }
-    if (['prepare-launch', 'build', 'run', 'launch', 'history', 'fetch', 'pull', 'clone', 'setup', 'fix'].includes(action)) workspaceViews.open({ kind: 'logs', projectId, repositoryId })
+    if (['prepare-launch', 'build', 'run', 'launch', 'history', 'fetch', 'pull'].includes(action)) workspaceViews.open({ kind: 'logs', projectId, repositoryId })
     postMessage({ type: 'repository.job', projectId, repositoryId, action, targets, runAfter: runAfterBuild[key] ?? false })
   }
   const updateBatch = updateBatches.find((batch) => batch.profileId === activeWorkspaceProfileId)
@@ -3201,7 +3233,7 @@ const App = () => {
       const message = parseMessage(event)
       if (message?.type === 'repository.jobs') {
         const jobs = message.jobs ?? []
-        const gitFinished = jobs.some((job) => ['fetch', 'pull', 'clone', 'update', 'commit', 'push'].includes(job.action ?? '')
+        const gitFinished = jobs.some((job) => ['fetch', 'pull', 'clone', 'restore-workspace', 'create-workspace', 'update', 'commit', 'push'].includes(job.action ?? '')
           && ['succeeded', 'failed', 'stopped'].includes(job.state)
           && previousRepositoryJobs.current.find((previous) => previous.key === job.key)?.state !== job.state)
         const setupFinished = jobs.some((job) => ['setup', 'prepare-launch'].includes(job.action ?? '') && ['succeeded', 'failed', 'stopped'].includes(job.state)
@@ -3760,6 +3792,8 @@ const App = () => {
 
   const closeProjectEditor = () => {
     setProjectEditorOpen(false)
+    setManifestPreview(null)
+    setManifestImporting(false)
   }
 
   const createProject = () => {
@@ -4333,11 +4367,102 @@ const App = () => {
       }
     }
   }
-  const missingDeclaredTools = [...requiredWorkspaceTools].filter(([tool]) => !workspace.globals?.tools?.[tool])
+  const pwshAvailable = profiles.some(profile => profile.id === 'pwsh' && profile.isAvailable !== false)
+    && (!workspace.globals?.autoDetectTools || !!workspace.globals.tools?.pwsh)
+  if (!pwshAvailable) requireTool('pwsh', 'Terminal, repository actions, and setup')
+  const missingDeclaredTools = [...requiredWorkspaceTools].filter(([tool]) => tool === 'pwsh'
+    ? !pwshAvailable : !workspace.globals?.tools?.[tool])
   const missingWorkspaceTools = missingDeclaredTools.filter(([tool]) => tool !== 'npm' || !!workspace.globals?.tools?.node)
   const installableWorkspaceTools = new Set(['pwsh', 'git', 'node', 'npm', 'python', 'dotnet', 'code'])
   const workspaceToolNames: Record<string, string> = { pwsh: 'PowerShell 7', git: 'Git', node: 'Node.js and npm', npm: 'npm', python: 'Python', dotnet: '.NET SDK', code: 'VS Code', latexmk: 'LaTeX (latexmk)' }
   const gitAvailable = !workspace.globals?.autoDetectTools || !!workspace.globals.tools?.git
+  const wingetAvailable = !workspace.globals?.autoDetectTools || !!workspace.globals.tools?.winget
+  const installWorkspaceTool = (tool: string) => {
+    const key = `${activeWorkspaceProfileId}:shell:${tool}`
+    setJobErrors(current => ({ ...current, [key]: '' }))
+    postMessage({ type: 'tool.setup', toolId: tool, action: 'install' })
+  }
+  const configuredPath = (owner: ProjectDefinition, raw: string) => {
+    const vars: Record<string, string> = { ...(workspace.globals?.vars ?? {}), ...(owner.vars ?? {}), workspaceRoot: workspace.globals?.workspaceRoot ?? '' }
+    let path = raw
+    for (let i = 0; i < 8; i++) {
+      const next = path.replace(/\$\{workspaceRoot\}/g, vars.workspaceRoot)
+        .replace(/\$\{vars\.([^}]+)\}/g, (match, name: string) => vars[name] ?? match)
+      if (next === path) break
+      path = next
+    }
+    return path.replace(/[\\/]+$/, '').toLowerCase()
+  }
+  const renderMissingTools = () => missingWorkspaceTools.length > 0 && <section className="environment-readiness blocked" aria-label="Required tools">
+    <div className="environment-heading"><strong>Required tools · {missingWorkspaceTools.length} missing</strong><button onClick={() => { postMessage({ type: 'workspace.tools.refresh' }); postMessage({ type: 'profiles.request' }); refreshDashboard() }}>Recheck</button></div>
+    <ul className="environment-issues">{missingWorkspaceTools.map(([tool, sources]) => {
+      const name = workspaceToolNames[tool] ?? tool
+      const requiredBy = tool === 'node' && !workspace.globals?.tools?.npm
+        ? new Set([...sources, ...(requiredWorkspaceTools.get('npm') ?? [])]) : sources
+      const key = `${activeWorkspaceProfileId}:shell:${tool}`
+      const job = repositoryJobs.find(item => item.key === key)
+      const busy = !!job && ['queued', 'building', 'running'].includes(job.state)
+      return <li className="environment-issue error" key={tool}>
+        <strong>{name}</strong><p>Required by {Array.from(requiredBy).join(', ')}.</p>
+        <div className="environment-actions">
+          {installableWorkspaceTools.has(tool) ? <button disabled={anyJobBusy || anyUpdateBusy || !wingetAvailable} onClick={() => installWorkspaceTool(tool)}>Install {name}</button>
+            : <span className="service-detail">Install this tool manually, then Recheck.</span>}
+          {busy && <button onClick={() => postMessage({ type: 'repository.job', projectId: 'shell', repositoryId: tool, action: 'stop' })}>Stop</button>}
+          {job && <button onClick={() => postMessage({ type: 'repository.job', projectId: 'shell', repositoryId: tool, action: 'log' })}>Open setup log</button>}
+        </div>
+        {job && <p role="status">Setup: {job.state}{job.completedSteps != null && job.totalSteps ? ` · ${job.completedSteps}/${job.totalSteps}` : ''}</p>}
+        {jobErrors[key] && <p className="check-error" role="alert">{jobErrors[key]}</p>}
+      </li>
+    })}</ul>
+    {!wingetAvailable && <p className="service-detail">WinGet is required for automatic installation.</p>}
+  </section>
+  const renderRepositoryReadiness = (project: ProjectDefinition, repo: RepositoryDefinition) => {
+    const key = `${activeWorkspaceProfileId}:${project.id}:${repo.id}`
+    const status = dashboard?.repositories?.find(item => item.projectId === project.id && item.id === repo.id)
+    const checks = dashboard?.checks?.filter(check => check.projectId === project.id && check.repositoryId === repo.id) ?? []
+    return <EnvironmentReadiness name={repo.name} checks={checks} checking={dashboardLoading} blocked={anyJobBusy || anyUpdateBusy}
+      plan={setupPlans[key]} onFix={targets => repositoryAction(project.id, repo.id, 'fix', targets)}
+      onPreview={targets => repositoryAction(project.id, repo.id, 'fix-plan', targets)} onSetup={() => repositoryAction(project.id, repo.id, 'setup')}
+      onRecheck={refreshDashboard} onClone={repo.url && status?.error ? () => repositoryAction(project.id, repo.id, 'clone') : undefined}
+      cloneDisabled={!gitAvailable} onInstallGit={!gitAvailable && wingetAvailable ? () => installWorkspaceTool('git') : undefined}
+      setupShellAvailable={pwshAvailable} onInstallPowerShell={!pwshAvailable && wingetAvailable ? () => installWorkspaceTool('pwsh') : undefined} />
+  }
+  const renderProjectEnvironment = (project: ProjectDefinition, compact = false) => {
+    const key = `${activeWorkspaceProfileId}:${project.id}:environment`
+    const job = repositoryJobs.find(item => item.key === key)
+    const busy = !!job && ['queued', 'building', 'running'].includes(job.state)
+    const checks = dashboard?.checks?.filter(check => check.projectId === project.id && check.repositoryId === 'environment') ?? []
+    const serviceRunning = serviceStatuses[`${activeWorkspaceProfileId}:${project.id}`]?.state === 'running'
+    const workspaceParent = project.root && configuredPath(project, project.root).replace(/[\\/][^\\/]+$/, '')
+    const workspaceOwner = project.id === 'jupyter-studio' && workspaceParent ? projects.flatMap(owner => (owner.repositories ?? [])
+      .map(repo => ({ owner, repo }))).find(item => item.repo.url && configuredPath(item.owner, item.repo.path) === workspaceParent) : undefined
+    const ownerKey = workspaceOwner && `${activeWorkspaceProfileId}:${workspaceOwner.owner.id}:${workspaceOwner.repo.id}`
+    const ownerJob = ownerKey && repositoryJobs.find(item => item.key === ownerKey && item.action === 'create-workspace')
+    const gitKey = `${activeWorkspaceProfileId}:shell:git`
+    const gitJob = !gitAvailable && repositoryJobs.find(item => item.key === gitKey)
+    const createWorkspace = workspaceOwner ? () => repositoryAction(workspaceOwner.owner.id, workspaceOwner.repo.id, 'create-workspace') : undefined
+    return <section className={compact ? 'project-environment project-environment-compact' : 'project-environment repo-card'} aria-label={`${project.name} environment`}>
+      {!compact && <><h3>{project.name} environment</h3><div className="repo-path">{project.pythonEnvironment}</div></>}
+      {serviceRunning && <p className="service-detail">Stop the lab before repairing its environment.</p>}
+      <div className="service-actions"><button disabled={!busy} onClick={() => repositoryAction(project.id, 'environment', 'stop')}>Stop setup</button><button disabled={!job} onClick={() => repositoryAction(project.id, 'environment', 'log')}>Setup log</button></div>
+      {job && <p role="status">Environment repair: {job.state}{job.exitCode != null && ` · Exit ${job.exitCode}`}</p>}
+      {job?.totalSteps ? <div className="setup-progress" role="status"><progress value={job.completedSteps ?? 0} max={job.totalSteps} aria-label={`${project.name} setup progress`} /><span>{job.completedSteps ?? 0}/{job.totalSteps} · {job.step}</span></div> : null}
+      {jobErrors[key] && <p className="check-error" role="alert">{jobErrors[key]}</p>}
+      {ownerJob && <p role="status">Workspace folder: {ownerJob.state}{ownerJob.exitCode != null && ` · Exit ${ownerJob.exitCode}`}</p>}
+      {ownerKey && jobErrors[ownerKey] && <p className="check-error" role="alert">{jobErrors[ownerKey]}</p>}
+      {gitJob && <p role="status">Git installation: {gitJob.state}{gitJob.step ? ` · ${gitJob.step}` : ''}</p>}
+      {jobErrors[gitKey] && <p className="check-error" role="alert">{jobErrors[gitKey]}</p>}
+      {checkingSetupKeys.includes(key) && <p className="service-detail" role="status">Checking requirements before repair…</p>}
+      <EnvironmentReadiness name={project.name} checks={checks} checking={dashboardLoading} blocked={anyJobBusy || anyUpdateBusy || serviceRunning}
+        plan={setupPlans[key]} onFix={targets => repositoryAction(project.id, 'environment', 'fix', targets)}
+        onPreview={targets => repositoryAction(project.id, 'environment', 'fix-plan', targets)} onSetup={() => repositoryAction(project.id, 'environment', 'setup')} onRecheck={refreshDashboard}
+        onClone={createWorkspace} cloneDisabled={!gitAvailable} onInstallGit={!gitAvailable && wingetAvailable ? () => installWorkspaceTool('git') : undefined}
+        setupShellAvailable={pwshAvailable} onInstallPowerShell={!pwshAvailable && wingetAvailable ? () => installWorkspaceTool('pwsh') : undefined} />
+    </section>
+  }
+  const repositoriesNeedingSetup = projects.flatMap(project => (project.repositories ?? []).map(repo => ({ project, repo })))
+    .filter(({ project, repo }) => dashboard?.repositories?.some(status => status.projectId === project.id && status.id === repo.id && status.error)
+      || dashboard?.checks?.some(check => check.projectId === project.id && check.repositoryId === repo.id && check.state === 'error'))
 
   return (
     <div className={`shell-app theme-${theme}`}>
@@ -4785,36 +4910,14 @@ const App = () => {
       </header>
       {scientificView && <ScientificRuntimesWorkspace profileId={activeWorkspaceProfileId} projects={projects} bridge={bridge} />}
       {!scientificView && repositoriesView && <main className="repositories-page" aria-label="Repositories">
-        <div className="repositories-title"><div><h1>Repositories</h1><p>Your repositories, build actions, and working changes.</p></div><div className="repository-toolbar"><button className="action" disabled={!gitAvailable || anyUpdateBusy || setupBusy || !projects.some((project) => project.repositories?.length) || repositoryJobs.some((job) => job.key.startsWith(`${activeWorkspaceProfileId}:`) && ['queued', 'building', 'running'].includes(job.state))} title={gitAvailable ? 'Clone missing repositories and fast-forward existing checkouts' : 'Install Git before updating repositories'} onClick={updateAll}>Update All</button><button className="action ghost" onClick={() => { setHealthOpen(true); refreshDashboard() }}>Environment checks</button></div></div>
+        <div className="repositories-title"><div><h1>Repositories</h1><p>Your repositories, build actions, and working changes.</p></div><div className="repository-toolbar"><button className="action" disabled={!gitAvailable || !pwshAvailable || anyUpdateBusy || setupBusy || !projects.some((project) => project.repositories?.length) || repositoryJobs.some((job) => job.key.startsWith(`${activeWorkspaceProfileId}:`) && ['queued', 'building', 'running'].includes(job.state))} title={gitAvailable ? 'Clone missing repositories and fast-forward existing checkouts' : 'Install Git before updating repositories'} onClick={updateAll}>Update All</button><button className="action ghost" onClick={() => { setHealthOpen(true); refreshDashboard() }}>General setup</button></div></div>
         {workspace.globals?.autoDetectTools && <section className="portable-workspace" aria-label="Portable workspace settings">
           <label htmlFor="workspace-root">Workspace root</label>
           <div className="workspace-root-row"><input id="workspace-root" value={workspaceRootDraft} disabled={anyJobBusy || anyUpdateBusy} onChange={(event) => setWorkspaceRootDraft(event.target.value)} placeholder="D:\\masters" /><button disabled={anyJobBusy || anyUpdateBusy || !workspaceRootDraft.trim() || workspaceRootDraft === workspace.globals?.workspaceRoot} onClick={() => postMessage({ type: 'workspace.root.save', path: workspaceRootDraft })}>Apply</button><button disabled={anyJobBusy || anyUpdateBusy} onClick={() => postMessage({ type: 'workspace.root.pick' })}>Browse…</button><button disabled={anyJobBusy || anyUpdateBusy} onClick={() => { postMessage({ type: 'workspace.tools.refresh' }); refreshDashboard() }}>Detect tools</button></div>
           <p className="service-detail">Saved on this computer for this profile. Repository folders and Python environments follow this root; existing terminal tabs keep their current folders.</p>
           <details><summary>Detected tools · {Object.keys(workspace.globals.tools ?? {}).length} found</summary><ul className="detected-tools">{Object.entries(workspace.globals.tools ?? {}).map(([name, path]) => <li key={name}><strong>{name}</strong><span>{path}</span></li>)}</ul></details>
         </section>}
-        {!!missingWorkspaceTools.length && <section className="environment-readiness blocked" aria-label="Required tools">
-          <div className="environment-heading"><strong>Required tools · {missingDeclaredTools.length} missing</strong><button onClick={() => { postMessage({ type: 'workspace.tools.refresh' }); refreshDashboard() }}>Recheck</button></div>
-          <ul className="environment-issues">{missingWorkspaceTools.map(([tool, sources]) => {
-            const name = workspaceToolNames[tool] ?? tool
-            const requiredBy = tool === 'node' && !workspace.globals?.tools?.npm
-              ? new Set([...sources, ...(requiredWorkspaceTools.get('npm') ?? [])]) : sources
-            const key = `${activeWorkspaceProfileId}:shell:${tool}`
-            const job = repositoryJobs.find(item => item.key === key)
-            const busy = job && ['queued', 'building', 'running'].includes(job.state)
-            return <li className="environment-issue error" key={tool}>
-              <strong>{name}</strong><p>Required by {Array.from(requiredBy).join(', ')}.</p>
-              <div className="environment-actions">
-                {installableWorkspaceTools.has(tool) ? <button disabled={anyJobBusy || anyUpdateBusy || !workspace.globals?.tools?.winget} onClick={() => { setJobErrors(current => ({ ...current, [key]: '' })); postMessage({ type: 'tool.setup', toolId: tool, action: 'install' }) }}>Install {name}</button>
-                  : <span className="service-detail">Install this tool manually, then Recheck.</span>}
-                {busy && <button onClick={() => postMessage({ type: 'repository.job', projectId: 'shell', repositoryId: tool, action: 'stop' })}>Stop</button>}
-                {job && <button onClick={() => postMessage({ type: 'repository.job', projectId: 'shell', repositoryId: tool, action: 'log' })}>Open setup log</button>}
-              </div>
-              {job && <p role="status">Setup: {job.state}{job.completedSteps != null && job.totalSteps ? ` · ${job.completedSteps}/${job.totalSteps}` : ''}</p>}
-              {jobErrors[key] && <p className="check-error" role="alert">{jobErrors[key]}</p>}
-            </li>
-          })}</ul>
-          {!workspace.globals?.tools?.winget && <p className="service-detail">WinGet is required for automatic installation.</p>}
-        </section>}
+        {renderMissingTools()}
         {jobErrors[`${activeWorkspaceProfileId}:update-all`] && <p className="check-error" role="alert">{jobErrors[`${activeWorkspaceProfileId}:update-all`]}</p>}
         {anyUpdateBusy && !updateBatch && <p role="status">Update All is running in another profile.</p>}
         {updateBatch && <section className="repository-update-panel" aria-label="Update All progress">
@@ -4869,10 +4972,7 @@ const App = () => {
                   {job && ['setup', 'prepare-launch'].includes(job.action ?? '') && <div className="setup-progress" role="status"><progress value={job.totalSteps ? job.completedSteps ?? 0 : busy ? undefined : 1} max={job.totalSteps || 1} aria-label={`${repo.name} setup progress`} /><span>{!!job.totalSteps && `${job.completedSteps ?? 0}/${job.totalSteps} · `}{job.step ?? 'Preparing setup…'}</span></div>}
                   {jobErrors[jobKey] && <p className="check-error">{jobErrors[jobKey]}</p>}
                   {checkingSetupKeys.includes(jobKey) && <p className="service-detail" role="status">Checking requirements before repair…</p>}
-                  <EnvironmentReadiness name={repo.name} checks={environment} checking={dashboardLoading} blocked={anyJobBusy || anyUpdateBusy}
-                    plan={setupPlans[jobKey]} onFix={(targets) => repositoryAction(project.id, repo.id, 'fix', targets)}
-                    onPreview={(targets) => repositoryAction(project.id, repo.id, 'fix-plan', targets)} onSetup={() => repositoryAction(project.id, repo.id, 'setup')}
-                    onRecheck={refreshDashboard} onClone={gitAvailable && repo.url && status?.error ? () => repositoryAction(project.id, repo.id, 'clone') : undefined} />
+                  {renderRepositoryReadiness(project, repo)}
                   {!repo.buildTask && <div className="service-detail">Build: not configured</div>}
                   {job?.browserState && job.browserState !== 'not-requested' && <div className="service-detail" role="status">Browser: {job.browserState}{job.browserUrl ? ` · ${job.browserUrl}` : ''}</div>}
                 </article>
@@ -4880,25 +4980,7 @@ const App = () => {
             </section>
         ))}
         {!projects.some((project) => project.repositories?.length) && <p>No repositories configured in this profile.</p>}
-        {projects.filter((project) => project.pythonEnvironment && !project.repositories?.length).map((project) => {
-          const key = `${activeWorkspaceProfileId}:${project.id}:environment`
-          const job = repositoryJobs.find((item) => item.key === key)
-          const busy = job && ['queued', 'building', 'running'].includes(job.state)
-          const checks = dashboard?.checks?.filter((check) => check.projectId === project.id && check.repositoryId === 'environment') ?? []
-          const serviceRunning = serviceStatuses[`${activeWorkspaceProfileId}:${project.id}`]?.state === 'running'
-          return <section className="project-environment repo-card" key={project.id} aria-label={`${project.name} environment`}>
-            <h3>{project.name} environment</h3><div className="repo-path">{project.pythonEnvironment}</div>
-            {serviceRunning && <p className="service-detail">Stop the lab before repairing its environment.</p>}
-            <div className="service-actions"><button disabled={!busy} onClick={() => repositoryAction(project.id, 'environment', 'stop')}>Stop</button><button disabled={!job} onClick={() => repositoryAction(project.id, 'environment', 'log')}>Logs</button></div>
-            {job && <p role="status">Environment repair: {job.state}{job.exitCode != null && ` · Exit ${job.exitCode}`}</p>}
-            {job?.totalSteps ? <div className="setup-progress" role="status"><progress value={job.completedSteps ?? 0} max={job.totalSteps} aria-label={`${project.name} setup progress`} /><span>{job.completedSteps ?? 0}/{job.totalSteps} · {job.step}</span></div> : null}
-            {jobErrors[key] && <p className="check-error">{jobErrors[key]}</p>}
-            {checkingSetupKeys.includes(key) && <p className="service-detail" role="status">Checking requirements before repair…</p>}
-            <EnvironmentReadiness name={project.name} checks={checks} checking={dashboardLoading} blocked={anyJobBusy || anyUpdateBusy || serviceRunning}
-              plan={setupPlans[key]} onFix={(targets) => repositoryAction(project.id, 'environment', 'fix', targets)}
-              onPreview={(targets) => repositoryAction(project.id, 'environment', 'fix-plan', targets)} onSetup={() => repositoryAction(project.id, 'environment', 'setup')} onRecheck={refreshDashboard} />
-          </section>
-        })}
+        {projects.filter(project => project.pythonEnvironment).map(project => <div key={project.id}>{renderProjectEnvironment(project)}</div>)}
       </main>}
       <main className="terminal-pane" style={{ display: repositoriesView ? 'none' : undefined }}>
         {missingShellProfileId && <section className="shell-dependency-alert" role="alert" aria-label="Missing terminal shell">
@@ -5188,44 +5270,45 @@ const App = () => {
               const key = `${activeWorkspaceProfileId}:${project.id}`
               const status = serviceStatuses[key]
               const state = status?.state ?? 'checking'
-              const busy = state === 'busy' || state === 'checking'
-              return <section className="service-card" key={key} aria-label={`${service.name} service controls`}>
-                <div className="service-project">{project.name}</div>
-                <div className="service-heading"><strong>{service.name}</strong><span className={`service-state ${state}`}>{state}</span></div>
-                <div className="service-detail">Port {service.port}</div>
-                <div className="service-detail" role="status">{status?.message ?? 'Checking server…'}</div>
-                <div className="service-actions">
-                  <button disabled={busy || state === 'blocked'} onClick={() => controlService(project.id, state === 'running' ? 'open' : 'start')}>{state === 'running' ? 'Open' : 'Start'}</button>
-                  <button disabled={busy || state !== 'running'} onClick={() => controlService(project.id, 'stop')}>Stop</button>
-                  <button disabled={busy || state === 'blocked'} onClick={() => controlService(project.id, 'restart')}>Restart</button>
-                  <button onClick={() => { if (openServiceLogKey === key) setOpenServiceLogKey(null); else { setOpenServiceLogKey(key); postMessage({ type: 'service.log', projectId: project.id }) } }}>Logs</button>
-                  <button disabled={busy} onClick={() => controlService(project.id, 'status')}>Refresh</button>
-                </div>
-                {openServiceLogKey === key && <div className="service-log-panel"><button onClick={() => postMessage({ type: 'service.log', projectId: project.id })}>Refresh logs</button><pre>{serviceLogs[key] ?? 'Loading log…'}</pre></div>}
-              </section>
+              const busy = state === 'busy' || state === 'checking' || state === 'starting'
+              const isWorker = service.kind === 'process'
+              const running = state === 'running'
+              const hasOpen = !isWorker || !!service.openUrl
+              return <ServiceCard key={key} name={service.name} project={project.name} state={state}
+                detail={isWorker ? (service.readyUrl ? 'Background worker · health checked' : 'Background worker') : `Port ${service.port}`}
+                message={status?.message ?? 'Checking service…'} busy={busy} canStart={!running && state !== 'blocked'}
+                canStop={running || isWorker && state === 'starting'} canRestart={state !== 'blocked'} canOpen={running && hasOpen}
+                onStart={() => controlService(project.id, 'start')} onStop={() => controlService(project.id, 'stop')}
+                onRestart={() => controlService(project.id, 'restart')} onOpen={hasOpen ? () => controlService(project.id, 'open') : undefined}
+                onOpenExternal={hasOpen ? () => controlService(project.id, 'open', undefined, 'external') : undefined}
+                onLogs={() => { if (openServiceLogKey === key) setOpenServiceLogKey(null); else { setOpenServiceLogKey(key); postMessage({ type: 'service.log', projectId: project.id }) } }}
+                onRefresh={() => controlService(project.id, 'status')}
+                onSetup={project.pythonEnvironment ? () => setOpenServiceSetupKey(current => current === key ? null : key) : undefined}
+                setupOpen={openServiceSetupKey === key}
+                setupContent={project.pythonEnvironment ? renderProjectEnvironment(project, true) : undefined}
+                logs={openServiceLogKey === key ? serviceLogs[key] ?? 'Loading log…' : undefined}
+                onRefreshLogs={() => postMessage({ type: 'service.log', projectId: project.id })} />
             })}
             {browserServices.map(({ project, repo }) => {
               const key = `${activeWorkspaceProfileId}:${project.id}:${repo.id}`
               const job = repositoryJobs.find(item => item.key === key)
               const active = !!job && ['queued', 'building', 'running'].includes(job.state)
               const ready = job?.state === 'running' && job.browserState === 'ready'
-              const state = ready ? 'running' : active ? job!.state : job?.state ?? 'idle'
+              const state = ready ? 'running' : active ? 'starting' : job?.state === 'failed' ? 'failed' : 'stopped'
               const url = job?.browserUrl ?? repo.browserUrl!
               let port = ''
               try { port = new URL(url).port } catch { /* URL may contain an unresolved profile variable. */ }
-              return <section className="service-card" key={key} aria-label={`${repo.name} service controls`}>
-                <div className="service-project">{project.name}</div>
-                <div className="service-heading"><strong>{repo.name}</strong><span className={`service-state ${state}`}>{state}</span></div>
-                <div className="service-detail">{port ? `Port ${port}` : 'Managed web app'}{job?.browserState && job.browserState !== 'not-requested' ? ` · ${job.browserState}` : ''}</div>
-                {jobErrors[key] && <div className="service-detail check-error" role="alert">{jobErrors[key]}</div>}
-                <div className="service-actions">
-                  <button disabled={active} onClick={() => repositoryAction(project.id, repo.id, 'launch')}>Start</button>
-                  <button disabled={!ready} onClick={() => postMessage({ type: 'browser.open', url, projectId: project.id, repositoryId: repo.id })}>Open</button>
-                  <button disabled={!active} onClick={() => repositoryAction(project.id, repo.id, 'stop')}>Stop</button>
-                  <button disabled={!ready} onClick={() => { setJobErrors(current => ({ ...current, [key]: '' })); postMessage({ type: 'repository.service.restart', projectId: project.id, repositoryId: repo.id }) }}>Restart</button>
-                  <button onClick={() => repositoryAction(project.id, repo.id, 'log')}>Logs</button>
-                </div>
-              </section>
+              return <ServiceCard key={key} name={repo.name} project={project.name} state={state}
+                detail={port ? `Port ${port} · Managed web app` : 'Managed web app'}
+                message={job?.browserState && job.browserState !== 'not-requested' ? `Browser: ${job.browserState}` : undefined}
+                error={jobErrors[key]} busy={state === 'starting'} canStart={!active} canStop={active}
+                canRestart={ready} canOpen={ready}
+                onStart={() => repositoryAction(project.id, repo.id, 'launch')}
+                onStop={() => repositoryAction(project.id, repo.id, 'stop')}
+                onRestart={() => { setJobErrors(current => ({ ...current, [key]: '' })); postMessage({ type: 'repository.service.restart', projectId: project.id, repositoryId: repo.id }) }}
+                onOpen={() => postMessage({ type: 'browser.open', url, projectId: project.id, repositoryId: repo.id })}
+                onLogs={() => repositoryAction(project.id, repo.id, 'log')}
+                onRefresh={() => postMessage({ type: 'repository.job', action: 'status' })} />
             })}
             {configuredServices.length + browserServices.length === 0 && <div className="task-sidebar-empty">No services are configured in this profile.</div>}
           </div> : <div className="task-sidebar-list">
@@ -5646,11 +5729,27 @@ const App = () => {
       )}
 
       {healthOpen && <div className="project-editor-overlay" onClick={() => setHealthOpen(false)}>
-        <section className="health-dialog" role="dialog" aria-modal="true" aria-label="Profile health check" onClick={(event) => event.stopPropagation()}>
-          <div className="service-heading"><h2>Profile health check</h2><button onClick={() => setHealthOpen(false)}>Close</button></div>
-          <p>{dashboard ? `${dashboard.checks?.filter((check) => check.state !== 'ok').length ?? 0} issues · ${dashboard.checks?.length ?? 0} checks` : 'Checking profile…'}</p>
-          <button disabled={dashboardLoading} onClick={refreshDashboard}>{dashboardLoading ? 'Checking…' : 'Check again'}</button>
-          <div aria-live="polite">{dashboard?.checks?.map((check, index) => <div className="health-row" key={index}><strong className={check.state === 'ok' ? 'check-ok' : 'check-error'}>{check.state === 'ok' ? 'OK' : 'Needs attention'} · {check.name}</strong><p>{check.detail}</p></div>)}</div>
+        <section className="health-dialog" role="dialog" aria-modal="true" aria-label="General setup" onClick={(event) => event.stopPropagation()}>
+          <div className="service-heading"><h2>General setup</h2><button onClick={() => setHealthOpen(false)}>Close</button></div>
+          <p>{dashboard ? `${dashboard.checks?.filter(check => check.state !== 'ok').length ?? 0} issues · ${dashboard.checks?.length ?? 0} checks` : 'Checking profile…'}</p>
+          <button disabled={dashboardLoading} onClick={() => { postMessage({ type: 'workspace.tools.refresh' }); postMessage({ type: 'profiles.request' }); refreshDashboard() }}>{dashboardLoading ? 'Checking…' : 'Check again'}</button>
+          {renderMissingTools()}
+          <div className="general-setup-group"><h3>Repositories needing setup</h3>
+            {repositoriesNeedingSetup.length ? repositoriesNeedingSetup.map(({ project, repo }) => {
+              const key = `${activeWorkspaceProfileId}:${project.id}:${repo.id}`
+              const job = repositoryJobs.find(item => item.key === key)
+              return <article key={key} className="general-setup-item" aria-label={`${repo.name} setup`}><h4>{repo.name}</h4>
+                {job && <p role="status">{job.action}: {job.state}{job.step ? ` · ${job.step}` : ''}</p>}
+                {jobErrors[key] && <p className="check-error" role="alert">{jobErrors[key]}</p>}
+                <div className="service-actions"><button disabled={!job || !['queued', 'building', 'running'].includes(job.state)} onClick={() => repositoryAction(project.id, repo.id, 'stop')}>Stop</button><button disabled={!job} onClick={() => repositoryAction(project.id, repo.id, 'log')}>Logs</button></div>
+                {renderRepositoryReadiness(project, repo)}</article>
+            }) : <p className="service-detail">{dashboardLoading ? 'Checking repositories…' : 'No repository repairs needed.'}</p>}
+          </div>
+          <div className="general-setup-group"><h3>Project environments</h3>
+            {projects.filter(project => project.pythonEnvironment).map(project => <article key={project.id} className="general-setup-item"><h4>{project.name}</h4>{renderProjectEnvironment(project, true)}</article>)}
+            {!projects.some(project => project.pythonEnvironment) && <p className="service-detail">No separate project environments are configured.</p>}
+          </div>
+          <details><summary>All profile checks · {dashboard?.checks?.length ?? 0}</summary><div aria-live="polite">{dashboard?.checks?.map((check, index) => <div className="health-row" key={index}><strong className={check.state === 'ok' ? 'check-ok' : 'check-error'}>{check.state === 'ok' ? 'OK' : 'Needs attention'} · {check.name}</strong><p>{check.detail}</p></div>)}</div></details>
         </section>
       </div>}
       {projectEditorOpen && (
@@ -5697,6 +5796,9 @@ const App = () => {
                 <button className="row-action primary" onClick={() => createProject()}>
                   New
                 </button>
+                <button className="row-action ghost" onClick={() => postMessage({ type: 'project.manifest.pick' })}>
+                  Import manifest…
+                </button>
                 <button
                   className="row-action ghost"
                   onClick={() => duplicateProject(editorProject)}
@@ -5713,6 +5815,26 @@ const App = () => {
                 </button>
               </div>
             </aside>
+            {manifestPreview && <section className="manifest-preview" role="dialog" aria-modal="true" aria-label="Import project preview">
+              <div className="manifest-preview-card">
+                <h2>Import project</h2>
+                <p className="service-detail">{manifestPreview.manifestPath}</p>
+                {manifestPreview.project && <>
+                  <h3>{manifestPreview.project.name} <small>({manifestPreview.project.id})</small></h3>
+                  <p>Folder: {manifestPreview.project.root}</p>
+                  <p>{manifestPreview.project.repositories?.length ?? 0} repositories · {Object.keys(manifestPreview.project.tasks ?? {}).length} tasks · {manifestPreview.project.service ? '1 service' : 'no service'}</p>
+                </>}
+                {manifestPreview.errors.map((error, index) => <p className="check-error" key={`error-${index}`} role="alert">{error}</p>)}
+                {manifestPreview.warnings.map((warning, index) => <p key={`warning-${index}`}>Warning: {warning}</p>)}
+                <p className="service-detail">Import saves this project in the active profile. No tasks or services start during import.</p>
+                <div className="service-actions">
+                  <button onClick={() => setManifestPreview(null)}>Cancel</button>
+                  <button className="action primary" disabled={manifestPreview.errors.length > 0 || !manifestPreview.project || manifestImporting} onClick={() => { setManifestImporting(true); postMessage({ type: 'project.manifest.import' }) }}>
+                    {manifestImporting ? 'Importing…' : 'Import project'}
+                  </button>
+                </div>
+              </div>
+            </section>}
             <section className="project-editor-main">
               <div className="project-editor-toolbar">
                 <div>

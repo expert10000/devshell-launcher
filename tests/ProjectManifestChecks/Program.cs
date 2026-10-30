@@ -2,6 +2,32 @@ using BatchLauncher;
 using System.Text.Json;
 
 static void Check(bool value, string message) { if (!value) throw new Exception(message); }
+if (args.Length > 0 && args[0] == "--validate")
+{
+    foreach (var manifest in args.Skip(1))
+    {
+        var preview = ProjectManifestImporter.Preview(manifest, Array.Empty<string>());
+        foreach (var warning in preview.Warnings) Console.WriteLine("WARN " + warning);
+        foreach (var error in preview.Errors) Console.Error.WriteLine("ERROR " + error);
+        Check(preview.Project != null && preview.Errors.Count == 0, "Manifest validation failed: " + manifest);
+        var tempProfile = Path.Combine(Path.GetTempPath(), "devshell-real-manifest-" + Guid.NewGuid().ToString("N") + ".json");
+        try
+        {
+            File.WriteAllText(tempProfile, """{"version":2,"projects":[]}""");
+            var imported = ProjectManifestImporter.ImportIntoProfile(tempProfile, preview.ManifestPath);
+            Check(imported.Id == preview.Project!.Id && imported.ManifestSource == preview.ManifestPath, "Real manifest import failed");
+            if (imported.Service?.Kind == "jupyter")
+            {
+                var environment = Path.Combine(imported.Root!, ".venv");
+                Check(imported.PythonEnvironment == environment && imported.Service.Python == Path.Combine(environment, "Scripts", "python.exe"),
+                    "Imported Jupyter environment and service paths disagree");
+            }
+        }
+        finally { File.Delete(tempProfile); }
+        Console.WriteLine("PASS " + preview.Project!.Name + " — " + preview.ManifestPath);
+    }
+    return;
+}
 var folder = Path.Combine(Path.GetTempPath(), "devshell-manifest-check-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(folder);
 try
@@ -18,6 +44,10 @@ try
     var profile = Path.Combine(folder, "profile.json");
     File.WriteAllText(profile, """{"version":2,"customSetting":"preserved","projects":[]}""");
     ProjectManifestImporter.ImportIntoProfile(profile, path);
+    var importedProject = JsonDocument.Parse(File.ReadAllText(profile)).RootElement.GetProperty("projects")[0];
+    var defaultPython = Path.Combine(folder, ".venv");
+    Check(importedProject.GetProperty("pythonEnvironment").GetString() == defaultPython, "Jupyter import did not select a local environment");
+    Check(importedProject.GetProperty("service").GetProperty("python").GetString() == Path.Combine(defaultPython, "Scripts", "python.exe"), "Jupyter service did not use the local environment");
     using (var imported = JsonDocument.Parse(File.ReadAllText(profile)))
     {
         Check(imported.RootElement.GetProperty("customSetting").GetString() == "preserved", "unrelated profile settings changed");

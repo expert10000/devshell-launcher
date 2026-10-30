@@ -9,6 +9,7 @@ obj/
 
 node_modules/
 dist/
+.venv/
 
 .vs/
 .vscode/

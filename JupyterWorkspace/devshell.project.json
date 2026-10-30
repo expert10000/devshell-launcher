@@ -1,0 +1,41 @@
+{
+  "$schema": "../schemas/devshell.project.v1.schema.json",
+  "version": 1,
+  "project": {
+    "id": "jupyter-workspace",
+    "name": "Jupyter Studio Workspace",
+    "root": ".",
+    "pinned": true,
+    "requiredTools": ["python", "pwsh"],
+    "pythonModules": ["jupyterlab", "notebook", "numpy", "pandas", "matplotlib", "sympy", "scipy", "ipywidgets", "psutil"],
+    "pythonPackages": ["psutil"],
+    "service": {
+      "name": "Jupyter Lab",
+      "kind": "jupyter",
+      "port": 8890,
+      "cwd": "."
+    },
+    "layout": {
+      "type": "tabs",
+      "items": [
+        { "title": "Notebook workspace", "profileId": "pwsh", "cwd": ".", "autoRun": false },
+        { "title": "Theory notebooks", "profileId": "pwsh", "cwd": "theory", "autoRun": false }
+      ]
+    },
+    "tasks": {
+      "Start Lab": { "group": "Start", "shell": "pwsh", "serviceAction": "start", "steps": [] },
+      "Open Lab": { "group": "Open", "shell": "pwsh", "serviceAction": "open", "steps": [] },
+      "Stop Lab": { "group": "Stop", "shell": "pwsh", "serviceAction": "stop", "steps": [] },
+      "Restart Lab": { "group": "Start", "shell": "pwsh", "serviceAction": "restart", "steps": [] },
+      "Open start notebook": { "group": "Open", "shell": "pwsh", "serviceAction": "open", "servicePath": "notebooks/00_start_here.ipynb", "steps": [] },
+      "Open Theory index": { "group": "Open", "shell": "pwsh", "serviceAction": "open", "servicePath": "theory/INDEX.ipynb", "steps": [] },
+      "Check environment": {
+        "group": "Validate",
+        "shell": "pwsh",
+        "cwd": ".",
+        "steps": [{ "run": "python -c \"import jupyterlab, notebook, numpy, pandas, matplotlib, sympy, scipy, ipywidgets, psutil; print('Jupyter Studio environment ready')\"" }]
+      }
+    },
+    "quickTasks": ["Start Lab", "Open Lab", "Stop Lab", "Restart Lab", "Open start notebook", "Open Theory index", "Check environment"]
+  }
+}

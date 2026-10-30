@@ -87,6 +87,7 @@ public partial class Form1
             SendMessage(new { type = "repository.setup.checking", key, checking = true });
             var project = _workspace.Projects?.FirstOrDefault(p => p.Id == projectId) ?? throw new InvalidOperationException("Project not found.");
             var repo = repositoryId == "environment" ? new WorkspaceRepository { Path = project.Root ?? "", PythonEnvironment = project.PythonEnvironment,
+                RequiredTools = project.RequiredTools,
                 PythonModules = project.PythonModules, PythonPackages = project.PythonPackages } : project.Repositories?.FirstOrDefault(r => r.Id == repositoryId) ?? throw new InvalidOperationException("Repository not found.");
             IReadOnlyCollection<string>? targets = null;
             if (action is "fix" or "fix-plan")

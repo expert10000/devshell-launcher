@@ -47,6 +47,7 @@ public partial class Form1
                 if (project.PythonEnvironment != null)
                 {
                     var repo = new WorkspaceRepository { Path = project.Root ?? "", PythonEnvironment = project.PythonEnvironment,
+                        RequiredTools = project.RequiredTools,
                         PythonModules = project.PythonModules, PythonPackages = project.PythonPackages };
                     checks.AddRange(await RepositoryEnvironment.InspectRepository(project.Id, "environment", ResolveRepository(project, repo), EnvironmentTools()));
                 }

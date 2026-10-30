@@ -110,7 +110,14 @@ internal static class ProjectManifestImporter
             throw new InvalidOperationException(string.Join(Environment.NewLine, preview.Errors));
         if (projects == null) { projects = new JsonArray(); config["projects"] = projects; }
         preview.Project.ManifestSource = preview.ManifestPath;
-        preview.Project.ManifestOverrides = new WorkspaceManifestOverrides();
+        // An imported Jupyter workspace needs a machine-local interpreter path before
+        // Setup / Fix can create its environment and the service can start from it.
+        var defaults = new WorkspaceManifestOverrides();
+        if (preview.Project.Service?.Kind == "jupyter")
+            defaults.PythonEnvironment = Path.Combine(preview.Project.Root!, ".venv");
+        var overrideErrors = new List<string>();
+        ApplyOverrides(preview.Project, preview.ManifestPath, defaults, overrideErrors);
+        if (overrideErrors.Count > 0) throw new InvalidOperationException(string.Join(Environment.NewLine, overrideErrors));
         projects.Add(JsonSerializer.SerializeToNode(preview.Project, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
         var temp = profilePath + ".import-" + Guid.NewGuid().ToString("N") + ".tmp";
         try

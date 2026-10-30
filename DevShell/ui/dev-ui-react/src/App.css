@@ -1923,6 +1923,11 @@
   overflow-wrap: anywhere;
 }
 
+.manifest-settings-card {
+  display: grid;
+  gap: 12px;
+}
+
 .project-editor-sidebar {
   display: grid;
   grid-template-rows: auto auto 1fr auto;

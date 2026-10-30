@@ -62,6 +62,16 @@ type ProjectManifestPreview = {
   project?: ProjectDefinition | null
   errors: string[]
   warnings: string[]
+  mode?: 'import' | 'refresh'
+  targetProjectId?: string | null
+  changes?: string[] | null
+}
+
+type ProjectManifestOverrides = {
+  root?: string | null
+  pythonEnvironment?: string | null
+  servicePython?: string | null
+  repositoryPythonEnvironments?: Record<string, string> | null
 }
 
 type WebViewBridge = {
@@ -178,6 +188,8 @@ type ProjectLayout = {
 }
 
 type ProjectDefinition = {
+  manifestSource?: string
+  manifestOverrides?: ProjectManifestOverrides
   repositories?: { pdfPath?: string; pdfDirectory?: string; pdfOpenTask?: string; id: string; name: string; path: string; url?: string; requiredTools?: string[]; pythonEnvironment?: string; pythonModules?: string[]; pythonPackages?: string[]; pythonRequirements?: string; dependencyFolders?: string[]; buildTask?: string; runTask?: string; runLabel?: string; browserUrl?: string; readyUrls?: string[]; readyTimeoutSeconds?: number; browserBuildTask?: string; browserRunTask?: string }[]
   requiredTools?: string[]
   pythonModules?: string[]
@@ -432,6 +444,9 @@ const App = () => {
   const [projectEditorOpen, setProjectEditorOpen] = useState(false)
   const [manifestPreview, setManifestPreview] = useState<ProjectManifestPreview | null>(null)
   const [manifestImporting, setManifestImporting] = useState(false)
+  const [manifestSettingsOpen, setManifestSettingsOpen] = useState(false)
+  const [manifestSettingsDraft, setManifestSettingsDraft] = useState<ProjectManifestOverrides>({})
+  const [manifestSettingsSaving, setManifestSettingsSaving] = useState(false)
   const [projectEditorQuery, setProjectEditorQuery] = useState('')
   const [projectEditorTab, setProjectEditorTab] = useState<'basics' | 'layout' | 'tasks'>('basics')
   const [projectEditorProjectId, setProjectEditorProjectId] = useState<string | null>(null)
@@ -2164,6 +2179,8 @@ const App = () => {
         case 'workspace.profile.changed': {
           setManifestPreview(null)
           setManifestImporting(false)
+          setManifestSettingsOpen(false)
+          setManifestSettingsSaving(false)
           const incomingWorkspace = message.workspace ?? { version: 1, projects: message.projects ?? [] }
           setWorkspace(incomingWorkspace)
           setProjects(incomingWorkspace.projects ?? message.projects ?? [])
@@ -2195,8 +2212,20 @@ const App = () => {
           if (message.projectId) setProjectEditorProjectId(message.projectId)
           break
         }
+        case 'project.manifest.refreshed': {
+          setManifestImporting(false)
+          setManifestPreview(null)
+          if (message.projectId) setProjectEditorProjectId(message.projectId)
+          break
+        }
+        case 'project.manifest.overrides.saved': {
+          setManifestSettingsSaving(false)
+          setManifestSettingsOpen(false)
+          break
+        }
         case 'project.manifest.error': {
           setManifestImporting(false)
+          setManifestSettingsSaving(false)
           window.alert(message.message ?? 'Could not import project manifest.')
           break
         }
@@ -3794,6 +3823,8 @@ const App = () => {
     setProjectEditorOpen(false)
     setManifestPreview(null)
     setManifestImporting(false)
+    setManifestSettingsOpen(false)
+    setManifestSettingsSaving(false)
   }
 
   const createProject = () => {
@@ -3828,6 +3859,8 @@ const App = () => {
     const copy = JSON.parse(JSON.stringify(project)) as ProjectDefinition
     copy.id = `project-${crypto.randomUUID()}`
     copy.name = `${project.name} copy`
+    delete copy.manifestSource
+    delete copy.manifestOverrides
     setProjects((current) => [...current, copy])
     setProjectEditorProjectId(copy.id)
   }
@@ -5818,23 +5851,51 @@ const App = () => {
                 </button>
               </div>
             </aside>
-            {manifestPreview && <section className="manifest-preview" role="dialog" aria-modal="true" aria-label="Import project preview">
+            {manifestPreview && <section className="manifest-preview" role="dialog" aria-modal="true" aria-label={manifestPreview.mode === 'refresh' ? 'Refresh project preview' : 'Import project preview'}>
               <div className="manifest-preview-card">
-                <h2>Import project</h2>
+                <h2>{manifestPreview.mode === 'refresh' ? 'Refresh project from manifest' : 'Import project'}</h2>
                 <p className="service-detail">{manifestPreview.manifestPath}</p>
                 {manifestPreview.project && <>
                   <h3>{manifestPreview.project.name} <small>({manifestPreview.project.id})</small></h3>
                   <p>Folder: {manifestPreview.project.root}</p>
                   <p>{manifestPreview.project.repositories?.length ?? 0} repositories · {Object.keys(manifestPreview.project.tasks ?? {}).length} tasks · {manifestPreview.project.service ? '1 service' : 'no service'}</p>
                 </>}
+                {manifestPreview.mode === 'refresh' && <div>
+                  <h4>Changes from source</h4>
+                  {manifestPreview.changes?.length ? <ul>{manifestPreview.changes.map(change => <li key={change}>{change}</li>)}</ul> : <p>No shared settings changed.</p>}
+                  <p>Local root and Python overrides will be reapplied.</p>
+                </div>}
                 {manifestPreview.errors.map((error, index) => <p className="check-error" key={`error-${index}`} role="alert">{error}</p>)}
                 {manifestPreview.warnings.map((warning, index) => <p key={`warning-${index}`}>Warning: {warning}</p>)}
-                <p className="service-detail">Import saves this project in the active profile. No tasks or services start during import.</p>
+                <p className="service-detail">{manifestPreview.mode === 'refresh' ? 'Refresh updates the active profile after confirmation.' : 'Import saves this project in the active profile.'} No tasks or services start.</p>
                 <div className="service-actions">
                   <button onClick={() => setManifestPreview(null)}>Cancel</button>
-                  <button className="action primary" disabled={manifestPreview.errors.length > 0 || !manifestPreview.project || manifestImporting} onClick={() => { setManifestImporting(true); postMessage({ type: 'project.manifest.import' }) }}>
-                    {manifestImporting ? 'Importing…' : 'Import project'}
+                  <button className="action primary" disabled={manifestPreview.errors.length > 0 || !manifestPreview.project || manifestImporting} onClick={() => { setManifestImporting(true); postMessage({ type: manifestPreview.mode === 'refresh' ? 'project.manifest.refresh.apply' : 'project.manifest.import' }) }}>
+                    {manifestImporting ? 'Saving…' : manifestPreview.mode === 'refresh' ? 'Apply refresh' : 'Import project'}
                   </button>
+                </div>
+              </div>
+            </section>}
+            {manifestSettingsOpen && editorProject?.manifestSource && <section className="manifest-preview" role="dialog" aria-modal="true" aria-label="Local project settings">
+              <div className="manifest-preview-card manifest-settings-card">
+                <h2>Local project settings</h2>
+                <p className="service-detail">{editorProject.manifestSource}</p>
+                <p>These paths stay in this profile. Leave a field blank to use the manifest folder or no Python environment.</p>
+                <label className="editor-field">Project root override
+                  <input className="editor-input" aria-label="Project root override" value={manifestSettingsDraft.root ?? ''} onChange={event => setManifestSettingsDraft(current => ({ ...current, root: event.target.value }))} placeholder="C:\\work\\project" />
+                </label>
+                <label className="editor-field">Python environment
+                  <input className="editor-input" aria-label="Python environment override" value={manifestSettingsDraft.pythonEnvironment ?? ''} onChange={event => setManifestSettingsDraft(current => ({ ...current, pythonEnvironment: event.target.value }))} placeholder="C:\\work\\.venvs\\project" />
+                </label>
+                {editorProject.service?.kind === 'jupyter' && <label className="editor-field">Jupyter Python executable
+                  <input className="editor-input" aria-label="Jupyter Python override" value={manifestSettingsDraft.servicePython ?? ''} onChange={event => setManifestSettingsDraft(current => ({ ...current, servicePython: event.target.value }))} placeholder="Blank uses the environment above" />
+                </label>}
+                {editorProject.repositories?.map(repo => <label className="editor-field" key={repo.id}>{repo.name} Python environment
+                  <input className="editor-input" aria-label={`${repo.name} Python override`} value={manifestSettingsDraft.repositoryPythonEnvironments?.[repo.id] ?? ''} onChange={event => setManifestSettingsDraft(current => ({ ...current, repositoryPythonEnvironments: { ...current.repositoryPythonEnvironments, [repo.id]: event.target.value } }))} placeholder="Blank uses the project environment" />
+                </label>)}
+                <div className="service-actions">
+                  <button onClick={() => setManifestSettingsOpen(false)}>Cancel</button>
+                  <button className="action primary" disabled={manifestSettingsSaving} onClick={() => { setManifestSettingsSaving(true); postMessage({ type: 'project.manifest.overrides.save', profileId: activeWorkspaceProfileId, projectId: editorProject.id, overrides: manifestSettingsDraft }) }}>{manifestSettingsSaving ? 'Saving…' : 'Save local settings'}</button>
                 </div>
               </div>
             </section>}
@@ -5847,6 +5908,10 @@ const App = () => {
                   </div>
                 </div>
                 <div className="project-editor-toolbar-actions">
+                  {editorProject?.manifestSource && <>
+                    <button className="action ghost" onClick={() => { setManifestSettingsDraft({ ...(editorProject.manifestOverrides ?? {}), repositoryPythonEnvironments: { ...(editorProject.manifestOverrides?.repositoryPythonEnvironments ?? {}) } }); setManifestSettingsOpen(true) }}>Local settings</button>
+                    <button className="action ghost" onClick={() => postMessage({ type: 'project.manifest.refresh.preview', profileId: activeWorkspaceProfileId, projectId: editorProject.id })}>Refresh manifest</button>
+                  </>}
                   <button
                     className="action primary"
                     onClick={() => void saveScriptsFile()}
@@ -5915,6 +5980,7 @@ const App = () => {
                       <input
                         className="editor-input"
                         value={editorProject.name}
+                        disabled={Boolean(editorProject.manifestSource)}
                         onChange={(event) =>
                           updateSelectedProject((project) => ({
                             ...project,
@@ -5929,6 +5995,7 @@ const App = () => {
                         <input
                           className="editor-input"
                           value={editorProject.root ?? ''}
+                          disabled={Boolean(editorProject.manifestSource)}
                           onChange={(event) =>
                             updateSelectedProject((project) => ({
                               ...project,
@@ -5947,7 +6014,7 @@ const App = () => {
                               }))
                             }
                           }}
-                          disabled={!activePane?.cwd}
+                          disabled={!activePane?.cwd || Boolean(editorProject.manifestSource)}
                         >
                           Use active
                         </button>

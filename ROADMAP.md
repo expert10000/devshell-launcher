@@ -108,12 +108,12 @@ Acceptance: each managed service has a clear owner and observable lifecycle; unr
 
 ### Group 4: Declarative project manifests
 
-Status: in progress. Version 1 manifest preview and import from a file or folder are implemented in Project Editor, with a JSON Schema, example, migration guide, and validation checks. Richer health checks, artifacts, workflows, and profile overrides remain.
+Status: in progress. Version 1 manifest import from a file or folder, local root/Python overrides, source refresh preview, JSON Schema, example, and migration guide are implemented. Richer health checks, artifacts, and workflows remain.
 
 - [ ] Define a versioned `devshell.project.json` schema for repositories, terminals, tasks, services, URLs, health checks, artifacts, and workflows.
-- [ ] Keep shared project definitions separate from machine/profile path and environment overrides.
-- [ ] Validate schemas and references with actionable errors; document migration from current profile JSON.
-- [ ] Import a project from a folder or repository without hard-coded Math3D/Jupyter/Theory behavior.
+- [x] Keep shared project definitions separate from machine/profile path and environment overrides.
+- [x] Validate manifest fields and references with actionable errors; document migration from current profile JSON.
+- [x] Import a project from a folder or repository without hard-coded Math3D/Jupyter/Theory behavior.
 
 Acceptance: a project can describe its own setup and useful actions, while profiles only supply host-specific overrides. Imported commands remain visible and require a deliberate action to execute.
 

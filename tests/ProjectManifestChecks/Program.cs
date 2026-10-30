@@ -8,7 +8,7 @@ try
 {
     var path = Path.Combine(folder, "devshell.project.json");
     File.WriteAllText(path, """
-        {"version":1,"project":{"id":"sample","name":"Sample","root":".","repositories":[{"id":"source","name":"Source","path":"."}],"tasks":{"Build":{"shell":"pwsh","cwd":".","steps":[{"run":"Write-Host ok"}]}},"quickTasks":["Build"]}}
+        {"version":1,"project":{"id":"sample","name":"Sample","root":".","repositories":[{"id":"source","name":"Source","path":"."}],"service":{"name":"Lab","kind":"jupyter","cwd":"."},"tasks":{"Build":{"shell":"pwsh","cwd":".","steps":[{"run":"Write-Host ok"}]}},"quickTasks":["Build"]}}
         """);
     var valid = ProjectManifestImporter.Preview(path, Array.Empty<string>());
     Check(valid.Errors.Count == 0 && valid.Project?.Id == "sample", "valid manifest rejected");
@@ -22,11 +22,38 @@ try
     {
         Check(imported.RootElement.GetProperty("customSetting").GetString() == "preserved", "unrelated profile settings changed");
         Check(imported.RootElement.GetProperty("projects")[0].GetProperty("id").GetString() == "sample", "project was not saved");
+        Check(imported.RootElement.GetProperty("projects")[0].GetProperty("manifestSource").GetString() == path, "manifest source was not saved locally");
     }
     var savedProfile = File.ReadAllText(profile);
     try { ProjectManifestImporter.ImportIntoProfile(profile, path); throw new Exception("duplicate import accepted"); }
     catch (InvalidOperationException) { }
     Check(File.ReadAllText(profile) == savedProfile, "failed import changed profile");
+    var localRoot = Path.Combine(folder, "machine-root");
+    var localPython = Path.Combine(folder, ".venv");
+    var repoPython = Path.Combine(folder, ".venv-repo");
+    var jupyterPython = Path.Combine(localPython, "Scripts", "python.exe");
+    var overrides = new WorkspaceManifestOverrides { Root = localRoot, PythonEnvironment = localPython,
+        ServicePython = jupyterPython, RepositoryPythonEnvironments = new() { ["source"] = repoPython } };
+    var configured = ProjectManifestImporter.SaveOverrides(profile, "sample", overrides);
+    Check(configured.Root == localRoot && configured.Repositories![0].Path == localRoot, "local root did not rebase repository");
+    Check(configured.Tasks!["Build"].Cwd == localRoot && configured.Service!.Cwd == localRoot, "local root did not rebase task/service");
+    Check(configured.PythonEnvironment == localPython && configured.Service!.Python == jupyterPython && configured.Repositories![0].PythonEnvironment == repoPython, "Python overrides were not applied");
+    File.WriteAllText(path, """
+        {"version":1,"project":{"id":"sample","name":"Sample updated","root":".","repositories":[{"id":"source","name":"Source","path":"."}],"service":{"name":"Lab","kind":"jupyter","cwd":"."},"tasks":{"Build":{"shell":"pwsh","cwd":".","steps":[{"run":"Write-Host ok"}]},"Test":{"shell":"pwsh","cwd":".","steps":[{"run":"Write-Host test"}]}},"quickTasks":["Build","Test"]}}
+        """);
+    var refresh = ProjectManifestImporter.PreviewRefresh(profile, "sample");
+    Check(refresh.Errors.Count == 0 && refresh.Changes!.Contains("Task 'Test' added") && refresh.Changes.Any(change => change.StartsWith("Name:")), "refresh preview did not identify source changes");
+    try { ProjectManifestImporter.SaveOverrides(profile, "sample", overrides); throw new Exception("source change was silently applied"); }
+    catch (InvalidOperationException error) { Check(error.Message.Contains("Preview"), "source change was not explained"); }
+    var updated = ProjectManifestImporter.RefreshInProfile(profile, "sample");
+    Check(updated.Name == "Sample updated" && updated.Tasks!.ContainsKey("Test"), "shared changes were not refreshed");
+    Check(updated.Root == localRoot && updated.PythonEnvironment == localPython && updated.Service!.Python == jupyterPython && updated.Repositories![0].PythonEnvironment == repoPython, "refresh lost local overrides");
+    var beforeInvalidSettings = File.ReadAllText(profile);
+    try { ProjectManifestImporter.SaveOverrides(profile, "sample", new WorkspaceManifestOverrides { Root = "relative-root" }); throw new Exception("relative local override accepted"); }
+    catch (InvalidOperationException error) { Check(error.Message.Contains("absolute"), "invalid override was not explained"); }
+    Check(File.ReadAllText(profile) == beforeInvalidSettings, "invalid local settings changed profile");
+    var reset = ProjectManifestImporter.SaveOverrides(profile, "sample", new WorkspaceManifestOverrides());
+    Check(reset.Root == folder && reset.Repositories![0].Path == folder && reset.PythonEnvironment == null && reset.Service!.Python == "", "clearing overrides did not restore source defaults");
     File.WriteAllText(path, """
         {"version":2,"project":{"id":"bad","name":"Bad","root":"..","quickTasks":["Missing"]}}
         """);

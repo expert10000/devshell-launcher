@@ -48,6 +48,8 @@ public sealed class WorkspaceTaskStep
 
 public sealed class WorkspaceProject
 {
+    public string? ManifestSource { get; set; }
+    public WorkspaceManifestOverrides? ManifestOverrides { get; set; }
     public List<WorkspaceRepository>? Repositories { get; set; }
     public List<string>? RequiredTools { get; set; }
     public List<string>? PythonModules { get; set; }
@@ -63,6 +65,14 @@ public sealed class WorkspaceProject
     public Dictionary<string, WorkspaceTask>? Tasks { get; set; }
     public List<string>? QuickTasks { get; set; }
     public ProjectLayout? Layout { get; set; }
+}
+
+public sealed class WorkspaceManifestOverrides
+{
+    public string? Root { get; set; }
+    public string? PythonEnvironment { get; set; }
+    public string? ServicePython { get; set; }
+    public Dictionary<string, string>? RepositoryPythonEnvironments { get; set; }
 }
 
 public sealed class WorkspaceService

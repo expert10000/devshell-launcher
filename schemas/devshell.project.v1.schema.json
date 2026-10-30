@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/expert10000/devshell-launcher/main/schemas/devshell.project.v1.schema.json",
+  "title": "DevShell project manifest version 1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "project"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "const": 1 },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1 },
+        "root": { "$ref": "#/$defs/relativePath" },
+        "pinned": { "type": "boolean" },
+        "repositories": { "type": "array", "items": { "$ref": "#/$defs/repository" } },
+        "requiredTools": { "$ref": "#/$defs/stringList" },
+        "pythonModules": { "$ref": "#/$defs/stringList" },
+        "pythonPackages": { "$ref": "#/$defs/stringList" },
+        "service": { "$ref": "#/$defs/service" },
+        "vars": { "$ref": "#/$defs/stringMap" },
+        "bootstrap": { "$ref": "#/$defs/task" },
+        "tasks": { "type": "object", "additionalProperties": { "$ref": "#/$defs/task" } },
+        "quickTasks": { "$ref": "#/$defs/stringList" },
+        "layout": { "$ref": "#/$defs/layout" }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9._-]*$" },
+    "relativePath": { "type": "string", "minLength": 1 },
+    "stringList": { "type": "array", "items": { "type": "string" } },
+    "stringMap": { "type": "object", "additionalProperties": { "type": "string" } },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string" },
+        "url": { "type": "string", "format": "uri" },
+        "serviceAction": { "enum": ["start", "stop", "restart", "open", "status"] },
+        "servicePath": { "type": "string" },
+        "group": { "type": "string" },
+        "shell": { "type": "string" },
+        "cwd": { "$ref": "#/$defs/relativePath" },
+        "steps": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["run"], "properties": { "run": { "type": "string" } } } },
+        "dependsOn": { "$ref": "#/$defs/stringList" },
+        "runInNewTab": { "type": "boolean" },
+        "focusTab": { "type": "boolean" },
+        "useTemplate": { "type": "string" }
+      }
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "kind": { "enum": ["process", "jupyter"] },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "command": { "type": "string" },
+        "arguments": { "$ref": "#/$defs/stringList" },
+        "cwd": { "$ref": "#/$defs/relativePath" },
+        "environment": { "$ref": "#/$defs/stringMap" },
+        "readyUrl": { "type": "string", "format": "uri" },
+        "openUrl": { "type": "string", "format": "uri" },
+        "readyTimeoutSeconds": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "path"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1 },
+        "path": { "$ref": "#/$defs/relativePath" },
+        "url": { "type": "string" },
+        "requiredTools": { "$ref": "#/$defs/stringList" },
+        "pythonModules": { "$ref": "#/$defs/stringList" },
+        "pythonOptionalModules": { "$ref": "#/$defs/stringList" },
+        "pythonPackages": { "$ref": "#/$defs/stringList" },
+        "pythonRequirements": { "$ref": "#/$defs/relativePath" },
+        "dependencyFolders": { "$ref": "#/$defs/stringList" },
+        "buildTask": { "type": "string" },
+        "outputDirectory": { "$ref": "#/$defs/relativePath" },
+        "runTask": { "type": "string" },
+        "runLabel": { "type": "string" },
+        "pdfPath": { "$ref": "#/$defs/relativePath" },
+        "pdfDirectory": { "$ref": "#/$defs/relativePath" },
+        "pdfOpenTask": { "type": "string" },
+        "browserUrl": { "type": "string", "format": "uri" },
+        "readyUrls": { "$ref": "#/$defs/stringList" },
+        "readyTimeoutSeconds": { "type": "integer", "minimum": 1 },
+        "browserBuildTask": { "type": "string" },
+        "browserRunTask": { "type": "string" }
+      }
+    },
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": { "enum": ["tabs", "split"] },
+        "direction": { "enum": ["vertical", "horizontal"] },
+        "panes": { "type": "array", "items": { "$ref": "#/$defs/layout" } },
+        "items": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["title"], "properties": {
+          "title": { "type": "string" }, "profileId": { "type": "string" }, "taskId": { "type": "string" },
+          "cwd": { "$ref": "#/$defs/relativePath" }, "autoRun": { "type": "boolean" }, "startOrder": { "type": "integer" }
+        } } }
+      }
+    }
+  }
+}

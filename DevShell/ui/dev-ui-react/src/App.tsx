@@ -5799,6 +5799,9 @@ const App = () => {
                 <button className="row-action ghost" onClick={() => postMessage({ type: 'project.manifest.pick' })}>
                   Import manifest…
                 </button>
+                <button className="row-action ghost" onClick={() => postMessage({ type: 'project.manifest.pickFolder' })}>
+                  Import folder…
+                </button>
                 <button
                   className="row-action ghost"
                   onClick={() => duplicateProject(editorProject)}

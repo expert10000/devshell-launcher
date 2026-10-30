@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
 namespace BatchLauncher;
@@ -8,7 +9,7 @@ internal sealed record ProjectManifestPreview(string ManifestPath, WorkspaceProj
 
 internal static class ProjectManifestImporter
 {
-    private static readonly JsonSerializerOptions Options = new() { PropertyNameCaseInsensitive = true };
+    private static readonly JsonSerializerOptions Options = new() { PropertyNameCaseInsensitive = true, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow };
     private static readonly Regex IdPattern = new("^[a-zA-Z][a-zA-Z0-9._-]*$", RegexOptions.Compiled);
 
     public static ProjectManifestPreview Preview(string manifestPath, IEnumerable<string> existingIds)
@@ -25,6 +26,9 @@ internal static class ProjectManifestImporter
         {
             using var document = JsonDocument.Parse(File.ReadAllText(fullPath));
             var root = document.RootElement;
+            if (root.ValueKind == JsonValueKind.Object)
+                foreach (var property in root.EnumerateObject())
+                    if (property.Name is not ("version" or "project" or "$schema")) errors.Add($"Unknown manifest field '{property.Name}'.");
             if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("version", out var version) || version.ValueKind != JsonValueKind.Number || version.GetInt32() != 1)
                 errors.Add("Manifest version must be 1.");
             if (!root.TryGetProperty("project", out var projectElement) || projectElement.ValueKind != JsonValueKind.Object)
@@ -45,8 +49,14 @@ internal static class ProjectManifestImporter
                     {
                         if (string.IsNullOrWhiteSpace(repo.Id) || !IdPattern.IsMatch(repo.Id)) errors.Add("Each repository needs a valid id.");
                         if (string.IsNullOrWhiteSpace(repo.Name)) errors.Add($"Repository '{repo.Id}' needs a name.");
+                        if (repo.PythonEnvironment != null) errors.Add($"Repository '{repo.Id}' pythonEnvironment belongs in the local profile, not in a shared manifest.");
                         repo.Path = ResolvePath(repo.Path, projectRoot, $"repository '{repo.Id}' path", errors) ?? repo.Path;
                         if (!Directory.Exists(repo.Path)) warnings.Add($"Repository folder does not exist: {repo.Path}");
+                        ValidateRepositoryPath(repo.PythonRequirements, repo.Path, $"repository '{repo.Id}' pythonRequirements", errors);
+                        ValidateRepositoryPath(repo.OutputDirectory, repo.Path, $"repository '{repo.Id}' outputDirectory", errors);
+                        ValidateRepositoryPath(repo.PdfPath, repo.Path, $"repository '{repo.Id}' pdfPath", errors);
+                        ValidateRepositoryPath(repo.PdfDirectory, repo.Path, $"repository '{repo.Id}' pdfDirectory", errors);
+                        foreach (var folder in repo.DependencyFolders ?? new()) ValidateRepositoryPath(folder, repo.Path, $"repository '{repo.Id}' dependencyFolders", errors);
                         CheckTaskReference(repo.BuildTask, project, $"repository '{repo.Id}' buildTask", errors);
                         CheckTaskReference(repo.RunTask, project, $"repository '{repo.Id}' runTask", errors);
                         CheckTaskReference(repo.BrowserBuildTask, project, $"repository '{repo.Id}' browserBuildTask", errors);
@@ -54,7 +64,10 @@ internal static class ProjectManifestImporter
                         CheckUrl(repo.BrowserUrl, $"repository '{repo.Id}' browserUrl", errors, warnings);
                         foreach (var url in repo.ReadyUrls ?? new()) CheckUrl(url, $"repository '{repo.Id}' readyUrls", errors, warnings);
                     }
+                    foreach (var duplicate in (project.Repositories ?? new()).GroupBy(repo => repo.Id, StringComparer.OrdinalIgnoreCase).Where(group => group.Count() > 1))
+                        errors.Add($"Repository id '{duplicate.Key}' is duplicated.");
                     if (project.Service?.Cwd is { } serviceCwd) project.Service.Cwd = ResolvePath(serviceCwd, projectRoot, "service.cwd", errors) ?? serviceCwd;
+                    if (project.Service?.Kind is { } kind && kind is not ("process" or "jupyter")) errors.Add("service.kind must be process or jupyter.");
                     CheckUrl(project.Service?.ReadyUrl, "service.readyUrl", errors, warnings);
                     CheckUrl(project.Service?.OpenUrl, "service.openUrl", errors, warnings);
                     if (project.Tasks != null)
@@ -67,6 +80,7 @@ internal static class ProjectManifestImporter
                         CheckUrl(task.Url, $"task '{name}' url", errors, warnings);
                     }
                     CheckLayout(project.Layout, project, projectRoot, errors);
+                    CheckTaskCycles(project, errors);
                 }
                 foreach (var taskName in project.QuickTasks ?? new()) CheckTaskReference(taskName, project, "quickTasks", errors);
                 if (project.PythonEnvironment != null || project.Service?.Python is { Length: > 0 })
@@ -121,6 +135,11 @@ internal static class ProjectManifestImporter
             errors.Add($"{label} references missing task '{name}'.");
     }
 
+    private static void ValidateRepositoryPath(string? value, string basePath, string label, List<string> errors)
+    {
+        if (value != null) _ = ResolvePath(value, basePath, label, errors);
+    }
+
     private static void CheckLayout(ProjectLayout? layout, WorkspaceProject project, string projectRoot, List<string> errors)
     {
         if (layout == null) return;
@@ -141,5 +160,21 @@ internal static class ProjectManifestImporter
         if (uri.UserInfo.Length > 0) errors.Add($"{label} must not contain credentials.");
         if (uri.Query.Length > 0 || uri.Fragment.Length > 0)
             warnings.Add($"{label} contains a query or fragment. Remove tokens and secrets before sharing this manifest.");
+    }
+
+    private static void CheckTaskCycles(WorkspaceProject project, List<string> errors)
+    {
+        if (project.Tasks == null) return;
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        var active = new HashSet<string>(StringComparer.Ordinal);
+        void Visit(string name)
+        {
+            if (!project.Tasks.ContainsKey(name) || visited.Contains(name)) return;
+            if (!active.Add(name)) { errors.Add($"Task dependency cycle includes '{name}'."); return; }
+            foreach (var dependency in project.Tasks[name].DependsOn ?? new()) Visit(dependency);
+            active.Remove(name);
+            visited.Add(name);
+        }
+        foreach (var name in project.Tasks.Keys) Visit(name);
     }
 }

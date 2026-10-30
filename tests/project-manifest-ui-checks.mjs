@@ -11,6 +11,7 @@ page.setDefaultTimeout(15000)
 
 await page.getByRole('button', { name: 'Manage', exact: true }).click()
 await page.getByRole('button', { name: 'Import manifest…' }).waitFor()
+await page.getByRole('button', { name: 'Import folder…' }).waitFor()
 await page.evaluate(() => window.chrome.webview.dispatchEvent(new MessageEvent('message', { data: JSON.stringify({
   type: 'project.manifest.preview',
   preview: { manifestPath: 'C:\\sample\\devshell.project.json', project: { id: 'sample', name: 'Sample', root: 'C:\\sample' }, errors: ['Invalid version'], warnings: [] },

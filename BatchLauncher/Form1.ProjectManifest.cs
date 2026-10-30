@@ -15,11 +15,29 @@ public partial class Form1
             CheckFileExists = true
         };
         if (dialog.ShowDialog(this) != DialogResult.OK) return Task.CompletedTask;
-        var preview = ProjectManifestImporter.Preview(dialog.FileName, _workspace.Projects?.Select(item => item.Id) ?? Array.Empty<string>());
+        ShowProjectManifestPreview(dialog.FileName);
+        return Task.CompletedTask;
+    }
+
+    private Task HandleProjectManifestFolderPickAsync()
+    {
+        using var dialog = new FolderBrowserDialog
+        {
+            Description = "Choose a project folder containing devshell.project.json",
+            UseDescriptionForTitle = true,
+            SelectedPath = _workspace.Globals?.WorkspaceRoot ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
+        };
+        if (dialog.ShowDialog(this) != DialogResult.OK) return Task.CompletedTask;
+        ShowProjectManifestPreview(Path.Combine(dialog.SelectedPath, "devshell.project.json"));
+        return Task.CompletedTask;
+    }
+
+    private void ShowProjectManifestPreview(string path)
+    {
+        var preview = ProjectManifestImporter.Preview(path, _workspace.Projects?.Select(item => item.Id) ?? Array.Empty<string>());
         _pendingManifestPath = preview.ManifestPath;
         _pendingManifestProfileId = _activeWorkspaceProfileId;
         SendMessage(new { type = "project.manifest.preview", preview });
-        return Task.CompletedTask;
     }
 
     private Task HandleProjectManifestImportAsync()

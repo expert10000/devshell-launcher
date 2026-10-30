@@ -108,7 +108,7 @@ Acceptance: each managed service has a clear owner and observable lifecycle; unr
 
 ### Group 4: Declarative project manifests
 
-Status: in progress. Version 1 manifest preview and import are implemented in Project Editor, with a disposable example and validation checks. Richer health checks, artifacts, workflows, and profile overrides remain.
+Status: in progress. Version 1 manifest preview and import from a file or folder are implemented in Project Editor, with a JSON Schema, example, migration guide, and validation checks. Richer health checks, artifacts, workflows, and profile overrides remain.
 
 - [ ] Define a versioned `devshell.project.json` schema for repositories, terminals, tasks, services, URLs, health checks, artifacts, and workflows.
 - [ ] Keep shared project definitions separate from machine/profile path and environment overrides.

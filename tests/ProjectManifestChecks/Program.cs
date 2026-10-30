@@ -38,6 +38,19 @@ try
         {"version":1,"project":{"id":"bad-url","name":"Bad URL","root":".","tasks":{"Open":{"type":"browser","url":"https://user:secret@example.com/"}}}}
         """);
     Check(ProjectManifestImporter.Preview(path, Array.Empty<string>()).Errors.Any(error => error.Contains("credentials")), "URL credentials accepted");
+    File.WriteAllText(path, """
+        {"version":1,"project":{"id":"cycle","name":"Cycle","tasks":{"A":{"dependsOn":["B"]},"B":{"dependsOn":["A"]}}}}
+        """);
+    Check(ProjectManifestImporter.Preview(path, Array.Empty<string>()).Errors.Any(error => error.Contains("cycle")), "task cycle accepted");
+    File.WriteAllText(path, """
+        {"version":1,"project":{"id":"unknown","name":"Unknown","autoExecute":true}}
+        """);
+    Check(ProjectManifestImporter.Preview(path, Array.Empty<string>()).Errors.Any(error => error.Contains("autoExecute")), "unknown project field accepted");
+    File.WriteAllText(path, """
+        {"version":1,"project":{"id":"bad-file","name":"Bad file","repositories":[{"id":"source","name":"Source","path":".","pdfPath":"../secret.pdf"}]}}
+        """);
+    Check(ProjectManifestImporter.Preview(path, Array.Empty<string>()).Errors.Any(error => error.Contains("pdfPath")), "escaping artifact path accepted");
+    Check(ProjectManifestImporter.Preview(Path.Combine(folder, "missing", "devshell.project.json"), Array.Empty<string>()).Errors.Any(error => error.Contains("not found")), "missing folder manifest not reported");
     Console.WriteLine("Project manifest validation passed.");
 }
 finally { Directory.Delete(folder, true); }

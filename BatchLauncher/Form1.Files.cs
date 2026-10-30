@@ -26,15 +26,21 @@ public partial class Form1
                 var query = payload.GetProperty("query").GetString() ?? "";
                 var repositories = (project.Repositories ?? new List<WorkspaceRepository>())
                     .Select(item => new WorkspaceSearchRepository(item.Id, item.Name, ExpandProjectValue(project, item.Path))).ToList();
+                if (project.Artifacts?.Count > 0)
+                    repositories.Add(new(WorkspaceTabsStore.ProjectFilesRepositoryId, project.Name, ExpandProjectValue(project, project.Root ?? "")));
                 return SearchWorkspaceFilesAsync(profileId, requestId, repositories, query);
             }
             var repositoryId = payload.GetProperty("repositoryId").GetString();
-            var repo = project.Repositories?.FirstOrDefault(item => item.Id == repositoryId) ?? throw new InvalidOperationException("Repository not found.");
+            var repo = project.Repositories?.FirstOrDefault(item => item.Id == repositoryId);
+            if (repo == null && repositoryId == WorkspaceTabsStore.ProjectFilesRepositoryId && project.Artifacts?.Count > 0)
+                repo = new WorkspaceRepository { Id = WorkspaceTabsStore.ProjectFilesRepositoryId, Name = project.Name, Path = project.Root ?? "", Artifacts = project.Artifacts };
+            if (repo == null) throw new InvalidOperationException("Repository not found.");
             var root = ExpandProjectValue(project, repo.Path);
             if (action == "artifacts")
             {
                 // Capture request values before leaving the JSON document's dispatch lifetime.
-                var configuration = new WorkspaceRepository { OutputDirectory = repo.OutputDirectory, PdfDirectory = repo.PdfDirectory, PdfPath = repo.PdfPath };
+                var configuration = new WorkspaceRepository { OutputDirectory = repo.OutputDirectory, PdfDirectory = repo.PdfDirectory, PdfPath = repo.PdfPath,
+                    Artifacts = repo.Artifacts?.Select(item => new WorkspaceArtifactDefinition { Id = item.Id, Name = item.Name, Path = item.Path, Kind = item.Kind }).ToList() };
                 return InspectWorkspaceArtifactsAsync(profileId, requestId, root, configuration);
             }
             if (action == "list") SendMessage(new { type = "workspace.files.result", profileId, requestId, listing = WorkspaceFiles.List(root, path) });

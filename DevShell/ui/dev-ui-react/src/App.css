@@ -2852,6 +2852,10 @@
 .artifact-toolbar input { flex: 1; min-width: 80px; color: inherit; background: #8997a719; border: 1px solid #8997a755; border-radius: 7px; padding: 8px; }
 .artifact-scan-warning { padding: 9px 12px; border: 1px solid #cfa66077; border-radius: 8px; font-size: 12px; overflow-wrap: anywhere; }
 .artifact-row { display: flex; align-items: stretch; gap: 6px; margin-bottom: 6px; }
+.artifact-declared { padding: 10px 12px; border: 1px solid #8997a744; border-radius: 9px; }
+.artifact-declared h3 { margin: 0 0 9px; font-size: 14px; }
+.artifact-declared-label { display: flex; flex: 1; min-width: 0; flex-direction: column; justify-content: center; overflow-wrap: anywhere; }
+.artifact-declared-label small { font-size: 11px; opacity: .72; margin-top: 3px; }
 .artifact-open { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; text-align: left; }
 .artifact-open > span:nth-child(2) { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .artifact-open small { display: block; font-size: 11px; opacity: .65; margin-top: 4px; }

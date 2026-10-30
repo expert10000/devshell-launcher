@@ -27,6 +27,7 @@ internal sealed class WorkspaceViewTab
 internal static class WorkspaceTabsStore
 {
     public const int MaxTabs = 24;
+    public const string ProjectFilesRepositoryId = "@project";
     private static readonly JsonSerializerOptions Options = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true };
 
     private static string StatePath(string profileId)
@@ -54,19 +55,22 @@ internal static class WorkspaceTabsStore
             if (tab == null || !Guid.TryParse(tab.Id, out _) || !ids.Add(tab.Id)) continue;
             var project = workspace.Projects?.FirstOrDefault(item => item.Id == tab.ProjectId);
             var repo = project?.Repositories?.FirstOrDefault(item => item.Id == tab.RepositoryId);
+            var projectFiles = project?.Artifacts?.Count > 0 && tab.RepositoryId == ProjectFilesRepositoryId;
             if (tab.Kind is "logs" or "diff" or "files")
             {
-                if (repo == null || tab.FilePath != null && !IsRelativePath(tab.FilePath)) continue;
-                var identity = tab.Kind + ":" + project!.Id + ":" + repo.Id;
+                if ((repo == null && !(tab.Kind == "files" && projectFiles)) || (tab.FilePath != null && !IsRelativePath(tab.FilePath))) continue;
+                var repositoryId = repo?.Id ?? ProjectFilesRepositoryId;
+                var identity = tab.Kind + ":" + project!.Id + ":" + repositoryId;
                 if (!identities.Add(identity)) continue;
-                result.Tabs.Add(new() { Id = tab.Id, Kind = tab.Kind, ProjectId = project.Id, RepositoryId = repo.Id,
+                result.Tabs.Add(new() { Id = tab.Id, Kind = tab.Kind, ProjectId = project.Id, RepositoryId = repositoryId,
                     FilePath = tab.Kind is "diff" or "files" ? tab.FilePath : null, Side = tab.Kind == "diff" ? tab.Side == "staged" ? "staged" : "working" : null });
             }
             else if (tab.Kind == "pdf")
             {
-                if (repo == null || (tab.FilePath == null ? repo.PdfDirectory == null : !PdfFile.IsRelativePdf(tab.FilePath))) continue;
-                if (!identities.Add("pdf:" + project!.Id + ":" + repo.Id + ":" + tab.FilePath)) continue;
-                result.Tabs.Add(new() { Id = tab.Id, Kind = "pdf", ProjectId = project.Id, RepositoryId = repo.Id,
+                if ((repo == null && !projectFiles) || (tab.FilePath == null ? repo?.PdfDirectory == null : !PdfFile.IsRelativePdf(tab.FilePath))) continue;
+                var repositoryId = repo?.Id ?? ProjectFilesRepositoryId;
+                if (!identities.Add("pdf:" + project!.Id + ":" + repositoryId + ":" + tab.FilePath)) continue;
+                result.Tabs.Add(new() { Id = tab.Id, Kind = "pdf", ProjectId = project.Id, RepositoryId = repositoryId,
                     FilePath = tab.FilePath, Page = Math.Clamp(tab.Page ?? 1, 1, 1000000) });
             }
             else if (tab.Kind == "jupyter")

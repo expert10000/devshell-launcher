@@ -48,6 +48,7 @@ internal static class ProjectManifestImporter
                 {
                     project.Root = projectRoot;
                     if (!Directory.Exists(projectRoot)) warnings.Add($"Project folder does not exist: {projectRoot}");
+                    ValidateArtifacts(project.Artifacts, projectRoot, "project", errors);
                     foreach (var repo in project.Repositories ?? new())
                     {
                         if (string.IsNullOrWhiteSpace(repo.Id) || !IdPattern.IsMatch(repo.Id)) errors.Add("Each repository needs a valid id.");
@@ -57,6 +58,7 @@ internal static class ProjectManifestImporter
                         if (!Directory.Exists(repo.Path)) warnings.Add($"Repository folder does not exist: {repo.Path}");
                         ValidateRepositoryPath(repo.PythonRequirements, repo.Path, $"repository '{repo.Id}' pythonRequirements", errors);
                         ValidateRepositoryPath(repo.OutputDirectory, repo.Path, $"repository '{repo.Id}' outputDirectory", errors);
+                        ValidateArtifacts(repo.Artifacts, repo.Path, $"repository '{repo.Id}'", errors);
                         ValidateRepositoryPath(repo.PdfPath, repo.Path, $"repository '{repo.Id}' pdfPath", errors);
                         ValidateRepositoryPath(repo.PdfDirectory, repo.Path, $"repository '{repo.Id}' pdfDirectory", errors);
                         foreach (var folder in repo.DependencyFolders ?? new()) ValidateRepositoryPath(folder, repo.Path, $"repository '{repo.Id}' dependencyFolders", errors);
@@ -264,6 +266,7 @@ internal static class ProjectManifestImporter
         if (existing.Name != candidate.Name) changes.Add($"Name: {existing.Name} → {candidate.Name}");
         AddIfChanged("Root", existing.Root, candidate.Root);
         AddIfChanged("Pinned", existing.Pinned, candidate.Pinned);
+        AddIfChanged("Project artifacts", existing.Artifacts, candidate.Artifacts);
         var oldRepos = (existing.Repositories ?? new()).GroupBy(repo => repo.Id, StringComparer.OrdinalIgnoreCase).ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
         var newRepos = (candidate.Repositories ?? new()).GroupBy(repo => repo.Id, StringComparer.OrdinalIgnoreCase).ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
         foreach (var id in newRepos.Keys.Except(oldRepos.Keys, StringComparer.OrdinalIgnoreCase)) changes.Add($"Repository '{id}' added");
@@ -318,6 +321,22 @@ internal static class ProjectManifestImporter
     private static void ValidateRepositoryPath(string? value, string basePath, string label, List<string> errors)
     {
         if (value != null) _ = ResolvePath(value, basePath, label, errors);
+    }
+
+    private static void ValidateArtifacts(List<WorkspaceArtifactDefinition>? artifacts, string root, string owner, List<string> errors)
+    {
+        if (artifacts?.Count > 32) errors.Add($"{owner} may declare at most 32 artifacts.");
+        foreach (var artifact in artifacts ?? new())
+        {
+            if (string.IsNullOrWhiteSpace(artifact.Id) || !IdPattern.IsMatch(artifact.Id)) errors.Add($"{owner} artifact needs a valid id.");
+            if (string.IsNullOrWhiteSpace(artifact.Name)) errors.Add($"{owner} artifact '{artifact.Id}' needs a name.");
+            if (artifact.Kind is not ("file" or "folder")) errors.Add($"{owner} artifact '{artifact.Id}' kind must be file or folder.");
+            var path = ResolvePath(artifact.Path, root, $"{owner} artifact '{artifact.Id}' path", errors);
+            if (path != null && path.Equals(Path.GetFullPath(root), StringComparison.OrdinalIgnoreCase)) errors.Add($"{owner} artifact '{artifact.Id}' needs a path below the root.");
+            artifact.Path = artifact.Path.Replace('\\', '/');
+        }
+        foreach (var duplicate in (artifacts ?? new()).GroupBy(artifact => artifact.Id, StringComparer.OrdinalIgnoreCase).Where(group => group.Count() > 1))
+            errors.Add($"{owner} artifact id '{duplicate.Key}' is duplicated.");
     }
 
     private static void CheckLayout(ProjectLayout? layout, WorkspaceProject project, string projectRoot, List<string> errors)

@@ -8,7 +8,7 @@ import {
 } from 'react'
 import { Terminal } from 'xterm'
 import { RepositoryStrip } from './RepositoryStrip'
-import { useWorkspaceTabs } from './useWorkspaceTabs'
+import { PROJECT_FILES_REPOSITORY_ID, useWorkspaceTabs } from './useWorkspaceTabs'
 import { WorkspaceTabButtons, WorkspaceViews } from './WorkspaceViews'
 import { ScientificRuntimesWorkspace } from './ScientificRuntimesWorkspace'
 import { EnvironmentReadiness, type EnvironmentHealthCheck, type EnvironmentSetupPlan } from './EnvironmentReadiness'
@@ -29,6 +29,7 @@ type BackendMessage = {
   checks?: HealthCheck[]
   checkedAt?: string
   projectId?: string
+  name?: string
   port?: number
   type: string
   sessionId?: string
@@ -190,7 +191,8 @@ type ProjectLayout = {
 type ProjectDefinition = {
   manifestSource?: string
   manifestOverrides?: ProjectManifestOverrides
-  repositories?: { pdfPath?: string; pdfDirectory?: string; pdfOpenTask?: string; id: string; name: string; path: string; url?: string; requiredTools?: string[]; pythonEnvironment?: string; pythonModules?: string[]; pythonPackages?: string[]; pythonRequirements?: string; dependencyFolders?: string[]; buildTask?: string; runTask?: string; runLabel?: string; browserUrl?: string; readyUrls?: string[]; readyTimeoutSeconds?: number; browserBuildTask?: string; browserRunTask?: string }[]
+  artifacts?: { id: string; name: string; path: string; kind: 'file' | 'folder' }[]
+  repositories?: { pdfPath?: string; pdfDirectory?: string; pdfOpenTask?: string; id: string; name: string; path: string; url?: string; requiredTools?: string[]; pythonEnvironment?: string; pythonModules?: string[]; pythonPackages?: string[]; pythonRequirements?: string; dependencyFolders?: string[]; artifacts?: { id: string; name: string; path: string; kind: 'file' | 'folder' }[]; buildTask?: string; runTask?: string; runLabel?: string; browserUrl?: string; readyUrls?: string[]; readyTimeoutSeconds?: number; browserBuildTask?: string; browserRunTask?: string }[]
   requiredTools?: string[]
   pythonModules?: string[]
   pythonPackages?: string[]
@@ -443,6 +445,7 @@ const App = () => {
   const [taskMenuOpen, setTaskMenuOpen] = useState(false)
   const [projectEditorOpen, setProjectEditorOpen] = useState(false)
   const [manifestPreview, setManifestPreview] = useState<ProjectManifestPreview | null>(null)
+  const [manifestImported, setManifestImported] = useState<{ id: string; name: string } | null>(null)
   const [manifestImporting, setManifestImporting] = useState(false)
   const [manifestSettingsOpen, setManifestSettingsOpen] = useState(false)
   const [manifestSettingsDraft, setManifestSettingsDraft] = useState<ProjectManifestOverrides>({})
@@ -2178,6 +2181,7 @@ const App = () => {
         }
         case 'workspace.profile.changed': {
           setManifestPreview(null)
+          setManifestImported(null)
           setManifestImporting(false)
           setManifestSettingsOpen(false)
           setManifestSettingsSaving(false)
@@ -2202,6 +2206,7 @@ const App = () => {
         }
         case 'project.manifest.preview': {
           setManifestImporting(false)
+          setManifestImported(null)
           setManifestPreview(message.preview ?? null)
           setProjectEditorOpen(true)
           break
@@ -2209,12 +2214,16 @@ const App = () => {
         case 'project.manifest.imported': {
           setManifestImporting(false)
           setManifestPreview(null)
-          if (message.projectId) setProjectEditorProjectId(message.projectId)
+          if (message.projectId) {
+            setProjectEditorProjectId(message.projectId)
+            setManifestImported({ id: message.projectId, name: message.name ?? message.projectId })
+          }
           break
         }
         case 'project.manifest.refreshed': {
           setManifestImporting(false)
           setManifestPreview(null)
+          setManifestImported(null)
           if (message.projectId) setProjectEditorProjectId(message.projectId)
           break
         }
@@ -3822,6 +3831,7 @@ const App = () => {
   const closeProjectEditor = () => {
     setProjectEditorOpen(false)
     setManifestPreview(null)
+    setManifestImported(null)
     setManifestImporting(false)
     setManifestSettingsOpen(false)
     setManifestSettingsSaving(false)
@@ -4621,7 +4631,7 @@ const App = () => {
             <div className="tab-strip">
               <button className={`tab ${!scientificView && repositoriesView ? 'active' : ''}`} onClick={() => { setScientificView(false); workspaceViews.clearActive(); setRepositoriesView(true) }} aria-pressed={!scientificView && repositoriesView}>Repositories</button>
               <button className={`tab ${scientificView ? 'active' : ''}`} aria-pressed={scientificView} onClick={() => { workspaceViews.clearActive(); setRepositoriesView(false); setScientificView(true) }} title="Scientific runtime profiles, capabilities, and environment contracts">RUNTIMES / Scientific</button>
-              <button className={`tab ${!repositoriesView && workspaceViews.tabs.some(tab => tab.id === workspaceViews.activeId && tab.kind === 'files') ? 'active' : ''}`} aria-pressed={!repositoriesView && workspaceViews.tabs.some(tab => tab.id === workspaceViews.activeId && tab.kind === 'files')} disabled={!panelProject?.repositories?.length} title="Open project files and generated artifacts" onClick={() => { const existing = workspaceViews.tabs.find(tab => tab.id === workspaceViews.activeId && tab.kind === 'files') ?? workspaceViews.tabs.find(tab => tab.kind === 'files' && tab.projectId === panelProject?.id); if (existing) { workspaceViews.select(existing.id); return }; const repo = panelProject?.repositories?.[0]; if (panelProject && repo) repositoryAction(panelProject.id, repo.id, 'files') }}>Files &amp; Artifacts</button>
+              <button className={`tab ${!repositoriesView && workspaceViews.tabs.some(tab => tab.id === workspaceViews.activeId && tab.kind === 'files' && tab.projectId === panelProject?.id) ? 'active' : ''}`} aria-pressed={!repositoriesView && workspaceViews.tabs.some(tab => tab.id === workspaceViews.activeId && tab.kind === 'files' && tab.projectId === panelProject?.id)} disabled={!panelProject?.repositories?.length && !panelProject?.artifacts?.length} title="Open project files and generated artifacts" onClick={() => { const existing = workspaceViews.tabs.find(tab => tab.id === workspaceViews.activeId && tab.kind === 'files' && tab.projectId === panelProject?.id) ?? workspaceViews.tabs.find(tab => tab.kind === 'files' && tab.projectId === panelProject?.id); if (existing) { workspaceViews.select(existing.id); return }; if (panelProject) repositoryAction(panelProject.id, panelProject.repositories?.[0]?.id ?? PROJECT_FILES_REPOSITORY_ID, 'files') }}>Files &amp; Artifacts</button>
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
@@ -5859,6 +5869,23 @@ const App = () => {
                   <h3>{manifestPreview.project.name} <small>({manifestPreview.project.id})</small></h3>
                   <p>Folder: {manifestPreview.project.root}</p>
                   <p>{manifestPreview.project.repositories?.length ?? 0} repositories · {Object.keys(manifestPreview.project.tasks ?? {}).length} tasks · {manifestPreview.project.service ? '1 service' : 'no service'}</p>
+                  {manifestPreview.mode !== 'refresh' && <details>
+                    <summary>Declared setup and actions</summary>
+                    <ul>
+                      {(manifestPreview.project.requiredTools?.length ?? 0) > 0 && <li>Tools: {manifestPreview.project.requiredTools?.join(', ')}</li>}
+                      {(manifestPreview.project.artifacts?.length ?? 0) > 0 && <li>Project outputs: {manifestPreview.project.artifacts?.map(artifact => artifact.name).join(', ')}</li>}
+                      {manifestPreview.project.repositories?.map(repo => <li key={repo.id}>{repo.name}: {[
+                        repo.requiredTools?.length ? `tools ${repo.requiredTools.join(', ')}` : null,
+                        repo.pythonModules?.length ? `Python ${repo.pythonModules.join(', ')}` : null,
+                        repo.dependencyFolders?.length ? `dependency folders ${repo.dependencyFolders.join(', ')}` : null,
+                        repo.artifacts?.length ? `outputs ${repo.artifacts.map(artifact => artifact.name).join(', ')}` : null,
+                      ].filter(Boolean).join(' · ') || 'no extra dependencies declared'}</li>)}
+                      {(manifestPreview.project.pythonModules?.length ?? 0) > 0 && <li>Python modules: {manifestPreview.project.pythonModules?.join(', ')}</li>}
+                      {manifestPreview.project.service && <li>Service: {manifestPreview.project.service.name} ({manifestPreview.project.service.kind})</li>}
+                      {Object.keys(manifestPreview.project.tasks ?? {}).length > 0 && <li>Tasks: {Object.keys(manifestPreview.project.tasks ?? {}).join(', ')}</li>}
+                    </ul>
+                    {manifestPreview.project.service?.kind === 'jupyter' && <p>A local .venv will be selected for Jupyter. General setup can create it after import.</p>}
+                  </details>}
                 </>}
                 {manifestPreview.mode === 'refresh' && <div>
                   <h4>Changes from source</h4>
@@ -5873,6 +5900,25 @@ const App = () => {
                   <button className="action primary" disabled={manifestPreview.errors.length > 0 || !manifestPreview.project || manifestImporting} onClick={() => { setManifestImporting(true); postMessage({ type: manifestPreview.mode === 'refresh' ? 'project.manifest.refresh.apply' : 'project.manifest.import' }) }}>
                     {manifestImporting ? 'Saving…' : manifestPreview.mode === 'refresh' ? 'Apply refresh' : 'Import project'}
                   </button>
+                </div>
+              </div>
+            </section>}
+            {manifestImported && <section className="manifest-preview" role="dialog" aria-modal="true" aria-label="Project imported">
+              <div className="manifest-preview-card">
+                <h2>{manifestImported.name} imported</h2>
+                <p>Its tasks and service are now in this profile. Nothing has run yet.</p>
+                <p>Review missing tools and dependencies in General setup, then choose which repairs to run.</p>
+                <div className="service-actions">
+                  <button onClick={() => setManifestImported(null)}>Stay in Projects</button>
+                  <button className="action primary" onClick={() => {
+                    setActiveProjectId(manifestImported.id)
+                    setTaskProjectId(manifestImported.id)
+                    setManifestImported(null)
+                    setProjectEditorOpen(false)
+                    setHealthOpen(true)
+                    setDashboardLoading(true)
+                    postMessage({ type: 'dashboard.request' })
+                  }}>Review setup</button>
                 </div>
               </div>
             </section>}

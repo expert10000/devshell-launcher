@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 
 type Bridge = { postMessage: (message: unknown) => void; addEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void; removeEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void }
-type Entry = { name: string; path: string; kind: 'folder' | 'pdf' | 'text' | 'image' | 'file'; artifact: boolean; size?: number; modified: string }
-type Overview = { entries: Entry[]; outputDirectory?: string; directoriesScanned: number; truncated: boolean; scannedAt: string; warnings: string[] }
+type Entry = { name: string; path: string; kind: 'folder' | 'pdf' | 'text' | 'image' | 'code' | 'file'; artifact: boolean; size?: number; modified: string }
+type DeclaredArtifact = { id: string; name: string; path: string; kind: 'file' | 'folder'; state: 'available' | 'missing' | 'blocked'; entry?: Entry }
+type Overview = { entries: Entry[]; declared?: DeclaredArtifact[]; outputDirectory?: string; directoriesScanned: number; truncated: boolean; scannedAt: string; warnings: string[] }
 export type ArtifactBuildStatus = { buildState: string; lastBuildFinishedAt?: string; lastBuildState?: string; lastBuildExitCode?: number }
 function date(value?: string) { return value ? new Date(value).toLocaleString() : 'Unknown' }
 
@@ -42,6 +43,15 @@ export function ArtifactOverview({ profileId, projectId, repositoryId, bridge, j
   const newest = entries.reduce<string | undefined>((latest, entry) => !latest || entry.modified > latest ? entry.modified : latest, undefined)
   return <div className="artifact-overview">
     <div className="artifact-build-summary" role="status"><strong>Last managed build</strong><span>{job?.lastBuildFinishedAt ? `${date(job.lastBuildFinishedAt)} / ${job.lastBuildState ?? 'completed'}${job.lastBuildExitCode != null ? ` / exit ${job.lastBuildExitCode}` : ''}` : 'No build recorded in this launcher session.'}</span>{job?.buildState === 'building' && <span>Build currently running...</span>}</div>
+    {!!overview?.declared?.length && <section className="artifact-declared" aria-label="Declared artifacts">
+      <h3>Declared outputs</h3>
+      <div className="artifact-list">{overview.declared.map(artifact => <div key={artifact.id} className="artifact-row">
+        <span className="artifact-declared-label"><strong>{artifact.name}</strong><small>{artifact.path} · {artifact.state}</small></span>
+        <button disabled={artifact.state !== 'available'} onClick={() => artifact.kind === 'folder' ? onFolder(artifact.path)
+          : artifact.entry && artifact.entry.kind !== 'file' ? onOpen(artifact.entry)
+          : onFolder(artifact.path.split('/').slice(0, -1).join('/'))}>{artifact.kind === 'folder' || artifact.entry?.kind === 'file' ? 'Browse' : 'Open'}</button>
+      </div>)}</div>
+    </section>}
     <div className="artifact-groups" aria-label="Artifact categories">{groups.map(group => <button key={group.id} aria-pressed={filter === group.id} onClick={() => setFilter(group.id)}><strong>{entries.filter(entry => group.id === 'all' || entry.kind === group.id).length}</strong><span>{group.label}</span></button>)}</div>
     <div className="artifact-toolbar"><label>Search artifacts <input aria-label="Artifact search" value={query} placeholder="Filter paths across scanned folders..." onChange={event => setQuery(event.target.value)} /></label><button disabled={pending} onClick={refresh}>Refresh overview</button><button disabled={overview?.outputDirectory == null} onClick={() => onFolder(overview!.outputDirectory!)}>Browse output folder</button></div>
     {error && <p className="check-error" role="alert">{error}</p>}

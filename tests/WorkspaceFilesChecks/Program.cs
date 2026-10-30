@@ -31,6 +31,16 @@ var state = new WorkspaceTabsState { Tabs = new() {
 var normalized = WorkspaceTabsStore.Normalize(state, workspace);
 Check(normalized.Tabs.Count(tab => tab.Kind == "pdf") == 1, "restored PDF selectors deduplicated");
 Check(normalized.Tabs.Single(tab => tab.Kind == "files").FilePath == "build/pdf", "files descriptor stores scoped location only");
+var projectFiles = new WorkspaceConfig { Projects = new() { new() { Id = "notebooks", Root = root, Artifacts = new() {
+    new() { Id = "figures", Name = "Generated figures", Path = "build/pdf", Kind = "folder" }
+} } } };
+var projectTabs = WorkspaceTabsStore.Normalize(new WorkspaceTabsState { Tabs = new() {
+    new() { Kind = "files", ProjectId = "notebooks", RepositoryId = WorkspaceTabsStore.ProjectFilesRepositoryId, FilePath = "build/pdf" },
+    new() { Kind = "pdf", ProjectId = "notebooks", RepositoryId = WorkspaceTabsStore.ProjectFilesRepositoryId, FilePath = "build/pdf/volume.pdf" },
+    new() { Kind = "logs", ProjectId = "notebooks", RepositoryId = WorkspaceTabsStore.ProjectFilesRepositoryId }
+} }, projectFiles);
+Check(projectTabs.Tabs.Count == 2 && projectTabs.Tabs.Any(tab => tab.Kind == "files") && projectTabs.Tabs.Any(tab => tab.Kind == "pdf"), "project-root Files and PDF tabs restore without a repository");
+Check(projectTabs.Tabs.All(tab => tab.Kind != "logs"), "project-root scope cannot restore repository actions");
 var viewDescriptors = WorkspaceTabsStore.Normalize(new WorkspaceTabsState { Tabs = new() {
     new() { Kind = "logs", ProjectId = "project", RepositoryId = "repo", FilePath = "README.md", Side = "staged", Url = "https://example.test/?token=secret" },
     new() { Kind = "diff", ProjectId = "project", RepositoryId = "repo", FilePath = "README.md", Side = "staged" },
@@ -72,6 +82,15 @@ File.WriteAllText(Path.Combine(root, "node_modules", "dependency.json"), "{}");
 var overview = WorkspaceArtifacts.Scan(root, workspace.Projects![0].Repositories![0]);
 Check(overview.Entries.Any(entry => entry.Kind == "pdf") && overview.Entries.Any(entry => entry.Kind == "image") && overview.Entries.Any(entry => entry.Name == "sample.csv"), "artifact overview includes PDFs, images, and reports");
 Check(overview.Entries.All(entry => !entry.Path.StartsWith("node_modules/")), "artifact overview excludes dependency folders");
+var declaredOverview = WorkspaceArtifacts.Scan(root, new WorkspaceRepository { Artifacts = new() {
+    new() { Id = "pdfs", Name = "Built PDFs", Path = "build/pdf", Kind = "folder" },
+    new() { Id = "readme", Name = "Readme", Path = "README.md", Kind = "file" },
+    new() { Id = "future", Name = "Future output", Path = "future/output", Kind = "folder" },
+    new() { Id = "unsafe", Name = "Outside", Path = "../outside", Kind = "folder" }
+} });
+Check(declaredOverview.Declared.Single(item => item.Id == "pdfs").State == "available" && declaredOverview.Declared.Single(item => item.Id == "future").State == "missing", "declared output folders report availability");
+Check(declaredOverview.Declared.Single(item => item.Id == "readme").Entry?.Kind == "text", "declared file uses the existing preview kind");
+Check(declaredOverview.Declared.Single(item => item.Id == "unsafe").State == "blocked", "declared output cannot escape repository");
 Directory.CreateDirectory(Path.Combine(root, "reports"));
 for (var index = 0; index < 510; index++) File.WriteAllText(Path.Combine(root, "reports", $"report-{index:D3}.json"), "{}");
 var boundedOverview = WorkspaceArtifacts.Scan(root, new WorkspaceRepository { OutputDirectory = "reports" });

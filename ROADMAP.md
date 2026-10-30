@@ -108,7 +108,7 @@ Acceptance: each managed service has a clear owner and observable lifecycle; unr
 
 ### Group 4: Declarative project manifests
 
-Status: in progress. Version 1 manifest import from a file or folder, local root/Python overrides, source refresh preview, JSON Schema, example, and migration guide are implemented. Richer health checks, artifacts, and workflows remain.
+Status: in progress. Version 1 manifest import from a file or folder, local root/Python overrides, source refresh preview, JSON Schema, example, migration guide, an import-to-General-setup handoff, and project/repository artifact shortcuts are implemented. Math3D and Jupyter now carry real manifests. Richer health checks and workflows remain.
 
 - [ ] Define a versioned `devshell.project.json` schema for repositories, terminals, tasks, services, URLs, health checks, artifacts, and workflows.
 - [x] Keep shared project definitions separate from machine/profile path and environment overrides.

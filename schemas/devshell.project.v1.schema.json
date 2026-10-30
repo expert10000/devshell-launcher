@@ -18,6 +18,7 @@
         "root": { "$ref": "#/$defs/relativePath" },
         "pinned": { "type": "boolean" },
         "repositories": { "type": "array", "items": { "$ref": "#/$defs/repository" } },
+        "artifacts": { "type": "array", "maxItems": 32, "items": { "$ref": "#/$defs/artifact" } },
         "requiredTools": { "$ref": "#/$defs/stringList" },
         "pythonModules": { "$ref": "#/$defs/stringList" },
         "pythonPackages": { "$ref": "#/$defs/stringList" },
@@ -86,6 +87,7 @@
         "dependencyFolders": { "$ref": "#/$defs/stringList" },
         "buildTask": { "type": "string" },
         "outputDirectory": { "$ref": "#/$defs/relativePath" },
+        "artifacts": { "type": "array", "maxItems": 32, "items": { "$ref": "#/$defs/artifact" } },
         "runTask": { "type": "string" },
         "runLabel": { "type": "string" },
         "pdfPath": { "$ref": "#/$defs/relativePath" },
@@ -96,6 +98,17 @@
         "readyTimeoutSeconds": { "type": "integer", "minimum": 1 },
         "browserBuildTask": { "type": "string" },
         "browserRunTask": { "type": "string" }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "path", "kind"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "name": { "type": "string", "minLength": 1 },
+        "path": { "$ref": "#/$defs/relativePath" },
+        "kind": { "enum": ["file", "folder"] }
       }
     },
     "layout": {

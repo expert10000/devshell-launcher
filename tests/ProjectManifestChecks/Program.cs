@@ -108,6 +108,16 @@ try
         {"version":1,"project":{"id":"bad-file","name":"Bad file","repositories":[{"id":"source","name":"Source","path":".","pdfPath":"../secret.pdf"}]}}
         """);
     Check(ProjectManifestImporter.Preview(path, Array.Empty<string>()).Errors.Any(error => error.Contains("pdfPath")), "escaping artifact path accepted");
+    File.WriteAllText(path, """
+        {"version":1,"project":{"id":"bad-artifacts","name":"Bad artifacts","repositories":[{"id":"source","name":"Source","path":".","artifacts":[{"id":"output","name":"Output","path":"../outside","kind":"folder"},{"id":"output","name":"Other","path":"build/file.txt","kind":"command"}]}]}}
+        """);
+    var badArtifacts = ProjectManifestImporter.Preview(path, Array.Empty<string>()).Errors;
+    Check(badArtifacts.Any(error => error.Contains("artifact 'output' path")) && badArtifacts.Any(error => error.Contains("kind must be file or folder"))
+        && badArtifacts.Any(error => error.Contains("duplicated")), "unsafe artifact declarations accepted");
+    File.WriteAllText(path, """
+        {"version":1,"project":{"id":"bad-project-output","name":"Bad output","root":".","artifacts":[{"id":"escape","name":"Outside","path":"../outside","kind":"folder"}]}}
+        """);
+    Check(ProjectManifestImporter.Preview(path, Array.Empty<string>()).Errors.Any(error => error.Contains("project artifact 'escape' path")), "project artifact path escape accepted");
     Check(ProjectManifestImporter.Preview(Path.Combine(folder, "missing", "devshell.project.json"), Array.Empty<string>()).Errors.Any(error => error.Contains("not found")), "missing folder manifest not reported");
     Console.WriteLine("Project manifest validation passed.");
 }

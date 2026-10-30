@@ -31,7 +31,10 @@ public partial class Form1
             if (action is not ("open" or "refresh" or "external" or "list")) throw new ArgumentException("Unknown PDF action.");
             if (page is < 1 or > 1000000) throw new ArgumentException("Page must be between 1 and 1000000.");
             var project = _workspace.Projects?.FirstOrDefault(item => item.Id == projectId) ?? throw new InvalidOperationException("Project not found.");
-            var repo = project.Repositories?.FirstOrDefault(item => item.Id == repositoryId) ?? throw new InvalidOperationException("Repository not found.");
+            var repo = project.Repositories?.FirstOrDefault(item => item.Id == repositoryId);
+            if (repo == null && repositoryId == WorkspaceTabsStore.ProjectFilesRepositoryId && project.Artifacts?.Count > 0)
+                repo = new WorkspaceRepository { Id = WorkspaceTabsStore.ProjectFilesRepositoryId, Name = project.Name, Path = project.Root ?? "" };
+            if (repo == null) throw new InvalidOperationException("Repository not found.");
             var root = ExpandProjectValue(project, repo.Path);
             if (action == "open" && filePath == null && repo.PdfPath == null && repo.PdfDirectory != null)
             {

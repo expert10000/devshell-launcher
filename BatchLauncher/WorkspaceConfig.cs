@@ -51,6 +51,7 @@ public sealed class WorkspaceProject
     public string? ManifestSource { get; set; }
     public WorkspaceManifestOverrides? ManifestOverrides { get; set; }
     public List<WorkspaceRepository>? Repositories { get; set; }
+    public List<WorkspaceArtifactDefinition>? Artifacts { get; set; }
     public List<string>? RequiredTools { get; set; }
     public List<string>? PythonModules { get; set; }
     public List<string>? PythonPackages { get; set; }
@@ -105,6 +106,7 @@ public sealed class WorkspaceRepository
     public string Path { get; set; } = string.Empty;
     public string? BuildTask { get; set; }
     public string? OutputDirectory { get; set; }
+    public List<WorkspaceArtifactDefinition>? Artifacts { get; set; }
     public string? RunTask { get; set; }
     public string? RunLabel { get; set; }
     public string? PdfPath { get; set; }
@@ -115,6 +117,14 @@ public sealed class WorkspaceRepository
     public int ReadyTimeoutSeconds { get; set; } = 120;
     public string? BrowserBuildTask { get; set; }
     public string? BrowserRunTask { get; set; }
+}
+
+public sealed class WorkspaceArtifactDefinition
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Path { get; set; } = string.Empty;
+    public string Kind { get; set; } = string.Empty;
 }
 
 public sealed class WorkspaceLaunch

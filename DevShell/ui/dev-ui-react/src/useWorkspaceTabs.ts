@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { restoreWorkspaceDescriptors } from './passiveWorkspaceLayout'
 
+export const PROJECT_FILES_REPOSITORY_ID = '@project'
+
 export type WorkspaceViewTab = {
   id: string; kind: 'logs' | 'diff' | 'browser' | 'jupyter' | 'pdf' | 'files'; projectId?: string; repositoryId?: string;
   filePath?: string; side?: 'working' | 'staged'; url?: string; servicePath?: string; page?: number; restored?: boolean; activationId?: string; revealPath?: string; sourceLine?: number

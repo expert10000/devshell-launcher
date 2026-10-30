@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { WorkspaceViewTab } from './useWorkspaceTabs'
+import { PROJECT_FILES_REPOSITORY_ID, type WorkspaceViewTab } from './useWorkspaceTabs'
 import { MarkdownPreview } from './MarkdownPreview'
 import { ArtifactOverview, type ArtifactBuildStatus } from './ArtifactOverview'
 import { CodeFilePreview, JsonFilePreview, TableFilePreview } from './DataFilePreview'
@@ -119,7 +119,7 @@ export function FilesWorkspaceView({ tab, profileId, bridge, repos, active, onFo
       <button disabled={pending} onClick={() => request('list', listing?.path ?? tab.filePath ?? '')}>Refresh files</button>
     </div>
     <ProjectFileSearch profileId={profileId} projectId={tab.projectId} bridge={bridge} onOpen={hit => window.dispatchEvent(new CustomEvent('devshell.workspace.open', { detail: { profileId, kind: 'files', projectId: tab.projectId, repositoryId: hit.repositoryId, filePath: hit.entry.path.split('/').slice(0, -1).join('/'), revealPath: hit.entry.path } }))} />
-    <WorkspaceFileNavigation profileId={profileId} projectId={tab.projectId} bridge={bridge} selected={selectedPath && tab.projectId && tab.repositoryId && previewKind !== 'folder' && previewKind !== 'file' ? { projectId: tab.projectId, repositoryId: tab.repositoryId, path: selectedPath, kind: previewKind } : undefined} />
+    {tab.repositoryId !== PROJECT_FILES_REPOSITORY_ID && <WorkspaceFileNavigation profileId={profileId} projectId={tab.projectId} bridge={bridge} selected={selectedPath && tab.projectId && tab.repositoryId && previewKind !== 'folder' && previewKind !== 'file' ? { projectId: tab.projectId, repositoryId: tab.repositoryId, path: selectedPath, kind: previewKind } : undefined} />}
     <form className="files-path-form" style={{ display: overview ? 'none' : undefined }} onSubmit={event => { event.preventDefault(); request('list', path) }}><label>Relative folder <input aria-label="Files relative folder" value={path} placeholder="Repository root" onChange={event => setPath(event.target.value)} /></label><button disabled={pending}>Go</button></form>
     <nav className="files-location files-breadcrumbs" aria-label="Folder breadcrumbs" style={{ display: overview ? 'none' : undefined }}>
       <button disabled={pending} aria-label="Repository root" aria-current={!folder ? 'location' : undefined} title="Browse repository root" onClick={() => request('list', '')}>{repos.find(repo => repo.id === tab.repositoryId)?.name ?? 'Repository'}</button>

@@ -5,6 +5,9 @@
     "id": "jupyter-workspace",
     "name": "Jupyter Studio Workspace",
     "root": ".",
+    "artifacts": [
+      { "id": "theory-output", "name": "Theory generated files", "path": "theory/generated", "kind": "folder" }
+    ],
     "pinned": true,
     "requiredTools": ["python", "pwsh"],
     "pythonModules": ["jupyterlab", "notebook", "numpy", "pandas", "matplotlib", "sympy", "scipy", "ipywidgets", "psutil"],

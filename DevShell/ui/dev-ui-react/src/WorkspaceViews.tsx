@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { WorkspaceViewTab } from './useWorkspaceTabs'
+import { PROJECT_FILES_REPOSITORY_ID, type WorkspaceViewTab } from './useWorkspaceTabs'
 import { PdfWorkspaceView } from './PdfWorkspaceView'
 import { FilesWorkspaceView } from './FilesWorkspaceView'
 import { chooseWorkspacePane, resizeWorkspacePanes, resolveWorkspaceSplit, singleWorkspacePane, splitWorkspacePane } from './workspaceSplit'
@@ -9,7 +9,7 @@ import { BuildDiagnostics } from './BuildDiagnostics'
 import { ArtifactComparison } from './ArtifactComparison'
 import { WorkspaceCommandPalette } from './WorkspaceCommandPalette'
 
-type Project = { id: string; name: string; repositories?: { id: string; name: string; pdfDirectory?: string; buildTask?: string; runTask?: string; url?: string }[] }
+type Project = { id: string; name: string; artifacts?: { id: string; name: string; path: string; kind: 'file' | 'folder' }[]; repositories?: { id: string; name: string; pdfDirectory?: string; buildTask?: string; runTask?: string; url?: string }[] }
 type Job = { key: string; state: string; buildState: string; exitCode?: number; log: string; logPath: string; action?: string; lastBuildFinishedAt?: string; lastBuildState?: string; lastBuildExitCode?: number }
 type Bridge = { postMessage: (message: unknown) => void; addEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void; removeEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void }
 type ChangedFile = { path: string; staged: boolean; unstaged: boolean; conflicted: boolean }
@@ -21,7 +21,7 @@ export function workspaceTabTitle(tab: WorkspaceViewTab, projects: Project[]) {
   const repo = project?.repositories?.find(item => item.id === tab.repositoryId)
   if (tab.kind === 'logs') return `${repo?.name ?? 'Repository'} Logs`
   if (tab.kind === 'diff') return `${repo?.name ?? 'Repository'} Diff`
-  if (tab.kind === 'files') return `${repo?.name ?? 'Project'} Files`
+  if (tab.kind === 'files') return `${repo?.name ?? project?.name ?? 'Project'} Files`
   if (tab.kind === 'pdf') return `${repo?.name ?? 'Document'} / ${tab.filePath?.split('/').at(-1) ?? 'PDF selector'}`
   if (tab.kind === 'jupyter') return `${project?.name ?? 'Jupyter'}${tab.servicePath ? ` / ${tab.servicePath.split('/').at(-1)}` : ''}`
   try { return `${repo?.name ?? new URL(tab.url ?? '').hostname} Browser` } catch { return 'Browser' }
@@ -204,8 +204,8 @@ export function WorkspaceViews({ tabs, activeId, profileId, projects, jobs, erro
       {tab.kind === 'logs' && <LogsView job={job} error={errors[key]} onStop={() => repositoryAction(tab, 'stop')} onFullLog={() => repositoryAction(tab, 'log')} onRefresh={() => bridge?.postMessage({ type: 'repository.job', action: 'status' })} onOutputFolder={() => bridge?.postMessage({ type: 'workspace.files', action: 'output', profileId, projectId: tab.projectId, repositoryId: tab.repositoryId, requestId: crypto.randomUUID() })} />}
       {tab.kind === 'logs' && <BuildDiagnostics log={job?.log ?? ''} profileId={profileId} projectId={tab.projectId} repositoryId={tab.repositoryId} bridge={bridge} />}
       {tab.kind === 'diff' && <DiffView tab={tab} profileId={profileId} bridge={bridge} active={visible && !!activeId} busy={busy} onChange={changes => onChange(tab.id, changes)} />}
-      {tab.kind === 'files' && <FilesWorkspaceView tab={tab} profileId={profileId} bridge={bridge} repos={projects.find(project => project.id === tab.projectId)?.repositories ?? []} active={visible && !!activeId} onFolder={path => onChange(tab.id, { filePath: path })} job={job} />}
-      {tab.kind === 'pdf' && <><WorkspaceFileNavigation profileId={profileId} projectId={tab.projectId} bridge={bridge} selected={tab.filePath && tab.projectId && tab.repositoryId ? { projectId: tab.projectId, repositoryId: tab.repositoryId, path: tab.filePath, kind: 'pdf' } : undefined} /><PdfWorkspaceView tab={tab} profileId={profileId} bridge={bridge} job={job} directory={projects.find(project => project.id === tab.projectId)?.repositories?.find(repo => repo.id === tab.repositoryId)?.pdfDirectory} onPage={page => onChange(tab.id, { page })} /></>}
+      {tab.kind === 'files' && <FilesWorkspaceView tab={tab} profileId={profileId} bridge={bridge} repos={(() => { const project = projects.find(item => item.id === tab.projectId); return [...(project?.artifacts?.length ? [{ id: PROJECT_FILES_REPOSITORY_ID, name: project.name }] : []), ...(project?.repositories ?? [])] })()} active={visible && !!activeId} onFolder={path => onChange(tab.id, { filePath: path })} job={job} />}
+      {tab.kind === 'pdf' && <>{tab.repositoryId !== PROJECT_FILES_REPOSITORY_ID && <WorkspaceFileNavigation profileId={profileId} projectId={tab.projectId} bridge={bridge} selected={tab.filePath && tab.projectId && tab.repositoryId ? { projectId: tab.projectId, repositoryId: tab.repositoryId, path: tab.filePath, kind: 'pdf' } : undefined} />}<PdfWorkspaceView tab={tab} profileId={profileId} bridge={bridge} job={job} directory={projects.find(project => project.id === tab.projectId)?.repositories?.find(repo => repo.id === tab.repositoryId)?.pdfDirectory} onPage={page => onChange(tab.id, { page })} /></>}
       {(tab.kind === 'browser' || tab.kind === 'jupyter') && <div className="workspace-browser-entry"><h3>{tab.kind === 'jupyter' ? 'Jupyter workspace' : 'Browser workspace'}</h3><p>{tab.kind === 'jupyter' ? tab.servicePath ?? 'JupyterLab workspace' : tab.url}</p>
         <div className="workspace-browser-actions"><button onClick={() => tab.kind === 'jupyter' ? bridge?.postMessage({ type: 'service.control', projectId: tab.projectId, action: 'open', path: tab.servicePath }) : bridge?.postMessage({ type: 'browser.open', projectId: tab.projectId, repositoryId: tab.repositoryId, url: tab.url })}>{tab.kind === 'jupyter' ? 'Open Jupyter' : 'Open / focus browser page'}</button><span className="workspace-view-caption">Restored tabs wait for an explicit Open. Selecting a tab never starts a service or navigates.</span></div>
         <div ref={activeId === tab.id ? browserSlot : undefined} className="workspace-native-browser-slot" aria-label={tab.kind === 'jupyter' ? 'Jupyter browser area' : 'Browser page area'}><span>Open this page to display it here. Existing pages in this launcher session appear when selected.</span></div>

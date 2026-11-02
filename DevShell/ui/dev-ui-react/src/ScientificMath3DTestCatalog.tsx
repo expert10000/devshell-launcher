@@ -58,7 +58,7 @@ export function ScientificMath3DTestCatalog({ native, onHistory }: { native: Ret
 
   return <section className="scientific-test-catalog" aria-label="Math3D test catalog">
     <h3>Math3D test catalog</h3>
-    <p>Choose a fixed test to run it as a managed job. Stop cancels that job. Completed and cancelled runs remain in this profile’s saved History.</p>
+    <p>Choose a fixed test to run it as a managed job. Stop cancels that job. Completed and cancelled runs remain in this profile’s saved History. SageMath may take about 30 seconds to start after WSL is ready.</p>
     <div className="scientific-inspector-actions">
       <button type="button" disabled={native.pending} onClick={checkInputs}>Check local inputs</button>
       <button type="button" disabled={native.pending} onClick={() => native.send('', 'history')}>Refresh saved results</button>

@@ -61,11 +61,11 @@
         ]
       },
       "tasks": {
-        "Launcher health check": {
+        "Launcher environment check": {
           "shell": "pwsh",
           "steps": [
             {
-              "run": "$browserEditor = '${vars.browserEditorExe}'; $repoPaths = @('${vars.math3dRepoPath}', '${vars.theoryRepoPath}', '${vars.mathRepoPath}', '${vars.devshellRepoPath}'); $errors = @(); if (-not (Test-Path $browserEditor)) { $errors += \"BrowserEditor missing: $browserEditor\" }; if (-not (Get-Command code -ErrorAction SilentlyContinue)) { $errors += \"VS Code CLI missing (command: code)\" }; $repoPaths | ForEach-Object { if (-not (Test-Path $_)) { $errors += \"Repo path missing: $_\" } }; if ($errors.Count -gt 0) { Write-Host 'Launcher health check failed:'; $errors | ForEach-Object { Write-Host \" - $_\" }; exit 1 }; Write-Host 'Launcher health check passed.'"
+              "run": "$browserEditor = '${vars.browserEditorExe}'; $repoPaths = @('${vars.math3dRepoPath}', '${vars.theoryRepoPath}', '${vars.mathRepoPath}', '${vars.devshellRepoPath}'); $errors = @(); if (-not (Test-Path $browserEditor)) { $errors += \"BrowserEditor missing: $browserEditor\" }; if (-not (Get-Command code -ErrorAction SilentlyContinue)) { $errors += \"VS Code CLI missing (command: code)\" }; $repoPaths | ForEach-Object { if (-not (Test-Path $_)) { $errors += \"Repo path missing: $_\" } }; if ($errors.Count -gt 0) { Write-Host 'Launcher environment check failed:'; $errors | ForEach-Object { Write-Host \" - $_\" }; exit 1 }; Write-Host 'Launcher environment check passed.'"
             }
           ]
         },
@@ -305,7 +305,7 @@
         "Math - GitHub (DevShell)",
         "DevShell - GitHub (DevShell)",
         "Master - Pull All Repositories",
-        "Launcher health check",
+        "Launcher environment check",
         "Open active URL in BrowserEditor",
         "Math3D - GitHub (BrowserEditor)",
         "Math3D - Open in VS Code",

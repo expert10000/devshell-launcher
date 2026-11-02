@@ -4551,7 +4551,7 @@ const App = () => {
                 ))}
               </select>
               <div className="workspace-profile-actions">
-                <button className="project-filter" onClick={() => { setHealthOpen(true); refreshDashboard() }}>Health check</button>
+                <button className="project-filter" onClick={() => { setHealthOpen(true); refreshDashboard() }}>Environment check</button>
                 <button
                   className="project-filter"
                   onClick={() => postMessage({ type: 'workspace.profile.reload' })}
@@ -5319,7 +5319,7 @@ const App = () => {
               const running = state === 'running'
               const hasOpen = !isWorker || !!service.openUrl
               return <ServiceCard key={key} name={service.name} project={project.name} state={state}
-                detail={isWorker ? (service.readyUrl ? 'Background worker · health checked' : 'Background worker') : `Port ${service.port}`}
+                detail={isWorker ? (service.readyUrl ? 'Background worker · readiness checked' : 'Background worker') : `Port ${service.port}`}
                 message={status?.message ?? 'Checking service…'} busy={busy} canStart={!running && state !== 'blocked'}
                 canStop={running || isWorker && state === 'starting'} canRestart={state !== 'blocked'} canOpen={running && hasOpen}
                 onStart={() => controlService(project.id, 'start')} onStop={() => controlService(project.id, 'stop')}

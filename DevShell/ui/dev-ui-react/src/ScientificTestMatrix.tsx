@@ -27,7 +27,7 @@ export function ScientificTestMatrix({ runtime, native, edited, math3dRepository
   return <section aria-label="CGAL test matrix">
     <ScientificRealMeshSuite runtimeId={runtime.id} native={native} available={available} repositoryPath={math3dRepositoryPath ?? null} />
     <h3>CGAL validation test matrix</h3>
-    <p className="scientific-runtime-note">Manifest-declared expectations for duplicated local fixtures. Saved outcomes are recorded evidence, not live health checks. Loading the matrix never runs a recipe.</p>
+    <p className="scientific-runtime-note">Manifest-declared expectations for duplicated local fixtures. Saved outcomes are recorded evidence, not live state checks. Loading the matrix never runs a recipe.</p>
     <button disabled={native.pending} onClick={load}>{native.history && native.datasets ? 'Refresh saved evidence' : 'Load local copies and saved evidence'}</button>
     {' '}<button disabled={!available || !native.datasets || !cases.length || native.busy || native.pending || cases.some(test => !native.datasets?.entries.some(item => item.id === test.datasetId))} onClick={() => native.send(runtime.id, 'run-matrix')}>Run matrix</button>
     {!cases.length && <p className="scientific-runtime-note">Load the registered Test Matrix manifest to show cases.</p>}

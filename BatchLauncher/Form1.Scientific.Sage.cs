@@ -42,9 +42,11 @@ public partial class Form1
         try
         {
             job.Stage = "wsl-start";
+            // Sage in a WSL Conda environment can take over 30 seconds just to import.
+            // Keep a bounded inner timeout, but do not treat normal startup as a failed test.
             var script = SageCandidates + (job.RecipeId == "sage.version"
-                ? "exec /usr/bin/timeout --kill-after=1s 15s \"$candidate\" --version; "
-                : "exec /usr/bin/timeout --kill-after=1s 45s \"$candidate\" -c '" + SageSmokeCode + "'; ") + SageMissing;
+                ? "echo '[stage] SageMath starting' >&2; exec /usr/bin/timeout --kill-after=1s 75s \"$candidate\" --version; "
+                : "echo '[stage] SageMath starting' >&2; exec /usr/bin/timeout --kill-after=1s 75s \"$candidate\" -c '" + SageSmokeCode + "'; ") + SageMissing;
             var start = new ProcessStartInfo("wsl.exe")
             {
                 UseShellExecute = false, CreateNoWindow = true,
@@ -67,6 +69,7 @@ public partial class Form1
                 while ((count = await reader.ReadAsync(buffer.AsMemory())) > 0)
                 {
                     var chunk = new string(buffer, 0, count);
+                    if (!capture && chunk.Contains("[stage] SageMath starting", StringComparison.Ordinal)) job.Stage = "sage-start";
                     if (capture && output.Length < 4096) output.Append(chunk.AsSpan(0, Math.Min(count, 4096 - output.Length)));
                     ScientificLog(job, chunk);
                 }
@@ -82,6 +85,7 @@ public partial class Form1
             }
             await Task.WhenAll(stdout, stderr);
             job.ExitCode = process.ExitCode;
+            if (process.ExitCode == 124) throw new TimeoutException("SageMath did not respond within 75 seconds after WSL started. See the job log.");
             if (process.ExitCode != 0) throw new InvalidOperationException($"SageMath test exited {process.ExitCode}. See the job log.");
             var text = output.ToString().Trim();
             if (job.RecipeId == "sage.version" && !text.Contains("10.", StringComparison.Ordinal) && !text.Contains("SageMath", StringComparison.OrdinalIgnoreCase))

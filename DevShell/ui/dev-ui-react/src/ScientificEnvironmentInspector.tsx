@@ -58,7 +58,7 @@ export function ScientificEnvironmentInspector({ runtime, observed, report, nati
       <button disabled={!enabled || native.pending} title="Exports the installed definition, not edited session overrides or readiness evidence" onClick={() => native.send(runtime.id, 'export')}>Export profile</button>
     </div>
     {environment && <details><summary>Child environment / SDK paths</summary><dl className="scientific-inspector-facts">{Object.entries(environment.environment).map(([name, value]) => <div key={name}><dt>{name}</dt><dd><code>{value}</code></dd></div>)}<div><dt>VCPKG_ROOT</dt><dd>{environment.vcpkgRoot ?? 'Unset / Conda SDK selected'}</dd></div></dl></details>}
-    <p className="scientific-runtime-note">Only allowlisted child settings are displayed/copied. Diagnostics perform inventory/import and compiler-version probes, not C++ compilation or rendering tests. Recorded smoke/render evidence is not a live health check and may be replaced by fresh inventory. Edited definitions and WSL/Docker adapters cannot execute these native actions.</p>
+    <p className="scientific-runtime-note">Only allowlisted child settings are displayed/copied. Diagnostics perform inventory/import and compiler-version probes, not C++ compilation or rendering tests. Recorded smoke/render evidence is not a live state check and may be replaced by fresh inventory. Edited definitions and WSL/Docker adapters cannot execute these native actions.</p>
     {copyStatus && <p role="status">{copyStatus}</p>}
   </section>
 }

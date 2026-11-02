@@ -54,7 +54,9 @@ public partial class Form1
             ["workingDirectory"] = job.Directory, ["datasetRoot"] = Path.Combine(ScientificDataRoot, "datasets"),
             ["timeoutSeconds"] = timeoutSeconds, ["inputArtifacts"] = inputs,
             ["outputArtifacts"] = outputs,
-            ["provenance"] = new JsonObject { ["inputPolicy"] = "Registered local copies; SHA-256 checked before execution", ["transport"] = "JSON request / argv-owned adapter; no shell" }
+            ["provenance"] = job.RuntimeId == "sage-wsl"
+                ? new JsonObject { ["inputPolicy"] = "Fixed exact arithmetic check; no user expression", ["transport"] = "Fixed WSL shell probe and argv-owned Sage command" }
+                : new JsonObject { ["inputPolicy"] = "Registered local copies; SHA-256 checked before execution", ["transport"] = "JSON request / argv-owned adapter; no shell" }
         };
         if (rerunOf != null) request["rerunOf"] = rerunOf;
         var json = request.ToJsonString(ScientificJson);

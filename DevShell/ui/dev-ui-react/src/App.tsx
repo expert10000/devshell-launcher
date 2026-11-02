@@ -4436,20 +4436,21 @@ const App = () => {
     }
     return path.replace(/[\\/]+$/, '').toLowerCase()
   }
-  const renderMissingTools = () => missingWorkspaceTools.length > 0 && <section className="environment-readiness blocked" aria-label="Required tools">
+  const renderMissingTools = () => missingWorkspaceTools.length > 0 && <section className="environment-readiness blocked setup-tools" aria-label="Required tools">
     <div className="environment-heading"><strong>Required tools · {missingWorkspaceTools.length} missing</strong><button onClick={() => { postMessage({ type: 'workspace.tools.refresh' }); postMessage({ type: 'profiles.request' }); refreshDashboard() }}>Recheck</button></div>
     <ul className="environment-issues">{missingWorkspaceTools.map(([tool, sources]) => {
-      const name = workspaceToolNames[tool] ?? tool
+      const profileVariable = /^\$\{vars\.([^}]+)\}$/.exec(tool)?.[1]
+      const name = profileVariable ? `Configured tool · ${profileVariable}` : workspaceToolNames[tool] ?? tool
       const requiredBy = tool === 'node' && !workspace.globals?.tools?.npm
         ? new Set([...sources, ...(requiredWorkspaceTools.get('npm') ?? [])]) : sources
       const key = `${activeWorkspaceProfileId}:shell:${tool}`
       const job = repositoryJobs.find(item => item.key === key)
       const busy = !!job && ['queued', 'building', 'running'].includes(job.state)
       return <li className="environment-issue error" key={tool}>
-        <strong>{name}</strong><p>Required by {Array.from(requiredBy).join(', ')}.</p>
+        <div className="environment-issue-copy"><span className="environment-issue-label">Tool</span><strong>{name}</strong><p>Required by {Array.from(requiredBy).join(', ')}.</p></div>
         <div className="environment-actions">
-          {installableWorkspaceTools.has(tool) ? <button disabled={anyJobBusy || anyUpdateBusy || !wingetAvailable} onClick={() => installWorkspaceTool(tool)}>Install {name}</button>
-            : <span className="service-detail">Install this tool manually, then Recheck.</span>}
+          {installableWorkspaceTools.has(tool) ? <button className="setup-action-primary" disabled={anyJobBusy || anyUpdateBusy || !wingetAvailable} title={!wingetAvailable ? 'WinGet is required for automatic installation' : undefined} onClick={() => installWorkspaceTool(tool)}>Install {name}</button>
+            : <span className="service-detail">{profileVariable ? `Set ${profileVariable} in this profile to an installed executable, then Recheck.` : 'Install this tool manually, then Recheck.'}</span>}
           {busy && <button onClick={() => postMessage({ type: 'repository.job', projectId: 'shell', repositoryId: tool, action: 'stop' })}>Stop</button>}
           {job && <button onClick={() => postMessage({ type: 'repository.job', projectId: 'shell', repositoryId: tool, action: 'log' })}>Open setup log</button>}
         </div>
@@ -4487,7 +4488,7 @@ const App = () => {
     return <section className={compact ? 'project-environment project-environment-compact' : 'project-environment repo-card'} aria-label={`${project.name} environment`}>
       {!compact && <><h3>{project.name} environment</h3><div className="repo-path">{project.pythonEnvironment}</div></>}
       {serviceRunning && <p className="service-detail">Stop the lab before repairing its environment.</p>}
-      <div className="service-actions"><button disabled={!busy} onClick={() => repositoryAction(project.id, 'environment', 'stop')}>Stop setup</button><button disabled={!job} onClick={() => repositoryAction(project.id, 'environment', 'log')}>Setup log</button></div>
+      {job && <div className="service-actions"><button disabled={!busy} onClick={() => repositoryAction(project.id, 'environment', 'stop')}>Stop setup</button><button onClick={() => repositoryAction(project.id, 'environment', 'log')}>Setup log</button></div>}
       {job && <p role="status">Environment repair: {job.state}{job.exitCode != null && ` · Exit ${job.exitCode}`}</p>}
       {job?.totalSteps ? <div className="setup-progress" role="status"><progress value={job.completedSteps ?? 0} max={job.totalSteps} aria-label={`${project.name} setup progress`} /><span>{job.completedSteps ?? 0}/{job.totalSteps} · {job.step}</span></div> : null}
       {jobErrors[key] && <p className="check-error" role="alert">{jobErrors[key]}</p>}
@@ -5773,26 +5774,30 @@ const App = () => {
 
       {healthOpen && <div className="project-editor-overlay" onClick={() => setHealthOpen(false)}>
         <section className="health-dialog" role="dialog" aria-modal="true" aria-label="General setup" onClick={(event) => event.stopPropagation()}>
-          <div className="service-heading"><h2>General setup</h2><button onClick={() => setHealthOpen(false)}>Close</button></div>
-          <p>{dashboard ? `${dashboard.checks?.filter(check => check.state !== 'ok').length ?? 0} issues · ${dashboard.checks?.length ?? 0} checks` : 'Checking profile…'}</p>
-          <button disabled={dashboardLoading} onClick={() => { postMessage({ type: 'workspace.tools.refresh' }); postMessage({ type: 'profiles.request' }); refreshDashboard() }}>{dashboardLoading ? 'Checking…' : 'Check again'}</button>
-          {renderMissingTools()}
-          <div className="general-setup-group"><h3>Repositories needing setup</h3>
+          <header className="setup-header"><div><span className="setup-eyebrow">Profile readiness</span><h2>General setup</h2><p>Review missing requirements and run the fixes you choose.</p></div>
+            <div className="setup-header-actions"><button disabled={dashboardLoading} onClick={() => { postMessage({ type: 'workspace.tools.refresh' }); postMessage({ type: 'profiles.request' }); refreshDashboard() }}>{dashboardLoading ? 'Checking…' : 'Check again'}</button><button onClick={() => setHealthOpen(false)}>Close</button></div></header>
+          <div className="setup-content">
+            <div className="setup-summary" role="status"><div><strong>{dashboard?.checks?.filter(check => check.state !== 'ok').length ?? '—'}</strong><span>Checks needing attention</span></div><div><strong>{missingWorkspaceTools.length}</strong><span>Missing tools</span></div><div><strong>{repositoriesNeedingSetup.length}</strong><span>Repositories to prepare</span></div></div>
+            {renderMissingTools()}
+            <div className="general-setup-grid">
+          <div className="general-setup-group"><div className="setup-group-heading"><h3>Repositories needing setup</h3><span>{repositoriesNeedingSetup.length}</span></div>
             {repositoriesNeedingSetup.length ? repositoriesNeedingSetup.map(({ project, repo }) => {
               const key = `${activeWorkspaceProfileId}:${project.id}:${repo.id}`
               const job = repositoryJobs.find(item => item.key === key)
               return <article key={key} className="general-setup-item" aria-label={`${repo.name} setup`}><h4>{repo.name}</h4>
                 {job && <p role="status">{job.action}: {job.state}{job.step ? ` · ${job.step}` : ''}</p>}
                 {jobErrors[key] && <p className="check-error" role="alert">{jobErrors[key]}</p>}
-                <div className="service-actions"><button disabled={!job || !['queued', 'building', 'running'].includes(job.state)} onClick={() => repositoryAction(project.id, repo.id, 'stop')}>Stop</button><button disabled={!job} onClick={() => repositoryAction(project.id, repo.id, 'log')}>Logs</button></div>
+                {job && <div className="service-actions"><button disabled={!['queued', 'building', 'running'].includes(job.state)} onClick={() => repositoryAction(project.id, repo.id, 'stop')}>Stop</button><button onClick={() => repositoryAction(project.id, repo.id, 'log')}>Logs</button></div>}
                 {renderRepositoryReadiness(project, repo)}</article>
             }) : <p className="service-detail">{dashboardLoading ? 'Checking repositories…' : 'No repository repairs needed.'}</p>}
           </div>
-          <div className="general-setup-group"><h3>Project environments</h3>
+          <div className="general-setup-group"><div className="setup-group-heading"><h3>Project environments</h3><span>{projects.filter(project => project.pythonEnvironment).length}</span></div>
             {projects.filter(project => project.pythonEnvironment).map(project => <article key={project.id} className="general-setup-item"><h4>{project.name}</h4>{renderProjectEnvironment(project, true)}</article>)}
             {!projects.some(project => project.pythonEnvironment) && <p className="service-detail">No separate project environments are configured.</p>}
           </div>
-          <details><summary>All profile checks · {dashboard?.checks?.length ?? 0}</summary><div aria-live="polite">{dashboard?.checks?.map((check, index) => <div className="health-row" key={index}><strong className={check.state === 'ok' ? 'check-ok' : 'check-error'}>{check.state === 'ok' ? 'OK' : 'Needs attention'} · {check.name}</strong><p>{check.detail}</p></div>)}</div></details>
+            </div>
+            <details className="setup-all-checks"><summary>All profile checks · {dashboard?.checks?.length ?? 0}</summary><div aria-live="polite">{dashboard?.checks?.map((check, index) => <div className="health-row" key={index}><strong className={check.state === 'ok' ? 'check-ok' : 'check-error'}>{check.state === 'ok' ? 'OK' : 'Needs attention'} · {check.name}</strong><p>{check.detail}</p></div>)}</div></details>
+          </div>
         </section>
       </div>}
       {projectEditorOpen && (

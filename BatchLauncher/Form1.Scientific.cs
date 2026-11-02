@@ -200,6 +200,7 @@ public partial class Form1
             else if(action=="history-preview")data=await ScientificHistoryPreviewAsync(profileId,request);
             else if(action is "history-open-log" or "history-open-output" or "history-reveal-artifact" or "history-open-artifact")data=ScientificHistoryOpen(profileId,request,action);
             else if(action=="report")data=ScientificReport();
+            else if(action=="sage-recipe")data=ScientificSageStart(profileId,runtimeId,request);
             else if(action=="math3d-readiness")data=ScientificMath3DReadiness(profileId);
             else if(action=="datasets")
             {

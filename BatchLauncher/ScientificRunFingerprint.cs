@@ -31,14 +31,74 @@ public static class ScientificRunFingerprint
     private static JsonObject SourceFiles(string root, string runtimeId)
     {
         var files = new JsonObject();
-        var names = new List<string> { "tools/scientific_worker_contract.py", $"runtimes/{runtimeId}/runtime.json" };
+        var names = new List<string> { "tools/scientific_worker_contract.py", "tools/runtime-lab/Program.cs",
+            "BatchLauncher/ScientificProviderRegistry.cs", "BatchLauncher/ScientificRunFingerprint.cs",
+            $"runtimes/{runtimeId}/runtime.json" };
         if (runtimeId.StartsWith("cgal", StringComparison.Ordinal))
             names.AddRange(new[] { "tools/scientific-cgal-worker.py", "scientific/cgal-worker/main.cpp", "scientific/cgal-worker/CMakeLists.txt", "tools/math3d-native-protocol.mjs", "tools/run-math3d-boolean.mjs" });
         if (runtimeId.StartsWith("vtk", StringComparison.Ordinal))
-            names.AddRange(new[] { "tools/scientific-mesh-worker.py", "tools/scientific-vtk-render-check.py", "scientific/smoke/vtk/main.cpp", "scientific/smoke/vtk/CMakeLists.txt" });
+            names.AddRange(new[] { "tools/scientific-mesh-worker.py", "tools/scientific-vtk-render-check.py" });
+        if (runtimeId == "sage-wsl") names.Add("BatchLauncher/Form1.Scientific.Sage.cs");
         foreach (var name in names)
             files[name] = FileIdentity(Path.Combine(root, name.Replace('/', Path.DirectorySeparatorChar)));
         return files;
+    }
+
+    private static JsonObject PackageIdentity(string? prefix)
+    {
+        if (prefix == null) return new JsonObject { ["state"] = "unavailable" };
+        try
+        {
+            var meta = Path.Combine(prefix, "conda-meta");
+            if (!Directory.Exists(meta)) return new JsonObject { ["state"] = "unavailable" };
+            var records = Directory.EnumerateFiles(meta, "*.json", SearchOption.TopDirectoryOnly)
+                .OrderBy(Path.GetFileName, StringComparer.Ordinal).ToArray();
+            if (records.Length == 0) return new JsonObject { ["state"] = "unavailable" };
+            var inventory = new StringBuilder();
+            foreach (var record in records)
+                inventory.Append(Path.GetFileName(record)).Append('\0').Append(Hash(record)).Append('\n');
+            return new JsonObject { ["state"] = "recorded", ["count"] = records.Length,
+                ["sha256"] = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(inventory.ToString()))).ToLowerInvariant() };
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return new JsonObject { ["state"] = "unavailable" };
+        }
+    }
+
+    private static JsonObject SuiteIdentity(string root, string runtimeId, string? recipeId)
+    {
+        var names = new List<string> { "BatchLauncher/Form1.Scientific.cs", "BatchLauncher/Form1.Scientific.Artifacts.cs",
+            "BatchLauncher/ScientificArtifactFiles.cs", $"runtimes/{runtimeId}/runtime.json" };
+        if (recipeId == "diagnostics") names.Add("tools/Inspect-ScientificRuntimes.ps1");
+        if (recipeId == "version") names.Add("tools/scientific-runtime-probe.py");
+        if (recipeId?.StartsWith("mesh.", StringComparison.Ordinal) == true)
+            names.Add("tools/scientific-mesh-worker.py");
+        if (recipeId is "configure" or "build" or "run" or "test-all")
+        {
+            var kind = runtimeId.StartsWith("cgal", StringComparison.Ordinal) ? "cgal" :
+                runtimeId.StartsWith("vtk", StringComparison.Ordinal) ? "vtk" : null;
+            if (kind != null) names.AddRange(new[] { $"scientific/smoke/{kind}/main.cpp", $"scientific/smoke/{kind}/CMakeLists.txt" });
+            if (kind == "vtk" && recipeId == "test-all") names.Add("tools/scientific-vtk-render-check.py");
+        }
+        if (recipeId is "matrix.cgal.validation" or "cgal.validate" or "matrix.cgal.real-mesh")
+            names.AddRange(new[] { "BatchLauncher/Form1.Scientific.Matrix.cs", "BatchLauncher/Form1.Scientific.Cgal.cs" });
+        if (recipeId == "matrix.cgal.real-mesh") names.Add("BatchLauncher/Form1.Scientific.RealMesh.cs");
+        if (recipeId == "cgal.boolean") names.Add("BatchLauncher/Form1.Scientific.Boolean.cs");
+        if (recipeId == "datasets.import") names.Add("BatchLauncher/Form1.Scientific.MeshImport.cs");
+        if (recipeId == "matrix.vtk.rejections") names.Add("BatchLauncher/Form1.Scientific.VtkRejections.cs");
+        if (recipeId == "integration.math3d.native-boolean")
+            names.AddRange(new[] { "BatchLauncher/Form1.Scientific.Math3DIntegration.cs", "tools/compare-math3d-native-worker.mjs", "tools/math3d-native-protocol.mjs" });
+        if (recipeId?.StartsWith("sage.", StringComparison.Ordinal) == true)
+            names.Add("BatchLauncher/Form1.Scientific.Sage.cs");
+        if (recipeId == "lab.probe") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.RuntimeLab.cs", "tools/runtime-lab/Program.cs" });
+        if (recipeId == "test-hold") names.Add("BatchLauncher/Form1.Scientific.StopTest.cs");
+        var files = new JsonObject();
+        foreach (var name in names.Distinct(StringComparer.Ordinal))
+            files[name] = FileIdentity(Path.Combine(root, name.Replace('/', Path.DirectorySeparatorChar)));
+        var revision = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(files.ToJsonString()))).ToLowerInvariant();
+        return new JsonObject { ["recipeId"] = recipeId ?? "unavailable", ["schemaVersion"] = 1,
+            ["revisionSha256"] = revision, ["files"] = files };
     }
 
     private static string? GitHead(string root)
@@ -65,15 +125,17 @@ public static class ScientificRunFingerprint
     }
 
     public static JsonObject Capture(string runtimeId, string profileId, string sourceRoot,
-        string installedRoot, string? runtimeReportPath = null, string? wslDistro = null)
+        string installedRoot, string? runtimeReportPath = null, string? wslDistro = null, string? recipeId = null)
     {
         var backend = runtimeId.EndsWith("-wsl", StringComparison.Ordinal) ? "wsl" : "windows-native";
         string? prefix = null;
+        string? compilerPath = null;
         if (runtimeReportPath != null && File.Exists(runtimeReportPath))
         {
             try
             {
                 var report = JsonNode.Parse(File.ReadAllText(runtimeReportPath));
+                compilerPath = report?["compiler"]?["path"]?.GetValue<string>();
                 prefix = report?["runtimes"]?.AsArray().FirstOrDefault(item => item?["id"]?.GetValue<string>() == runtimeId)?["environmentRoot"]?.GetValue<string>();
                 if (prefix == null && runtimeId is ("gmsh-win-conda" or "python-win-conda"))
                 {
@@ -92,7 +154,15 @@ public static class ScientificRunFingerprint
             ["os"] = RuntimeInformation.OSDescription,
             ["architecture"] = RuntimeInformation.OSArchitecture.ToString(),
             ["condaHistory"] = prefix == null ? new JsonObject { ["state"] = "unavailable" } : FileIdentity(Path.Combine(prefix, "conda-meta", "history")),
+            ["condaPackageRecords"] = PackageIdentity(prefix),
             ["pythonExecutable"] = prefix == null ? new JsonObject { ["state"] = "unavailable" } : FileIdentity(Path.Combine(prefix, "python.exe")),
+            ["toolchain"] = new JsonObject
+            {
+                ["cmake"] = prefix == null ? new JsonObject { ["state"] = "unavailable" } : FileIdentity(Path.Combine(prefix, "Library", "bin", "cmake.exe")),
+                ["ninja"] = prefix == null ? new JsonObject { ["state"] = "unavailable" } : FileIdentity(Path.Combine(prefix, "Library", "bin", "ninja.exe")),
+                ["msvcCompiler"] = compilerPath == null ? new JsonObject { ["state"] = "unavailable" } : FileIdentity(compilerPath),
+                ["runtimeLab"] = FileIdentity(Path.Combine(installedRoot, "runtime-lab", "runtime-lab.exe"))
+            },
             ["wslDistro"] = backend == "wsl" ? wslDistro ?? "unavailable" : null,
             ["wslProviderBinary"] = backend == "wsl" ? "unavailable from Windows host" : null
         };
@@ -111,9 +181,11 @@ public static class ScientificRunFingerprint
             ["contract"] = new JsonObject
             {
                 ["requestSchemaVersion"] = 1, ["resultSchemaVersion"] = 1,
+                ["providerRegistryVersion"] = ScientificProviderRegistry.ContractVersion,
                 ["runtimeManifest"] = FileIdentity(File.Exists(manifest) ? manifest : Path.Combine(sourceRoot, "runtimes", runtimeId, "runtime.json")),
                 ["workerContractModule"] = FileIdentity(Path.Combine(sourceRoot, "tools", "scientific_worker_contract.py"))
-            }
+            },
+            ["suite"] = SuiteIdentity(sourceRoot, runtimeId, recipeId)
         };
     }
 
@@ -143,6 +215,16 @@ public static class ScientificRunFingerprint
         var history = Regex.Match(stderr, @"\[fingerprint\] condaHistory=([0-9a-f]{64})(?:\r?\n|$)").Groups[1].Value;
         if (history.Length == 64)
             environment["condaHistory"] = new JsonObject { ["state"] = "recorded", ["sha256"] = history };
+        var packages = Regex.Match(stderr, @"\[fingerprint\] condaPackages=([0-9a-f]{64})(?:\r?\n|$)").Groups[1].Value;
+        if (packages.Length == 64)
+            environment["condaPackageRecords"] = new JsonObject { ["state"] = "recorded", ["sha256"] = packages };
+        if (environment["toolchain"] is JsonObject toolchain)
+            foreach (var name in new[] { "wslShell", "wslTimeout" })
+            {
+                var hash = Regex.Match(stderr, @"\[fingerprint\] " + name + @"=([0-9a-f]{64})(?:\r?\n|$)").Groups[1].Value;
+                if (hash.Length == 64)
+                    toolchain[name] = new JsonObject { ["state"] = "recorded", ["sha256"] = hash };
+            }
     }
 
     public static string Save(string directory, JsonObject captured, IEnumerable<JsonObject> executedFiles)
@@ -188,5 +270,55 @@ public static class ScientificRunFingerprint
         if (!string.Equals(actual, expectedDigest, StringComparison.OrdinalIgnoreCase)
             || !string.Equals(record["sha256"]?.GetValue<string>(), expectedDigest, StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("Run fingerprint does not match saved evidence.");
+    }
+
+    public static JsonObject AssessSourceDrift(string directory, string sourceRoot, string installedRoot)
+    {
+        var record = JsonNode.Parse(File.ReadAllText(Path.Combine(directory, "fingerprint.json")));
+        var components = record?["components"] as JsonObject;
+        var runtimeId = components?["runtimeId"]?.GetValue<string>();
+        if (runtimeId == null || !ScientificProviderRegistry.Providers.Any(item => item.RuntimeId == runtimeId))
+            return new JsonObject { ["state"] = "unknown", ["reasons"] = new JsonArray("Provider identity is unavailable.") };
+        var reasons = new JsonArray();
+        var compared = 0;
+        var unavailable = 0;
+        void Compare(JsonNode? saved, JsonNode? current, string label)
+        {
+            var before = saved as JsonObject;
+            var now = current as JsonObject;
+            if (before?["state"]?.GetValue<string>() != "recorded") { unavailable++; return; }
+            if (now?["state"]?.GetValue<string>() != "recorded") { unavailable++; return; }
+            compared++;
+            if (!string.Equals(before["sha256"]?.GetValue<string>(), now["sha256"]?.GetValue<string>(), StringComparison.OrdinalIgnoreCase))
+                reasons.Add(label + " changed");
+        }
+        var savedSource = components?["source"]?["files"] as JsonObject;
+        var currentSource = SourceFiles(sourceRoot, runtimeId);
+        if (savedSource == null) unavailable++;
+        else foreach (var (name, identity) in savedSource)
+            Compare(identity, currentSource[name], "Source " + name);
+        var installedManifest = Path.Combine(installedRoot, "runtimes", runtimeId, "runtime.json");
+        var manifest = File.Exists(installedManifest) ? installedManifest : Path.Combine(sourceRoot, "runtimes", runtimeId, "runtime.json");
+        Compare(components?["contract"]?["runtimeManifest"], FileIdentity(manifest), "Runtime contract manifest");
+        Compare(components?["contract"]?["workerContractModule"], FileIdentity(Path.Combine(sourceRoot, "tools", "scientific_worker_contract.py")), "Worker contract module");
+        var savedSuite = components?["suite"] as JsonObject;
+        var recipeId = savedSuite?["recipeId"]?.GetValue<string>();
+        if (recipeId == null) unavailable++;
+        else
+        {
+            var currentSuite = SuiteIdentity(sourceRoot, runtimeId, recipeId);
+            if (savedSuite?["schemaVersion"]?.GetValue<int>() != currentSuite["schemaVersion"]?.GetValue<int>())
+                reasons.Add("Suite schema changed");
+            var savedSuiteFiles = savedSuite?["files"] as JsonObject;
+            var currentSuiteFiles = currentSuite["files"] as JsonObject;
+            if (savedSuiteFiles == null || currentSuiteFiles == null) unavailable++;
+            else foreach (var (name, identity) in savedSuiteFiles)
+                Compare(identity, currentSuiteFiles[name], "Suite " + name);
+            if (savedSuite?["revisionSha256"]?.GetValue<string>() != currentSuite["revisionSha256"]?.GetValue<string>()
+                && reasons.Count == 0)
+                reasons.Add("Suite revision changed");
+        }
+        return new JsonObject { ["state"] = reasons.Count > 0 ? "stale" : unavailable > 0 ? "unknown" : "current",
+            ["comparedFiles"] = compared, ["unavailableFiles"] = unavailable, ["reasons"] = reasons };
     }
 }

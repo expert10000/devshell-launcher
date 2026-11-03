@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 
 namespace BatchLauncher;
@@ -45,7 +46,14 @@ public partial class Form1
         throw new InvalidOperationException("Run is unavailable in this profile.");
     }
 
-    private static JsonElement ScientificHistoryResult(string profileId, string jobId) => ScientificHistoryFind(profileId, jobId).Result;
+    private static JsonElement ScientificHistoryResult(string profileId, string jobId)
+    {
+        var (directory, result) = ScientificHistoryFind(profileId, jobId);
+        if (!result.TryGetProperty("runFingerprintSha256", out _)) return result;
+        var view = JsonNode.Parse(result.GetRawText())!.AsObject();
+        view["sourceDrift"] = ScientificRunFingerprint.AssessSourceDrift(directory, ScientificSourceRoot, AppContext.BaseDirectory);
+        return JsonSerializer.SerializeToElement(view, ScientificJson);
+    }
 
     private static object ScientificHistoryList(string profileId)
     {

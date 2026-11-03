@@ -64,7 +64,7 @@ public partial class Form1
         if (!File.Exists(reportPath)) reportPath = Path.Combine(AppContext.BaseDirectory, "ui", "scientific-runtime-report.json");
         job.FingerprintComponents ??= ScientificRunFingerprint.Capture(job.RuntimeId, job.ProfileId,
             ScientificSourceRoot, AppContext.BaseDirectory, reportPath,
-            job.RuntimeId == "sage-wsl" ? ScientificSageDistro() : null);
+            job.RuntimeId == "sage-wsl" ? ScientificSageDistro() : null, job.RecipeId);
         job.Request = JsonSerializer.SerializeToElement(request, ScientificJson);
         File.WriteAllText(Path.Combine(job.Directory, "request.json"), json, new UTF8Encoding(false));
         File.WriteAllText(Path.Combine(job.Directory, "invocation.json"), json, new UTF8Encoding(false));
@@ -136,7 +136,7 @@ public partial class Form1
         }
         var fingerprint = ScientificRunFingerprint.Save(job.Directory,
             job.FingerprintComponents ?? ScientificRunFingerprint.Capture(job.RuntimeId, job.ProfileId,
-                ScientificSourceRoot, AppContext.BaseDirectory), job.ExecutedFiles);
+                ScientificSourceRoot, AppContext.BaseDirectory, recipeId: job.RecipeId), job.ExecutedFiles);
         result["runFingerprintSha256"] = fingerprint;
         result["runFingerprintReference"] = "fingerprint.json";
         var temporary = Path.Combine(job.Directory, "results.json.tmp");

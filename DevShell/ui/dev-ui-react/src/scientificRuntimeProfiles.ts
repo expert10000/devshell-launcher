@@ -1,3 +1,5 @@
+import { scientificRuntimePlugins } from './scientificRuntimePlugins'
+
 export type RuntimeKind = 'cgal' | 'vtk' | 'gmsh' | 'sage' | 'python' | 'custom'
 export type RuntimeExecution = 'windows-native' | 'wsl' | 'docker'
 export type RuntimeReadiness = 'not-checked' | 'checking' | 'ready' | 'missing' | 'failed'
@@ -85,31 +87,13 @@ export interface ScientificRunResult {
   rejectionSummary?: { suiteId: string; total: number; passed: number; cases: { caseId: string; recipeId: string; expected: string; observed: string; verdict: string; durationMs: number; diagnostic: string; inputSha256?: string; requestPath: string; resultPath?: string }[] }
 }
 
-const definitions: { kind: RuntimeKind; name: string; capabilities: string[]; checks: RuntimeProbe[] }[] = [
-  { kind: 'cgal', name: 'CGAL', capabilities: ['mesh.read', 'mesh.write', 'mesh.validate', 'mesh.repair', 'mesh.boolean', 'mesh.decimate', 'mesh.remesh', 'geometry.aabb', 'geometry.distance'], checks: [
-    { id: 'cgal.dependencies', name: 'Boost / GMP / MPFR / Eigen provenance', category: 'package' },
-    { id: 'cgal.include', name: 'CGAL include / compiler test', category: 'compiler' },
-    { id: 'cgal.link', name: 'CGAL link test and linked libraries', category: 'compiler' },
-    { id: 'cgal.surface-mesh', name: 'Surface_mesh smoke test', category: 'geometry', capability: 'mesh.validate' },
-  ] },
-  { kind: 'vtk', name: 'VTK', capabilities: ['mesh.read', 'mesh.write', 'mesh.filter', 'geometry.polydata', 'render.interactive', 'render.offscreen'], checks: [
-    { id: 'vtk.cpp', name: 'VTK C++ SDK / include / link', category: 'compiler' },
-    { id: 'vtk.python', name: 'VTK Python bindings', category: 'package' },
-    { id: 'vtk.polydata', name: 'vtkPolyData smoke test', category: 'geometry', capability: 'geometry.polydata' },
-    { id: 'vtk.opengl', name: 'Rendering / OpenGL / offscreen rendering', category: 'rendering', capability: 'render.offscreen' },
-  ] },
-  { kind: 'gmsh', name: 'Gmsh', capabilities: ['mesh.generate', 'mesh.read', 'mesh.write'], checks: [{ id: 'gmsh.import', name: 'Executable / Python module probe', category: 'package' }] },
-  { kind: 'sage', name: 'SageMath', capabilities: ['math.symbolic', 'math.number-theory'], checks: [{ id: 'sage.session', name: 'Sage interpreter smoke test', category: 'geometry' }] },
-  { kind: 'python', name: 'Python / SciPy', capabilities: ['math.numeric', 'math.linear-algebra'], checks: [{ id: 'python.scipy', name: 'Python / NumPy / SciPy imports and versions', category: 'package' }] },
-]
-
 export const executionNames: Record<RuntimeExecution, string> = {
   'windows-native': 'Windows Native', wsl: 'WSL Ubuntu', docker: 'Docker',
 }
 
 export function createScientificProfiles(hostRoot: string, execution: RuntimeExecution): RuntimeProfile[] {
   const root = hostRoot.replace(/[\\/]+$/, '')
-  return definitions.map(definition => {
+  return scientificRuntimePlugins.map(definition => {
     const suffix = definition.kind === 'vtk' ? 'devshell-vtk' : definition.kind === 'cgal' ? 'devshell-cgal' : 'devshell-scientific'
     const environmentRoot = execution === 'windows-native' && root ? `${root}\\.conda\\${suffix}` : undefined
     const id = `${definition.kind}-${execution === 'windows-native' ? 'win-conda' : execution}`

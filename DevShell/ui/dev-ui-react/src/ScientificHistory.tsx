@@ -30,11 +30,11 @@ function HistoryThumbnail({ entry, native, onPreview }: { entry: ScientificHisto
   </button>
 }
 
-export function ScientificHistory({ native, comparisonSeed = [] }: { native: ReturnType<typeof useScientificRuntime>; comparisonSeed?: string[] }) {
+export function ScientificHistory({ native, runtimeId, comparisonSeed = [] }: { native: ReturnType<typeof useScientificRuntime>; runtimeId: string; comparisonSeed?: string[] }) {
   const entries = native.history
-  const [runtimeFilter, setRuntimeFilter] = useState('')
+  const [runtimeFilter, setRuntimeFilter] = useState(runtimeId)
   const [stateFilter, setStateFilter] = useState('')
-  const runtimeOptions = [...new Set((entries ?? []).map(entry => entry.runtimeId))].sort()
+  const runtimeOptions = [...new Set([runtimeId, ...(entries ?? []).map(entry => entry.runtimeId)])].sort()
   const filteredEntries = entries?.filter(entry => (!runtimeFilter || entry.runtimeId === runtimeFilter) && (!stateFilter || entry.state === stateFilter))
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
   const selectedVisible = !!selectedJobId && !!filteredEntries?.some(entry => entry.jobId === selectedJobId)

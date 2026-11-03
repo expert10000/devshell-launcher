@@ -1,6 +1,22 @@
 # Scientific Runtime Lab: architecture extension
 
-Updated 2026-10-16. This extends [SCIENTIFIC_RUNTIMES_ROADMAP.md](SCIENTIFIC_RUNTIMES_ROADMAP.md); it does not replace the existing scientific jobs, CGAL/VTK workers, or their recorded evidence.
+Original plan updated 2026-10-16. This extends [SCIENTIFIC_RUNTIMES_ROADMAP.md](SCIENTIFIC_RUNTIMES_ROADMAP.md); it does not replace the existing scientific jobs, CGAL/VTK workers, or their recorded evidence.
+
+## 2026-11-03 expansion and delivery ledger
+
+The [Scientific Runtime Lab architecture and implementation roadmap](docs/SCIENTIFIC_RUNTIME_LAB_ROADMAP_2026-11-03.md) extends this plan with semantic capabilities, L0–L9 qualification, immutable fingerprints, provider-specific suites, a standalone broker contract, and MATH3D promotion gates. Its screenshot observations and 35/35 verdict describe historical review evidence; they do not establish current installation or certification on this machine.
+
+The first code slice now centralizes the five existing runtime declarations in `scientificRuntimePlugins.ts` and uses those declarations to choose visible sections. CGAL Boolean, the MATH3D native integration workflow and the cross-runtime MATH3D test catalog appear only with the configured CGAL Windows provider. The VTK mesh artifact viewer stays with VTK and CGAL. Gmsh, Python/SciPy and Sage show their own probes or an explicit **Not configured** state on unsupported backends. History opens filtered to the selected runtime while retaining an explicit **All runtimes** option for comparison. This is UI and profile metadata; it does not create a certified plugin, broker, or capability manifest.
+
+| Roadmap item | Current state | Next acceptance target |
+|---|---|---|
+| DS-SCI-001 runtime plugin contract | First slice: declarative profile and section registry | Move discovery, recipes, suites and artifact viewers behind versioned provider adapters; validate unique IDs and backend support |
+| DS-SCI-002 runtime view leakage | First slice: runtime-scoped navigation, integration and history defaults | Audit every shared panel and saved-result path; add desktop switching checks for CGAL, VTK, Sage, Gmsh and Python |
+| DS-SCI-003–007 evidence foundations | Planned | Fingerprint source, worker, adapter, contract and suite; store immutable per-capability L0–L9 records with stale-state rules |
+| DS-SCI-008–010 comparisons and export | Planned | Compare pinned run inputs and fingerprints; export redacted, hash-verifiable evidence bundles |
+| DS-SCI-011–025 provider and MATH3D path | Existing narrow probes; broader qualification planned | Expand real VTK/Sage/Gmsh suites and qualify typed broker-to-MATH3D artifact round trips |
+
+Do not mark an item complete from a passing package probe or a UI declaration. Each later change needs a named run, fingerprint, fixture revision, contract version and evidence link before its qualification level can advance.
 
 ## Boundary
 

@@ -87,6 +87,11 @@ public partial class Form1
         var worker=Path.Combine(build,"Release","devshell_cgal_worker.exe");
         var adapter=Path.Combine(ScientificSourceRoot,"tools","scientific-cgal-worker.py");
         var condaHistory=Path.Combine(prefix,"conda-meta","history");
+        if (processOwner != null)
+        {
+            job.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(worker, "cgal-worker"));
+            job.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(adapter, "cgal-adapter"));
+        }
         job.EnvironmentFingerprint=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
             ScientificHash(condaHistory)+"|"+ScientificHash(worker)+"|"+ScientificHash(adapter)))).ToLowerInvariant();
         if(job.RecipeId=="cgal.validate")

@@ -20,6 +20,8 @@ public partial class Form1
             || !result.TryGetProperty("profileId", out var profile) || profile.GetString() != profileId)
             throw new InvalidOperationException("Run does not belong to this profile.");
         var directory = Path.GetDirectoryName(path)!;
+        if (result.TryGetProperty("runFingerprintSha256", out var fingerprint))
+            ScientificRunFingerprint.Verify(directory, fingerprint.GetString() ?? "");
         return (directory, ScientificArtifactFiles.RecoverLegacySmoke(directory, result.Clone()));
     }
 
@@ -35,7 +37,7 @@ public partial class Form1
                 var record = ScientificHistoryReadDirectory(profileId, folder.Name);
                 if (record.Result.GetProperty("runId").GetString() == jobId) return record;
             }
-            catch (Exception exception) when (exception is IOException or JsonException or InvalidOperationException or UnauthorizedAccessException or KeyNotFoundException)
+            catch (Exception exception) when (exception is IOException or InvalidDataException or JsonException or InvalidOperationException or UnauthorizedAccessException or KeyNotFoundException)
             {
                 Debug.WriteLine($"Skipping invalid Scientific run: {exception.Message}");
             }
@@ -72,9 +74,8 @@ public partial class Form1
                         ? files.EnumerateArray().Select(item => item.GetProperty("path").GetString()).FirstOrDefault(path => path != null && path.EndsWith(".png", StringComparison.OrdinalIgnoreCase)) : null,
                     artifactCount = artifacts
                 });
-                if (entries.Count == 50) break;
             }
-            catch (Exception exception) when (exception is IOException or JsonException or InvalidOperationException or UnauthorizedAccessException or KeyNotFoundException)
+            catch (Exception exception) when (exception is IOException or InvalidDataException or JsonException or InvalidOperationException or UnauthorizedAccessException or KeyNotFoundException)
             {
                 Debug.WriteLine($"Skipping invalid Scientific history entry: {exception.Message}");
             }

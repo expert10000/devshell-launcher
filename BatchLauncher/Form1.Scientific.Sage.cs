@@ -55,6 +55,8 @@ public partial class Form1
             };
             var distro = ScientificSageDistro();
             foreach (var argument in new[] { "-d", distro, "--exec", "/bin/sh", "-c", script }) start.ArgumentList.Add(argument);
+            job.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(Path.Combine(Environment.SystemDirectory, "wsl.exe"), "wsl-transport"));
+            job.ExecutedFiles.Add(ScientificRunFingerprint.CommandIdentity(job.RecipeId, script));
             ScientificLog(job, job.RecipeId == "sage.version" ? "$ wsl Ubuntu / SageMath --version\n" : "$ wsl Ubuntu / SageMath exact factorization smoke test\n");
             using var process = new Process { StartInfo = start };
             using var owner = new OwnedProcessJob();

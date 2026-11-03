@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Microsoft.Web.WebView2.WinForms;
 
@@ -27,6 +28,8 @@ public partial class Form1
         public int? ExitCode { get; set; }
         public string? CompilerVersion { get; set; }
         public string? EnvironmentFingerprint { get; set; }
+        public JsonObject? FingerprintComponents { get; set; }
+        public List<JsonObject> ExecutedFiles { get; } = new();
         public JsonElement? Request { get; set; }
         public JsonElement? Result { get; set; }
         public List<object> Steps { get; } = new();
@@ -100,6 +103,11 @@ public partial class Form1
         var stepTimer=Stopwatch.StartNew();
         var start=new ProcessStartInfo(executable){WorkingDirectory=directory,UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true,StandardOutputEncoding=Encoding.UTF8,StandardErrorEncoding=Encoding.UTF8};
         foreach(var argument in arguments)start.ArgumentList.Add(argument);
+        job.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(executable, "executable"));
+        foreach (var argument in arguments)
+            if (File.Exists(argument) && new[] { ".exe", ".dll", ".py", ".mjs" }.Contains(Path.GetExtension(argument).ToLowerInvariant())
+                && !Path.GetFullPath(argument).StartsWith(job.Directory.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                job.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(argument, "argument"));
         foreach(var pair in ScientificEnvironment(prefix))start.Environment[pair.Key]=pair.Value;
         if(extraPath!=null)start.Environment["PATH"]=extraPath+Path.PathSeparator+start.Environment["PATH"];
         start.Environment.Remove("PYTHONPATH");

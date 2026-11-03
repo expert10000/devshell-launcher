@@ -26,7 +26,7 @@ const latest = (history: ScientificHistoryEntry[] | null, test: CatalogTest) =>
   history?.filter(item => item.runtimeId === test.runtimeId && item.recipeId === test.recipeId)
     .sort((a, b) => b.finishedAtUtc.localeCompare(a.finishedAtUtc))[0]
 
-export function ScientificMath3DTestCatalog({ native, onHistory }: { native: ReturnType<typeof useScientificRuntime>; onHistory: () => void }) {
+export function ScientificMath3DTestCatalog({ native, runtimeId, onHistory }: { native: ReturnType<typeof useScientificRuntime>; runtimeId: string; onHistory: () => void }) {
   const send = useRef(native.send)
   useEffect(() => { send.current = native.send }, [native.send])
   const refreshed = useRef(new Set<string>())
@@ -46,8 +46,10 @@ export function ScientificMath3DTestCatalog({ native, onHistory }: { native: Ret
 
   const checkInputs = () => {
     native.send('', 'datasets')
-    native.send('cgal-win-conda', 'test-matrix')
-    native.send('cgal-win-conda', 'math3d-readiness')
+    if (runtimeId === 'cgal-win-conda') {
+      native.send(runtimeId, 'test-matrix')
+      native.send(runtimeId, 'math3d-readiness')
+    }
   }
   const available = (test: CatalogTest) => {
     if (test.requires === 'datasets') return !!native.datasets?.entries.length
@@ -58,14 +60,14 @@ export function ScientificMath3DTestCatalog({ native, onHistory }: { native: Ret
 
   return <section className="scientific-test-catalog" aria-label="Math3D test catalog">
     <h3>Math3D test catalog</h3>
-    <p>Choose a fixed test to run it as a managed job. Stop cancels that job. Completed and cancelled runs remain in this profile’s saved History. SageMath may take about 30 seconds to start after WSL is ready.</p>
+    <p>Choose a fixed test to run it as a managed job. Stop cancels that job. Completed and cancelled runs remain in this profile’s saved History.</p>
     <div className="scientific-inspector-actions">
-      <button type="button" disabled={native.pending} onClick={checkInputs}>Check local inputs</button>
+      {runtimeId !== 'sage-wsl' && <button type="button" disabled={native.pending} onClick={checkInputs}>Check local inputs</button>}
       <button type="button" disabled={native.pending} onClick={() => native.send('', 'history')}>Refresh saved results</button>
       <button type="button" onClick={onHistory}>Open full History</button>
     </div>
     <div className="scientific-test-catalog-grid">
-      {math3dTestCatalog.map(test => {
+      {math3dTestCatalog.filter(test => test.runtimeId === runtimeId).map(test => {
         const job = native.jobs[test.runtimeId]?.recipeId === test.recipeId ? native.jobs[test.runtimeId] : undefined
         const saved = latest(native.history, test)
         const result = saved && selectedResult === saved.jobId ? native.historyResults[saved.jobId] : undefined

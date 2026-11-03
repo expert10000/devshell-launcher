@@ -10,9 +10,10 @@ The first code slice now centralizes the five existing runtime declarations in `
 
 | Roadmap item | Current state | Next acceptance target |
 |---|---|---|
-| DS-SCI-001 runtime plugin contract | First slice: declarative profile and section registry | Move discovery, recipes, suites and artifact viewers behind versioned provider adapters; validate unique IDs and backend support |
-| DS-SCI-002 runtime view leakage | First slice: runtime-scoped navigation, integration and history defaults | Audit every shared panel and saved-result path; add desktop switching checks for CGAL, VTK, Sage, Gmsh and Python |
-| DS-SCI-003–007 evidence foundations | Planned | Fingerprint source, worker, adapter, contract and suite; store immutable per-capability L0–L9 records with stale-state rules |
+| DS-SCI-001 runtime plugin contract | UI provider registry now declares backend, environment, command, test, artifact and integration routes for all five runtimes | Move native discovery, recipes and suites to a versioned backend plugin contract; validate UI/backend manifest agreement |
+| DS-SCI-002 runtime view leakage | Runtime-scoped controls, provider-filtered Catalog and locked History views implemented; browser UI switching checked for all five runtimes | Run the desktop switching acceptance script against a launched DevShell and inspect the historical 35/35 result |
+| DS-SCI-003 immutable fingerprints | Started: new managed runs save a non-overwritable `fingerprint.json` and result digest; History verifies it before listing; source, Conda history, launcher, manifest, contract module and executed files are hashed when available | Capture WSL provider binary and deeper package/toolchain identity inside WSL; add source drift detection and suite revision before certification |
+| DS-SCI-004–007 qualification foundations | Planned | Store immutable per-capability L0–L9 records with stale-state rules and versioned worker/artifact contracts |
 | DS-SCI-008–010 comparisons and export | Planned | Compare pinned run inputs and fingerprints; export redacted, hash-verifiable evidence bundles |
 | DS-SCI-011–025 provider and MATH3D path | Existing narrow probes; broader qualification planned | Expand real VTK/Sage/Gmsh suites and qualify typed broker-to-MATH3D artifact round trips |
 

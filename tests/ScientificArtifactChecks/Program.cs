@@ -11,7 +11,7 @@ int count = 0;
 void Check(bool condition, string label) { if (!condition) throw new Exception(label); count++; Console.WriteLine("PASS: " + label); }
 void Reject(Action action, string label)
 {
-    try { action(); } catch (Exception exception) when (exception is InvalidOperationException or ArgumentException or IOException) { Check(true, label); return; }
+    try { action(); } catch (Exception exception) when (exception is InvalidOperationException or ArgumentException or IOException or InvalidDataException) { Check(true, label); return; }
     throw new Exception(label);
 }
 JsonElement Element(JsonNode node) => JsonSerializer.SerializeToElement(node);
@@ -183,6 +183,36 @@ var changedRecord=(JsonObject)replayResult.DeepClone();changedRecord["inputArtif
 Reject(()=>ScientificBooleanReplay.Read(Element(replayRequest),Element(changedRecord),"laptop"),"rerun rejects different operand evidence in the saved result");
 var swapped=(JsonObject)replayRequest.DeepClone();swapped["inputArtifacts"]![0]!["datasetId"]="cube-b.obj";
 Reject(()=>ScientificBooleanReplay.Read(Element(swapped),Element(replayResult),"laptop"),"rerun rejects operand order mismatch");
+
+var fingerprintRoot=Path.Combine(directory,"fingerprint-source");
+var manifestFolder=Path.Combine(fingerprintRoot,"runtimes","vtk-win-conda");Directory.CreateDirectory(manifestFolder);
+var manifestFile=Path.Combine(manifestFolder,"runtime.json");File.WriteAllText(manifestFile,"{\"schemaVersion\":1}");
+var fingerprintA=ScientificRunFingerprint.Capture("vtk-win-conda","laptop",fingerprintRoot,fingerprintRoot);
+var runA=Path.Combine(directory,"fingerprint-a");var runB=Path.Combine(directory,"fingerprint-b");Directory.CreateDirectory(runA);Directory.CreateDirectory(runB);
+var workerFile=Path.Combine(directory,"worker.exe");File.WriteAllText(workerFile,"worker version one");
+var executed=new[]{ScientificRunFingerprint.ExecutedFile(workerFile,"executable")};
+var digestA=ScientificRunFingerprint.Save(runA,fingerprintA,executed);
+var digestB=ScientificRunFingerprint.Save(runB,fingerprintA,executed);
+Check(digestA==digestB && digestA.Length==64,"identical run inputs share a stable fingerprint across run folders");
+ScientificRunFingerprint.Verify(runA,digestA);
+Check(true,"saved fingerprint verifies against its result digest");
+Reject(()=>ScientificRunFingerprint.Save(runA,fingerprintA,executed),"saved fingerprint cannot be overwritten");
+var fingerprintText=File.ReadAllText(Path.Combine(runA,"fingerprint.json"));
+Check(!fingerprintText.Contains(directory,StringComparison.OrdinalIgnoreCase) && fingerprintText.Contains("\"runtimeManifest\""),"portable fingerprint records manifest identity without local paths");
+File.WriteAllText(workerFile,"worker version two");
+var runC=Path.Combine(directory,"fingerprint-c");Directory.CreateDirectory(runC);
+Check(ScientificRunFingerprint.Save(runC,fingerprintA,new[]{ScientificRunFingerprint.ExecutedFile(workerFile,"executable")})!=digestA,"worker change invalidates run fingerprint");
+File.AppendAllText(Path.Combine(runB,"fingerprint.json")," ");
+ScientificRunFingerprint.Verify(runB,digestB);
+var altered=File.ReadAllText(Path.Combine(runB,"fingerprint.json")).Replace("vtk-win-conda","vtk-other");
+File.WriteAllText(Path.Combine(runB,"fingerprint.json"),altered);
+Reject(()=>ScientificRunFingerprint.Verify(runB,digestB),"altered fingerprint is rejected");
+File.WriteAllText(manifestFile,"{\"schemaVersion\":2}");
+var runD=Path.Combine(directory,"fingerprint-d");Directory.CreateDirectory(runD);
+Check(ScientificRunFingerprint.Save(runD,ScientificRunFingerprint.Capture("vtk-win-conda","laptop",fingerprintRoot,fingerprintRoot),executed)!=digestA,"contract manifest change invalidates run fingerprint");
+var sageFingerprint=ScientificRunFingerprint.Capture("sage-wsl","laptop",fingerprintRoot,fingerprintRoot,wslDistro:"Ubuntu");
+Check(sageFingerprint["environment"]?["wslProviderBinary"]?.GetValue<string>()=="unavailable from Windows host","WSL provider hash is explicitly unavailable from Windows");
+Check(ScientificRunFingerprint.CommandIdentity("sage.factor-smoke","command one")["sha256"]?.GetValue<string>() != ScientificRunFingerprint.CommandIdentity("sage.factor-smoke","command two")["sha256"]?.GetValue<string>(),"Sage command change invalidates worker identity");
 
 
 if (args.Length == 4)

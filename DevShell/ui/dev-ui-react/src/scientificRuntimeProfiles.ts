@@ -63,6 +63,8 @@ export interface ScientificRunResult {
   testCaseId?: string
   environmentFingerprint?: string
   environmentFingerprintScope?: string
+  runFingerprintSha256?: string
+  runFingerprintReference?: string
   state: 'succeeded' | 'failed' | 'cancelled' | 'timed-out'
   exitCode: number | null
   durationMs: number
@@ -94,23 +96,19 @@ export const executionNames: Record<RuntimeExecution, string> = {
 export function createScientificProfiles(hostRoot: string, execution: RuntimeExecution): RuntimeProfile[] {
   const root = hostRoot.replace(/[\\/]+$/, '')
   return scientificRuntimePlugins.map(definition => {
-    const suffix = definition.kind === 'vtk' ? 'devshell-vtk' : definition.kind === 'cgal' ? 'devshell-cgal' : 'devshell-scientific'
-    const environmentRoot = execution === 'windows-native' && root ? `${root}\\.conda\\${suffix}` : undefined
+    const environmentRoot = execution === 'windows-native' && root && definition.environmentName ? `${root}\\.conda\\${definition.environmentName}` : undefined
     const id = `${definition.kind}-${execution === 'windows-native' ? 'win-conda' : execution}`
     const executable = execution === 'windows-native'
-      ? definition.kind === 'sage' ? '' : definition.kind === 'gmsh' ? 'gmsh' : environmentRoot ? `${environmentRoot}\\python.exe` : 'python'
+      ? definition.kind === 'sage' ? '' : environmentRoot ? `${environmentRoot}\\python.exe` : 'python'
       : execution === 'wsl' ? definition.kind === 'sage' ? 'sage' : 'python3' : 'python'
-    const recipes: CommandRecipe[] = definition.kind === 'vtk' ? [{
-      schemaVersion: 1, id: `${id}.version`, name: 'VTK Python version', runtimeId: id, operation: 'runtime.version',
-      steps: [{ executable: executable || 'python', arguments: ['-c', 'from vtkmodules.vtkCommonCore import vtkVersion; print(vtkVersion.GetVTKVersion())'], timeoutSeconds: 15 }], artifacts: [],
-    }] : definition.kind === 'python' ? [{
-      schemaVersion: 1, id: `${id}.version`, name: 'Python version', runtimeId: id, operation: 'runtime.version',
-      steps: [{ executable: executable || 'python', arguments: ['--version'], timeoutSeconds: 15 }], artifacts: [],
+    const recipes: CommandRecipe[] = definition.versionArguments ? [{
+      schemaVersion: 1, id: `${id}.version`, name: `${definition.name} version`, runtimeId: id, operation: 'runtime.version',
+      steps: [{ executable: executable || 'python', arguments: definition.versionArguments, timeoutSeconds: 15 }], artifacts: [],
     }] : []
     return {
       schemaVersion: 1, id, name: definition.name, kind: definition.kind, execution, environmentRoot,
-      executable, compiler: definition.kind === 'cgal' || definition.kind === 'vtk' ? execution === 'windows-native' ? 'MSVC (configure toolchain)' : 'C++ (configure toolchain)' : undefined,
-      cmake: definition.kind === 'cgal' || definition.kind === 'vtk' ? 'cmake' : undefined,
+      executable, compiler: definition.sdk ? execution === 'windows-native' ? 'MSVC (configure toolchain)' : 'C++ (configure toolchain)' : undefined,
+      cmake: definition.sdk ? 'cmake' : undefined,
       environment: {}, versionProbe: { id: `${definition.kind}.version`, name: `${definition.name} version / provenance`, category: 'version', recipeId: recipes[0]?.id },
       healthChecks: definition.checks, capabilities: definition.capabilities, recipes,
     }

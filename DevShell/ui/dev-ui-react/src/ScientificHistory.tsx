@@ -30,12 +30,10 @@ function HistoryThumbnail({ entry, native, onPreview }: { entry: ScientificHisto
   </button>
 }
 
-export function ScientificHistory({ native, runtimeId, comparisonSeed = [] }: { native: ReturnType<typeof useScientificRuntime>; runtimeId: string; comparisonSeed?: string[] }) {
+export function ScientificHistory({ native, runtimeId, comparisonSeed = [], showComparisonPresets = false }: { native: ReturnType<typeof useScientificRuntime>; runtimeId: string; comparisonSeed?: string[]; showComparisonPresets?: boolean }) {
   const entries = native.history
-  const [runtimeFilter, setRuntimeFilter] = useState(runtimeId)
   const [stateFilter, setStateFilter] = useState('')
-  const runtimeOptions = [...new Set([runtimeId, ...(entries ?? []).map(entry => entry.runtimeId)])].sort()
-  const filteredEntries = entries?.filter(entry => (!runtimeFilter || entry.runtimeId === runtimeFilter) && (!stateFilter || entry.state === stateFilter))
+  const filteredEntries = entries?.filter(entry => entry.runtimeId === runtimeId && (!stateFilter || entry.state === stateFilter))
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
   const selectedVisible = !!selectedJobId && !!filteredEntries?.some(entry => entry.jobId === selectedJobId)
   const result = selectedVisible && selectedJobId ? native.historyResults[selectedJobId] ?? null : null
@@ -98,12 +96,12 @@ export function ScientificHistory({ native, runtimeId, comparisonSeed = [] }: { 
     : undefined
   return <section className="scientific-history" aria-label="Scientific run history">
     <h3>Run history</h3>
-    <details className="scientific-history-presets"><summary>Prepare comparable runs</summary><ScientificComparisonPresets native={native} /></details>
+    {showComparisonPresets && <details className="scientific-history-presets"><summary>Prepare comparable runs</summary><ScientificComparisonPresets native={native} /></details>}
     <p className="scientific-runtime-note">Completed runs for this profile are read from local result files. Loading history never starts a recipe.</p>
     <button disabled={native.pending} onClick={() => native.send('', 'history')}>{entries ? 'Refresh history' : 'Load history'}</button>
     {entries && (entries.length ? <>
-      <div className="scientific-history-filters"><label>Runtime<select aria-label="History runtime filter" value={runtimeFilter} onChange={event => setRuntimeFilter(event.target.value)}><option value="">All runtimes</option>{runtimeOptions.map(runtime => <option key={runtime} value={runtime}>{runtime}</option>)}</select></label><label>Status<select aria-label="History status filter" value={stateFilter} onChange={event => setStateFilter(event.target.value)}><option value="">All statuses</option>{['succeeded', 'failed', 'cancelled', 'timed-out'].map(state => <option key={state} value={state}>{state}</option>)}</select></label><button disabled={!runtimeFilter && !stateFilter} onClick={() => { setRuntimeFilter(''); setStateFilter('') }}>Clear filters</button><span role="status">{filteredEntries?.length} of {entries.length} runs</span></div>
-      {filteredEntries?.length ? <div className="scientific-history-scroll"><table><thead><tr><th>Preview</th><th>Finished</th><th>Runtime / recipe</th><th>State</th><th>Duration</th><th>Artifacts</th><th>Actions</th></tr></thead><tbody>{filteredEntries.map(entry => <tr key={entry.jobId}>
+      <div className="scientific-history-filters"><label>Runtime<select aria-label="History runtime filter" value={runtimeId} disabled><option value={runtimeId}>{runtimeId}</option></select></label><label>Status<select aria-label="History status filter" value={stateFilter} onChange={event => setStateFilter(event.target.value)}><option value="">All statuses</option>{['succeeded', 'failed', 'cancelled', 'timed-out'].map(state => <option key={state} value={state}>{state}</option>)}</select></label><button disabled={!stateFilter} onClick={() => setStateFilter('')}>Clear filters</button><span role="status">{filteredEntries?.length} of {entries.length} runs</span></div>
+      {filteredEntries?.length ? <div className="scientific-history-scroll"><table><thead><tr><th>Preview</th><th>Finished</th><th>Runtime / recipe</th><th>State</th><th>Duration</th><th>Artifacts</th><th>Actions</th></tr></thead><tbody>{filteredEntries.map(entry => <tr key={entry.jobId} data-run-id={entry.jobId}>
       <td><HistoryThumbnail entry={entry} native={native} onPreview={() => {
         if (!entry.thumbnailPath) return
         setSelectedJobId(entry.jobId); setImageSelection({ jobId: entry.jobId, path: entry.thumbnailPath }); setImageError('')
@@ -115,6 +113,7 @@ export function ScientificHistory({ native, runtimeId, comparisonSeed = [] }: { 
     </> : <p>No completed runs found for this profile.</p>)}
     {selectedVisible && !result && <div className="scientific-history-result" role="status">Loading result <code>{selectedJobId}</code>...</div>}
     {result && <div ref={resultRef} className="scientific-history-result"><h4>{result.runtimeId} / {result.recipeId} / {result.state}</h4><p><code>{result.runId}</code> / {result.durationMs} ms</p>
+      {result.runFingerprintSha256 && <p>Verified run fingerprint: <code>{result.runFingerprintSha256}</code>. Open the run folder to inspect <code>{result.runFingerprintReference}</code>.</p>}
       {integration && <section aria-label="MATH3D integration verdict"><h5>Native worker comparison: {integration.verdict.toUpperCase()} / {integration.passed}/{integration.total}</h5><p className="scientific-runtime-note">MATH3D native Boolean operations and DevShell validation are different operations. Surface deviation samples vertices, edge midpoints, and face centroids; it is not a full Hausdorff proof.</p><details><summary>All {integration.total} checks</summary><ul>{integration.checks.map(check => <li key={check.name}>{check.passed ? 'PASS' : 'FAIL'} / {check.name}</li>)}</ul></details>
         <details><summary>Numeric comparisons by case</summary>{integration.cases?.map(item => <div key={item.name}><h5>{item.name} numeric comparison</h5>{item.reference && <p>Expected volume {item.reference.volume.toPrecision(6)}; actual {item.after?.volume.toPrecision(6) ?? 'none'}. Expected bounds [{item.reference.bounds?.join(', ') ?? 'empty'}]; actual [{item.after?.bounds?.join(', ') ?? (item.after ? 'empty' : 'none')}].</p>}{item.metrics && item.tolerances ? <table><thead><tr><th>Measure</th><th>Delta</th><th>Tolerance</th></tr></thead><tbody>
           <tr><td>Bounds</td><td>{metric(item.metrics.boundsDelta)}</td><td>{item.tolerances.bounds.toPrecision(4)}</td></tr>

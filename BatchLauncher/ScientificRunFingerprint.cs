@@ -33,6 +33,7 @@ public static class ScientificRunFingerprint
         var files = new JsonObject();
         var names = new List<string> { "tools/scientific_worker_contract.py", "tools/runtime-lab/Program.cs",
             "BatchLauncher/ScientificProviderRegistry.cs", "BatchLauncher/ScientificRunFingerprint.cs",
+            "BatchLauncher/ScientificQualificationRecords.cs",
             $"runtimes/{runtimeId}/runtime.json" };
         if (runtimeId.StartsWith("cgal", StringComparison.Ordinal))
             names.AddRange(new[] { "tools/scientific-cgal-worker.py", "scientific/cgal-worker/main.cpp", "scientific/cgal-worker/CMakeLists.txt", "tools/math3d-native-protocol.mjs", "tools/run-math3d-boolean.mjs" });
@@ -69,7 +70,8 @@ public static class ScientificRunFingerprint
     private static JsonObject SuiteIdentity(string root, string runtimeId, string? recipeId)
     {
         var names = new List<string> { "BatchLauncher/Form1.Scientific.cs", "BatchLauncher/Form1.Scientific.Artifacts.cs",
-            "BatchLauncher/ScientificArtifactFiles.cs", $"runtimes/{runtimeId}/runtime.json" };
+            "BatchLauncher/ScientificArtifactFiles.cs", "BatchLauncher/ScientificQualificationRecords.cs",
+            $"runtimes/{runtimeId}/runtime.json" };
         if (recipeId == "diagnostics") names.Add("tools/Inspect-ScientificRuntimes.ps1");
         if (recipeId == "version") names.Add("tools/scientific-runtime-probe.py");
         if (recipeId?.StartsWith("mesh.", StringComparison.Ordinal) == true)

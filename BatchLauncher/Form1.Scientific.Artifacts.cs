@@ -138,6 +138,12 @@ public partial class Form1
                 ScientificSourceRoot, AppContext.BaseDirectory, recipeId: job.RecipeId), job.ExecutedFiles);
         result["runFingerprintSha256"] = fingerprint;
         result["runFingerprintReference"] = "fingerprint.json";
+        var qualification = ScientificQualificationRecords.Save(job.Directory, result, ScientificSourceRoot, AppContext.BaseDirectory);
+        if (qualification != null)
+        {
+            result["qualificationSha256"] = qualification;
+            result["qualificationReference"] = "qualifications.json";
+        }
         var temporary = Path.Combine(job.Directory, "results.json.tmp");
         File.WriteAllText(temporary, result.ToJsonString(ScientificJson), new UTF8Encoding(false));
         File.Move(temporary, path, true);

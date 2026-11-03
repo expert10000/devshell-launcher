@@ -13,7 +13,8 @@ The UI registry now owns the five existing runtime declarations, visible section
 | DS-SCI-001 runtime plugin contract | UI registry owns five providers' sections, probes, fixed catalog tests, recipe views and artifact routes; versioned native registry scopes managed actions and checks each runtime manifest; desktop provider switching checked | Shared generated UI/backend contract remains follow-up hardening |
 | DS-SCI-002 runtime view leakage | Manual desktop switching checked for CGAL, VTK, Gmsh, Python/SciPy, Sage Windows/WSL and Docker; provider Catalog/coverage and locked History observed; historical CGAL 35/35 result opened in DevShell; repeatable CDP desktop check passed on a debug-port launch | Keep the CDP check as the provider-routing regression gate |
 | DS-SCI-003 immutable fingerprints | New managed runs save a non-overwritable `fingerprint.json` and result digest. History verifies it and derives separate current/stale/unknown source and environment drift without rewriting evidence. Fingerprints include source, recipe suite revision, Conda package records, relevant toolchain hashes, contract and executed-file identities. Sage/WSL records the provider, system or Conda package inventory, and shell tools. Fresh managed desktop runs and the History drift view were checked on all five providers on 2026-11-04. | Use these identities as DS-SCI-004 qualification inputs; require successful capability evidence before advancing any level |
-| DS-SCI-004–007 qualification foundations | Planned | Store immutable per-capability L0–L9 records with stale-state rules and versioned worker/artifact contracts |
+| DS-SCI-004 L0–L3 qualification records | First slice delivered: successful managed runs with verified fingerprints save immutable, per-capability L0–L3 records pinned to their run, suite revision, registered probe and contract. History verifies the file and derives current/stale/unknown status and reasons. Fresh CGAL, VTK, Python/SciPy and Sage records were opened in the desktop app; failed Gmsh produced none. | Extend the same gates through L4–L9, add cross-run qualification summaries and richer fixture/artifact contracts |
+| DS-SCI-005–007 qualification foundations | Planned | Add provider-specific suites, versioned worker/artifact contracts and higher-level evidence gates |
 | DS-SCI-008–010 comparisons and export | Planned | Compare pinned run inputs and fingerprints; export redacted, hash-verifiable evidence bundles |
 | DS-SCI-011–025 provider and MATH3D path | Existing narrow probes; broader qualification planned | Expand real VTK/Sage/Gmsh suites and qualify typed broker-to-MATH3D artifact round trips |
 
@@ -32,6 +33,20 @@ The debug-port desktop run created these local `.scientific/runs` records. `test
 | SageMath / WSL Ubuntu | `2bfe3dc2745f4691836af685058c104c` | `sage.version` / succeeded | WSL system package inventory digest; provider and shell hashes |
 
 The current Windows comparison checks the package inventory, Python executable, runtime-lab, OS and architecture; CGAL/VTK also check CMake, Ninja and MSVC. Opening a Sage result performs a bounded, read-only WSL identity probe. Missing current evidence is **unknown**, and a changed recorded hash is **stale**. Gmsh's failed capability probe remains failed even though its environment identity is current. The five run folders are local evidence, not committed fixtures.
+
+### DS-SCI-004 local qualification audit (2026-11-04)
+
+`qualifications.json` is written once per eligible successful run and referenced by a digest in `results.json`. Each record names one capability, level, probe or recipe, run fingerprint, suite revision, and contract. History verifies the file before listing the run, then derives status and stale reasons from source, environment and contract comparison. L0 means package inventory was recorded during a successful managed invocation; L1–L3 apply only to the explicit probe or Sage operation shown. They are not provider-wide certification.
+
+| Provider | Run ID | Qualification scope |
+|---|---|---|
+| CGAL / Windows | `7c4b46da9b5b4a96a95753cf750a3464` | L0 inventory; L1 Python executable; L2 CGAL import; L3 Point_3 smoke |
+| VTK / Windows | `729433c7ffaf45fa8a24dd953f5b4201` | L0 inventory; L1 Python executable; L2 VTK import; L3 vtkPolyData construction |
+| Python/SciPy / Windows | `3e689f99b26748f29a077354227128b2` | L0 inventory; L1 Python executable; L2 SciPy import; L3 dense solve and expected singular rejection |
+| SageMath / WSL Ubuntu | `da6fafe7c12d4004ac76edab2ab2793f` / `6a7da47c86884525ad69e817287aa241` | L0 inventory and L1 executable version; L2 Sage binding and L3 exact factorization |
+| Gmsh / Windows | `8136a3e04be945109bbed32e27cb7e7e` | Failed because the `gmsh` module is missing; **zero qualification records** |
+
+The opt-in `tests/scientific-qualification-live-ui-checks.mjs` started these runs and reopened each successful result in History. The focused artifact/qualification checks cover manifest gating, immutable records, stale reasons and tamper rejection. The run folders remain local evidence; the checks do not install Gmsh or advance L4–L9.
 
 ## Boundary
 

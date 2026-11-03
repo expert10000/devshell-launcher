@@ -242,8 +242,10 @@ Reject(()=>ScientificProviderRegistry.RequireAction("gmsh-win-conda","recipe"),"
 Reject(()=>ScientificProviderRegistry.RequireAction("sage-wsl","import-meshes"),"Sage rejects CGAL import action");
 foreach(var name in new[]{"tools/scientific_worker_contract.py","tools/runtime-lab/Program.cs",
     "BatchLauncher/ScientificProviderRegistry.cs","BatchLauncher/ScientificRunFingerprint.cs",
+    "BatchLauncher/ScientificQualificationRecords.cs",
     "tools/scientific-mesh-worker.py","tools/scientific-vtk-render-check.py",
     "BatchLauncher/Form1.Scientific.cs","BatchLauncher/Form1.Scientific.Artifacts.cs",
+    "BatchLauncher/Form1.Scientific.RuntimeLab.cs",
     "BatchLauncher/ScientificArtifactFiles.cs","BatchLauncher/Form1.Scientific.VtkRejections.cs"})
 {
     var file=Path.Combine(fingerprintRoot,name.Replace('/',Path.DirectorySeparatorChar));
@@ -310,6 +312,73 @@ Check(changedToolchain["environment"]?["toolchain"]?["cmake"]?["sha256"]?.GetVal
 Check(changedToolchain["suite"]?["revisionSha256"]?.GetValue<string>()
     !=qualified["suite"]?["revisionSha256"]?.GetValue<string>(),
     "suite source change invalidates its revision hash");
+
+var probeManifest=new JsonObject { ["schemaVersion"]=1,["id"]="vtk-win-conda",["probes"]=new JsonArray(
+    new JsonObject { ["id"]="python.version",["readinessLevel"]="L1" },
+    new JsonObject { ["id"]="vtk.python",["readinessLevel"]="L2",["capability"]="vtk.python.import" },
+    new JsonObject { ["id"]="vtk.polydata",["readinessLevel"]="L3",["capability"]="geometry.polydata" }) };
+File.WriteAllText(manifestFile,probeManifest.ToJsonString());
+var qualificationCaptured=ScientificRunFingerprint.Capture("vtk-win-conda","laptop",fingerprintRoot,fingerprintRoot,reportFile,recipeId:"lab.probe");
+var qualificationRun=Path.Combine(directory,"qualification-run");Directory.CreateDirectory(qualificationRun);
+var qualificationFingerprint=ScientificRunFingerprint.Save(qualificationRun,qualificationCaptured,executed);
+var qualificationResult=new JsonObject { ["runId"]=new string('9',32),["runtimeId"]="vtk-win-conda",["recipeId"]="lab.probe",
+    ["state"]="succeeded",["runFingerprintSha256"]=qualificationFingerprint,["probeResults"]=new JsonArray(
+        new JsonObject { ["id"]="python.version",["readinessLevel"]="L1",["status"]="passed",["exitCode"]=0 },
+        new JsonObject { ["id"]="vtk.python",["readinessLevel"]="L2",["status"]="passed",["exitCode"]=0 },
+        new JsonObject { ["id"]="vtk.polydata",["readinessLevel"]="L3",["status"]="passed",["exitCode"]=0 }) };
+var qualificationDigest=ScientificQualificationRecords.Save(qualificationRun,qualificationResult,fingerprintRoot,fingerprintRoot);
+Check(qualificationDigest?.Length==64,"successful registered probe saves an immutable qualification file");
+qualificationResult["qualificationSha256"]=qualificationDigest;
+var qualificationRecords=ScientificQualificationRecords.Verify(qualificationRun,Element(qualificationResult));
+Check(qualificationRecords.Count==4 && new[]{"L0","L1","L2","L3"}.All(level=>qualificationRecords.Any(item=>item?["level"]?.GetValue<string>()==level)),
+    "inventory and passed manifest probes yield scoped L0-L3 records");
+Check(qualificationRecords.Any(item=>item?["capabilityId"]?.GetValue<string>()=="geometry.polydata"
+    && item?["evidenceId"]?.GetValue<string>()=="vtk.polydata"
+    && item?["suiteRevisionSha256"]?.GetValue<string>()==qualificationCaptured["suite"]?["revisionSha256"]?.GetValue<string>()),
+    "capability record pins probe, suite revision, and run fingerprint");
+var invalidProbeRun=Path.Combine(directory,"invalid-probe-run");Directory.CreateDirectory(invalidProbeRun);
+var invalidProbeFingerprint=ScientificRunFingerprint.Save(invalidProbeRun,qualificationCaptured,executed);
+var invalidProbeResult=(JsonObject)qualificationResult.DeepClone();invalidProbeResult["runId"]=new string('8',32);
+invalidProbeResult["runFingerprintSha256"]=invalidProbeFingerprint;invalidProbeResult.Remove("qualificationSha256");
+invalidProbeResult["probeResults"]![2]!["id"]="unregistered.probe";
+var invalidProbeDigest=ScientificQualificationRecords.Save(invalidProbeRun,invalidProbeResult,fingerprintRoot,fingerprintRoot);
+invalidProbeResult["qualificationSha256"]=invalidProbeDigest;
+Check(ScientificQualificationRecords.Verify(invalidProbeRun,Element(invalidProbeResult)).Count==1,
+    "unregistered probe cannot promote beyond inventory");
+Reject(()=>ScientificQualificationRecords.Save(qualificationRun,qualificationResult,fingerprintRoot,fingerprintRoot),
+    "qualification file cannot be overwritten");
+var currentQualifications=ScientificQualificationRecords.Assess(qualificationRecords,
+    ScientificRunFingerprint.AssessSourceDrift(qualificationRun,fingerprintRoot,fingerprintRoot),
+    ScientificRunFingerprint.AssessEnvironmentDrift(qualificationRun,fingerprintRoot,reportFile));
+Check(currentQualifications.All(item=>item?["status"]?.GetValue<string>()=="current"),
+    "matching source and environment keep qualifications current");
+var staleQualifications=ScientificQualificationRecords.Assess(qualificationRecords,
+    new JsonObject { ["state"]="stale",["reasons"]=new JsonArray("Suite changed") },
+    new JsonObject { ["state"]="current",["reasons"]=new JsonArray() });
+Check(staleQualifications.All(item=>item?["status"]?.GetValue<string>()=="stale"
+    && item?["staleReasons"]?.ToJsonString().Contains("Suite changed",StringComparison.Ordinal)==true),
+    "source drift marks each qualification stale with a reason");
+var failedQualification=(JsonObject)qualificationResult.DeepClone();failedQualification["state"]="failed";
+Check(ScientificQualificationRecords.Save(qualificationRun,failedQualification,fingerprintRoot,fingerprintRoot)==null,
+    "failed run does not create qualification evidence");
+var sageManifestFolder=Path.Combine(fingerprintRoot,"runtimes","sage-wsl");Directory.CreateDirectory(sageManifestFolder);
+File.WriteAllText(Path.Combine(sageManifestFolder,"runtime.json"),"{\"schemaVersion\":1,\"id\":\"sage-wsl\"}");
+var sageQualificationCaptured=ScientificRunFingerprint.Capture("sage-wsl","laptop",fingerprintRoot,fingerprintRoot,wslDistro:"Ubuntu",recipeId:"sage.factor-smoke");
+ScientificRunFingerprint.RecordWslEvidence(sageQualificationCaptured,new List<JsonObject>(),wslEvidence);
+var sageQualificationRun=Path.Combine(directory,"sage-qualification-run");Directory.CreateDirectory(sageQualificationRun);
+var sageQualificationFingerprint=ScientificRunFingerprint.Save(sageQualificationRun,sageQualificationCaptured,executed);
+var sageQualificationResult=new JsonObject { ["runId"]=new string('7',32),["runtimeId"]="sage-wsl",
+    ["recipeId"]="sage.factor-smoke",["state"]="succeeded",["runFingerprintSha256"]=sageQualificationFingerprint,
+    ["validatedCapabilities"]=new JsonArray("math.symbolic"),
+    ["evidence"]=new JsonObject { ["output"]="verified: (x - 1) * (x + 1)" } };
+sageQualificationResult["qualificationSha256"]=ScientificQualificationRecords.Save(sageQualificationRun,sageQualificationResult,fingerprintRoot,fingerprintRoot);
+var sageQualificationRecords=ScientificQualificationRecords.Verify(sageQualificationRun,Element(sageQualificationResult));
+Check(sageQualificationRecords.Count==3 && sageQualificationRecords.Any(item=>item?["level"]?.GetValue<string>()=="L3"
+    && item?["capabilityId"]?.GetValue<string>()=="math.symbolic"),
+    "Sage exact factorization yields only its named binding and symbolic capability levels");
+File.AppendAllText(Path.Combine(qualificationRun,"qualifications.json"),"tampered");
+Reject(()=>ScientificQualificationRecords.Verify(qualificationRun,Element(qualificationResult)),
+    "modified qualification file is rejected by History verification");
 
 
 if (args.Length == 4)

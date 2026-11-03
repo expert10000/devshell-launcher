@@ -23,6 +23,8 @@ public partial class Form1
         var directory = Path.GetDirectoryName(path)!;
         if (result.TryGetProperty("runFingerprintSha256", out var fingerprint))
             ScientificRunFingerprint.Verify(directory, fingerprint.GetString() ?? "");
+        if (result.TryGetProperty("qualificationSha256", out _))
+            ScientificQualificationRecords.Verify(directory, result);
         return (directory, ScientificArtifactFiles.RecoverLegacySmoke(directory, result.Clone()));
     }
 
@@ -51,11 +53,16 @@ public partial class Form1
         var (directory, result) = ScientificHistoryFind(profileId, jobId);
         if (!result.TryGetProperty("runFingerprintSha256", out _)) return result;
         var view = JsonNode.Parse(result.GetRawText())!.AsObject();
-        view["sourceDrift"] = ScientificRunFingerprint.AssessSourceDrift(directory, ScientificSourceRoot, AppContext.BaseDirectory);
+        var sourceDrift = ScientificRunFingerprint.AssessSourceDrift(directory, ScientificSourceRoot, AppContext.BaseDirectory);
+        view["sourceDrift"] = sourceDrift;
         var wsl = result.GetProperty("runtimeId").GetString() == "sage-wsl";
-        view["environmentDrift"] = ScientificRunFingerprint.AssessEnvironmentDrift(directory, AppContext.BaseDirectory,
+        var environmentDrift = ScientificRunFingerprint.AssessEnvironmentDrift(directory, AppContext.BaseDirectory,
             ScientificReportPath(), wsl ? Environment.GetEnvironmentVariable("MATH3D_WSL_DISTRO") ?? "Ubuntu" : null,
             wsl ? ScientificSageCurrentEvidence() : null);
+        view["environmentDrift"] = environmentDrift;
+        if (result.TryGetProperty("qualificationSha256", out _))
+            view["qualifications"] = ScientificQualificationRecords.Assess(
+                ScientificQualificationRecords.Verify(directory, result), sourceDrift, environmentDrift);
         return JsonSerializer.SerializeToElement(view, ScientificJson);
     }
 

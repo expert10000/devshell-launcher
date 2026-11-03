@@ -6,17 +6,13 @@ public partial class Form1
 {
     private object ScientificLabProbeStart(string profileId, string runtimeId)
     {
-        if (runtimeId is not ("cgal-win-conda" or "vtk-win-conda" or "gmsh-win-conda" or "python-win-conda" or "sage-wsl"))
-            throw new InvalidOperationException("This runtime has no registered runtime-lab probe manifest.");
+        var provider = ScientificProviderRegistry.RequireAction(runtimeId, "lab-probe");
 
         var runtimeRoot = Path.GetDirectoryName(ScientificPrefix("cgal-win-conda"))
             ?? throw new InvalidOperationException("Scientific runtime root is unavailable.");
-        var prefix = runtimeId switch
-        {
-            "gmsh-win-conda" or "python-win-conda" => Path.Combine(runtimeRoot, "devshell-scientific"),
-            "sage-wsl" => runtimeRoot,
-            _ => ScientificPrefix(runtimeId)
-        };
+        var prefix = provider.Backend == "wsl" ? runtimeRoot
+            : provider.NativeManaged ? ScientificPrefix(runtimeId)
+            : Path.Combine(runtimeRoot, provider.EnvironmentName);
         var executable = Path.Combine(AppContext.BaseDirectory, "runtime-lab", "runtime-lab.exe");
         var manifests = Path.Combine(AppContext.BaseDirectory, "runtimes");
         if (!File.Exists(executable))

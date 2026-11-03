@@ -7,6 +7,7 @@
     <Compile Include="../../BatchLauncher/ScientificMath3DPreparation.cs" Link="ScientificMath3DPreparation.cs" />
     <Compile Include="../../BatchLauncher/ScientificArtifactFiles.cs" Link="ScientificArtifactFiles.cs" />
     <Compile Include="../../BatchLauncher/ScientificRunFingerprint.cs" Link="ScientificRunFingerprint.cs" />
+    <Compile Include="../../BatchLauncher/ScientificProviderRegistry.cs" Link="ScientificProviderRegistry.cs" />
     <Compile Include="../../BatchLauncher/WorkspaceConfig.cs" Link="WorkspaceConfig.cs" />
     <Compile Include="../../BatchLauncher/ProjectDefinition.cs" Link="ProjectDefinition.cs" />
     <Compile Include="../../BatchLauncher/WorkspaceTabsStore.cs" Link="WorkspaceTabsStore.cs" />

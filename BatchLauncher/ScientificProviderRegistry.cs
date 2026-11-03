@@ -1,0 +1,38 @@
+namespace BatchLauncher;
+
+// The native boundary admits only actions declared for the selected provider.
+// Manifest probes and recipes remain in runtimes/<id>/runtime.json.
+public sealed record ScientificProvider(
+    string RuntimeId, string Backend, string EnvironmentName, bool NativeManaged,
+    bool LabProbe, string[] Actions);
+
+public static class ScientificProviderRegistry
+{
+    public const int ContractVersion = 1;
+
+    public static IReadOnlyList<ScientificProvider> Providers { get; } = new[]
+    {
+        new ScientificProvider("cgal-win-conda", "windows-native", "devshell-cgal", true, true,
+            new[] { "import-meshes", "test-matrix", "math3d-readiness", "environment", "terminal", "export", "test-hold", "recipe", "boolean-recipe", "cgal-recipe", "run-matrix", "real-mesh-suite", "math3d-integration", "math3d-prepare-run" }),
+        new ScientificProvider("vtk-win-conda", "windows-native", "devshell-vtk", true, true,
+            new[] { "environment", "terminal", "export", "test-hold", "recipe", "vtk-rejections" }),
+        new ScientificProvider("gmsh-win-conda", "windows-native", "devshell-scientific", false, true,
+            Array.Empty<string>()),
+        new ScientificProvider("python-win-conda", "windows-native", "devshell-scientific", false, true,
+            Array.Empty<string>()),
+        new ScientificProvider("sage-wsl", "wsl", "", false, true,
+            new[] { "sage-recipe" })
+    };
+
+    public static ScientificProvider Get(string runtimeId) => Providers.SingleOrDefault(provider => provider.RuntimeId == runtimeId)
+        ?? throw new InvalidOperationException("No provider is registered for this runtime.");
+
+    public static ScientificProvider RequireAction(string runtimeId, string action)
+    {
+        var provider = Get(runtimeId);
+        if (!(action == "lab-probe" && provider.LabProbe)
+            && !provider.Actions.Contains(action, StringComparer.Ordinal))
+            throw new InvalidOperationException($"{action} is not registered for {runtimeId}.");
+        return provider;
+    }
+}

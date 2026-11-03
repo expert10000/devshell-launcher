@@ -10,7 +10,7 @@ The first code slice now centralizes the five existing runtime declarations in `
 
 | Roadmap item | Current state | Next acceptance target |
 |---|---|---|
-| DS-SCI-001 runtime plugin contract | UI provider registry now declares backend, environment, command, test, artifact and integration routes for all five runtimes | Move native discovery, recipes and suites to a versioned backend plugin contract; validate UI/backend manifest agreement |
+| DS-SCI-001 runtime plugin contract | UI registry owns five providers' sections, probes, fixed catalog tests, recipe views and artifact routes; versioned native registry scopes managed actions and checks each runtime manifest | Desktop acceptance and a shared generated UI/backend contract remain follow-up hardening |
 | DS-SCI-002 runtime view leakage | Runtime-scoped controls, provider-filtered Catalog and locked History views implemented; browser UI switching checked for all five runtimes | Run the desktop switching acceptance script against a launched DevShell and inspect the historical 35/35 result |
 | DS-SCI-003 immutable fingerprints | Started: new managed runs save a non-overwritable `fingerprint.json` and result digest; History verifies it before listing; source, Conda history, launcher, manifest, contract module and executed files are hashed when available | Capture WSL provider binary and deeper package/toolchain identity inside WSL; add source drift detection and suite revision before certification |
 | DS-SCI-004–007 qualification foundations | Planned | Store immutable per-capability L0–L9 records with stale-state rules and versioned worker/artifact contracts |

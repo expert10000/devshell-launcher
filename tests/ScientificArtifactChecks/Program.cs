@@ -213,6 +213,22 @@ Check(ScientificRunFingerprint.Save(runD,ScientificRunFingerprint.Capture("vtk-w
 var sageFingerprint=ScientificRunFingerprint.Capture("sage-wsl","laptop",fingerprintRoot,fingerprintRoot,wslDistro:"Ubuntu");
 Check(sageFingerprint["environment"]?["wslProviderBinary"]?.GetValue<string>()=="unavailable from Windows host","WSL provider hash is explicitly unavailable from Windows");
 Check(ScientificRunFingerprint.CommandIdentity("sage.factor-smoke","command one")["sha256"]?.GetValue<string>() != ScientificRunFingerprint.CommandIdentity("sage.factor-smoke","command two")["sha256"]?.GetValue<string>(),"Sage command change invalidates worker identity");
+var providers=ScientificProviderRegistry.Providers;
+Check(providers.Count==5 && providers.Select(item=>item.RuntimeId).Distinct().Count()==5,"five unique native provider registrations");
+foreach(var provider in providers)
+{
+    using var manifestDocument=JsonDocument.Parse(File.ReadAllText(Path.Combine("runtimes",provider.RuntimeId,"runtime.json")));
+    var registered=manifestDocument.RootElement;
+    Check(registered.GetProperty("schemaVersion").GetInt32()==ScientificProviderRegistry.ContractVersion
+        && registered.GetProperty("id").GetString()==provider.RuntimeId
+        && registered.GetProperty("execution").GetString()==provider.Backend,
+        "native registry matches "+provider.RuntimeId+" manifest contract");
+    Check(ScientificProviderRegistry.RequireAction(provider.RuntimeId,"lab-probe")==provider,"registered provider accepts its own probe");
+}
+Reject(()=>ScientificProviderRegistry.RequireAction("vtk-win-conda","boolean-recipe"),"VTK rejects CGAL Boolean action");
+Reject(()=>ScientificProviderRegistry.RequireAction("cgal-win-conda","sage-recipe"),"CGAL rejects Sage action");
+Reject(()=>ScientificProviderRegistry.RequireAction("gmsh-win-conda","recipe"),"Gmsh rejects unmanaged recipe action");
+Reject(()=>ScientificProviderRegistry.RequireAction("sage-wsl","import-meshes"),"Sage rejects CGAL import action");
 
 
 if (args.Length == 4)

@@ -55,11 +55,12 @@ public partial class Form1
     }
     private static string ScientificPrefix(string runtimeId)
     {
-        if(runtimeId is not ("cgal-win-conda" or "vtk-win-conda")) throw new InvalidOperationException("Only installed Windows-native CGAL/VTK adapters execute.");
+        var provider = ScientificProviderRegistry.Get(runtimeId);
+        if (!provider.NativeManaged) throw new InvalidOperationException("Only installed Windows-native CGAL/VTK adapters execute.");
         var runtime=ScientificReport().GetProperty("runtimes").EnumerateArray().FirstOrDefault(item=>item.GetProperty("id").GetString()==runtimeId);
         if(runtime.ValueKind!=JsonValueKind.Object) throw new InvalidOperationException("Runtime absent from local report.");
         var prefix=runtime.GetProperty("environmentRoot").GetString()??"";
-        var expected=runtimeId.StartsWith("cgal",StringComparison.Ordinal)?"devshell-cgal":"devshell-vtk";
+        var expected=provider.EnvironmentName;
         if(!Path.IsPathFullyQualified(prefix)||Path.GetFileName(prefix.TrimEnd(Path.DirectorySeparatorChar))!=expected||!File.Exists(Path.Combine(prefix,"conda-meta","history"))) throw new InvalidOperationException("Invalid dedicated runtime prefix.");
         return Path.GetFullPath(prefix);
     }
@@ -201,15 +202,15 @@ public partial class Form1
             else if(action=="history")data=ScientificHistoryList(profileId);
             else if(action=="history-result")data=ScientificHistoryResult(profileId,request.GetProperty("jobId").GetString()??"");
             else if(action=="history-boolean-draft")data=ScientificBooleanDraft(profileId,request.GetProperty("jobId").GetString()??"");
-            else if(action=="import-meshes")data=ScientificMeshImportStart(profileId,runtimeId);
-            else if(action=="test-matrix")data=ScientificMatrixCases();
+            else if(action=="import-meshes"){ScientificProviderRegistry.RequireAction(runtimeId,action);data=ScientificMeshImportStart(profileId,runtimeId);}
+            else if(action=="test-matrix"){ScientificProviderRegistry.RequireAction(runtimeId,action);data=ScientificMatrixCases();}
             else if(action=="history-thumbnail")data=ScientificHistoryThumbnail(profileId,request);
             else if(action=="history-image-preview")data=ScientificHistoryImagePreview(profileId,request);
             else if(action=="history-preview")data=await ScientificHistoryPreviewAsync(profileId,request);
             else if(action is "history-open-log" or "history-open-output" or "history-reveal-artifact" or "history-open-artifact")data=ScientificHistoryOpen(profileId,request,action);
             else if(action=="report")data=ScientificReport();
-            else if(action=="sage-recipe")data=ScientificSageStart(profileId,runtimeId,request);
-            else if(action=="math3d-readiness")data=ScientificMath3DReadiness(profileId);
+            else if(action=="sage-recipe"){ScientificProviderRegistry.RequireAction(runtimeId,action);data=ScientificSageStart(profileId,runtimeId,request);}
+            else if(action=="math3d-readiness"){ScientificProviderRegistry.RequireAction(runtimeId,action);data=ScientificMath3DReadiness(profileId);}
             else if(action=="datasets")
             {
                 data=ScientificMeshImports.ReadManifest(ScientificDataRoot);
@@ -221,9 +222,10 @@ public partial class Form1
                 else if(action=="stop"){job.Cancellation.Cancel();data=ScientificJobSnapshot(job);}
                 else{var path=action=="open-log"?Path.Combine(job.Directory,"full.log"):job.Directory;var start=new ProcessStartInfo(action=="open-log"?"notepad.exe":"explorer.exe"){UseShellExecute=true};start.ArgumentList.Add(path);Process.Start(start);data=new{path};}
             }
-            else if(action=="lab-probe") data=ScientificLabProbeStart(profileId,runtimeId);
+            else if(action=="lab-probe") {ScientificProviderRegistry.RequireAction(runtimeId,action);data=ScientificLabProbeStart(profileId,runtimeId);}
             else
             {
+                ScientificProviderRegistry.RequireAction(runtimeId,action);
                 var prefix=ScientificPrefix(runtimeId);
                 if(action=="environment")
                 {

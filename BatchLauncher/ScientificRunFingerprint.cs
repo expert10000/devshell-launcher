@@ -124,8 +124,8 @@ public static class ScientificRunFingerprint
         }
     }
 
-    public static JsonObject Capture(string runtimeId, string profileId, string sourceRoot,
-        string installedRoot, string? runtimeReportPath = null, string? wslDistro = null, string? recipeId = null)
+    private static JsonObject EnvironmentIdentity(string runtimeId, string installedRoot,
+        string? runtimeReportPath, string? wslDistro)
     {
         var backend = runtimeId.EndsWith("-wsl", StringComparison.Ordinal) ? "wsl" : "windows-native";
         string? prefix = null;
@@ -148,13 +148,14 @@ public static class ScientificRunFingerprint
                 // A missing or malformed report is represented by unavailable identities.
             }
         }
-        var environment = new JsonObject
+        return new JsonObject
         {
             ["backend"] = backend,
             ["os"] = RuntimeInformation.OSDescription,
             ["architecture"] = RuntimeInformation.OSArchitecture.ToString(),
             ["condaHistory"] = prefix == null ? new JsonObject { ["state"] = "unavailable" } : FileIdentity(Path.Combine(prefix, "conda-meta", "history")),
             ["condaPackageRecords"] = PackageIdentity(prefix),
+            ["systemPackageRecords"] = backend == "wsl" ? new JsonObject { ["state"] = "unavailable" } : null,
             ["pythonExecutable"] = prefix == null ? new JsonObject { ["state"] = "unavailable" } : FileIdentity(Path.Combine(prefix, "python.exe")),
             ["toolchain"] = new JsonObject
             {
@@ -166,6 +167,12 @@ public static class ScientificRunFingerprint
             ["wslDistro"] = backend == "wsl" ? wslDistro ?? "unavailable" : null,
             ["wslProviderBinary"] = backend == "wsl" ? "unavailable from Windows host" : null
         };
+    }
+
+    public static JsonObject Capture(string runtimeId, string profileId, string sourceRoot,
+        string installedRoot, string? runtimeReportPath = null, string? wslDistro = null, string? recipeId = null)
+    {
+        var environment = EnvironmentIdentity(runtimeId, installedRoot, runtimeReportPath, wslDistro);
         var manifest = Path.Combine(installedRoot, "runtimes", runtimeId, "runtime.json");
         return new JsonObject
         {
@@ -218,6 +225,9 @@ public static class ScientificRunFingerprint
         var packages = Regex.Match(stderr, @"\[fingerprint\] condaPackages=([0-9a-f]{64})(?:\r?\n|$)").Groups[1].Value;
         if (packages.Length == 64)
             environment["condaPackageRecords"] = new JsonObject { ["state"] = "recorded", ["sha256"] = packages };
+        var systemPackages = Regex.Match(stderr, @"\[fingerprint\] systemPackages=([0-9a-f]{64})(?:\r?\n|$)").Groups[1].Value;
+        if (systemPackages.Length == 64)
+            environment["systemPackageRecords"] = new JsonObject { ["state"] = "recorded", ["sha256"] = systemPackages };
         if (environment["toolchain"] is JsonObject toolchain)
             foreach (var name in new[] { "wslShell", "wslTimeout" })
             {
@@ -320,5 +330,67 @@ public static class ScientificRunFingerprint
         }
         return new JsonObject { ["state"] = reasons.Count > 0 ? "stale" : unavailable > 0 ? "unknown" : "current",
             ["comparedFiles"] = compared, ["unavailableFiles"] = unavailable, ["reasons"] = reasons };
+    }
+
+    public static JsonObject AssessEnvironmentDrift(string directory, string installedRoot, string? runtimeReportPath,
+        string? wslDistro = null, string? wslEvidence = null)
+    {
+        var record = JsonNode.Parse(File.ReadAllText(Path.Combine(directory, "fingerprint.json")));
+        var components = record?["components"] as JsonObject;
+        var runtimeId = components?["runtimeId"]?.GetValue<string>();
+        var saved = components?["environment"] as JsonObject;
+        if (runtimeId == null || saved == null || !ScientificProviderRegistry.Providers.Any(item => item.RuntimeId == runtimeId))
+            return new JsonObject { ["state"] = "unknown", ["comparedComponents"] = 0,
+                ["unavailableComponents"] = 1, ["reasons"] = new JsonArray("Environment identity is unavailable.") };
+        var current = EnvironmentIdentity(runtimeId, installedRoot, runtimeReportPath, wslDistro);
+        if (runtimeId.EndsWith("-wsl", StringComparison.Ordinal) && wslEvidence != null)
+            RecordWslEvidence(new JsonObject { ["environment"] = current }, new List<JsonObject>(), wslEvidence);
+        var reasons = new JsonArray();
+        var compared = 0;
+        var unavailable = 0;
+        void CompareValue(string name)
+        {
+            var before = saved[name]?.GetValue<string>();
+            var now = current[name]?.GetValue<string>();
+            if (before == null || now == null) { unavailable++; return; }
+            compared++;
+            if (!string.Equals(before, now, StringComparison.Ordinal)) reasons.Add(name + " changed");
+        }
+        void CompareHash(JsonNode? beforeNode, JsonNode? nowNode, string name)
+        {
+            var before = beforeNode as JsonObject;
+            var now = nowNode as JsonObject;
+            if (before?["state"]?.GetValue<string>() != "recorded" || now?["state"]?.GetValue<string>() != "recorded")
+            { unavailable++; return; }
+            compared++;
+            if (!string.Equals(before["sha256"]?.GetValue<string>(), now["sha256"]?.GetValue<string>(), StringComparison.OrdinalIgnoreCase))
+                reasons.Add(name + " changed");
+        }
+        foreach (var name in new[] { "backend", "os", "architecture" }) CompareValue(name);
+        if (runtimeId.EndsWith("-wsl", StringComparison.Ordinal))
+        {
+            CompareValue("wslDistro");
+            CompareHash(saved["wslProviderBinary"], current["wslProviderBinary"], "WSL provider");
+            var packageFields = new[] { "condaPackageRecords", "systemPackageRecords" }
+                .Where(name => saved[name]?["state"]?.GetValue<string>() == "recorded").ToArray();
+            if (packageFields.Length == 0) unavailable++;
+            foreach (var name in packageFields) CompareHash(saved[name], current[name], name);
+            foreach (var name in new[] { "wslShell", "wslTimeout", "runtimeLab" })
+                CompareHash(saved["toolchain"]?[name], current["toolchain"]?[name], "toolchain " + name);
+            if (wslEvidence == null) reasons.Add("Current WSL evidence could not be collected");
+        }
+        else
+        {
+            foreach (var name in new[] { "condaHistory", "condaPackageRecords", "pythonExecutable" })
+                CompareHash(saved[name], current[name], name);
+            var toolNames = runtimeId is "cgal-win-conda" or "vtk-win-conda"
+                ? new[] { "cmake", "ninja", "msvcCompiler", "runtimeLab" }
+                : new[] { "runtimeLab" };
+            foreach (var name in toolNames)
+                CompareHash(saved["toolchain"]?[name], current["toolchain"]?[name], "toolchain " + name);
+        }
+        return new JsonObject { ["state"] = reasons.Any(item => item?.GetValue<string>()?.EndsWith(" changed", StringComparison.Ordinal) == true)
+                ? "stale" : unavailable > 0 ? "unknown" : "current",
+            ["comparedComponents"] = compared, ["unavailableComponents"] = unavailable, ["reasons"] = reasons };
     }
 }

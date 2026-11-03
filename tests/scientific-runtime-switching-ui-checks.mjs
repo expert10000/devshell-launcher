@@ -14,6 +14,7 @@ try {
   const main = page.getByRole('main', { name: 'Scientific Runtimes' })
   const detail = main.getByRole('region', { name: /runtime details/ })
   const nav = main.getByRole('navigation', { name: 'Scientific runtime sections' })
+  await main.getByLabel('Scientific execution environment').selectOption('windows-native')
   const choose = async name => main.locator('.scientific-runtime-item').filter({ hasText: name }).first().click()
   const sectionNames = async () => nav.getByRole('button').allTextContents()
 

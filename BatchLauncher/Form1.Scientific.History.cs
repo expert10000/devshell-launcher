@@ -52,6 +52,10 @@ public partial class Form1
         if (!result.TryGetProperty("runFingerprintSha256", out _)) return result;
         var view = JsonNode.Parse(result.GetRawText())!.AsObject();
         view["sourceDrift"] = ScientificRunFingerprint.AssessSourceDrift(directory, ScientificSourceRoot, AppContext.BaseDirectory);
+        var wsl = result.GetProperty("runtimeId").GetString() == "sage-wsl";
+        view["environmentDrift"] = ScientificRunFingerprint.AssessEnvironmentDrift(directory, AppContext.BaseDirectory,
+            ScientificReportPath(), wsl ? Environment.GetEnvironmentVariable("MATH3D_WSL_DISTRO") ?? "Ubuntu" : null,
+            wsl ? ScientificSageCurrentEvidence() : null);
         return JsonSerializer.SerializeToElement(view, ScientificJson);
     }
 

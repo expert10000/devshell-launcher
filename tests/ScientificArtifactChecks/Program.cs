@@ -214,11 +214,12 @@ var sageFingerprint=ScientificRunFingerprint.Capture("sage-wsl","laptop",fingerp
 Check(sageFingerprint["environment"]?["wslProviderBinary"]?.GetValue<string>()=="unavailable from Windows host","WSL provider hash is explicitly unavailable from Windows");
 Check(ScientificRunFingerprint.CommandIdentity("sage.factor-smoke","command one")["sha256"]?.GetValue<string>() != ScientificRunFingerprint.CommandIdentity("sage.factor-smoke","command two")["sha256"]?.GetValue<string>(),"Sage command change invalidates worker identity");
 var wslFiles=new List<JsonObject>();
-var sageHash=new string('a',64);var historyHash=new string('b',64);var packageHash=new string('c',64);var shellHash=new string('d',64);
-ScientificRunFingerprint.RecordWslEvidence(sageFingerprint,wslFiles,$"[fingerprint] sage={sageHash}\n[fingerprint] condaHistory={historyHash}\n[fingerprint] condaPackages={packageHash}\n[fingerprint] wslShell={shellHash}\n");
+var sageHash=new string('a',64);var historyHash=new string('b',64);var packageHash=new string('c',64);var shellHash=new string('d',64);var systemHash=new string('e',64);
+ScientificRunFingerprint.RecordWslEvidence(sageFingerprint,wslFiles,$"[fingerprint] sage={sageHash}\n[fingerprint] condaHistory={historyHash}\n[fingerprint] condaPackages={packageHash}\n[fingerprint] systemPackages={systemHash}\n[fingerprint] wslShell={shellHash}\n");
 Check(sageFingerprint["environment"]?["wslProviderBinary"]?["sha256"]?.GetValue<string>()==sageHash
     && sageFingerprint["environment"]?["condaHistory"]?["sha256"]?.GetValue<string>()==historyHash
     && sageFingerprint["environment"]?["condaPackageRecords"]?["sha256"]?.GetValue<string>()==packageHash
+    && sageFingerprint["environment"]?["systemPackageRecords"]?["sha256"]?.GetValue<string>()==systemHash
     && sageFingerprint["environment"]?["toolchain"]?["wslShell"]?["sha256"]?.GetValue<string>()==shellHash
     && wslFiles.Count==1 && wslFiles[0]["sha256"]?.GetValue<string>()==sageHash,
     "WSL provider, Conda packages, and shell hashes join the immutable run fingerprint");
@@ -254,6 +255,17 @@ File.WriteAllText(Path.Combine(condaMeta,"vtk-9.json"),"{\"version\":\"9\"}");
 File.WriteAllText(Path.Combine(condaMeta,"numpy-2.json"),"{\"version\":\"2\"}");
 var cmake=Path.Combine(prefixRoot,"Library","bin","cmake.exe");Directory.CreateDirectory(Path.GetDirectoryName(cmake)!);File.WriteAllText(cmake,"cmake binary");
 var ninja=Path.Combine(prefixRoot,"Library","bin","ninja.exe");File.WriteAllText(ninja,"ninja binary");
+File.WriteAllText(Path.Combine(prefixRoot,"python.exe"),"python binary");
+var runtimeLab=Path.Combine(fingerprintRoot,"runtime-lab","runtime-lab.exe");Directory.CreateDirectory(Path.GetDirectoryName(runtimeLab)!);File.WriteAllText(runtimeLab,"runtime-lab binary");
+var wslQualified=ScientificRunFingerprint.Capture("sage-wsl","laptop",fingerprintRoot,fingerprintRoot,wslDistro:"Ubuntu",recipeId:"sage.version");
+var wslEvidence=$"[fingerprint] sage={sageHash}\n[fingerprint] systemPackages={systemHash}\n[fingerprint] wslShell={shellHash}\n[fingerprint] wslTimeout={historyHash}\n";
+ScientificRunFingerprint.RecordWslEvidence(wslQualified,new List<JsonObject>(),wslEvidence);
+var wslQualifiedRun=Path.Combine(directory,"wsl-qualified-run");Directory.CreateDirectory(wslQualifiedRun);
+ScientificRunFingerprint.Save(wslQualifiedRun,wslQualified,Array.Empty<JsonObject>());
+Check(ScientificRunFingerprint.AssessEnvironmentDrift(wslQualifiedRun,fingerprintRoot,null,"Ubuntu",wslEvidence)["state"]?.GetValue<string>()=="current",
+    "matching WSL system packages, provider, and toolchain are current");
+Check(ScientificRunFingerprint.AssessEnvironmentDrift(wslQualifiedRun,fingerprintRoot,null,"Ubuntu",wslEvidence.Replace(systemHash,new string('f',64)))["state"]?.GetValue<string>()=="stale",
+    "changed WSL system packages mark saved environment stale");
 var compilerFile=Path.Combine(directory,"cl.exe");File.WriteAllText(compilerFile,"compiler binary");
 var reportFile=Path.Combine(fingerprintRoot,"report.json");
 File.WriteAllText(reportFile,JsonSerializer.Serialize(new { compiler=new { path=compilerFile }, runtimes=new[]{new { id="vtk-win-conda",environmentRoot=prefixRoot }} }));
@@ -270,16 +282,27 @@ var qualifiedDigest=ScientificRunFingerprint.Save(qualifiedRun,qualified,execute
 ScientificRunFingerprint.Verify(qualifiedRun,qualifiedDigest);
 Check(ScientificRunFingerprint.AssessSourceDrift(qualifiedRun,fingerprintRoot,fingerprintRoot)["state"]?.GetValue<string>()=="current",
     "matching saved source and suite are current");
+Check(ScientificRunFingerprint.AssessEnvironmentDrift(qualifiedRun,fingerprintRoot,reportFile)["state"]?.GetValue<string>()=="current",
+    "matching packages and toolchain are current");
 File.AppendAllText(Path.Combine(fingerprintRoot,"BatchLauncher","Form1.Scientific.VtkRejections.cs"),"changed");
 var drift=ScientificRunFingerprint.AssessSourceDrift(qualifiedRun,fingerprintRoot,fingerprintRoot);
 Check(drift["state"]?.GetValue<string>()=="stale" && drift["reasons"]?.ToJsonString().Contains("VtkRejections",StringComparison.Ordinal)==true,
     "changed suite source marks the saved run stale without rewriting it");
 File.AppendAllText(Path.Combine(condaMeta,"vtk-9.json"),"changed");
+var packageDrift=ScientificRunFingerprint.AssessEnvironmentDrift(qualifiedRun,fingerprintRoot,reportFile);
+Check(packageDrift["state"]?.GetValue<string>()=="stale" && packageDrift["reasons"]?.ToJsonString().Contains("condaPackageRecords",StringComparison.Ordinal)==true,
+    "changed package inventory marks saved environment stale");
 var changedEnvironment=ScientificRunFingerprint.Capture("vtk-win-conda","laptop",fingerprintRoot,fingerprintRoot,reportFile,recipeId:"matrix.vtk.rejections");
 Check(changedEnvironment["environment"]?["condaPackageRecords"]?["sha256"]?.GetValue<string>()
     !=qualified["environment"]?["condaPackageRecords"]?["sha256"]?.GetValue<string>(),
     "package record change invalidates environment identity");
 File.AppendAllText(cmake,"changed");
+var toolchainDrift=ScientificRunFingerprint.AssessEnvironmentDrift(qualifiedRun,fingerprintRoot,reportFile);
+Check(toolchainDrift["state"]?.GetValue<string>()=="stale" && toolchainDrift["reasons"]?.ToJsonString().Contains("toolchain cmake",StringComparison.Ordinal)==true,
+    "changed toolchain marks saved environment stale");
+Check(ScientificRunFingerprint.AssessEnvironmentDrift(qualifiedRun,fingerprintRoot,Path.Combine(directory,"missing-report.json"))["state"]?.GetValue<string>()=="unknown",
+    "missing runtime report leaves environment drift unknown");
+ScientificRunFingerprint.Verify(qualifiedRun,qualifiedDigest);
 var changedToolchain=ScientificRunFingerprint.Capture("vtk-win-conda","laptop",fingerprintRoot,fingerprintRoot,reportFile,recipeId:"matrix.vtk.rejections");
 Check(changedToolchain["environment"]?["toolchain"]?["cmake"]?["sha256"]?.GetValue<string>()
     !=changedEnvironment["environment"]?["toolchain"]?["cmake"]?["sha256"]?.GetValue<string>(),

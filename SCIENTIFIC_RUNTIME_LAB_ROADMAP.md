@@ -12,12 +12,26 @@ The UI registry now owns the five existing runtime declarations, visible section
 |---|---|---|
 | DS-SCI-001 runtime plugin contract | UI registry owns five providers' sections, probes, fixed catalog tests, recipe views and artifact routes; versioned native registry scopes managed actions and checks each runtime manifest; desktop provider switching checked | Shared generated UI/backend contract remains follow-up hardening |
 | DS-SCI-002 runtime view leakage | Manual desktop switching checked for CGAL, VTK, Gmsh, Python/SciPy, Sage Windows/WSL and Docker; provider Catalog/coverage and locked History observed; historical CGAL 35/35 result opened in DevShell; repeatable CDP desktop check passed on a debug-port launch | Keep the CDP check as the provider-routing regression gate |
-| DS-SCI-003 immutable fingerprints | New managed runs save a non-overwritable `fingerprint.json` and result digest; History verifies it and derives current/stale/unknown source drift without rewriting evidence. Fingerprints include source, recipe suite revision, Conda package-record inventory, available compiler/CMake/Ninja/runtime-lab hashes, contract and executed-file identities. Sage runs collect WSL provider, Conda package and shell-tool hashes when available. Focused synthetic checks passed. | Capture and inspect a fresh real run on each supported backend; make package/toolchain drift a separate qualification gate and expand suite-file coverage as recipes grow |
+| DS-SCI-003 immutable fingerprints | New managed runs save a non-overwritable `fingerprint.json` and result digest. History verifies it and derives separate current/stale/unknown source and environment drift without rewriting evidence. Fingerprints include source, recipe suite revision, Conda package records, relevant toolchain hashes, contract and executed-file identities. Sage/WSL records the provider, system or Conda package inventory, and shell tools. Fresh managed desktop runs and the History drift view were checked on all five providers on 2026-11-04. | Use these identities as DS-SCI-004 qualification inputs; require successful capability evidence before advancing any level |
 | DS-SCI-004–007 qualification foundations | Planned | Store immutable per-capability L0–L9 records with stale-state rules and versioned worker/artifact contracts |
 | DS-SCI-008–010 comparisons and export | Planned | Compare pinned run inputs and fingerprints; export redacted, hash-verifiable evidence bundles |
 | DS-SCI-011–025 provider and MATH3D path | Existing narrow probes; broader qualification planned | Expand real VTK/Sage/Gmsh suites and qualify typed broker-to-MATH3D artifact round trips |
 
 Do not mark an item complete from a passing package probe or a UI declaration. Each later change needs a named run, fingerprint, fixture revision, contract version and evidence link before its qualification level can advance.
+
+### DS-SCI-003 local evidence audit (2026-11-04)
+
+The debug-port desktop run created these local `.scientific/runs` records. `tests/scientific-fingerprint-live-ui-checks.mjs` started each managed recipe and checked its saved digest and package identity. `tests/scientific-fingerprint-history-ui-checks.mjs` reopened each result through History, where source and package/toolchain drift are derived from current files. All five package/toolchain comparisons read **current** immediately after the run; this does not certify the provider's capabilities.
+
+| Provider | Run ID | Recipe / result | Package identity |
+|---|---|---|---|
+| CGAL / Windows | `6cb8ae98072544acb19489dca0084e81` | `version` / succeeded | 54 Conda records |
+| VTK / Windows | `1a89b77e096a468e804842578c308142` | `version` / succeeded | 159 Conda records |
+| Gmsh / Windows | `9ba9f86062004919a35ccc6dc953bf06` | `lab.probe` / failed: `gmsh` module missing | 104 shared Conda records; Python probe passed |
+| Python/SciPy / Windows | `bc184fc009aa41709448d1dcc847ea9e` | `lab.probe` / succeeded | 104 shared Conda records |
+| SageMath / WSL Ubuntu | `2bfe3dc2745f4691836af685058c104c` | `sage.version` / succeeded | WSL system package inventory digest; provider and shell hashes |
+
+The current Windows comparison checks the package inventory, Python executable, runtime-lab, OS and architecture; CGAL/VTK also check CMake, Ninja and MSVC. Opening a Sage result performs a bounded, read-only WSL identity probe. Missing current evidence is **unknown**, and a changed recorded hash is **stale**. Gmsh's failed capability probe remains failed even though its environment identity is current. The five run folders are local evidence, not committed fixtures.
 
 ## Boundary
 

@@ -60,8 +60,7 @@ public partial class Form1
         };
         if (rerunOf != null) request["rerunOf"] = rerunOf;
         var json = request.ToJsonString(ScientificJson);
-        var reportPath = Path.Combine(ScientificDataRoot, "runtime-report.json");
-        if (!File.Exists(reportPath)) reportPath = Path.Combine(AppContext.BaseDirectory, "ui", "scientific-runtime-report.json");
+        var reportPath = ScientificReportPath();
         job.FingerprintComponents ??= ScientificRunFingerprint.Capture(job.RuntimeId, job.ProfileId,
             ScientificSourceRoot, AppContext.BaseDirectory, reportPath,
             job.RuntimeId == "sage-wsl" ? ScientificSageDistro() : null, job.RecipeId);

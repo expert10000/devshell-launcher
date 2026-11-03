@@ -66,6 +66,7 @@ export interface ScientificRunResult {
   runFingerprintSha256?: string
   runFingerprintReference?: string
   sourceDrift?: { state: 'current' | 'stale' | 'unknown'; comparedFiles: number; unavailableFiles: number; reasons: string[] }
+  environmentDrift?: { state: 'current' | 'stale' | 'unknown'; comparedComponents: number; unavailableComponents: number; reasons: string[] }
   state: 'succeeded' | 'failed' | 'cancelled' | 'timed-out'
   exitCode: number | null
   durationMs: number

@@ -46,10 +46,14 @@ public partial class Form1
     }
     private static string ScientificDataRoot=>Path.Combine(ScientificRepositoryRoot(),".scientific");
     private static string ScientificSourceRoot=>File.Exists(Path.Combine(ScientificRepositoryRoot(),"tools","scientific-runtime-probe.py"))?ScientificRepositoryRoot():AppContext.BaseDirectory;
-    private static JsonElement ScientificReport()
+    private static string ScientificReportPath()
     {
         var path=Path.Combine(ScientificDataRoot,"runtime-report.json");
-        if(!File.Exists(path)) path=Path.Combine(AppContext.BaseDirectory,"ui","scientific-runtime-report.json");
+        return File.Exists(path)?path:Path.Combine(AppContext.BaseDirectory,"ui","scientific-runtime-report.json");
+    }
+    private static JsonElement ScientificReport()
+    {
+        var path=ScientificReportPath();
         if(!File.Exists(path)||new FileInfo(path).Length>1048576) throw new InvalidOperationException("Install/inspect local environments first.");
         using var document=JsonDocument.Parse(File.ReadAllText(path)); return document.RootElement.Clone();
     }

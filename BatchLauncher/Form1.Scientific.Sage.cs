@@ -10,6 +10,7 @@ public partial class Form1
     private const string SageCandidates = "for candidate in /usr/bin/sage /usr/local/bin/sage \"$HOME/miniforge3/envs/sage/bin/sage\" \"$HOME/mambaforge/envs/sage/bin/sage\" \"$HOME/miniconda3/envs/sage/bin/sage\"; do if test -x \"$candidate\"; then ";
     private const string SageMissing = "fi; done; echo 'SageMath is missing in the selected WSL distribution. Install Sage in a conda environment named sage.' >&2; exit 127";
     private const string SageSmokeCode = "from sage.all import PolynomialRing, QQ; R = PolynomialRing(QQ, \"x\"); x = R.gen(); result = (x*x - 1).factor(); assert str(result) == \"(x - 1) * (x + 1)\"; print(\"verified: \" + str(result))";
+    private const string SageIdentity = "if command -v sha256sum >/dev/null 2>&1; then printf '[fingerprint] sage=' >&2; sha256sum \"$candidate\" | cut -d' ' -f1 >&2; prefix=\"${candidate%/bin/sage}\"; if test -f \"$prefix/conda-meta/history\"; then printf '[fingerprint] condaHistory=' >&2; sha256sum \"$prefix/conda-meta/history\" | cut -d' ' -f1 >&2; fi; fi; ";
     private static string ScientificSageDistro()
     {
         var distro = Environment.GetEnvironmentVariable("MATH3D_WSL_DISTRO") ?? "Ubuntu";
@@ -44,7 +45,7 @@ public partial class Form1
             job.Stage = "wsl-start";
             // Sage in a WSL Conda environment can take over 30 seconds just to import.
             // Keep a bounded inner timeout, but do not treat normal startup as a failed test.
-            var script = SageCandidates + (job.RecipeId == "sage.version"
+            var script = SageCandidates + SageIdentity + (job.RecipeId == "sage.version"
                 ? "echo '[stage] SageMath starting' >&2; exec /usr/bin/timeout --kill-after=1s 75s \"$candidate\" --version; "
                 : "echo '[stage] SageMath starting' >&2; exec /usr/bin/timeout --kill-after=1s 75s \"$candidate\" -c '" + SageSmokeCode + "'; ") + SageMissing;
             var start = new ProcessStartInfo("wsl.exe")
@@ -65,6 +66,7 @@ public partial class Form1
             if (!process.Start()) throw new InvalidOperationException("Could not start WSL.");
             owner.Add(process);
             var output = new StringBuilder();
+            var fingerprintOutput = new StringBuilder();
             async Task Drain(StreamReader reader, bool capture)
             {
                 var buffer = new char[1024]; int count;
@@ -73,6 +75,7 @@ public partial class Form1
                     var chunk = new string(buffer, 0, count);
                     if (!capture && chunk.Contains("[stage] SageMath starting", StringComparison.Ordinal)) job.Stage = "sage-start";
                     if (capture && output.Length < 4096) output.Append(chunk.AsSpan(0, Math.Min(count, 4096 - output.Length)));
+                    if (!capture && fingerprintOutput.Length < 4096) fingerprintOutput.Append(chunk.AsSpan(0, Math.Min(count, 4096 - fingerprintOutput.Length)));
                     ScientificLog(job, chunk);
                 }
             }
@@ -82,10 +85,12 @@ public partial class Form1
             catch (OperationCanceledException)
             {
                 owner.Stop(); await process.WaitForExitAsync(); await Task.WhenAll(stdout, stderr);
+                if (job.FingerprintComponents != null) ScientificRunFingerprint.RecordWslEvidence(job.FingerprintComponents, job.ExecutedFiles, fingerprintOutput.ToString());
                 if (job.Cancellation.IsCancellationRequested || _scientificLifetime.IsCancellationRequested) throw;
                 throw new TimeoutException("SageMath WSL test exceeded 120 seconds.");
             }
             await Task.WhenAll(stdout, stderr);
+            if (job.FingerprintComponents != null) ScientificRunFingerprint.RecordWslEvidence(job.FingerprintComponents, job.ExecutedFiles, fingerprintOutput.ToString());
             job.ExitCode = process.ExitCode;
             if (process.ExitCode == 124) throw new TimeoutException("SageMath did not respond within 75 seconds after WSL started. See the job log.");
             if (process.ExitCode != 0) throw new InvalidOperationException($"SageMath test exited {process.ExitCode}. See the job log.");

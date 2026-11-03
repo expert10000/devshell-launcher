@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 
 namespace BatchLauncher;
 
@@ -129,6 +130,20 @@ public static class ScientificRunFingerprint
         ["name"] = name, ["role"] = "fixed-command", ["state"] = "recorded",
         ["sha256"] = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(command))).ToLowerInvariant()
     };
+
+    public static void RecordWslEvidence(JsonObject captured, IList<JsonObject> executedFiles, string stderr)
+    {
+        if (captured["environment"] is not JsonObject environment) return;
+        var sage = Regex.Match(stderr, @"\[fingerprint\] sage=([0-9a-f]{64})(?:\r?\n|$)").Groups[1].Value;
+        if (sage.Length == 64)
+        {
+            environment["wslProviderBinary"] = new JsonObject { ["state"] = "recorded", ["sha256"] = sage };
+            executedFiles.Add(new JsonObject { ["name"] = "sage", ["role"] = "wsl-provider", ["state"] = "recorded", ["sha256"] = sage });
+        }
+        var history = Regex.Match(stderr, @"\[fingerprint\] condaHistory=([0-9a-f]{64})(?:\r?\n|$)").Groups[1].Value;
+        if (history.Length == 64)
+            environment["condaHistory"] = new JsonObject { ["state"] = "recorded", ["sha256"] = history };
+    }
 
     public static string Save(string directory, JsonObject captured, IEnumerable<JsonObject> executedFiles)
     {

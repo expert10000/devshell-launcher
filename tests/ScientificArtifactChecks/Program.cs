@@ -213,6 +213,14 @@ Check(ScientificRunFingerprint.Save(runD,ScientificRunFingerprint.Capture("vtk-w
 var sageFingerprint=ScientificRunFingerprint.Capture("sage-wsl","laptop",fingerprintRoot,fingerprintRoot,wslDistro:"Ubuntu");
 Check(sageFingerprint["environment"]?["wslProviderBinary"]?.GetValue<string>()=="unavailable from Windows host","WSL provider hash is explicitly unavailable from Windows");
 Check(ScientificRunFingerprint.CommandIdentity("sage.factor-smoke","command one")["sha256"]?.GetValue<string>() != ScientificRunFingerprint.CommandIdentity("sage.factor-smoke","command two")["sha256"]?.GetValue<string>(),"Sage command change invalidates worker identity");
+var wslFiles=new List<JsonObject>();
+var sageHash=new string('a',64);var historyHash=new string('b',64);
+ScientificRunFingerprint.RecordWslEvidence(sageFingerprint,wslFiles,$"[fingerprint] sage={sageHash}\n[fingerprint] condaHistory={historyHash}\n");
+Check(sageFingerprint["environment"]?["wslProviderBinary"]?["sha256"]?.GetValue<string>()==sageHash
+    && sageFingerprint["environment"]?["condaHistory"]?["sha256"]?.GetValue<string>()==historyHash
+    && wslFiles.Count==1 && wslFiles[0]["sha256"]?.GetValue<string>()==sageHash,
+    "WSL provider and Conda history hashes join the immutable run fingerprint");
+Check(!sageFingerprint.ToJsonString().Contains("/home/",StringComparison.Ordinal),"WSL fingerprint omits private provider paths");
 var providers=ScientificProviderRegistry.Providers;
 Check(providers.Count==5 && providers.Select(item=>item.RuntimeId).Distinct().Count()==5,"five unique native provider registrations");
 foreach(var provider in providers)

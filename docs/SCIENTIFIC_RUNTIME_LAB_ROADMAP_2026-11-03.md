@@ -1412,13 +1412,19 @@ Export verified provider/contract/evidence identities and support standalone bro
 Gate promotion by current applicable L0–L9 evidence and version compatibility.\
 **Acceptance:** stale, incomplete and failed capabilities are blocked with explanation.
 
+**2026-11-04 scoped delivery:** the broker's `POST /v1/jobs/{id}/promote` saves an immutable allow/block decision with reasons. It checks the exported current L0–L9 chain, successful job, version 1 handoff, worker artifact, and MATH3D consumer source fingerprints. The fixed CGAL mesh path is eligible; stale/failed runs and Gmsh are blocked.
+
 **DS-SCI-024 — `feat(integration): qualify m3dm and typed-document round trips`**\
 Extend artifacts to mesh, volume mesh and exact mathematical outputs as applicable.\
 **Acceptance:** independent parser validates format and scientific invariants after round trip.
 
+**2026-11-04 scoped delivery:** MATH3D's native codec saves a promoted tetrahedron mesh as version 1 `.m3dm`; an independent Python parser reloads it and checks the header, exact triangles and winding, finite coordinates, closed orientation, signed volume and scale against the broker OBJ. The saved Mesh document/resource also reopens in MATH3D. An immutable document qualification record pins the source L9 record, promotion, codec/parser, contract, scene and artifact hashes. Volume and exact mathematical documents remain future work.
+
 **DS-SCI-025 — `feat(integration): add Math3D end-to-end smoke suite`**\
 Broker worker → validated result → document import → viewer/workbook module smoke.\
 **Acceptance:** named fixture produces expected document/scene; failures are traceable to the originating job.
+
+**2026-11-04 scoped delivery:** `tools/scientific-broker/smoke.py` drives the broker API, promotion, MATH3D Mesh document import and viewer, `.m3dm` writer and independent reload. It saves a hash-verifiable result keyed to the source job; rejected promotion saves the failed stage and reason. Workbook and other provider/module smokes remain future work.
 
 ### P2 — Performance and robustness
 

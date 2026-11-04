@@ -10,7 +10,7 @@ static class BrokerManifest
     static string Hash(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
     static string HashFile(string path) => Hash(File.ReadAllBytes(path));
     static string Digest(JsonNode? node) => Hash(Encoding.UTF8.GetBytes(node?.ToJsonString() ?? "null"));
-    static string? ProductSources(string root)
+    static JsonObject? ProductSourceFiles(string root)
     {
         var files = new JsonObject();
         foreach (var name in new[] { "renderer/src/mesh/surfaceMesh.ts", "renderer/src/mesh/meshDocumentAdapter.ts",
@@ -21,8 +21,9 @@ static class BrokerManifest
             if (!File.Exists(path)) return null;
             files[name] = HashFile(path);
         }
-        return Digest(files);
+        return files;
     }
+    static string? ProductSources(string root) => ProductSourceFiles(root) is { } files ? Digest(files) : null;
     static JsonObject ProductContract() => new()
     {
         ["id"] = "math3d.mesh-product-handoff", ["version"] = 1,
@@ -132,6 +133,8 @@ static class BrokerManifest
                 .Single(item => item["recordId"]?.GetValue<string>() == current["recordId"]?.GetValue<string>());
             var evidence = result["l9Evidence"]!;
             if (evidence["productContractSha256"]?.GetValue<string>() != Digest(contract)) continue;
+            var consumerFiles = ProductSourceFiles(math3d);
+            if (consumerFiles == null || Digest(consumerFiles) != record["consumerSourceSha256"]?.GetValue<string>()) continue;
             var output = Path.Combine(directory, "positive", "l5-positive.obj");
             if (!File.Exists(output) || HashFile(output) != evidence["worker"]?["artifactSha256"]?.GetValue<string>()) continue;
             var fingerprint = JsonNode.Parse(File.ReadAllText(Path.Combine(directory, "fingerprint.json")))!;
@@ -139,6 +142,14 @@ static class BrokerManifest
                 .OfType<JsonObject>().FirstOrDefault(item => item["name"]?.GetValue<string>() == "devshell_cgal_worker.exe")?
                 ["sha256"]?.GetValue<string>();
             if (binaryHash is not { Length: 64 }) continue;
+            var lower = record["lowerQualification"]?["records"] as JsonArray;
+            var currentIds = CurrentIds(runs, "L0", "L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9");
+            if (lower is not { Count: 9 } || lower.Where((item, index) =>
+                    item?["level"]?.GetValue<string>() != "L" + index
+                    || item?["recordId"]?.GetValue<string>() is not { } id || !currentIds.Contains(id)).Any()) continue;
+            var support = new JsonArray(lower.Select(item => item!.DeepClone()).ToArray());
+            support.Add(new JsonObject { ["level"] = "L9", ["capabilityId"] = "mesh.interop.vtk-math3d",
+                ["runId"] = current["runId"]?.DeepClone(), ["recordId"] = current["recordId"]?.DeepClone() });
             certified.Add(new JsonObject
             {
                 ["runtimeId"] = "cgal-win-conda", ["capabilityId"] = "mesh.interop.vtk-math3d", ["level"] = "L9",
@@ -153,10 +164,12 @@ static class BrokerManifest
                 ["pythonSha256"] = fingerprint["components"]?["environment"]?["pythonExecutable"]?["sha256"]?.DeepClone(),
                 ["packageRecordsSha256"] = fingerprint["components"]?["environment"]?["condaPackageRecords"]?["sha256"]?.DeepClone(),
                 ["productContract"] = contract.DeepClone(), ["productContractSha256"] = Digest(contract),
+                ["consumerSources"] = consumerFiles, ["consumerSourceSha256"] = Digest(consumerFiles),
                 ["referenceInputSha256"] = evidence["worker"]?["inputSha256"]?.DeepClone(),
                 ["referenceArtifactSha256"] = evidence["worker"]?["artifactSha256"]?.DeepClone(),
                 ["sourceL8RunId"] = evidence["sourceL8RunId"]?.DeepClone(),
-                ["sourceL8RecordId"] = evidence["sourceL8RecordId"]?.DeepClone()
+                ["sourceL8RecordId"] = evidence["sourceL8RecordId"]?.DeepClone(),
+                ["supportingRecords"] = support
             });
         }
         return new JsonObject { ["schemaVersion"] = 1, ["kind"] = "scientific.certified-capabilities",

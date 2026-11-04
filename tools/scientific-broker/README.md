@@ -27,7 +27,8 @@ Create a local JSON file with absolute deployment paths:
   "worker": "<devshell_cgal_worker.exe>",
   "prefix": "<dedicated CGAL conda prefix>",
   "datasetRoot": "<registered local dataset root>",
-  "jobsRoot": "<broker-owned output directory>"
+  "jobsRoot": "<broker-owned output directory>",
+  "math3dRoot": "<MATH3D checkout for promotion>"
 }
 ```
 
@@ -44,6 +45,16 @@ python tools/scientific-broker/broker.py serve --config <config.json> --port 876
 - `POST /v1/jobs`: accept `schemaVersion`, `runtimeId`, `capabilityId`, `input: {path, sha256}`, and optional `timeoutSeconds` (1–120). The input must be a bounded OBJ inside `datasetRoot` with the exact hash of the qualified L9 fixture.
 - `GET /v1/jobs/{id}`: state (`running`, `succeeded`, `partial`, `failed`, `cancelled`, `timed-out`), stage, progress, diagnostics, and verified artifact metadata.
 - `POST /v1/jobs/{id}/cancel`: terminate the owned worker process tree.
+- `POST /v1/jobs/{id}/promote`: save an immutable allow/block decision with reasons. It requires a successful job, a current matching L0–L9 certification chain, unchanged worker/package and MATH3D consumer identities, and a verified version 1 handoff. `math3dRoot` is required for an allowed decision.
 - `GET /v1/jobs/{id}/artifacts/{name}`: serve only a registered artifact from a successful job after rechecking its hash. Current names are `l5-positive.obj` and `handoff.json`.
 
-Completed job results survive broker restarts. MATH3D can consume `handoff.json` with its existing importer; the handoff pins the worker request, result, output, L8 record, and contract. The broker requires the worker output hash to match the fixed L9 reference artifact. The current implementation covers the qualified CGAL mesh path only. Broader provider discovery and promotion controls belong to later roadmap stages.
+Completed job results survive broker restarts. MATH3D can consume `handoff.json` after an allowed promotion; the handoff pins the worker request, result, output, L8 record, and contract. The broker requires the worker output hash to match the fixed L9 reference artifact. The current implementation covers the qualified CGAL mesh path only.
+
+## Promoted document and smoke evidence (DS-SCI-023–025)
+
+```powershell
+python tools/scientific-broker/smoke.py --config <config.json>
+python tools/scientific-broker/smoke.py --config <config.json> --verify-job <32-character-job-id>
+```
+
+The smoke starts the broker API on a temporary localhost port, submits the fixed CGAL job, requests promotion, imports the handoff into a saved MATH3D Mesh document, mounts the viewer, and writes `qualified-mesh.m3dm` through MATH3D's native codec. `check_m3dm_roundtrip.py` independently reloads the binary with Python `struct` and checks exact triangle topology/winding, finite coordinates, closed orientation, volume and scale against the worker OBJ. The immutable `document-qualification.json` pins the source L9 record, codec/parser sources, promotion, format, scene and artifact hashes. `smoke-result.json` records the source job, promotion decision, contract version, scene/resource/viewer and round-trip hashes; `--verify-job` checks those saved files again. A failure saves its stage, source job and reason to the same job directory. The scope is the fixed tetrahedron mesh; volume meshes and exact mathematical documents remain unqualified.

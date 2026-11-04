@@ -4,6 +4,9 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import shutil
+import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -46,12 +49,54 @@ class BrokerIntegration(unittest.TestCase):
         self.assertEqual(handoff['contract'], module.CONTRACT)
         self.assertEqual(handoff['artifact']['sha256'],
                          hashlib.sha256(self.broker.artifact(job['jobId'], 'l5-positive.obj')).hexdigest())
+        if self.broker.math3d_root is not None:
+            allowed = self.broker.promote(job['jobId'])
+            self.assertEqual(allowed['decision'], 'allowed', allowed['reasons'])
+            self.assertEqual(allowed['contractVersion'], 1)
+            with tempfile.TemporaryDirectory() as directory:
+                original = self.broker.math3d_root
+                changed_root = Path(directory)
+                entry = self.broker.capabilities[0]
+                for name in entry['consumerSources']:
+                    target = changed_root / name
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(original / name, target)
+                changed = changed_root / 'renderer' / 'src' / 'mesh' / 'surfaceMesh.ts'
+                changed.write_bytes(changed.read_bytes() + b'\n// changed\n')
+                self.broker.math3d_root = changed_root
+                try:
+                    stale = self.broker.promote(job['jobId'])
+                    self.assertEqual(stale['decision'], 'blocked')
+                    self.assertTrue(any('consumer' in reason for reason in stale['reasons']))
+                finally:
+                    self.broker.math3d_root = original
+            with tempfile.TemporaryDirectory() as directory:
+                original_manifest = self.broker.paths['manifest']
+                empty = json.loads(original_manifest.read_text(encoding='utf-8'))
+                empty['certifiedCapabilities'] = []
+                path = Path(directory) / 'manifest.json'
+                path.write_text(json.dumps(empty, separators=(',', ':')))
+                Path(str(path) + '.sha256').write_text(module.sha(path))
+                self.broker.paths['manifest'] = path
+                try:
+                    stale = self.broker.promote(job['jobId'])
+                    self.assertEqual(stale['decision'], 'blocked')
+                    self.assertTrue(any('no longer current' in reason for reason in stale['reasons']))
+                finally:
+                    self.broker.paths['manifest'] = original_manifest
         output = Path(job['directory']) / 'l5-positive.obj'
         changed = bytearray(output.read_bytes())
         changed[0] ^= 1
         output.write_bytes(changed)
         with self.assertRaisesRegex(ValueError, 'Output artifact hash mismatch'):
             self.broker.artifact(job['jobId'], 'l5-positive.obj')
+        blocked = self.broker.promote(job['jobId'])
+        self.assertEqual(blocked['decision'], 'blocked')
+        self.assertTrue(any('handoff' in reason for reason in blocked['reasons']))
+        self.broker.jobs[job['jobId']]['state'] = 'failed'
+        failed = self.broker.promote(job['jobId'])
+        self.assertEqual(failed['decision'], 'blocked')
+        self.assertTrue(any('failed' in reason for reason in failed['reasons']))
 
     def test_manifest_hash_mismatch(self):
         config = json.loads(self.config.read_text(encoding='utf-8'))
@@ -76,6 +121,34 @@ class BrokerIntegration(unittest.TestCase):
             config_path.write_text(json.dumps(config))
             with self.assertRaisesRegex(ValueError, 'worker hash mismatch'):
                 module.Broker(config_path)
+
+    def test_smoke_failure_links_source_job(self):
+        if self.broker.math3d_root is None:
+            self.skipTest('MATH3D checkout is required')
+        config = json.loads(self.config.read_text(encoding='utf-8'))
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            consumer = root / 'changed-math3d'
+            for name in self.broker.capabilities[0]['consumerSources']:
+                target = consumer / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(self.broker.math3d_root / name, target)
+            changed = consumer / 'renderer' / 'src' / 'mesh' / 'surfaceMesh.ts'
+            changed.write_bytes(changed.read_bytes() + b'\n// stale\n')
+            config['math3dRoot'] = str(consumer)
+            config['jobsRoot'] = str(root / 'jobs')
+            config_path = root / 'config.json'
+            config_path.write_text(json.dumps(config))
+            smoke = BROKER_PATH.with_name('smoke.py')
+            result = subprocess.run([sys.executable, str(smoke), '--config', str(config_path)],
+                                    capture_output=True, text=True, timeout=30)
+            self.assertNotEqual(result.returncode, 0)
+            records = list((root / 'jobs').glob('*/smoke-result.json'))
+            self.assertEqual(len(records), 1)
+            report = json.loads(records[0].read_text())
+            self.assertEqual(report['state'], 'failed')
+            self.assertEqual(report['stage'], 'promotion')
+            self.assertEqual(report['sourceJobId'], records[0].parent.name)
 
 
 if __name__ == '__main__':

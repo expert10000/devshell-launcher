@@ -17,6 +17,9 @@ from urllib.parse import urlsplit
 
 CONTRACT = dict(id='math3d.mesh-product-handoff', version=1, workerResultSchemaVersion=1,
                 meshDocumentSchemaVersion=1, inputFormat='obj', viewer='MeshDocumentViewport')
+CONSUMER_FILES = {'renderer/src/mesh/surfaceMesh.ts', 'renderer/src/mesh/meshDocumentAdapter.ts',
+                  'renderer/src/mesh/meshResourceStore.ts', 'renderer/src/workspace/MeshDocumentViewport.tsx',
+                  'renderer/src/components/SurfaceViewer.tsx', 'packages/core/src/meshDocument.ts'}
 MAX_INPUT = 32 * 1024 * 1024
 
 
@@ -50,6 +53,7 @@ class Broker:
             raise ValueError('Unsupported broker configuration.')
         self.paths = {name: Path(config[name]).resolve(strict=True) for name in
                       ('manifest', 'runtimeManifest', 'adapter', 'workerContract', 'python', 'worker', 'prefix', 'datasetRoot')}
+        self.math3d_root = Path(config['math3dRoot']).resolve(strict=True) if config.get('math3dRoot') else None
         self.jobs_root = Path(config['jobsRoot']).resolve()
         self.jobs_root.mkdir(parents=True, exist_ok=True)
         self.jobs = {}
@@ -91,8 +95,22 @@ class Broker:
                 raise ValueError('Conda package inventory hash mismatch.')
             if any(not re.fullmatch('[0-9a-f]{64}', entry.get(key, '')) for key in
                    ('recordId', 'runFingerprintSha256', 'suiteRevisionSha256', 'qualificationSha256',
-                    'referenceInputSha256', 'referenceArtifactSha256', 'sourceL8RecordId')):
+                    'referenceInputSha256', 'referenceArtifactSha256', 'sourceL8RecordId',
+                    'consumerSourceSha256')):
                 raise ValueError('Qualification identity is incomplete.')
+            support = entry.get('supportingRecords')
+            if not isinstance(support, list) or len(support) != 10:
+                raise ValueError('The L0-L9 qualification chain is incomplete.')
+            for level, record in enumerate(support):
+                if (record.get('level') != f'L{level}' or not re.fullmatch('[0-9a-f]{64}', record.get('recordId', ''))
+                        or not re.fullmatch('[0-9a-f]{32}', record.get('runId', ''))):
+                    raise ValueError('The L0-L9 qualification chain is invalid.')
+            if support[-1]['recordId'] != entry['recordId'] or support[-1]['runId'] != entry['sourceRunId']:
+                raise ValueError('L9 qualification identity differs from its support chain.')
+            if support[8]['recordId'] != entry['sourceL8RecordId'] or support[8]['runId'] != entry['sourceL8RunId']:
+                raise ValueError('L8 qualification identity differs from its support chain.')
+            if not isinstance(entry.get('consumerSources'), dict) or set(entry['consumerSources']) != CONSUMER_FILES:
+                raise ValueError('MATH3D consumer source identity is missing.')
         self.capabilities = capabilities
         return capabilities
 
@@ -264,6 +282,69 @@ class Broker:
             require_hash(path, entry['sha256'], 'Output artifact')
             return path.read_bytes()
 
+    def promote(self, job_id):
+        with self.lock:
+            job = self.jobs.get(job_id)
+            if job is None:
+                raise KeyError(job_id)
+            reasons = []
+            entry = None
+            try:
+                self.verify()
+                entry = next((item for item in self.capabilities if item['recordId'] == job['certificationRecordId']), None)
+                if entry is None:
+                    reasons.append('The supporting L0-L9 qualification is no longer current in the certified manifest.')
+            except (ValueError, OSError) as error:
+                reasons.append('Certified manifest or runtime identity changed: ' + str(error))
+            if job['state'] != 'succeeded':
+                reasons.append(f"Source job is {job['state']}; a successful verified run is required.")
+            if entry is not None and job['state'] == 'succeeded':
+                if self.math3d_root is None:
+                    reasons.append('MATH3D consumer checkout is not configured for promotion.')
+                else:
+                    for name, expected in entry['consumerSources'].items():
+                        try:
+                            require_hash(self.math3d_root / name, expected, 'MATH3D consumer ' + name)
+                        except (ValueError, OSError) as error:
+                            reasons.append(str(error))
+                    source_hash = hashlib.sha256(json.dumps(entry['consumerSources'], separators=(',', ':')).encode()).hexdigest()
+                    if source_hash != entry['consumerSourceSha256']:
+                        reasons.append('MATH3D consumer source fingerprint changed.')
+                try:
+                    handoff = json.loads(self.artifact(job_id, 'handoff.json'))
+                    output = self.artifact(job_id, 'l5-positive.obj')
+                    worker_request = json.loads((Path(job['directory']) / 'request.json').read_text(encoding='utf-8'))
+                    worker_result = json.loads((Path(job['directory']) / 'results.json').read_text(encoding='utf-8'))
+                    if (handoff.get('contract') != CONTRACT or handoff.get('runtimeId') != job['runtimeId']
+                            or handoff.get('capabilityId') != job['capabilityId']
+                            or handoff.get('sourceL8RunId') != entry['sourceL8RunId']
+                            or handoff.get('sourceL8RecordId') != entry['sourceL8RecordId']
+                            or worker_request.get('runId') != job_id or worker_result.get('runId') != job_id
+                            or worker_result.get('state') != 'succeeded'
+                            or 'mesh.validate' not in worker_result.get('validatedCapabilities', [])
+                            or handoff.get('artifact', {}).get('sha256') != hashlib.sha256(output).hexdigest()
+                            or handoff.get('workerResult', {}).get('sha256') != sha(Path(job['directory']) / 'results.json')
+                            or handoff.get('workerRequest', {}).get('sha256') != sha(Path(job['directory']) / 'request.json')):
+                        reasons.append('The broker handoff contract or worker artifact identity changed.')
+                except (ValueError, OSError, KeyError, json.JSONDecodeError) as error:
+                    reasons.append('Verified broker handoff is unavailable: ' + str(error))
+            decision = 'allowed' if not reasons else 'blocked'
+            promotion_id = uuid.uuid4().hex
+            record = {'schemaVersion': 1, 'kind': 'scientific.math3d-promotion', 'promotionId': promotion_id,
+                      'decision': decision, 'reasons': reasons, 'sourceJobId': job_id,
+                      'sourceJobState': job['state'], 'capabilityId': job['capabilityId'],
+                      'runtimeId': job['runtimeId'], 'certificationRecordId': job['certificationRecordId'],
+                      'manifestSha256': sha(self.paths['manifest']) if self.paths['manifest'].is_file() else None,
+                      'contractVersion': CONTRACT['version'],
+                      'handoffSha256': sha(Path(job['directory']) / 'handoff.json') if decision == 'allowed' else None,
+                      'artifactSha256': entry['referenceArtifactSha256'] if decision == 'allowed' else None}
+            directory = Path(job['directory']) / 'promotions'
+            directory.mkdir(exist_ok=True)
+            path = directory / (promotion_id + '.json')
+            with path.open('x', encoding='utf-8') as stream:
+                json.dump(record, stream, separators=(',', ':'))
+            return {**record, 'path': str(path), 'sha256': sha(path)}
+
 
 def handler_for(broker):
     class Handler(BaseHTTPRequestHandler):
@@ -308,6 +389,8 @@ def handler_for(broker):
                     return self.reply(202, broker.submit(json.loads(self.rfile.read(size))))
                 if len(parts) == 4 and parts[:2] == ['v1', 'jobs'] and parts[3] == 'cancel':
                     return self.reply(200, broker.cancel(parts[2]))
+                if len(parts) == 4 and parts[:2] == ['v1', 'jobs'] and parts[3] == 'promote':
+                    return self.reply(200, broker.promote(parts[2]))
                 self.reply(404, {'error': 'Unknown route.'})
             except KeyError:
                 self.reply(404, {'error': 'Job not found.'})

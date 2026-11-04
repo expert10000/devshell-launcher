@@ -155,6 +155,73 @@ public static class ScientificQualificationRecords
         return Digest(evidence.ToJsonString());
     }
 
+    private static string? L6Hash(string directory, string runtimeId, JsonObject result, JsonObject components)
+    {
+        if (result["recipeId"]?.GetValue<string>() != "l6.reproduce"
+            || result["l6Evidence"] is not JsonObject evidence
+            || evidence["suiteId"]?.GetValue<string>() != "l6-reproduce-v1"
+            || evidence["comparison"]?.GetValue<string>() != "sha256-exact"
+            || evidence["verdict"]?.GetValue<string>() != "matched"
+            || evidence["baseline"] is not JsonObject baseline
+            || result["l5Evidence"] is not JsonObject candidate
+            || evidence["capabilityId"]?.GetValue<string>() != candidate["capabilityId"]?.GetValue<string>()
+            || evidence["positive"]?.ToJsonString() != candidate["positive"]?.ToJsonString()
+            || evidence["rejection"]?.ToJsonString() != candidate["rejection"]?.ToJsonString()
+            || evidence["lowerQualification"]?["records"] is not JsonArray lower || lower.Count != 6
+            || candidate["lowerQualification"]?["records"] is not JsonArray l5Lower || l5Lower.Count != 5)
+            return null;
+        for (var i = 0; i < 5; i++)
+            if (lower[i]?.ToJsonString() != l5Lower[i]?.ToJsonString()) return null;
+        var baselineRunId = baseline["runId"]?.GetValue<string>();
+        var baselineFolderId = baseline["folderId"]?.GetValue<string>();
+        var baselineRecordId = baseline["recordId"]?.GetValue<string>();
+        if (baselineRunId is not { Length: 32 } || !baselineRunId.All(Uri.IsHexDigit)
+            || baselineFolderId is not { Length: 32 } || !baselineFolderId.All(Uri.IsHexDigit)
+            || baselineRecordId is not { Length: 64 } || !baselineRecordId.All(Uri.IsHexDigit)
+            || lower[5]?["runId"]?.GetValue<string>() != baselineRunId
+            || lower[5]?["recordId"]?.GetValue<string>() != baselineRecordId
+            || lower[5]?["level"]?.GetValue<string>() != "L5") return null;
+        var candidateAsL5 = (JsonObject)result.DeepClone();
+        candidateAsL5["recipeId"] = "l5.worker";
+        if (L5Hash(directory, runtimeId, candidateAsL5, components) == null) return null;
+        var baselineDirectory = Path.Combine(Path.GetDirectoryName(directory)!, baselineFolderId);
+        var baselinePath = Path.Combine(baselineDirectory, "results.json");
+        var fingerprintPath = Path.Combine(baselineDirectory, "fingerprint.json");
+        if (!File.Exists(baselinePath) || !File.Exists(fingerprintPath)
+            || new FileInfo(baselinePath).Length > 1048576 || new FileInfo(fingerprintPath).Length > 1048576) return null;
+        using var baselineDocument = JsonDocument.Parse(File.ReadAllText(baselinePath));
+        var baselineResult = baselineDocument.RootElement;
+        if (baselineResult.GetProperty("runId").GetString() != baselineRunId
+            || baselineResult.GetProperty("runtimeId").GetString() != runtimeId
+            || baselineResult.GetProperty("profileId").GetString() != result["profileId"]?.GetValue<string>()
+            || baselineResult.GetProperty("recipeId").GetString() != "l5.worker"
+            || baselineResult.GetProperty("state").GetString() != "succeeded"
+            || baselineResult.GetProperty("runFingerprintSha256").GetString() != baseline["runFingerprintSha256"]?.GetValue<string>()) return null;
+        ScientificRunFingerprint.Verify(baselineDirectory, baselineResult.GetProperty("runFingerprintSha256").GetString() ?? "");
+        if (!Verify(baselineDirectory, baselineResult).OfType<JsonObject>().Any(item => item["recordId"]?.GetValue<string>() == baselineRecordId
+            && item["level"]?.GetValue<string>() == "L5" && item["capabilityId"]?.GetValue<string>() == evidence["capabilityId"]?.GetValue<string>())) return null;
+        var savedBaseline = JsonNode.Parse(baselineResult.GetRawText())?["l5Evidence"];
+        var baselineFingerprint = JsonNode.Parse(File.ReadAllText(fingerprintPath));
+        var baselineArtifact = baseline["artifactPath"]?.GetValue<string>();
+        if (baselineArtifact is not ("positive/l5-positive.obj" or "positive/l5-positive.vtp")) return null;
+        var baselineOutput = Path.Combine(baselineDirectory, baselineArtifact.Replace('/', Path.DirectorySeparatorChar));
+        if (!File.Exists(baselineOutput)
+            || baseline["artifactSha256"]?.GetValue<string>() != savedBaseline?["positive"]?["artifactSha256"]?.GetValue<string>()
+            || baseline["artifactSha256"]?.GetValue<string>() != Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(baselineOutput))).ToLowerInvariant()
+            || baseline["positiveInputSha256"]?.GetValue<string>() != savedBaseline?["positive"]?["inputSha256"]?.GetValue<string>()
+            || baseline["rejectionInputSha256"]?.GetValue<string>() != savedBaseline?["rejection"]?["inputSha256"]?.GetValue<string>()
+            || baseline["workerContractSha256"]?.GetValue<string>() != savedBaseline?["workerContractSha256"]?.GetValue<string>()
+            || baseline["environmentSha256"]?.GetValue<string>() != Digest(baselineFingerprint?["components"]?["environment"]?.ToJsonString() ?? "null")
+            || evidence["environmentSha256"]?.GetValue<string>() != Digest(components["environment"]?.ToJsonString() ?? "null")
+            || baseline["environmentSha256"]?.GetValue<string>() != evidence["environmentSha256"]?.GetValue<string>()
+            || baseline["artifactSha256"]?.GetValue<string>() != candidate["positive"]?["artifactSha256"]?.GetValue<string>()
+            || baseline["artifactPath"]?.GetValue<string>() != candidate["positive"]?["artifactPath"]?.GetValue<string>()
+            || baseline["positiveInputSha256"]?.GetValue<string>() != candidate["positive"]?["inputSha256"]?.GetValue<string>()
+            || baseline["rejectionInputSha256"]?.GetValue<string>() != candidate["rejection"]?["inputSha256"]?.GetValue<string>()
+            || baseline["workerContractSha256"]?.GetValue<string>() != candidate["workerContractSha256"]?.GetValue<string>()) return null;
+        return Digest(evidence.ToJsonString());
+    }
+
     public static string? Save(string directory, JsonObject result, string sourceRoot, string installedRoot)
     {
         if (result["state"]?.GetValue<string>() != "succeeded") return null;
@@ -237,6 +304,17 @@ public static class ScientificQualificationRecords
             if (capability != null && declaration?["capability"]?.GetValue<string>() == capability && hash != null)
                 Add(capability, "L5", "l5.worker", hash, result["l5Evidence"]?["lowerQualification"]);
         }
+        else if (recipeId == "l6.reproduce" && manifest["qualificationRecipes"] is JsonArray l6Recipes)
+        {
+            var declaration = l6Recipes.OfType<JsonObject>().FirstOrDefault(item => item["id"]?.GetValue<string>() == "l6.reproduce"
+                && item["readinessLevel"]?.GetValue<string>() == "L6"
+                && item["referenceRecipe"]?.GetValue<string>() == "l5.worker"
+                && item["comparison"]?.GetValue<string>() == "sha256-exact");
+            var capability = runtimeId == "cgal-win-conda" ? "mesh.validate" : runtimeId == "vtk-win-conda" ? "mesh.read" : null;
+            var hash = L6Hash(directory, runtimeId, result, components!);
+            if (capability != null && declaration?["capability"]?.GetValue<string>() == capability && hash != null)
+                Add(capability, "L6", "l6.reproduce", hash, result["l6Evidence"]?["lowerQualification"]);
+        }
         var document = new JsonObject
         {
             ["schemaVersion"] = 1, ["runId"] = runId, ["runtimeId"] = runtimeId,
@@ -294,7 +372,7 @@ public static class ScientificQualificationRecords
                 || record["runFingerprintSha256"]?.GetValue<string>() != fingerprintSha256
                 || record["suiteRevisionSha256"]?.GetValue<string>() != suiteRevision
                 || record["contract"]?.ToJsonString() != contract?.ToJsonString()
-                || record["level"]?.GetValue<string>() is not ("L0" or "L1" or "L2" or "L3" or "L4" or "L5"))
+                || record["level"]?.GetValue<string>() is not ("L0" or "L1" or "L2" or "L3" or "L4" or "L5" or "L6"))
                 throw new InvalidDataException("Qualification entry does not match its run.");
             if (record["level"]?.GetValue<string>() == "L4")
             {
@@ -316,6 +394,15 @@ public static class ScientificQualificationRecords
                     || record["evidenceSha256"]?.GetValue<string>() != L5Hash(directory, runtimeId!, sourceResult,
                         fingerprint!["components"]!.AsObject()))
                     throw new InvalidDataException("L5 worker qualification evidence has changed.");
+            }
+            if (record["level"]?.GetValue<string>() == "L6")
+            {
+                var sourceResult = JsonNode.Parse(result.GetRawText()) as JsonObject;
+                if (sourceResult == null || record["evidenceId"]?.GetValue<string>() != "l6.reproduce"
+                    || record["lowerQualification"]?.ToJsonString() != sourceResult["l6Evidence"]?["lowerQualification"]?.ToJsonString()
+                    || record["evidenceSha256"]?.GetValue<string>() != L6Hash(directory, runtimeId!, sourceResult,
+                        fingerprint!["components"]!.AsObject()))
+                    throw new InvalidDataException("L6 reproduction evidence has changed.");
             }
         }
         return records;
@@ -346,16 +433,21 @@ public static class ScientificQualificationRecords
         }).ToArray());
     }
 
-    public static void AssessL5Dependencies(JsonArray records, IReadOnlySet<string> currentLowerRecordIds)
+    public static void AssessL5Dependencies(JsonArray records, IReadOnlySet<string> currentLowerRecordIds, bool includeL6 = true)
     {
-        foreach (var record in records.OfType<JsonObject>().Where(item => item["level"]?.GetValue<string>() == "L5"))
+        foreach (var record in records.OfType<JsonObject>().Where(item => item["level"]?.GetValue<string>() == "L5"
+            || includeL6 && item["level"]?.GetValue<string>() == "L6"))
         {
+            var level = record["level"]?.GetValue<string>();
             var lower = record["lowerQualification"]?["records"] as JsonArray;
-            if (lower is { Count: 5 } && lower.All(item => item?["recordId"]?.GetValue<string>() is { } id
+            if (lower is { Count: > 0 } && lower.Count == (level == "L5" ? 5 : 6)
+                && lower.All(item => item?["recordId"]?.GetValue<string>() is { } id
                 && currentLowerRecordIds.Contains(id))) continue;
             record["status"] = "stale";
             var reasons = record["staleReasons"] as JsonArray ?? new JsonArray();
-            reasons.Add("supporting L0-L4 qualification is no longer current");
+            var reason = level == "L5" ? "supporting L0-L4 qualification is no longer current"
+                : "supporting L0-L5 qualification is no longer current";
+            if (!reasons.Any(item => item?.GetValue<string>() == reason)) reasons.Add(reason);
             record["staleReasons"] = reasons;
         }
     }
@@ -366,6 +458,7 @@ public static class ScientificQualificationRecords
         var excludedFailed = 0;
         var excludedStale = 0;
         var excludedUnknown = 0;
+        var currentRecords = new JsonArray();
         foreach (var run in runs)
         {
             if (run["runtimeId"]?.GetValue<string>() != runtimeId) continue;
@@ -380,6 +473,9 @@ public static class ScientificQualificationRecords
                 var level = record["level"]?.GetValue<string>();
                 if (capability == null || level?.Length != 2 || level[0] != 'L' || !int.TryParse(level[1..], out var number))
                     continue;
+                currentRecords.Add(new JsonObject { ["runId"] = run["runId"]?.GetValue<string>(),
+                    ["recordId"] = record["recordId"]?.GetValue<string>(), ["capabilityId"] = capability,
+                    ["level"] = level, ["finishedAtUtc"] = run["finishedAtUtc"]?.GetValue<string>() });
                 if (!current.TryGetValue(capability, out var candidates))
                     current[capability] = candidates = new List<(int, JsonObject)>();
                 candidates.Add((number, new JsonObject
@@ -405,6 +501,7 @@ public static class ScientificQualificationRecords
             });
         }
         return new JsonObject { ["runtimeId"] = runtimeId, ["capabilities"] = capabilities,
+            ["currentRecords"] = currentRecords,
             ["excludedFailedRuns"] = excludedFailed, ["excludedStaleRecords"] = excludedStale,
             ["excludedUnknownRecords"] = excludedUnknown };
     }

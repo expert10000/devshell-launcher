@@ -2,6 +2,22 @@ using BatchLauncher;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
+if (args.Length is 2 or 3 && args[0] == "--verify-qualification")
+{
+    using var saved = JsonDocument.Parse(File.ReadAllText(Path.Combine(args[1], "results.json")));
+    try
+    {
+        var records = ScientificQualificationRecords.Verify(args[1], saved.RootElement);
+        if (args.Length == 3) throw new Exception("Tampered qualification unexpectedly verified.");
+        Console.WriteLine($"PASS: saved qualification verified ({records.Count} records)");
+    }
+    catch (Exception exception) when (args.Length == 3 && exception is InvalidDataException or IOException)
+    {
+        Console.WriteLine("PASS: tampered qualification rejected: " + exception.Message);
+    }
+    return;
+}
+
 var directory = Path.Combine(Path.GetTempPath(), "devshell-scientific-artifacts-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(Path.Combine(directory, "render"));
 File.WriteAllText(Path.Combine(directory, "sphere.vtp"), "<VTKFile/>\n");
@@ -244,6 +260,7 @@ foreach(var name in new[]{"tools/scientific_worker_contract.py","tools/runtime-l
     "BatchLauncher/ScientificProviderRegistry.cs","BatchLauncher/ScientificRunFingerprint.cs",
     "BatchLauncher/ScientificQualificationRecords.cs",
     "BatchLauncher/Form1.Scientific.L5.cs",
+    "BatchLauncher/Form1.Scientific.L6.cs",
     "tools/scientific-mesh-worker.py","tools/scientific-vtk-render-check.py",
     "BatchLauncher/Form1.Scientific.cs","BatchLauncher/Form1.Scientific.Artifacts.cs",
     "BatchLauncher/Form1.Scientific.RuntimeLab.cs",
@@ -410,6 +427,18 @@ ScientificQualificationRecords.AssessL5Dependencies(l5Assessed,
 Check(l5Assessed[0]?["status"]?.GetValue<string>()=="stale"
     && l5Assessed[0]?["staleReasons"]?.ToJsonString().Contains("L0-L4",StringComparison.Ordinal)==true,
     "L5 becomes stale when a pinned lower record is no longer current");
+var l6Lower = new JsonArray(Enumerable.Range(0,6).Select(index => (JsonNode?)new JsonObject
+    { ["level"]="L"+index,["recordId"]="support-"+index }).ToArray());
+var l6Assessed = new JsonArray(new JsonObject { ["level"]="L6",["status"]="current",
+    ["staleReasons"]=new JsonArray(),["lowerQualification"]=new JsonObject { ["records"]=l6Lower } });
+ScientificQualificationRecords.AssessL5Dependencies(l6Assessed,
+    Enumerable.Range(0,6).Select(index => "support-"+index).ToHashSet(StringComparer.Ordinal));
+Check(l6Assessed[0]?["status"]?.GetValue<string>()=="current","L6 stays current with pinned L0-L5 records");
+ScientificQualificationRecords.AssessL5Dependencies(l6Assessed,
+    Enumerable.Range(0,5).Select(index => "support-"+index).ToHashSet(StringComparer.Ordinal));
+Check(l6Assessed[0]?["status"]?.GetValue<string>()=="stale"
+    && l6Assessed[0]?["staleReasons"]?.ToJsonString().Contains("L0-L5",StringComparison.Ordinal)==true,
+    "L6 becomes stale when its L5 reference is no longer current");
 var buildManifest=new JsonObject { ["schemaVersion"]=1,["id"]="vtk-win-conda",
     ["qualificationRecipes"]=new JsonArray(new JsonObject { ["id"]="compile-link",["readinessLevel"]="L4",["capability"]="vtk.cpp.compile-link" }) };
 File.WriteAllText(manifestFile,buildManifest.ToJsonString());

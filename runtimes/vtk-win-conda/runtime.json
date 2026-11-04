@@ -8,7 +8,8 @@
     { "id": "compile-link", "readinessLevel": "L4", "capability": "vtk.cpp.compile-link" },
     { "id": "l5.worker", "readinessLevel": "L5", "capability": "mesh.read",
       "positive": { "recipeId": "mesh.inspect", "datasetId": "math3d/basic/01_tetrahedron.obj", "outputName": "l5-positive.vtp" },
-      "rejection": { "recipeId": "mesh.inspect", "datasetId": "math3d/import/truncated-ascii.ply", "outputName": "l5-rejected.vtp", "expectedReason": "surface is empty" } }
+      "rejection": { "recipeId": "mesh.inspect", "datasetId": "math3d/import/truncated-ascii.ply", "outputName": "l5-rejected.vtp", "expectedReason": "surface is empty" } },
+    { "id": "l6.reproduce", "readinessLevel": "L6", "capability": "mesh.read", "referenceRecipe": "l5.worker", "comparison": "sha256-exact" }
   ],
   "probes": [
     {

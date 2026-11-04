@@ -64,11 +64,10 @@ public partial class Form1
         {
             var assessed = ScientificQualificationRecords.Assess(
                 ScientificQualificationRecords.Verify(directory, result), sourceDrift, environmentDrift);
-            if (assessed.OfType<JsonObject>().Any(item => item["level"]?.GetValue<string>() == "L5"))
+            if (assessed.OfType<JsonObject>().Any(item => item["level"]?.GetValue<string>() is "L5" or "L6"))
             {
                 var summary = ScientificQualificationSummary(profileId, result.GetProperty("runtimeId").GetString() ?? "");
-                var current = summary["capabilities"]?.AsArray().OfType<JsonObject>()
-                    .SelectMany(item => item["supportingRuns"]?.AsArray().OfType<JsonObject>() ?? [])
+                var current = summary["currentRecords"]?.AsArray().OfType<JsonObject>()
                     .Select(item => item["recordId"]?.GetValue<string>()).OfType<string>()
                     .ToHashSet(StringComparer.Ordinal) ?? new HashSet<string>(StringComparer.Ordinal);
                 ScientificQualificationRecords.AssessL5Dependencies(assessed, current);
@@ -156,6 +155,11 @@ public partial class Form1
             .Where(record => record["status"]?.GetValue<string>() == "current" && record["level"]?.GetValue<string>() is "L0" or "L1" or "L2" or "L3" or "L4")
             .Select(record => record["recordId"]?.GetValue<string>()).OfType<string>()
             .ToHashSet(StringComparer.Ordinal);
+        foreach (var run in runs)
+            if (run["qualifications"] is JsonArray records) ScientificQualificationRecords.AssessL5Dependencies(records, lowerIds, includeL6: false);
+        lowerIds.UnionWith(runs.SelectMany(run => run["qualifications"]?.AsArray().OfType<JsonObject>() ?? [])
+            .Where(record => record["status"]?.GetValue<string>() == "current" && record["level"]?.GetValue<string>() == "L5")
+            .Select(record => record["recordId"]?.GetValue<string>()).OfType<string>());
         foreach (var run in runs)
             if (run["qualifications"] is JsonArray records) ScientificQualificationRecords.AssessL5Dependencies(records, lowerIds);
         return ScientificQualificationRecords.Summarize(runtimeId, runs);

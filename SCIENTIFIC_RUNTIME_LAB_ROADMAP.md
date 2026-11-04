@@ -13,7 +13,7 @@ The UI registry now owns the five existing runtime declarations, visible section
 | DS-SCI-001 runtime plugin contract | UI registry owns five providers' sections, probes, fixed catalog tests, recipe views and artifact routes; versioned native registry scopes managed actions and checks each runtime manifest; desktop provider switching checked | Shared generated UI/backend contract remains follow-up hardening |
 | DS-SCI-002 runtime view leakage | Manual desktop switching checked for CGAL, VTK, Gmsh, Python/SciPy, Sage Windows/WSL and Docker; provider Catalog/coverage and locked History observed; historical CGAL 35/35 result opened in DevShell; repeatable CDP desktop check passed on a debug-port launch | Keep the CDP check as the provider-routing regression gate |
 | DS-SCI-003 immutable fingerprints | New managed runs save a non-overwritable `fingerprint.json` and result digest. History verifies it and derives separate current/stale/unknown source and environment drift without rewriting evidence. Fingerprints include source, recipe suite revision, Conda package records, relevant toolchain hashes, contract and executed-file identities. Sage/WSL records the provider, system or Conda package inventory, and shell tools. Fresh managed desktop runs and the History drift view were checked on all five providers on 2026-11-04. | Use these identities as DS-SCI-004 qualification inputs; require successful capability evidence before advancing any level |
-| DS-SCI-004 qualification records and current levels | Successful managed runs with verified fingerprints save immutable per-capability records pinned to their run, suite revision, registered probe/recipe and contract. History verifies each file and derives current/stale/unknown status and reasons. A provider-scoped summary selects the highest current level per capability across saved runs and links to supporting runs; non-successful, stale and unknown evidence cannot raise a level. CGAL/VTK have current L4 compile/link and scoped L5 worker records; Gmsh remains unqualified. | Extend gates through L6–L9 |
+| DS-SCI-004 qualification records and current levels | Successful managed runs with verified fingerprints save immutable per-capability records pinned to their run, suite revision, registered probe/recipe and contract. History verifies each file and derives current/stale/unknown status and reasons. A provider-scoped summary selects the highest current level per capability across saved runs and links to supporting runs; non-successful, stale and unknown evidence cannot raise a level. CGAL/VTK have scoped L4 compile/link, L5 worker and L6 reproduction records; Gmsh remains unqualified. | Extend gates through L7–L9 |
 | DS-SCI-005–007 qualification foundations | Planned | Add provider-specific suites, versioned worker/artifact contracts and higher-level evidence gates |
 | DS-SCI-008–010 comparisons and export | Planned | Compare pinned run inputs and fingerprints; export redacted, hash-verifiable evidence bundles |
 | DS-SCI-011–025 provider and MATH3D path | Existing narrow probes; broader qualification planned | Expand real VTK/Sage/Gmsh suites and qualify typed broker-to-MATH3D artifact round trips |
@@ -65,10 +65,21 @@ CGAL `mesh.validate` and VTK `mesh.read` each have one registered fixed positive
 
 | Provider | Fresh L5 run ID | Positive / expected rejection |
 |---|---|---|
-| CGAL / Windows | `51eedb2805a64080924d6149a0dec8d2` | Tetrahedron OBJ produces `positive/l5-positive.obj`; degenerate faces are rejected as non-manifold |
-| VTK / Windows | `75b23cd9a0fc4fd886ebc671f1ddc8f8` | Tetrahedron OBJ produces `positive/l5-positive.vtp`; truncated PLY is rejected as an empty surface |
+| CGAL / Windows | `ae0486cc7f3f422a8a2437532becf17e` | Tetrahedron OBJ produces `positive/l5-positive.obj`; degenerate faces are rejected as non-manifold |
+| VTK / Windows | `2a63739eb7924f80965e364d3a9c648d` | Tetrahedron OBJ produces `positive/l5-positive.vtp`; truncated PLY is rejected as an empty surface |
 
 Fresh L0–L4 prerequisite runs and L5 records were verified in the desktop app. The later cross-provider check refreshed Python/SciPy and Sage records; Gmsh's probe `78e59a4ec0d34edc810dd323712b0591` still failed with the missing package and produced no qualification. These artifacts form the inputs for L6 across-run reproduction checks; L5 does not claim reproduction.
+
+### L6 artifact reproduction (2026-11-04)
+
+The CGAL and VTK L6 action selects a current L5 record for the same capability, reruns its fixed positive and rejection cases, and compares the new positive output SHA-256 with the saved L5 artifact SHA-256. It also checks fixture hashes, worker contract and environment identities, the expected rejection and output absence. The result pins the L5 run, record, fingerprint and artifact; History displays both hashes and opens the reference run. A mismatch is saved as a failed run and cannot grant L6. A later change to any pinned L0–L5 record makes the L6 level stale.
+
+| Provider | L5 reference run | L6 rerun | Artifact SHA-256 |
+|---|---|---|---|
+| CGAL / Windows | `ae0486cc7f3f422a8a2437532becf17e` | `29ea816457e9465aa861bfe6b36c5641` | `ba069199174d510331c8fc1daa3fd61e5ae51a33935acc51072f4b312e960480` |
+| VTK / Windows | `2a63739eb7924f80965e364d3a9c648d` | `8c81ca0ab8d4420e894e64774743e692` | `8c43e5d1331bc6f818cbe9bf7d398c80dbc739be332ade2a8fe8735c8ff05b1c` |
+
+The desktop check verified current L6 summary links for both providers and opened each L5 reference from History. A copied VTK L6 record verified before its output artifact was modified; verification rejected the changed bytes. The latest Gmsh probe (`36352f1a2ee347b894c7991cce1cf087`) still failed because the package is missing, so Gmsh has no L5 or L6 action or qualification.
 
 ## Boundary
 
@@ -96,7 +107,7 @@ These probes are narrower than the existing full installation report. The VTK ma
 - [x] Separate executable, checked-in manifests, isolated child probes, bounded output, timeout/kill, per-run result and environment snapshot.
 - [x] Connect DevShell Scientific Runtimes to `runtime-lab` through a managed native action, with live logs, Stop, and History using the existing job service. Probes run only when clicked, not on workspace opening.
 - [ ] Add declarative `run`, `test`, and `bench` recipes with typed parameters, validated input/output paths, immutable invocation records, and reproducible artifacts. Keep argv execution; never substitute shell command strings.
-- [ ] Implement readiness levels L0-L9 as evidence gates. Health and Commands now load the newest saved managed probe from History and prefer a live result when present; L0–L5 have scoped evidence gates, while L6–L9 remain pending.
+- [ ] Implement readiness levels L0-L9 as evidence gates. Health and Commands now load the newest saved managed probe from History and prefer a live result when present; L0–L6 have scoped evidence gates, while L7–L9 remain pending.
 - [ ] Extend the CGAL adapter with C++ SDK/compiler/CMake checks, compile/link, Surface_mesh, mesh validate/remesh/repair/boolean/simplify, and geometry AABB/distance/intersection recipes as implementations become available.
 - [ ] Extend VTK independently across Python, C++ SDK, polydata I/O, interactive rendering, and offscreen rendering. Store a render image as an artifact, not just an exit code.
 - [ ] Add Gmsh, SageMath, and Python/SciPy manifests only with working adapters and truthfully scoped capability evidence. Support Windows Native, WSL, and Docker as separate execution profiles rather than assuming path compatibility.

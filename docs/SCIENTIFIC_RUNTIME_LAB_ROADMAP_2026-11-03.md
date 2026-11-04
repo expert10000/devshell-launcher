@@ -1472,13 +1472,19 @@ Two-source build/test matrix and evidence diff.\
 Isolated worktree bisect runner with good/bad/skip classification.\
 **Acceptance:** builds or infrastructure failures cannot be incorrectly classified as scientific bad commits.
 
+**2026-11-04 scoped delivery:** `bisect_commits.py` checks a linear first-parent range in temporary detached worktrees using the DS-SCI-031 build, reload tests and fixed tetrahedron contract. Build, test setup, missing suite and inspection infrastructure failures classify `skip`; a scientific assertion or validated geometry mismatch classifies `bad`. It reports a first bad commit only with adjacent good/bad evidence, otherwise an inconclusive boundary, and saves exact commit/tree, environment, logs, classifications and replay command. An isolated-worktree test found a synthetic first bad commit; a live check of known-good `cb0ae57` and `2496d5e` saved report `5bcffecdbdf14b87953b790f6450d996` with `invalid-endpoints`, correctly naming no regression.
+
 **DS-SCI-033 — `feat(scientific): add cross-runtime differential testing`**\
 Canonical comparator library for mesh/field/exact math results.\
 **Acceptance:** equivalent-but-differently-triangulated meshes can pass geometric equivalence checks.
 
+**2026-11-04 scoped delivery:** `differential.py` compares bounded OBJ/VTP surfaces with topology invariants, symmetric sampled point-to-triangle deviation, orientation, bounds, area and signed volume; scalar/vector fields by canonical sample ID, unit and tolerance; and rational/polynomial exact values by normalized fractions. Alternate square triangulations pass while reversed orientation and changed scale fail. Historical successful CGAL OBJ and VTK VTP L6 runs, each checked against its registered artifact and fingerprint, produced equivalent tetrahedron geometry in local report `a45bf36ae44643bfbe04d9f352e96d54`. The sampled mesh method is explicitly bounded and does not certify new provider capabilities.
+
 **DS-SCI-034 — `feat(scientific): add runtime-matrix dashboard`**\
 Summarize provider availability, qualified capabilities, stale verdicts and regressions.\
 **Acceptance:** every dashboard verdict drills down to specific evidence.
+
+**2026-11-04 scoped delivery:** the desktop Scientific Runtimes **Matrix** section combines the recorded local inventory, each provider's verified current qualification summary, stale/unknown reasons from recent saved run results and failure-after-success review candidates. Availability opens the provider's recorded State checks; capability and stale entries open the source run in History; candidate failures link both runs. A CDP desktop check showed all five providers, Gmsh without a current qualification, a CGAL stale run drill-down, and evidence navigation. At this checkout the CGAL summary reports 163 stale records and no current level because saved source and suite fingerprints differ from present files; the dashboard does not promote them. This is a read-only dashboard over saved evidence; failure-after-success is labelled as a review candidate rather than an established scientific regression.
 
 **DS-SCI-035 — `feat(scientific): add selective retest dependency graph`**\
 Versioned graph of suites and source/schema/toolchain dependencies.\

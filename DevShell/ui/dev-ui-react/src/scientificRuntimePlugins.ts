@@ -1,6 +1,6 @@
 import type { RuntimeExecution, RuntimeKind, RuntimeProbe } from './scientificRuntimeProfiles'
 
-export const scientificSections = ['State', 'Environment', 'Commands', 'Boolean', 'Tests', 'Catalog', 'Benchmarks', 'Packages', 'Artifacts', 'History', 'Integration'] as const
+export const scientificSections = ['State', 'Matrix', 'Environment', 'Commands', 'Boolean', 'Tests', 'Catalog', 'Benchmarks', 'Packages', 'Artifacts', 'History', 'Integration'] as const
 export type ScientificSection = typeof scientificSections[number]
 
 export interface ScientificCatalogTest {
@@ -31,7 +31,7 @@ export interface ScientificRuntimePlugin {
   catalogTests?: ScientificCatalogTest[]
 }
 
-const common: ScientificSection[] = ['State', 'Environment', 'Tests', 'Benchmarks', 'Packages', 'History', 'Integration']
+const common: ScientificSection[] = ['State', 'Matrix', 'Environment', 'Tests', 'Benchmarks', 'Packages', 'History', 'Integration']
 
 // These declarations describe shipped UI and managed entry points, not installed libraries
 // or certified capabilities. Qualification still comes from run-scoped evidence.
@@ -68,6 +68,6 @@ export function scientificPlugin(kind: RuntimeKind): ScientificRuntimePlugin | u
 
 export function runtimeSections(kind: RuntimeKind, execution: RuntimeExecution): ScientificSection[] {
   const plugin = scientificPlugin(kind)
-  if (!plugin || !plugin.configuredBackends.includes(execution)) return ['State', 'Environment', 'Packages', 'History']
+  if (!plugin || !plugin.configuredBackends.includes(execution)) return ['State', 'Matrix', 'Environment', 'Packages', 'History']
   return scientificSections.filter(section => plugin.sections.includes(section))
 }

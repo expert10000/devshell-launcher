@@ -9,7 +9,8 @@ const metric = (value: number | null | undefined) => typeof value === 'number' &
 
 function HistoryThumbnail({ entry, native, onPreview }: { entry: ScientificHistoryEntry; native: ReturnType<typeof useScientificRuntime>; onPreview: () => void }) {
   const button = useRef<HTMLButtonElement>(null)
-  const send = useRef(native.send); send.current = native.send
+  const send = useRef(native.send)
+  useEffect(() => { send.current = native.send }, [native.send])
   const key = `${entry.jobId}|${entry.thumbnailPath}`
   const thumbnail = native.historyThumbnails[key]
   useEffect(() => {
@@ -30,7 +31,7 @@ function HistoryThumbnail({ entry, native, onPreview }: { entry: ScientificHisto
   </button>
 }
 
-export function ScientificHistory({ native, runtimeId, comparisonSeed = [], showComparisonPresets = false }: { native: ReturnType<typeof useScientificRuntime>; runtimeId: string; comparisonSeed?: string[]; showComparisonPresets?: boolean }) {
+export function ScientificHistory({ native, runtimeId, focusRunId = null, comparisonSeed = [], showComparisonPresets = false }: { native: ReturnType<typeof useScientificRuntime>; runtimeId: string; focusRunId?: string | null; comparisonSeed?: string[]; showComparisonPresets?: boolean }) {
   const entries = native.history
   const qualificationSummary = native.qualificationSummaries[runtimeId]
   useEffect(() => {
@@ -41,6 +42,13 @@ export function ScientificHistory({ native, runtimeId, comparisonSeed = [], show
   const [stateFilter, setStateFilter] = useState('')
   const filteredEntries = entries?.filter(entry => entry.runtimeId === runtimeId && (!stateFilter || entry.state === stateFilter))
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
+  useEffect(() => {
+    if (!focusRunId || !entries?.some(entry => entry.jobId === focusRunId && entry.runtimeId === runtimeId)) return
+    setSelectedJobId(focusRunId)
+    native.send(runtimeId, 'history-result', { jobId: focusRunId })
+    // The focused run changes only when a matrix evidence link is followed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRunId, entries, runtimeId])
   const selectedVisible = !!selectedJobId && (!!filteredEntries?.some(entry => entry.jobId === selectedJobId)
     || !!qualificationSummary?.capabilities.some(capability => capability.supportingRuns.some(run => run.runId === selectedJobId)))
   const result = selectedVisible && selectedJobId ? native.historyResults[selectedJobId] ?? null : null

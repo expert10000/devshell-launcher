@@ -97,3 +97,14 @@ The concurrency suite runs the qualified CGAL fixture twice at 1, 2, 4 and 8 con
 Each new broker job writes `source-snapshot.json` before the worker starts. It records the full Git commit and tree, branch/worktree identity, tracked patch hash, hashes of untracked files and an aggregate dirty digest. The broker request and result pin the snapshot hash, and promotion refuses a tampered snapshot. Source capture only reads Git state and files; a missing Git checkout is recorded as unavailable. Old run snapshots remain inspectable after a branch advances.
 
 The commit comparison creates temporary detached Git worktrees for two distinct commits, then runs the same .NET broker build, independent mesh reload tests and fixed tetrahedron OBJ inspection in each. It saves both exact commit/tree identities, suite revisions, host/tool environment, logs, geometry evidence and an evidence diff. Build or test failure yields `inconclusive`, so infrastructure failures are never presented as scientific regressions. The worktrees are removed after execution; saved evidence remains under `output-root`. This source matrix does not qualify a worker binary or grant broker promotion.
+
+## Bisect and cross-runtime differences (DS-SCI-032/033)
+
+```powershell
+python tools/scientific-broker/bisect_commits.py --repo <devshell-repo> --good <known-good-commit> --bad <known-bad-commit> --output-root <local-evidence-directory>
+python tools/scientific-broker/differential.py --left-result <cgal-results.json> --left-artifact <registered.obj> --right-result <vtk-results.json> --right-artifact <registered.vtp> --output-root <local-evidence-directory>
+```
+
+The bisect runner accepts a linear first-parent range. It executes the fixed DS-SCI-031 build/test/mesh matrix in temporary detached worktrees. Build or setup errors classify `skip`; a scientific test assertion or validated mesh contract mismatch classifies `bad`. Skipped commits between the last good and first bad yield an inconclusive boundary, never a claimed first bad. Every examined commit has a saved classification and exact source/environment evidence. The current repository has no declared bad endpoint; comparing two known-good commits returns `invalid-endpoints`.
+
+The differential tool verifies saved successful run, registered artifact and fingerprint identities before comparing OBJ/VTP surfaces. It checks component topology, sampled surface deviation in both directions, orientation, bounds, area and signed volume. The library also compares numeric field samples by canonical ID and unit and exact rational/polynomial results using normalized fractions. Alternate triangulations can be equivalent even when artifact hashes differ. Mesh comparison is bounded to 500 triangles per side and uses samples rather than a full exact surface proof. Caller-supplied field/exact descriptors have schema version, kind, runtime/run IDs and data; they are comparison inputs, not new qualification evidence.

@@ -20,6 +20,7 @@ import { ScientificMath3DIntegration } from './ScientificMath3DIntegration'
 import { ScientificMath3DManagedJob } from './ScientificMath3DManagedJob'
 import { ScientificSagePanel } from './ScientificSagePanel'
 import { ScientificMath3DTestCatalog } from './ScientificMath3DTestCatalog'
+import { ScientificRuntimeMatrix } from './ScientificRuntimeMatrix'
 
 type ScientificProject = { id: string; name: string; root?: string | null; repositories?: { id: string; name: string; path?: string | null }[] }
 function hostRootFor(projects: ScientificProject[]) {
@@ -32,6 +33,7 @@ export function ScientificRuntimesWorkspace({ profileId, projects, bridge }: { p
   const [execution, setExecution] = useState<RuntimeExecution>('windows-native')
   const [runtimeKind, setRuntimeKind] = useState('cgal')
   const [historyComparison, setHistoryComparison] = useState<string[]>([])
+  const [historyFocus, setHistoryFocus] = useState<string | null>(null)
   const [section, setSection] = useState<ScientificSection>('State')
   const [overrides, setOverrides] = useState<Record<string, Partial<RuntimeProfile>>>({})
   const [copyStatus, setCopyStatus] = useState('')
@@ -39,7 +41,7 @@ export function ScientificRuntimesWorkspace({ profileId, projects, bridge }: { p
   const [reportError, setReportError] = useState('')
   const [reportLoading, setReportLoading] = useState(false)
   const reportGeneration = useRef(0)
-  useEffect(() => { reportGeneration.current++; setExecution('windows-native'); setRuntimeKind('cgal'); setSection('State'); setHistoryComparison([]); setOverrides({}); setCopyStatus(''); setReport(null); setReportError(''); setReportLoading(false); return () => { reportGeneration.current++ } }, [profileId])
+  useEffect(() => { reportGeneration.current++; setExecution('windows-native'); setRuntimeKind('cgal'); setSection('State'); setHistoryComparison([]); setHistoryFocus(null); setOverrides({}); setCopyStatus(''); setReport(null); setReportError(''); setReportLoading(false); return () => { reportGeneration.current++ } }, [profileId])
   const profiles = useMemo(() => createScientificProfiles(hostRoot, execution), [hostRoot, execution])
   const seed = profiles.find(profile => profile.kind === runtimeKind) ?? profiles[0]
   const plugin = scientificPlugin(seed.kind)
@@ -77,6 +79,17 @@ export function ScientificRuntimesWorkspace({ profileId, projects, bridge }: { p
     finally { if (generation === reportGeneration.current) setReportLoading(false) }
   }
   const native = useScientificRuntime(bridge, profileId, () => { void loadReport() })
+  const matrixProfiles = [...createScientificProfiles(hostRoot, 'windows-native').filter(item => item.kind !== 'sage'),
+    ...createScientificProfiles(hostRoot, 'wsl').filter(item => item.kind === 'sage')]
+  const openMatrixProvider = (runtimeId: string, target: 'State' | 'History') => {
+    const profile = matrixProfiles.find(item => item.id === runtimeId)
+    if (!profile) return
+    setExecution(profile.execution); setRuntimeKind(profile.kind); setSection(target); setHistoryFocus(null); setHistoryComparison([])
+  }
+  const openMatrixRun = (runtimeId: string, runId: string) => {
+    openMatrixProvider(runtimeId, 'History')
+    setHistoryFocus(runId)
+  }
   useEffect(() => { if (bridge && profileId) void loadReport() }, [bridge, profileId])
   useEffect(() => {
     if (!native.booleanDraft) return
@@ -136,7 +149,7 @@ export function ScientificRuntimesWorkspace({ profileId, projects, bridge }: { p
       <aside className="scientific-runtime-inventory" aria-label="Scientific runtime inventory">
         <label>Environment<select aria-label="Scientific execution environment" value={execution} onChange={event => { setExecution(event.target.value as RuntimeExecution); setSection('State'); setHistoryComparison([]); setCopyStatus('') }}>{Object.entries(executionNames).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <p className="scientific-runtime-note">{execution === 'windows-native' ? report ? 'Recorded installation and probe evidence loaded. Partial means some capabilities remain untested; this is not a live state check.' : 'Candidate native paths. Load a local report to see recorded installation and probe evidence.' : execution === 'wsl' ? 'SageMath has explicit state and exact factorization tests. Selecting a runtime does not start WSL.' : 'Adapter planned. Selecting it does not start Docker.'}</p>
-        {profiles.map(profile => { const inventory = report?.runtimes.find(item => item.id === profile.id); const live = native.jobs[profile.id]; const supported = scientificPlugin(profile.kind)?.configuredBackends.includes(execution); return <button key={profile.id} className={`scientific-runtime-item ${runtime.kind === profile.kind ? 'selected' : ''}`} aria-pressed={runtime.kind === profile.kind} onClick={() => { setRuntimeKind(profile.kind); setSection('State'); setHistoryComparison([]); setCopyStatus('') }}><strong>{profile.name}</strong><span>{!supported ? 'Not configured' : live && profile.id === 'sage-wsl' ? `${live.state} / live test` : inventory ? `${inventory.state} / ${inventory.version ?? 'unknown version'}` : 'Inventory not loaded'}{supported && profile.id === 'cgal-win-conda' && matrixLabel ? ` / ${matrixLabel}` : ''}</span><small>{profile.id}</small></button> })}
+        {profiles.map(profile => { const inventory = report?.runtimes.find(item => item.id === profile.id); const live = native.jobs[profile.id]; const supported = scientificPlugin(profile.kind)?.configuredBackends.includes(execution); return <button key={profile.id} className={`scientific-runtime-item ${runtime.kind === profile.kind ? 'selected' : ''}`} aria-pressed={runtime.kind === profile.kind} onClick={() => { setRuntimeKind(profile.kind); setSection('State'); setHistoryComparison([]); setHistoryFocus(null); setCopyStatus('') }}><strong>{profile.name}</strong><span>{!supported ? 'Not configured' : live && profile.id === 'sage-wsl' ? `${live.state} / live test` : inventory ? `${inventory.state} / ${inventory.version ?? 'unknown version'}` : 'Inventory not loaded'}{supported && profile.id === 'cgal-win-conda' && matrixLabel ? ` / ${matrixLabel}` : ''}</span><small>{profile.id}</small></button> })}
       </aside>
       <section className="scientific-runtime-detail" aria-label={`${runtime.name} runtime details`}>
         <div className="scientific-runtime-detail-heading"><div><h2>{runtime.name} / {executionNames[execution]}</h2><code>{runtime.id}</code></div><span className="scientific-runtime-status">{!configured ? 'Not configured' : runtime.id === 'sage-wsl' && native.jobs[runtime.id] ? `${native.jobs[runtime.id].state} / live test` : edited ? 'Definition edited / not checked' : observed ? `${observed.state} / ${observed.version ?? 'unknown version'}` : 'Inventory not loaded / version unknown'}{configured && runtime.id === 'cgal-win-conda' && matrixLabel ? ` / ${matrixLabel}` : ''}</span></div>
@@ -163,7 +176,8 @@ export function ScientificRuntimesWorkspace({ profileId, projects, bridge }: { p
           {activeSection === 'Benchmarks' && <><h3>Reproducible benchmarks</h3><p>No benchmark runs. The runner will record input size, runtime/tool versions, hardware metadata, duration, and output validity before timings can be compared.</p><button disabled title="Benchmark recipes follow the managed runner">Run benchmark</button></>}
           {activeSection === 'Packages' && <><h3>Package provenance</h3>{observed ? <div className="scientific-runtime-package-scroll"><table><thead><tr><th>Package</th><th>Version</th><th>Build</th><th>Source</th></tr></thead><tbody>{observed.packages.map((item, index) => <tr key={`${item.name}:${index}`}><td>{item.name}</td><td>{item.version}</td><td>{item.build}</td><td>{item.source}</td></tr>)}</tbody></table></div> : <p>No package inventory loaded.</p>}{plugin?.sdk && <><p>Explicit install-missing workflow: <code>tools/Install-ScientificRuntimes.ps1 -WorkspaceRoot &lt;workspace&gt; -CondaExecutable &lt;conda.exe&gt; -PublishToLauncher</code></p><p className="scientific-runtime-note">Creates separate devshell-cgal/devshell-vtk environments. Existing MATH3D environments and system PATH are unchanged; environments with all required packages are not upgraded.</p></>}</>}
           {activeSection === 'Artifacts' && plugin?.artifactView === 'mesh' && <><ScientificArtifacts runtime={runtime} native={native} /><button disabled={!math3dProject || !math3dRepo} onClick={() => { if (math3dProject && math3dRepo) window.dispatchEvent(new CustomEvent('devshell.workspace.open', { detail: { kind: 'files', projectId: math3dProject.id, repositoryId: math3dRepo.id } })) }}>Open MATH3D files</button></>}
-          {activeSection === 'History' && <ScientificHistory key={runtime.id} native={native} runtimeId={runtime.id} comparisonSeed={historyComparison} showComparisonPresets={plugin?.comparisonPresets} />}
+          {activeSection === 'Matrix' && <ScientificRuntimeMatrix profiles={matrixProfiles} report={report} native={native} onOpenProvider={openMatrixProvider} onOpenRun={openMatrixRun} />}
+          {activeSection === 'History' && <ScientificHistory key={runtime.id} native={native} runtimeId={runtime.id} focusRunId={historyFocus} comparisonSeed={historyComparison} showComparisonPresets={plugin?.comparisonPresets} />}
           {activeSection === 'Integration' && plugin?.integrationView === 'cgal' && <><ScientificMath3DIntegration runtime={runtime} native={native} edited={edited} onHistory={() => setSection('History')} /><ScientificMath3DManagedJob native={native} onHistory={() => setSection('History')} /><h3>MATH3D execution contract</h3><p>This is a request-schema preview, not a submitted job. Worker transport must consume structured requests/results, not parse terminal presentation.</p><pre>{JSON.stringify(contract, null, 2)}</pre><button onClick={copyProfile}>Copy profile definition</button><p>Outputs include exit state, duration, resolved versions, validated capabilities, diagnostics, log references, and scoped artifact references.</p></>}
           {activeSection === 'Integration' && plugin?.integrationView === 'unconfigured' && <><h3>{runtime.name} / MATH3D integration</h3><p>Not configured. No MATH3D worker contract or artifact import suite is registered for this provider.</p></>}
           {(activeSection === 'State' || activeSection === 'Environment') && configured && plugin?.sdk && <>

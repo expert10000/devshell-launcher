@@ -1490,15 +1490,21 @@ Summarize provider availability, qualified capabilities, stale verdicts and regr
 Versioned graph of suites and source/schema/toolchain dependencies.\
 **Acceptance:** affected changes trigger conservative relevant requalification without blindly rerunning all suites.
 
+**2026-11-05 scoped delivery:** `schemas/scientific-retest-graph.v1.json` maps 18 provider and local suites to source patterns, environment keys and downstream dependencies. `retest.py` takes Git refs or explicit changed paths/keys, plans only affected suites, selects all for unmapped code changes, saves the graph hash and reasons, and can run selected allowlisted local unit suites. Managed qualification suites are reported as `requires-managed-run`; this planner does not itself grant or refresh desktop L0–L9 records. Gmsh probes remain unqualified.
+
 ### P3 — Orchestration, remote execution and release
 
 **DS-SCI-036 — `feat(pipelines): add typed scientific pipeline composer`**\
 DAG nodes based on qualified capabilities, typed ports, artifact caching and replay.\
 **Acceptance:** incompatible artifact types are rejected before execution; every node records provenance.
 
+**2026-11-05 scoped delivery:** `pipeline.py` preflights an entire version 1 DAG against three allowlisted node kinds for the certified CGAL fixture: broker mesh validation, independent OBJ inspection, and MATH3D promotion. It rejects wrong ports, incompatible types, cycles, unqualified capabilities and mixed promotion sources before launching a worker. Each node saves input/output hashes and certification provenance; mesh inspection has a hash-sealed cache, and replay verifies saved artifacts and reruns the same specification. This is a fixed CGAL pilot, not general provider orchestration.
+
 **DS-SCI-037 — `feat(remote): add authenticated remote runtime agents`**\
 Remote execution profiles, resource policies, identity and integrity checks.\
 **Acceptance:** remote and local results remain clearly distinguished; no arbitrary unauthenticated code execution.
+
+**2026-11-05 scoped delivery:** `remote_agent.py` serves the fixed qualified CGAL job over TLS. A client checks the certificate chain and hostname plus pinned agent, host and certified-manifest identities; the server requires a token and accepts only the qualified fixture and bounded timeout. The broker enforces its worker capacity and optional memory budget. A remote result carries `executionLocation: remote`, source job and transport hashes, and its artifact bytes are verified again after download. Remote evidence does not raise local qualification. The deployment needs separately provisioned certificate, token and client trust files; the loopback integration test covers rejection and tamper cases.
 
 **DS-SCI-038 — `feat(ci): add scientific CI evidence import and export`**\
 Exchange bundles, reconcile suite revisions and expose CI matrices in DevShell.\

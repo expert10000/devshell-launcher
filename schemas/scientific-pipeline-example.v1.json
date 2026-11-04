@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "nodes": [
+    {"id": "worker", "kind": "qualified.cgal.mesh.validate", "inputs": {}},
+    {"id": "inspect", "kind": "mesh.inspect", "inputs": {"mesh": "worker.mesh"}},
+    {"id": "promote", "kind": "math3d.promote", "inputs": {"mesh": "worker.mesh", "handoff": "worker.handoff"}}
+  ]
+}

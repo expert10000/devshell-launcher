@@ -108,3 +108,45 @@ python tools/scientific-broker/differential.py --left-result <cgal-results.json>
 The bisect runner accepts a linear first-parent range. It executes the fixed DS-SCI-031 build/test/mesh matrix in temporary detached worktrees. Build or setup errors classify `skip`; a scientific test assertion or validated mesh contract mismatch classifies `bad`. Skipped commits between the last good and first bad yield an inconclusive boundary, never a claimed first bad. Every examined commit has a saved classification and exact source/environment evidence. The current repository has no declared bad endpoint; comparing two known-good commits returns `invalid-endpoints`.
 
 The differential tool verifies saved successful run, registered artifact and fingerprint identities before comparing OBJ/VTP surfaces. It checks component topology, sampled surface deviation in both directions, orientation, bounds, area and signed volume. The library also compares numeric field samples by canonical ID and unit and exact rational/polynomial results using normalized fractions. Alternate triangulations can be equivalent even when artifact hashes differ. Mesh comparison is bounded to 500 triangles per side and uses samples rather than a full exact surface proof. Caller-supplied field/exact descriptors have schema version, kind, runtime/run IDs and data; they are comparison inputs, not new qualification evidence.
+
+## Selective retesting (DS-SCI-035)
+
+```powershell
+python tools/scientific-broker/retest.py --base HEAD~1 --head HEAD --output-root .scientific/retest --execute-local
+python tools/scientific-broker/retest.py --changed tools/scientific-cgal-worker.py --environment-changed cgal.packages --output-root .scientific/retest
+```
+
+The version 1 graph in `schemas/scientific-retest-graph.v1.json` records suite source patterns, environment keys and dependencies. A plan has the graph hash, changed paths, affected suites and reasons. Unmapped code or environment changes select every suite; documentation changes select none. `--execute-local` runs only fixed local unittest commands. The broker and pipeline integration tests need `SCIENTIFIC_BROKER_CONFIG` set to a local broker configuration; without it those checks report `requires-broker-config`. Desktop-managed suites report `requires-managed-run` and still need fresh managed qualification records. A plan is never qualification evidence by itself. For a MATH3D checkout change outside this repository, pass the changed file as an explicit `--changed math3d/...` path.
+
+## Typed pipeline pilot (DS-SCI-036)
+
+```powershell
+python tools/scientific-broker/pipeline.py run --config .scientific/broker/config.json --spec schemas/scientific-pipeline-example.v1.json
+python tools/scientific-broker/pipeline.py verify --record <pipeline-result.json>
+python tools/scientific-broker/pipeline.py replay --config .scientific/broker/config.json --record <pipeline-result.json>
+```
+
+Version 1 accepts a DAG with only `qualified.cgal.mesh.validate` (no input, `mesh.obj.v1` and `math3d.handoff.v1` outputs), `mesh.inspect` (`mesh.obj.v1` to `mesh.metrics.v1`) and `math3d.promote` (the same worker's mesh and handoff to `math3d.promotion.v1`). Preflight checks the entire graph, types, cycles and the deployed certified manifest before a job starts. The worker uses the fixed qualified tetrahedron fixture. Each node records source job, contract, certification, typed inputs and output hashes. The independent inspection cache is keyed by mesh and parser source hashes and sealed with a hash sidecar. The pipeline record and artifact hashes are checked before replay; replay compares worker and inspection output hashes. Only a successful current broker promotion counts as an allowed MATH3D handoff. The deployment manifest is a certification snapshot, so re-export it when the desktop's current evidence changes.
+
+## Authenticated remote agent pilot (DS-SCI-037)
+
+Provision a server certificate with a hostname that the client can validate, a private key, a trusted CA file on the client, and a random token in a protected file on both hosts. Server profile JSON:
+
+```json
+{"schemaVersion":1,"agentId":"lab-agent-1","hostId":"lab-host-1","brokerConfig":"<absolute broker config>","certFile":"<certificate PEM>","keyFile":"<private key PEM>","tokenFile":"<token file>","bindHost":"127.0.0.1","maxTimeoutSeconds":120}
+```
+
+Client profile JSON:
+
+```json
+{"url":"https://lab-agent.example:8766","agentId":"lab-agent-1","hostId":"lab-host-1","manifestSha256":"<certified manifest SHA-256>","caFile":"<trusted CA PEM>","tokenFile":"<token file>"}
+```
+
+```powershell
+python tools/scientific-broker/remote_agent.py serve --config <server-profile.json> --port 8766
+python tools/scientific-broker/remote_agent.py profile --config <client-profile.json>
+python tools/scientific-broker/remote_agent.py run --config <client-profile.json> --output-root <local-evidence-directory>
+python tools/scientific-broker/remote_agent.py verify --record <remote-evidence.json>
+```
+
+TLS validates the server certificate and hostname; the client also pins the agent, host and manifest identity. All routes require the bearer token. The server accepts no command, path or arbitrary input bytes from the client. It runs only the certified CGAL fixture, with a bounded timeout, the broker's worker capacity and optional memory budget. Cancellation is available at `POST /v1/jobs/{id}/cancel`. Returned OBJ and handoff bytes are checked against the registered job hashes and certified reference. Saved remote transport evidence is hash sealed and explicitly marked `remote`; it cannot be substituted for local L0–L9 qualification. Protect the key and token files with OS permissions and expose the server only on an intended trusted interface.

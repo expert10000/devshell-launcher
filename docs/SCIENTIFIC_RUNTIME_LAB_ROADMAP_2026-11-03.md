@@ -1452,15 +1452,21 @@ Timeout, kill, orphan detection, partial artifact cleanup and status mapping.\
 Concurrent recipes, artifact isolation, memory pressure and scheduling tests.\
 **Acceptance:** repeated jobs produce isolated results and report resource-related failures clearly.
 
+**2026-11-04 scoped delivery:** the standalone broker caps concurrent workers and optionally enforces sampled process-tree resident memory. A launch gate attaches process observation before the adapter starts. Live suite `ea42c05bef1641b68db00c947379f1fb` passed two batches at each of 1, 2, 4 and 8 real CGAL jobs (30 total), verifying the requested peak adapter overlap with per-job timing hashes, unique directories, own-run request/result/handoff identities, fixed output hashes and cleanup. A held diagnostic job produced a clear capacity rejection; a real CGAL job exceeded a 1 MiB test budget, ended `resource-exhausted`, cleaned up and could not be promoted. This covers the fixed qualified CGAL path on the local Windows host, not every provider or GPU scheduling.
+
 ### P2 — Repositories, comparisons, retesting
 
 **DS-SCI-030 — `feat(repos): bind scientific runs to commits and worktrees`**\
 Source snapshot and dirty-state evidence with safe read-only default.\
 **Acceptance:** historical run remains attributable after branch advances.
 
+**2026-11-04 scoped delivery:** each new broker job captures a hash-verified `source-snapshot.json` before worker launch. It records full Git commit/tree, branch and worktree identities, tracked patch digest, hashed untracked files and aggregate dirty digest for DevShell and the configured MATH3D checkout. Request, job result and promotion link to the snapshot; tampering blocks promotion. A missing Git checkout has an explicit unavailable status. A focused test advances a branch and verifies that the earlier commit remains attributable.
+
 **DS-SCI-031 — `feat(repos): compare scientific results across commits`**\
 Two-source build/test matrix and evidence diff.\
 **Acceptance:** baseline and candidate each identify exact sources and environments.
+
+**2026-11-04 scoped delivery:** `compare_commits.py` runs the same broker .NET build, independent OBJ/VTP reload tests and fixed tetrahedron geometry inspection from two isolated, detached Git worktrees. It requires nonzero test counts and the fixed tetrahedron geometry contract, including orientation and scale. It saves exact commit/tree and suite hashes, one shared host/tool environment fingerprint, stage logs and a geometry/source evidence diff. Local matrix `229dc6be05ff4de7b005402bafda1833` compared `cb0ae57` to `2496d5e`: both built and passed tests, and geometry was equivalent while the broker project revision changed. Worktrees were removed; the immutable local report remains. This source matrix does not certify a new binary or grant promotion.
 
 **DS-SCI-032 — `feat(repos): add automated scientific git bisect`**\
 Isolated worktree bisect runner with good/bad/skip classification.\

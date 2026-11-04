@@ -34,7 +34,8 @@ class ResourceSampler:
         self.processes = {}
         self.cpu_seconds = {}
         self.peak_rss = None
-        self.process_samples = 0
+        self.cpu_samples = 0
+        self.ram_samples = 0
         self.gpu = []
         self.gpu_reason = None
         self.nvidia_smi = shutil.which('nvidia-smi')
@@ -48,21 +49,42 @@ class ResourceSampler:
             return
         try:
             root = psutil.Process(self.pid)
-            processes = [root] + root.children(recursive=True)
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             return
+        processes = [root]
+        try:
+            processes.extend(root.children(recursive=True))
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
         rss = 0
+        measured_rss = False
+        measured_cpu = False
         for process in processes:
             try:
                 identity = (process.pid, process.create_time())
-                self.processes[identity] = process.name()
-                cpu = process.cpu_times()
-                self.cpu_seconds[identity] = max(self.cpu_seconds.get(identity, 0), cpu.user + cpu.system)
-                rss += process.memory_info().rss
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
-        self.peak_rss = max(self.peak_rss or 0, rss)
-        self.process_samples += 1
+            self.processes[identity] = 'unavailable'
+            try:
+                self.processes[identity] = process.name()
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+            try:
+                cpu = process.cpu_times()
+                self.cpu_seconds[identity] = max(self.cpu_seconds.get(identity, 0), cpu.user + cpu.system)
+                measured_cpu = True
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+            try:
+                rss += process.memory_info().rss
+                measured_rss = True
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+        if measured_rss:
+            self.peak_rss = max(self.peak_rss or 0, rss)
+            self.ram_samples += 1
+        if measured_cpu:
+            self.cpu_samples += 1
 
     def _sample_gpu(self):
         if not self.nvidia_smi:
@@ -96,11 +118,11 @@ class ResourceSampler:
         if self.thread:
             self.thread.join(timeout=4)
         cpu = measurement('recorded', 'psutil process-tree cpu_times', 's', 'broker worker tree',
-                          round(sum(self.cpu_seconds.values()), 6), self.process_samples) if self.process_samples else \
+                          round(sum(self.cpu_seconds.values()), 6), self.cpu_samples) if self.cpu_samples else \
               measurement('unavailable', 'psutil process-tree cpu_times', 's', 'broker worker tree',
                           reason='psutil unavailable or worker exited before sampling')
         ram = measurement('recorded', 'psutil process-tree memory_info.rss', 'byte', 'broker worker tree',
-                          self.peak_rss, self.process_samples) if self.process_samples else \
+                          self.peak_rss, self.ram_samples) if self.ram_samples else \
               measurement('unavailable', 'psutil process-tree memory_info.rss', 'byte', 'broker worker tree',
                           reason='psutil unavailable or worker exited before sampling')
         gpu = measurement('recorded', 'nvidia-smi utilization.gpu', '%', 'host GPUs, not job-attributed',

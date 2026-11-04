@@ -46,6 +46,17 @@ class BrokerIntegration(unittest.TestCase):
         self.assertEqual(job['state'], 'succeeded', job['diagnostics'])
         self.assertEqual(job['progress'], 100)
         self.assertEqual(job['cleanup']['state'], 'passed')
+        source = self.broker.source(job['jobId'])
+        self.assertEqual(source['repositories']['devshell']['state'], 'captured')
+        self.assertEqual(source['repositories']['devshell']['commit'],
+                         subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=BROKER_PATH.parents[2], text=True).strip())
+        snapshot_path = Path(job['directory']) / 'source-snapshot.json'
+        original_snapshot = snapshot_path.read_bytes()
+        snapshot_path.write_bytes(original_snapshot + b' ')
+        with self.assertRaisesRegex(ValueError, 'Source snapshot hash mismatch'):
+            self.broker.source(job['jobId'])
+        self.assertEqual(self.broker.promote(job['jobId'])['decision'], 'blocked')
+        snapshot_path.write_bytes(original_snapshot)
         telemetry = self.broker.telemetry(job['jobId'])
         self.assertEqual(telemetry['sourceJobId'], job['jobId'])
         self.assertEqual(telemetry['cpu']['unit'], 's')

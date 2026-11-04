@@ -17,6 +17,7 @@ from urllib.parse import urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from telemetry import ResourceSampler, active_processes, stop_observed
+from source_snapshot import capture_sources
 
 
 CONTRACT = dict(id='math3d.mesh-product-handoff', version=1, workerResultSchemaVersion=1,
@@ -60,8 +61,17 @@ class Broker:
         self.math3d_root = Path(config['math3dRoot']).resolve(strict=True) if config.get('math3dRoot') else None
         self.jobs_root = Path(config['jobsRoot']).resolve()
         self.jobs_root.mkdir(parents=True, exist_ok=True)
+        self.source_root = Path(config['sourceRoot']).resolve(strict=True) if config.get('sourceRoot') else Path(__file__).resolve().parents[2]
+        self.max_concurrent_jobs = config.get('maxConcurrentJobs', 4)
+        if isinstance(self.max_concurrent_jobs, bool) or not isinstance(self.max_concurrent_jobs, int) or not 1 <= self.max_concurrent_jobs <= 8:
+            raise ValueError('maxConcurrentJobs must be an integer between 1 and 8.')
+        self.memory_limit_mib = config.get('memoryLimitMiB')
+        if self.memory_limit_mib is not None and (isinstance(self.memory_limit_mib, bool) or
+                not isinstance(self.memory_limit_mib, int) or not 1 <= self.memory_limit_mib <= 65536):
+            raise ValueError('memoryLimitMiB must be an integer between 1 and 65536.')
         self.jobs = {}
         self.lock = threading.RLock()
+        self.batch_release_gate = None  # Controlled concurrency suite only.
         self.verify()
         for saved in self.jobs_root.glob('*/broker-result.json'):
             try:
@@ -147,25 +157,35 @@ class Broker:
         require_hash(source, input_info.get('sha256'), 'Input artifact')
         if input_info['sha256'] != self.capabilities[0]['referenceInputSha256']:
             raise ValueError('Input is outside the fixed L9 qualification fixture.')
-        job_id = uuid.uuid4().hex
-        directory = self.jobs_root / job_id
-        dataset = directory / 'dataset'
-        dataset.mkdir(parents=True)
-        copied = dataset / 'input.obj'
-        shutil.copyfile(source, copied)
-        require_hash(copied, input_info['sha256'], 'Copied input artifact')
-        request = {'schemaVersion': 1, 'runId': job_id, 'runtimeId': 'cgal-win-conda',
+        with self.lock:
+            running = sum(job['state'] == 'running' for job in self.jobs.values())
+            if running >= self.max_concurrent_jobs:
+                raise ValueError(f'Worker capacity reached ({running}/{self.max_concurrent_jobs}); retry after a job finishes.')
+            job_id = uuid.uuid4().hex
+            directory = self.jobs_root / job_id
+            dataset = directory / 'dataset'
+            dataset.mkdir(parents=True)
+            copied = dataset / 'input.obj'
+            shutil.copyfile(source, copied)
+            require_hash(copied, input_info['sha256'], 'Copied input artifact')
+            source_snapshot = capture_sources({'devshell': self.source_root, 'math3d': self.math3d_root})
+            source_path = directory / 'source-snapshot.json'
+            with source_path.open('x', encoding='utf-8') as stream:
+                json.dump(source_snapshot, stream, separators=(',', ':'))
+            source_sha = sha(source_path)
+            request = {'schemaVersion': 1, 'runId': job_id, 'runtimeId': 'cgal-win-conda',
                    'recipeId': 'cgal.validate', 'operation': 'cgal.validate', 'parameters': {},
                    'workingDirectory': str(directory), 'datasetRoot': str(dataset),
                    'timeoutSeconds': timeout, 'inputArtifacts': [{'path': str(copied), 'sha256': input_info['sha256']}],
                    'outputArtifacts': [{'path': 'l5-positive.obj', 'mediaType': 'model/obj'}],
-                   'provenance': {'brokerContractVersion': 1, 'certificationRecordId': self.capabilities[0]['recordId']}}
-        (directory / 'request.json').write_text(json.dumps(request, separators=(',', ':')), encoding='utf-8')
-        job = {'jobId': job_id, 'runtimeId': 'cgal-win-conda', 'capabilityId': 'mesh.interop.vtk-math3d',
+                   'provenance': {'brokerContractVersion': 1, 'certificationRecordId': self.capabilities[0]['recordId'],
+                                  'sourceSnapshotSha256': source_sha}}
+            (directory / 'request.json').write_text(json.dumps(request, separators=(',', ':')), encoding='utf-8')
+            job = {'jobId': job_id, 'runtimeId': 'cgal-win-conda', 'capabilityId': 'mesh.interop.vtk-math3d',
                'state': 'running', 'stage': 'queued', 'progress': 0, 'contractVersion': 1,
                'certificationRecordId': self.capabilities[0]['recordId'], 'artifacts': [], 'diagnostics': [],
-               'directory': str(directory), 'cancel': threading.Event(), 'process': None}
-        with self.lock:
+               'directory': str(directory), 'sourceSnapshotSha256': source_sha,
+               'cancel': threading.Event(), 'process': None}
             self.jobs[job_id] = job
         threading.Thread(target=self._run, args=(job, timeout), daemon=True).start()
         return self.snapshot(job)
@@ -207,19 +227,37 @@ class Broker:
             env['PATH'] = os.pathsep.join([str(prefix), str(prefix / 'Library' / 'bin'), str(prefix / 'Scripts'), env.get('PATH', '')])
             env['PYTHONNOUSERSITE'] = '1'
             env['PYTHONIOENCODING'] = 'utf-8'
-            command = [str(self.paths['python']), str(self.paths['adapter']), '--request', str(directory / 'request.json'),
+            gate = directory / 'worker-start.gate'
+            command = [str(self.paths['python']), str(Path(__file__).with_name('start_worker.py')),
+                       '--gate', str(gate), '--python', str(self.paths['python']),
+                       '--adapter', str(self.paths['adapter']), '--request', str(directory / 'request.json'),
                        '--worker', str(self.paths['worker'])]
+            if self.batch_release_gate is not None:
+                command.extend(['--release', str(self.batch_release_gate)])
             log_path = directory / 'full.log'
             with log_path.open('w', encoding='utf-8') as log:
                 process = subprocess.Popen(command, cwd=directory, env=env, stdout=log, stderr=subprocess.STDOUT,
                                            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0), start_new_session=os.name != 'nt')
                 sampler = ResourceSampler(process.pid)
+                observe_deadline = time.monotonic() + 0.1
+                while True:
+                    sampler._sample_processes()
+                    if any(pid == process.pid for pid, _ in sampler.processes) or time.monotonic() >= observe_deadline:
+                        break
+                    time.sleep(0.005)
                 sampler.start()
+                gate.write_text('observed' if any(pid == process.pid for pid, _ in sampler.processes) else 'unavailable',
+                                encoding='utf-8')
                 with self.lock:
                     job['process'] = process
                     job['workerPid'] = process.pid
+                memory_exceeded = None
                 while process.poll() is None:
                     if job['cancel'].is_set() or time.monotonic() - started > timeout + 1:
+                        self._stop_process(process)
+                        break
+                    if self.memory_limit_mib is not None and sampler.peak_rss is not None and sampler.peak_rss > self.memory_limit_mib * 1024 * 1024:
+                        memory_exceeded = sampler.peak_rss
                         self._stop_process(process)
                         break
                     with self.lock:
@@ -227,8 +265,14 @@ class Broker:
                     time.sleep(0.1)
                 process.wait(timeout=5)
                 job['workerDurationMs'] = round((time.monotonic() - started) * 1000)
+                if self.memory_limit_mib is not None and sampler.peak_rss is not None and sampler.peak_rss > self.memory_limit_mib * 1024 * 1024:
+                    memory_exceeded = sampler.peak_rss
             if job['cancel'].is_set():
                 with self.lock: job.update(pendingState='cancelled', stage='finalizing', diagnostics=['Job cancelled.'])
+                return
+            if memory_exceeded is not None:
+                with self.lock: job.update(pendingState='resource-exhausted', stage='finalizing',
+                    diagnostics=[f'Worker memory budget exceeded: {memory_exceeded} bytes > {self.memory_limit_mib} MiB.'])
                 return
             if time.monotonic() - started >= timeout:
                 with self.lock: job.update(pendingState='timed-out', stage='finalizing', diagnostics=['Job time limit exceeded.'])
@@ -344,6 +388,15 @@ class Broker:
             require_hash(path, job['telemetrySha256'], 'Job telemetry')
             return json.loads(path.read_text(encoding='utf-8'))
 
+    def source(self, job_id):
+        with self.lock:
+            job = self.jobs.get(job_id)
+            if job is None:
+                raise KeyError(job_id)
+            path = Path(job['directory']) / 'source-snapshot.json'
+            require_hash(path, job.get('sourceSnapshotSha256'), 'Source snapshot')
+            return json.loads(path.read_text(encoding='utf-8'))
+
     def promote(self, job_id):
         with self.lock:
             job = self.jobs.get(job_id)
@@ -360,6 +413,11 @@ class Broker:
                 reasons.append('Certified manifest or runtime identity changed: ' + str(error))
             if job['state'] != 'succeeded':
                 reasons.append(f"Source job is {job['state']}; a successful verified run is required.")
+            if job.get('sourceSnapshotSha256'):
+                try:
+                    self.source(job_id)
+                except (ValueError, OSError) as error:
+                    reasons.append('Source snapshot evidence changed: ' + str(error))
             if entry is not None and job['state'] == 'succeeded':
                 if self.math3d_root is None:
                     reasons.append('MATH3D consumer checkout is not configured for promotion.')
@@ -398,6 +456,7 @@ class Broker:
                       'runtimeId': job['runtimeId'], 'certificationRecordId': job['certificationRecordId'],
                       'manifestSha256': sha(self.paths['manifest']) if self.paths['manifest'].is_file() else None,
                       'contractVersion': CONTRACT['version'],
+                      'sourceSnapshotSha256': job.get('sourceSnapshotSha256'),
                       'handoffSha256': sha(Path(job['directory']) / 'handoff.json') if decision == 'allowed' else None,
                       'artifactSha256': entry['referenceArtifactSha256'] if decision == 'allowed' else None}
             directory = Path(job['directory']) / 'promotions'
@@ -430,6 +489,8 @@ def handler_for(broker):
                         return self.reply(200, broker.snapshot(job))
                 if len(parts) == 4 and parts[:2] == ['v1', 'jobs'] and parts[3] == 'telemetry':
                     return self.reply(200, broker.telemetry(parts[2]))
+                if len(parts) == 4 and parts[:2] == ['v1', 'jobs'] and parts[3] == 'source':
+                    return self.reply(200, broker.source(parts[2]))
                 if len(parts) == 5 and parts[:2] == ['v1', 'jobs'] and parts[3] == 'artifacts':
                     raw = broker.artifact(parts[2], parts[4])
                     self.send_response(200)

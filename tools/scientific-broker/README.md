@@ -28,11 +28,14 @@ Create a local JSON file with absolute deployment paths:
   "prefix": "<dedicated CGAL conda prefix>",
   "datasetRoot": "<registered local dataset root>",
   "jobsRoot": "<broker-owned output directory>",
-  "math3dRoot": "<MATH3D checkout for promotion>"
+  "math3dRoot": "<MATH3D checkout for promotion>",
+  "sourceRoot": "<optional DevShell Git checkout; defaults to the broker source checkout>",
+  "maxConcurrentJobs": 4,
+  "memoryLimitMiB": 2048
 }
 ```
 
-Deploy the manifest, worker scripts, runtime manifest, environment, and compiled worker at these paths. The broker needs no DevShell desktop process. It verifies their hashes and the conda package inventory when it starts, when it discovers providers, and before each job. The API listens only on `127.0.0.1`; remote transport and authentication are outside this local deployment.
+Deploy the manifest, worker scripts, runtime manifest, environment, and compiled worker at these paths. The broker needs no DevShell desktop process. It verifies their hashes and the conda package inventory when it starts, when it discovers providers, and before each job. `maxConcurrentJobs` defaults to 4 (range 1–8); a saturated broker rejects new submissions with a retry reason. `memoryLimitMiB` is optional (range 1–65536) and enforces a sampled process-tree resident-memory budget when `psutil` is installed. The API listens only on `127.0.0.1`; remote transport and authentication are outside this local deployment.
 
 ```powershell
 python tools/scientific-broker/broker.py verify --config <config.json>
@@ -43,8 +46,9 @@ python tools/scientific-broker/broker.py serve --config <config.json> --port 876
 
 - `GET /v1/providers`: certified provider and capability discovery.
 - `POST /v1/jobs`: accept `schemaVersion`, `runtimeId`, `capabilityId`, `input: {path, sha256}`, and optional `timeoutSeconds` (1–120). The input must be a bounded OBJ inside `datasetRoot` with the exact hash of the qualified L9 fixture.
-- `GET /v1/jobs/{id}`: state (`running`, `succeeded`, `partial`, `failed`, `cancelled`, `timed-out`), stage, progress, diagnostics, and verified artifact metadata.
+- `GET /v1/jobs/{id}`: state (`running`, `succeeded`, `partial`, `failed`, `cancelled`, `timed-out`, `resource-exhausted`), stage, progress, diagnostics, and verified artifact metadata.
 - `GET /v1/jobs/{id}/telemetry`: hash-verified CPU, RAM, GPU and VRAM measurements after finalization. Every metric includes a collector, unit, scope, availability and sample count.
+- `GET /v1/jobs/{id}/source`: hash-verified Git commit, tree, branch, worktree and dirty-content identities captured at submission. Non-Git deployments record an explicit unavailable reason.
 - `POST /v1/jobs/{id}/cancel`: terminate the owned worker process tree.
 - `POST /v1/jobs/{id}/promote`: save an immutable allow/block decision with reasons. It requires a successful job, a current matching L0–L9 certification chain, unchanged worker/package and MATH3D consumer identities, and a verified version 1 handoff. `math3dRoot` is required for an allowed decision.
 - `GET /v1/jobs/{id}/artifacts/{name}`: serve only a registered artifact from a successful job after rechecking its hash. Current names are `l5-positive.obj` and `handoff.json`.
@@ -80,3 +84,16 @@ python tools/scientific-broker/qualify_cleanup.py --config <config.json>
 ```
 
 The suite cancels the real CGAL adapter, then uses a test-only child process to exercise forced cancellation, timeout and orphan recovery. It verifies status mapping, removed partial mesh/handoff outputs, promotion blocking and absence of live children. The diagnostic adapter never receives capability qualification. The broker finalizes terminal status after child cleanup; an unverified cleanup cannot count as success. `psutil` is required for this cleanup gate.
+
+## Concurrency and repository evidence (DS-SCI-029–031)
+
+```powershell
+python tools/scientific-broker/qualify_concurrency.py --config <config.json>
+python tools/scientific-broker/compare_commits.py --repo <devshell-repo> --baseline <git-ref> --candidate <git-ref> --output-root <local-evidence-directory>
+```
+
+The concurrency suite runs the qualified CGAL fixture twice at 1, 2, 4 and 8 concurrent jobs when available RAM permits. A suite-only release barrier starts each batch after all workers are ready; hashed adapter timing records must show the requested peak overlap. It checks unique job directories, each request/result/handoff identity, verified artifact hashes, cleanup, throughput and tail latency. A short launch gate lets telemetry observe the process tree before the adapter starts. A test-only held worker checks capacity rejection, and a real CGAL job under a 1 MiB sampled memory budget checks the `resource-exhausted` state, artifact cleanup and blocked promotion. The suite writes immutable local evidence under the broker diagnostics directory. These are broker resilience checks for the fixed CGAL path, not new runtime qualification levels.
+
+Each new broker job writes `source-snapshot.json` before the worker starts. It records the full Git commit and tree, branch/worktree identity, tracked patch hash, hashes of untracked files and an aggregate dirty digest. The broker request and result pin the snapshot hash, and promotion refuses a tampered snapshot. Source capture only reads Git state and files; a missing Git checkout is recorded as unavailable. Old run snapshots remain inspectable after a branch advances.
+
+The commit comparison creates temporary detached Git worktrees for two distinct commits, then runs the same .NET broker build, independent mesh reload tests and fixed tetrahedron OBJ inspection in each. It saves both exact commit/tree identities, suite revisions, host/tool environment, logs, geometry evidence and an evidence diff. Build or test failure yields `inconclusive`, so infrastructure failures are never presented as scientific regressions. The worktrees are removed after execution; saved evidence remains under `output-root`. This source matrix does not qualify a worker binary or grant broker promotion.

@@ -263,8 +263,8 @@ foreach(var name in new[]{"tools/scientific_worker_contract.py","tools/runtime-l
     "BatchLauncher/Form1.Scientific.L6.cs",
     "BatchLauncher/Form1.Scientific.L7.cs",
     "BatchLauncher/Form1.Scientific.L7Interop.cs",
-    "BatchLauncher/Form1.Scientific.L8.cs","BatchLauncher/OwnedProcessJob.cs",
-    "tools/scientific-artifact-roundtrip.py","tools/math3d-vtk-import-handoff.mjs","tools/scientific-vtk-interop.py",
+    "BatchLauncher/Form1.Scientific.L8.cs","BatchLauncher/Form1.Scientific.L9.cs","BatchLauncher/OwnedProcessJob.cs",
+    "tools/scientific-artifact-roundtrip.py","tools/math3d-vtk-import-handoff.mjs","tools/math3d-l9-product-handoff.mjs","tools/scientific-vtk-interop.py",
     "tools/scientific-mesh-worker.py","tools/scientific-vtk-render-check.py",
     "BatchLauncher/Form1.Scientific.cs","BatchLauncher/Form1.Scientific.Artifacts.cs",
     "BatchLauncher/Form1.Scientific.RuntimeLab.cs",
@@ -488,6 +488,36 @@ Check(l8Assessed[0]?["status"]?.GetValue<string>()=="current","L8 remains curren
 ScientificQualificationRecords.AssessL5Dependencies(l8Assessed,
     Enumerable.Range(0,7).Select(index=>"resilience-"+index).ToHashSet(StringComparer.Ordinal));
 Check(l8Assessed[0]?["status"]?.GetValue<string>()=="stale","L8 becomes stale when L7 support is unavailable");
+var l9Lower=new JsonArray(Enumerable.Range(0,9).Select(index=>(JsonNode?)new JsonObject
+    { ["level"]="L"+index,["recordId"]="product-"+index }).ToArray());
+var l9Assessed=new JsonArray(new JsonObject { ["level"]="L9",["status"]="current",
+    ["staleReasons"]=new JsonArray(),["consumerSourceSha256"]=parserHash,
+    ["consumerContractSha256"]=artifactHash,
+    ["lowerQualification"]=new JsonObject { ["records"]=l9Lower } });
+ScientificQualificationRecords.AssessL5Dependencies(l9Assessed,
+    Enumerable.Range(0,9).Select(index=>"product-"+index).ToHashSet(StringComparer.Ordinal));
+Check(l9Assessed[0]?["status"]?.GetValue<string>()=="current","L9 remains current with pinned L0-L8 support");
+ScientificQualificationRecords.AssessL9Consumer(l9Assessed,artifactHash,artifactHash);
+Check(l9Assessed[0]?["status"]?.GetValue<string>()=="stale","L9 becomes stale when MATH3D product consumer changes");
+var l9ContractChanged=new JsonArray(new JsonObject { ["level"]="L9",["status"]="current",
+    ["staleReasons"]=new JsonArray(),["consumerSourceSha256"]=parserHash,
+    ["consumerContractSha256"]=artifactHash });
+ScientificQualificationRecords.AssessL9Consumer(l9ContractChanged,parserHash,parserHash);
+Check(l9ContractChanged[0]?["status"]?.GetValue<string>()=="stale"
+    && l9ContractChanged[0]?["staleReasons"]?.ToJsonString().Contains("contract changed",StringComparison.Ordinal)==true,
+    "L9 becomes stale when product handoff contract changes");
+var failedProduct=ScientificQualificationRecords.Summarize("cgal-win-conda",new[] { new JsonObject
+    { ["runtimeId"]="cgal-win-conda",["state"]="failed",["runId"]=new string('f',32),
+      ["qualifications"]=new JsonArray(new JsonObject { ["level"]="L9",["status"]="current",
+          ["capabilityId"]="mesh.interop.vtk-math3d",["recordId"]=parserHash }) } });
+Check(failedProduct["currentRecords"]?.AsArray().Count==0,"failed L9 run cannot raise a capability level");
+var l9Unqualified=new JsonArray(new JsonObject { ["level"]="L9",["status"]="current",
+    ["staleReasons"]=new JsonArray(),["consumerSourceSha256"]=parserHash,
+    ["consumerContractSha256"]=artifactHash,
+    ["lowerQualification"]=new JsonObject { ["records"]=l9Lower.DeepClone() } });
+ScientificQualificationRecords.AssessL5Dependencies(l9Unqualified,
+    Enumerable.Range(0,8).Select(index=>"product-"+index).ToHashSet(StringComparer.Ordinal));
+Check(l9Unqualified[0]?["status"]?.GetValue<string>()=="stale","L9 cannot rise from stale L8 support");
 var l7Lower=new JsonArray(Enumerable.Range(0,7).Select(index=>(JsonNode?)new JsonObject
     { ["level"]="L"+index,["recordId"]="interop-"+index }).ToArray());
 var l7Assessed=new JsonArray(new JsonObject { ["level"]="L7",["status"]="current",

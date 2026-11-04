@@ -407,6 +407,136 @@ public static class ScientificQualificationRecords
         return Digest(evidence.ToJsonString());
     }
 
+    private static string? L9Hash(string directory, JsonObject result, JsonObject components)
+    {
+        if (result["recipeId"]?.GetValue<string>() != "l9.math3d-product"
+            || result["runtimeId"]?.GetValue<string>() != "cgal-win-conda"
+            || result["l9Evidence"] is not JsonObject evidence
+            || evidence["suiteId"]?.GetValue<string>() != "l9-math3d-product-v1"
+            || evidence["capabilityId"]?.GetValue<string>() != "mesh.interop.vtk-math3d"
+            || evidence["worker"] is not JsonObject worker
+            || evidence["brokerHandoff"] is not JsonObject handoff
+            || evidence["productContract"] is not JsonObject contract
+            || evidence["regression"] is not JsonObject report
+            || evidence["lowerQualification"]?["records"] is not JsonArray lower || lower.Count != 9
+            || components["suite"]?["files"]?["tools/math3d-l9-product-handoff.mjs"]?["sha256"] is not JsonNode)
+            return null;
+        if (contract["id"]?.GetValue<string>() != "math3d.mesh-product-handoff"
+            || contract["version"]?.GetValue<int>() != 1
+            || contract["workerResultSchemaVersion"]?.GetValue<int>() != 1
+            || contract["meshDocumentSchemaVersion"]?.GetValue<int>() != 1
+            || contract["inputFormat"]?.GetValue<string>() != "obj"
+            || contract["viewer"]?.GetValue<string>() != "MeshDocumentViewport"
+            || evidence["productContractSha256"]?.GetValue<string>() != Digest(contract.ToJsonString())) return null;
+        var folder = evidence["sourceL8FolderId"]?.GetValue<string>();
+        var runId = evidence["sourceL8RunId"]?.GetValue<string>();
+        var recordId = evidence["sourceL8RecordId"]?.GetValue<string>();
+        if (folder is not { Length: 32 } || !folder.All(Uri.IsHexDigit)
+            || runId is not { Length: 32 } || !runId.All(Uri.IsHexDigit)
+            || recordId is not { Length: 64 } || !recordId.All(Uri.IsHexDigit)
+            || lower[8]?["runId"]?.GetValue<string>() != runId
+            || lower[8]?["recordId"]?.GetValue<string>() != recordId
+            || lower[8]?["level"]?.GetValue<string>() != "L8") return null;
+        var sourceDirectory = Path.Combine(Path.GetDirectoryName(directory)!, folder);
+        var sourcePath = Path.Combine(sourceDirectory, "results.json");
+        if (!File.Exists(sourcePath) || new FileInfo(sourcePath).Length > 1048576) return null;
+        using var sourceDocument = JsonDocument.Parse(File.ReadAllText(sourcePath));
+        var sourceResult = sourceDocument.RootElement;
+        if (sourceResult.GetProperty("runId").GetString() != runId
+            || sourceResult.GetProperty("profileId").GetString() != result["profileId"]?.GetValue<string>()
+            || sourceResult.GetProperty("runtimeId").GetString() != "cgal-win-conda"
+            || sourceResult.GetProperty("recipeId").GetString() != "l8.resilience"
+            || sourceResult.GetProperty("state").GetString() != "succeeded"
+            || !Verify(sourceDirectory, sourceResult).OfType<JsonObject>().Any(item =>
+                item["recordId"]?.GetValue<string>() == recordId && item["level"]?.GetValue<string>() == "L8")) return null;
+        var l8 = JsonNode.Parse(sourceResult.GetRawText())?["l8Evidence"];
+        if (l8?["sourceL7ContractSha256"]?.GetValue<string>() != evidence["sourceL8ContractSha256"]?.GetValue<string>()
+            || l8?["lowerQualification"]?["records"] is not JsonArray sourceLower || sourceLower.Count != 8)
+            return null;
+        for (var index = 0; index < 8; index++)
+            if (lower[index]?.ToJsonString() != sourceLower[index]?.ToJsonString()) return null;
+        var positive = Path.Combine(directory, "positive");
+        var workerRequest = Path.Combine(positive, "request.json");
+        var workerResult = Path.Combine(positive, "results.json");
+        var artifact = Path.Combine(positive, "l5-positive.obj");
+        if (!File.Exists(workerRequest) || !File.Exists(workerResult) || !File.Exists(artifact)
+            || new FileInfo(workerRequest).Length > 1048576 || new FileInfo(workerResult).Length > 1048576
+            || new FileInfo(artifact).Length > 33554432
+            || Digest(File.ReadAllText(workerRequest)) != worker["requestSha256"]?.GetValue<string>()
+            || Digest(File.ReadAllText(workerResult)) != worker["resultSha256"]?.GetValue<string>()
+            || Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(artifact))).ToLowerInvariant()
+                != worker["artifactSha256"]?.GetValue<string>()
+            || worker["artifactSha256"]?.GetValue<string>() != l8["sourceArtifactSha256"]?.GetValue<string>()
+            || worker["state"]?.GetValue<string>() != "succeeded"
+            || worker["artifactPath"]?.GetValue<string>() != "positive/l5-positive.obj"
+            || handoff["workerRequest"]?["sha256"]?.GetValue<string>() != worker["requestSha256"]?.GetValue<string>()
+            || handoff["workerResult"]?["sha256"]?.GetValue<string>() != worker["resultSha256"]?.GetValue<string>()
+            || handoff["artifact"]?["sha256"]?.GetValue<string>() != worker["artifactSha256"]?.GetValue<string>()
+            || handoff["sourceL8RunId"]?.GetValue<string>() != runId
+            || handoff["sourceL8RecordId"]?.GetValue<string>() != recordId
+            || handoff["contract"]?.ToJsonString() != contract.ToJsonString()) return null;
+        using var childDocument = JsonDocument.Parse(File.ReadAllText(workerResult));
+        var child = childDocument.RootElement;
+        if (child.GetProperty("state").GetString() != "succeeded"
+            || !child.GetProperty("validatedCapabilities").EnumerateArray().Any(item => item.GetString() == "mesh.validate")
+            || !child.GetProperty("artifacts").EnumerateArray().Any(item =>
+                item.GetProperty("path").GetString() == "l5-positive.obj"
+                && item.GetProperty("sha256").GetString() == worker["artifactSha256"]?.GetValue<string>())) return null;
+        var handoffPath = Path.Combine(directory, "handoff", "handoff.json");
+        if (!File.Exists(handoffPath) || new FileInfo(handoffPath).Length > 65536
+            || Digest(File.ReadAllText(handoffPath)) != evidence["brokerHandoffSha256"]?.GetValue<string>()
+            || JsonNode.Parse(File.ReadAllText(handoffPath))?.ToJsonString() != handoff.ToJsonString()) return null;
+        var product = Path.Combine(directory, "product");
+        var outputs = new[] { ("mesh-document.json", "documentSha256"), ("mesh-resource.bin", "resourceSha256"),
+            ("viewer.png", "viewerSha256"), ("regression.json", "regressionSha256") };
+        if (outputs.Any(item => !File.Exists(Path.Combine(product, item.Item1))
+            || new FileInfo(Path.Combine(product, item.Item1)).Length is < 100 or > 8388608
+            || Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(product, item.Item1)))).ToLowerInvariant()
+                != evidence[item.Item2]?.GetValue<string>())
+            || result["artifacts"] is not JsonArray artifacts
+            || !outputs.All(item => artifacts.Any(file => file?["path"]?.GetValue<string>() == "product/" + item.Item1
+                && file?["sha256"]?.GetValue<string>() == evidence[item.Item2]?.GetValue<string>()))
+            || !artifacts.Any(file => file?["path"]?.GetValue<string>() == "handoff/handoff.json"
+                && file?["sha256"]?.GetValue<string>() == evidence["brokerHandoffSha256"]?.GetValue<string>())
+            || !artifacts.Any(file => file?["path"]?.GetValue<string>() == "positive/l5-positive.obj"
+                && file?["sha256"]?.GetValue<string>() == worker["artifactSha256"]?.GetValue<string>())) return null;
+        var savedDocument = JsonNode.Parse(File.ReadAllText(Path.Combine(product, "mesh-document.json")));
+        if (savedDocument?["format"]?.GetValue<string>() != "math3d.mesh-document"
+            || savedDocument["schemaVersion"]?.GetValue<int>() != 1
+            || savedDocument["source"]?["resource"]?["checksum"]?.GetValue<string>() != "sha256:" + evidence["resourceSha256"]?.GetValue<string>()
+            || savedDocument["identity"]?["id"]?.GetValue<string>() != report["documentId"]?.GetValue<string>()
+            || savedDocument["identity"]?["structuralHash"]?.GetValue<string>() != report["structuralHash"]?.GetValue<string>()
+            || report["documentSha256"]?.GetValue<string>() != evidence["documentSha256"]?.GetValue<string>()
+            || report["resourceSha256"]?.GetValue<string>() != evidence["resourceSha256"]?.GetValue<string>()
+            || report["screenshotSha256"]?.GetValue<string>() != evidence["viewerSha256"]?.GetValue<string>()
+            || report["sourceArtifactSha256"]?.GetValue<string>() != worker["artifactSha256"]?.GetValue<string>()
+            || report["workerRequestSha256"]?.GetValue<string>() != worker["requestSha256"]?.GetValue<string>()
+            || report["workerResultSha256"]?.GetValue<string>() != worker["resultSha256"]?.GetValue<string>()
+            || report["contractVersion"]?.GetValue<int>() != 1
+            || report["contractSha256"]?.GetValue<string>() != evidence["productContractSha256"]?.GetValue<string>()
+            || report["sourceL8RunId"]?.GetValue<string>() != runId
+            || report["sourceL8RecordId"]?.GetValue<string>() != recordId
+            || report["points"]?.GetValue<int>() != 4 || report["triangles"]?.GetValue<int>() != 4
+            || report["viewer"]?.GetValue<string>() != "MeshDocumentViewport"
+            || report["viewerState"]?.GetValue<string>() != "mounted"
+            || report["regression"]?.GetValue<string>() != "passed"
+            || report["blueMeshPixels"]?.GetValue<int>() is not > 1000
+            || report["canvasSize"]?["width"]?.GetValue<int>() is not > 100
+            || report["canvasSize"]?["height"]?.GetValue<int>() is not > 100
+            || report["consumerSources"] is not JsonObject sources
+            || Digest(sources.ToJsonString()) != evidence["consumerSourcesSha256"]?.GetValue<string>()
+            || JsonNode.Parse(File.ReadAllText(Path.Combine(product, "regression.json")))?.ToJsonString() != report.ToJsonString()
+            || result["inputArtifacts"] is not JsonArray inputs || inputs.Count != 1
+            || inputs[0]?["sha256"]?.GetValue<string>() != worker["inputSha256"]?.GetValue<string>()) return null;
+        var expectedSources = new[] { "renderer/src/mesh/surfaceMesh.ts", "renderer/src/mesh/meshDocumentAdapter.ts",
+            "renderer/src/mesh/meshResourceStore.ts", "renderer/src/workspace/MeshDocumentViewport.tsx",
+            "renderer/src/components/SurfaceViewer.tsx", "packages/core/src/meshDocument.ts" };
+        if (sources.Count != expectedSources.Length || expectedSources.Any(name => sources[name]?.GetValue<string>() is not { Length: 64 })) return null;
+        var screenshot = File.ReadAllBytes(Path.Combine(product, "viewer.png"));
+        if (screenshot.Length < 8 || !screenshot.AsSpan(0, 8).SequenceEqual(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 })) return null;
+        return Digest(evidence.ToJsonString());
+    }
+
     private static string? L8Hash(string directory, JsonObject result, JsonObject components)
     {
         if (result["recipeId"]?.GetValue<string>() != "l8.resilience"
@@ -709,6 +839,22 @@ public static class ScientificQualificationRecords
                 Add("mesh.interop.vtk-math3d", "L8", "l8.resilience", hash,
                     result["l8Evidence"]?["lowerQualification"]);
         }
+        else if (recipeId == "l9.math3d-product" && manifest["qualificationRecipes"] is JsonArray productRecipes)
+        {
+            var declaration = productRecipes.OfType<JsonObject>().FirstOrDefault(item =>
+                item["id"]?.GetValue<string>() == "l9.math3d-product"
+                && item["readinessLevel"]?.GetValue<string>() == "L9"
+                && item["capability"]?.GetValue<string>() == "mesh.interop.vtk-math3d"
+                && item["referenceRecipe"]?.GetValue<string>() == "l8.resilience"
+                && item["contractVersion"]?.GetValue<int>() == 1
+                && item["viewer"]?.GetValue<string>() == "MeshDocumentViewport");
+            var hash = L9Hash(directory, result, components!);
+            var evidence = result["l9Evidence"];
+            if (declaration != null && hash != null)
+                Add("mesh.interop.vtk-math3d", "L9", "l9.math3d-product", hash,
+                    evidence?["lowerQualification"], evidence?["consumerSourcesSha256"]?.GetValue<string>(),
+                    evidence?["productContractSha256"]?.GetValue<string>());
+        }
         var document = new JsonObject
         {
             ["schemaVersion"] = 1, ["runId"] = runId, ["runtimeId"] = runtimeId,
@@ -766,7 +912,7 @@ public static class ScientificQualificationRecords
                 || record["runFingerprintSha256"]?.GetValue<string>() != fingerprintSha256
                 || record["suiteRevisionSha256"]?.GetValue<string>() != suiteRevision
                 || record["contract"]?.ToJsonString() != contract?.ToJsonString()
-                || record["level"]?.GetValue<string>() is not ("L0" or "L1" or "L2" or "L3" or "L4" or "L5" or "L6" or "L7" or "L8"))
+                || record["level"]?.GetValue<string>() is not ("L0" or "L1" or "L2" or "L3" or "L4" or "L5" or "L6" or "L7" or "L8" or "L9"))
                 throw new InvalidDataException("Qualification entry does not match its run.");
             if (record["level"]?.GetValue<string>() == "L4")
             {
@@ -830,6 +976,17 @@ public static class ScientificQualificationRecords
                         fingerprint!["components"]!.AsObject()))
                     throw new InvalidDataException("L8 resilience evidence has changed.");
             }
+            if (record["level"]?.GetValue<string>() == "L9")
+            {
+                var sourceResult = JsonNode.Parse(result.GetRawText()) as JsonObject;
+                if (sourceResult == null || record["evidenceId"]?.GetValue<string>() != "l9.math3d-product"
+                    || record["lowerQualification"]?.ToJsonString() != sourceResult["l9Evidence"]?["lowerQualification"]?.ToJsonString()
+                    || record["consumerSourceSha256"]?.GetValue<string>() != sourceResult["l9Evidence"]?["consumerSourcesSha256"]?.GetValue<string>()
+                    || record["consumerContractSha256"]?.GetValue<string>() != sourceResult["l9Evidence"]?["productContractSha256"]?.GetValue<string>()
+                    || record["evidenceSha256"]?.GetValue<string>() != L9Hash(directory, sourceResult,
+                        fingerprint!["components"]!.AsObject()))
+                    throw new InvalidDataException("L9 product integration evidence has changed.");
+            }
         }
         return records;
     }
@@ -859,16 +1016,17 @@ public static class ScientificQualificationRecords
         }).ToArray());
     }
 
-    public static void AssessL5Dependencies(JsonArray records, IReadOnlySet<string> currentLowerRecordIds, bool includeL6 = true, bool includeL7 = true, bool includeL8 = true)
+    public static void AssessL5Dependencies(JsonArray records, IReadOnlySet<string> currentLowerRecordIds, bool includeL6 = true, bool includeL7 = true, bool includeL8 = true, bool includeL9 = true)
     {
         foreach (var record in records.OfType<JsonObject>().Where(item => item["level"]?.GetValue<string>() == "L5"
             || includeL6 && item["level"]?.GetValue<string>() == "L6"
             || includeL7 && item["level"]?.GetValue<string>() == "L7"
-            || includeL8 && item["level"]?.GetValue<string>() == "L8"))
+            || includeL8 && item["level"]?.GetValue<string>() == "L8"
+            || includeL9 && item["level"]?.GetValue<string>() == "L9"))
         {
             var level = record["level"]?.GetValue<string>();
             var lower = record["lowerQualification"]?["records"] as JsonArray;
-            if (lower is { Count: > 0 } && lower.Count == (level == "L5" ? 5 : level == "L6" ? 6 : level == "L7" ? 7 : 8)
+            if (lower is { Count: > 0 } && lower.Count == (level == "L5" ? 5 : level == "L6" ? 6 : level == "L7" ? 7 : level == "L8" ? 8 : 9)
                 && lower.All(item => item?["recordId"]?.GetValue<string>() is { } id
                 && currentLowerRecordIds.Contains(id))) continue;
             record["status"] = "stale";
@@ -876,7 +1034,8 @@ public static class ScientificQualificationRecords
             var reason = level == "L5" ? "supporting L0-L4 qualification is no longer current"
                 : level == "L6" ? "supporting L0-L5 qualification is no longer current"
                 : level == "L7" ? "supporting L0-L6 qualification is no longer current"
-                : "supporting L0-L7 qualification is no longer current";
+                : level == "L8" ? "supporting L0-L7 qualification is no longer current"
+                : "supporting L0-L8 qualification is no longer current";
             if (!reasons.Any(item => item?.GetValue<string>() == reason)) reasons.Add(reason);
             record["staleReasons"] = reasons;
         }
@@ -899,6 +1058,33 @@ public static class ScientificQualificationRecords
             record["status"] = currentVtkEnvironmentSha256 == null ? "unknown" : "stale";
             var reasons = record["staleReasons"] as JsonArray ?? new JsonArray();
             reasons.Add(currentVtkEnvironmentSha256 == null ? "VTK consumer environment is unavailable" : "VTK consumer environment changed");
+            record["staleReasons"] = reasons;
+        }
+    }
+
+    public static void AssessL9Consumer(JsonArray records, string? currentSourcesSha256, string? currentContractSha256)
+    {
+        foreach (var record in records.OfType<JsonObject>().Where(item => item["level"]?.GetValue<string>() == "L9"))
+        {
+            var reasons = record["staleReasons"] as JsonArray ?? new JsonArray();
+            if (currentSourcesSha256 == null || currentContractSha256 == null)
+            {
+                if (record["status"]?.GetValue<string>() != "stale") record["status"] = "unknown";
+                reasons.Add("MATH3D product consumer or contract is unavailable");
+            }
+            else
+            {
+                if (record["consumerSourceSha256"]?.GetValue<string>() != currentSourcesSha256)
+                {
+                    record["status"] = "stale";
+                    reasons.Add("MATH3D product consumer source changed");
+                }
+                if (record["consumerContractSha256"]?.GetValue<string>() != currentContractSha256)
+                {
+                    record["status"] = "stale";
+                    reasons.Add("MATH3D product handoff contract changed");
+                }
+            }
             record["staleReasons"] = reasons;
         }
     }

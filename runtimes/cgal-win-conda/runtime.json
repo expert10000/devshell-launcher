@@ -11,7 +11,8 @@
       "rejection": { "recipeId": "cgal.validate", "datasetId": "math3d/problematic/18_degenerate_faces.obj", "outputName": "l5-rejected.obj", "expectedReason": "not a readable manifold polygon mesh" } },
     { "id": "l6.reproduce", "readinessLevel": "L6", "capability": "mesh.validate", "referenceRecipe": "l5.worker", "comparison": "sha256-exact" },
     { "id": "l7.cgal-vtk-math3d", "readinessLevel": "L7", "capability": "mesh.interop.vtk-math3d", "referenceRecipe": "l6.reproduce", "format": "obj" },
-    { "id": "l8.resilience", "readinessLevel": "L8", "capability": "mesh.interop.vtk-math3d", "referenceRecipe": "l7.cgal-vtk-math3d", "repeatCount": 3, "memoryLimitBytes": 134217728 }
+    { "id": "l8.resilience", "readinessLevel": "L8", "capability": "mesh.interop.vtk-math3d", "referenceRecipe": "l7.cgal-vtk-math3d", "repeatCount": 3, "memoryLimitBytes": 134217728 },
+    { "id": "l9.math3d-product", "readinessLevel": "L9", "capability": "mesh.interop.vtk-math3d", "referenceRecipe": "l8.resilience", "contractVersion": 1, "viewer": "MeshDocumentViewport" }
   ],
   "recipes": [
     {

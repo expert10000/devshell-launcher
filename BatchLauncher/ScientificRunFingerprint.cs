@@ -37,7 +37,7 @@ public static class ScientificRunFingerprint
             $"runtimes/{runtimeId}/runtime.json" };
         if (runtimeId is "cgal-win-conda" or "vtk-win-conda") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L5.cs", "BatchLauncher/Form1.Scientific.L6.cs", "tools/scientific-artifact-roundtrip.py" });
         if (runtimeId == "vtk-win-conda") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L7.cs", "tools/math3d-vtk-import-handoff.mjs" });
-        if (runtimeId == "cgal-win-conda") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L7Interop.cs", "BatchLauncher/Form1.Scientific.L8.cs", "BatchLauncher/OwnedProcessJob.cs", "tools/scientific-vtk-interop.py", "tools/math3d-vtk-import-handoff.mjs" });
+        if (runtimeId == "cgal-win-conda") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L7Interop.cs", "BatchLauncher/Form1.Scientific.L8.cs", "BatchLauncher/Form1.Scientific.L9.cs", "BatchLauncher/OwnedProcessJob.cs", "tools/scientific-vtk-interop.py", "tools/math3d-vtk-import-handoff.mjs", "tools/math3d-l9-product-handoff.mjs" });
         if (runtimeId.StartsWith("cgal", StringComparison.Ordinal))
             names.AddRange(new[] { "tools/scientific-cgal-worker.py", "scientific/cgal-worker/main.cpp", "scientific/cgal-worker/CMakeLists.txt", "tools/math3d-native-protocol.mjs", "tools/run-math3d-boolean.mjs" });
         if (runtimeId.StartsWith("vtk", StringComparison.Ordinal))
@@ -107,6 +107,8 @@ public static class ScientificRunFingerprint
             "tools/scientific-artifact-roundtrip.py", "tools/scientific-vtk-interop.py", "tools/math3d-vtk-import-handoff.mjs" });
         if (recipeId == "l8.resilience") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L8.cs",
             "BatchLauncher/OwnedProcessJob.cs", "tools/scientific-vtk-interop.py" });
+        if (recipeId == "l9.math3d-product") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L9.cs",
+            "tools/math3d-l9-product-handoff.mjs", "tools/scientific-cgal-worker.py", "tools/runtime-lab/Program.cs" });
         if (recipeId == "test-hold") names.Add("BatchLauncher/Form1.Scientific.StopTest.cs");
         var files = new JsonObject();
         foreach (var name in names.Distinct(StringComparer.Ordinal))

@@ -242,6 +242,7 @@ public partial class Form1
             else if(action=="l7-math3d-import")data=ScientificL7Start(profileId,runtimeId);
             else if(action=="l7-cgal-vtk-math3d")data=ScientificL7InteropStart(profileId,runtimeId);
             else if(action=="l8-resilience")data=ScientificL8Start(profileId,runtimeId);
+            else if(action=="l9-math3d-product")data=ScientificL9Start(profileId,runtimeId);
             else
             {
                 ScientificProviderRegistry.RequireAction(runtimeId,action);

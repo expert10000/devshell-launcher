@@ -18,6 +18,7 @@ try {
   for (const [name, backend, capability, level] of [
     ['CGAL', 'windows-native', 'geometry.point3', 'L3'],
     ['CGAL', 'windows-native', 'cgal.cpp.compile-link', 'L4'],
+    ['CGAL', 'windows-native', 'mesh.interop.vtk-math3d', 'L9'],
     ['VTK', 'windows-native', 'geometry.polydata', 'L3'],
     ['VTK', 'windows-native', 'vtk.cpp.compile-link', 'L4'],
     ['Python / SciPy', 'windows-native', 'math.linear-algebra', 'L3'],

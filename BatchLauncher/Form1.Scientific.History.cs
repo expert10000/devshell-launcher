@@ -64,7 +64,7 @@ public partial class Form1
         {
             var assessed = ScientificQualificationRecords.Assess(
                 ScientificQualificationRecords.Verify(directory, result), sourceDrift, environmentDrift);
-            if (assessed.OfType<JsonObject>().Any(item => item["level"]?.GetValue<string>() is "L5" or "L6" or "L7" or "L8"))
+            if (assessed.OfType<JsonObject>().Any(item => item["level"]?.GetValue<string>() is "L5" or "L6" or "L7" or "L8" or "L9"))
             {
                 var summary = ScientificQualificationSummary(profileId, result.GetProperty("runtimeId").GetString() ?? "");
                 var current = summary["currentRecords"]?.AsArray().OfType<JsonObject>()
@@ -77,6 +77,12 @@ public partial class Form1
                 var importer = Path.Combine(ScientificL7Checkout(), "renderer", "src", "mesh", "surfaceMesh.ts");
                 ScientificQualificationRecords.AssessL7Consumer(assessed, File.Exists(importer) ? ScientificHash(importer) : null,
                     ScientificCurrentVtkConsumerEnvironment(profileId));
+            }
+            if (assessed.OfType<JsonObject>().Any(item => item["level"]?.GetValue<string>() == "L9"))
+            {
+                var checkout = ScientificL7Checkout();
+                ScientificQualificationRecords.AssessL9Consumer(assessed,
+                    ScientificCurrentMath3DProductSources(checkout), ScientificL6Digest(ScientificL9Contract()));
             }
             view["qualifications"] = assessed;
         }
@@ -162,12 +168,12 @@ public partial class Form1
             .Select(record => record["recordId"]?.GetValue<string>()).OfType<string>()
             .ToHashSet(StringComparer.Ordinal);
         foreach (var run in runs)
-            if (run["qualifications"] is JsonArray records) ScientificQualificationRecords.AssessL5Dependencies(records, lowerIds, includeL6: false, includeL7: false, includeL8: false);
+            if (run["qualifications"] is JsonArray records) ScientificQualificationRecords.AssessL5Dependencies(records, lowerIds, includeL6: false, includeL7: false, includeL8: false, includeL9: false);
         lowerIds.UnionWith(runs.SelectMany(run => run["qualifications"]?.AsArray().OfType<JsonObject>() ?? [])
             .Where(record => record["status"]?.GetValue<string>() == "current" && record["level"]?.GetValue<string>() == "L5")
             .Select(record => record["recordId"]?.GetValue<string>()).OfType<string>());
         foreach (var run in runs)
-            if (run["qualifications"] is JsonArray records) ScientificQualificationRecords.AssessL5Dependencies(records, lowerIds, includeL7: false, includeL8: false);
+            if (run["qualifications"] is JsonArray records) ScientificQualificationRecords.AssessL5Dependencies(records, lowerIds, includeL7: false, includeL8: false, includeL9: false);
         lowerIds.UnionWith(runs.SelectMany(run => run["qualifications"]?.AsArray().OfType<JsonObject>() ?? [])
             .Where(record => record["status"]?.GetValue<string>() == "current" && record["level"]?.GetValue<string>() == "L6")
             .Select(record => record["recordId"]?.GetValue<string>()).OfType<string>());
@@ -177,7 +183,7 @@ public partial class Form1
         foreach (var run in runs)
             if (run["qualifications"] is JsonArray records)
             {
-                ScientificQualificationRecords.AssessL5Dependencies(records, lowerIds, includeL8: false);
+                ScientificQualificationRecords.AssessL5Dependencies(records, lowerIds, includeL8: false, includeL9: false);
                 ScientificQualificationRecords.AssessL7Consumer(records, importerHash, vtkConsumerEnvironment);
             }
         lowerIds.UnionWith(runs.SelectMany(run => run["qualifications"]?.AsArray().OfType<JsonObject>() ?? [])
@@ -185,7 +191,18 @@ public partial class Form1
             .Select(record => record["recordId"]?.GetValue<string>()).OfType<string>());
         foreach (var run in runs)
             if (run["qualifications"] is JsonArray records)
+                ScientificQualificationRecords.AssessL5Dependencies(records, lowerIds, includeL9: false);
+        lowerIds.UnionWith(runs.SelectMany(run => run["qualifications"]?.AsArray().OfType<JsonObject>() ?? [])
+            .Where(record => record["status"]?.GetValue<string>() == "current" && record["level"]?.GetValue<string>() == "L8")
+            .Select(record => record["recordId"]?.GetValue<string>()).OfType<string>());
+        var productSources = runtimeId == "cgal-win-conda" ? ScientificCurrentMath3DProductSources(ScientificL7Checkout()) : null;
+        var productContract = ScientificL6Digest(ScientificL9Contract());
+        foreach (var run in runs)
+            if (run["qualifications"] is JsonArray records)
+            {
                 ScientificQualificationRecords.AssessL5Dependencies(records, lowerIds);
+                ScientificQualificationRecords.AssessL9Consumer(records, productSources, productContract);
+            }
         return ScientificQualificationRecords.Summarize(runtimeId, runs);
     }
 

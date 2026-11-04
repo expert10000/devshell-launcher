@@ -15,7 +15,6 @@ export interface ScientificCatalogTest {
 export interface ScientificRuntimePlugin {
   kind: Exclude<RuntimeKind, 'custom'>
   name: string
-  capabilities: string[]
   checks: RuntimeProbe[]
   configuredBackends: RuntimeExecution[]
   sections: ScientificSection[]
@@ -40,7 +39,7 @@ export const scientificRuntimePlugins: ScientificRuntimePlugin[] = [
   { kind: 'cgal', name: 'CGAL', environmentName: 'devshell-cgal', commandView: 'mesh', testView: 'cgal', artifactView: 'mesh', integrationView: 'cgal', sdk: true, labProbe: true, holdTest: true, comparisonPresets: true, configuredBackends: ['windows-native'], sections: [...common, 'Commands', 'Boolean', 'Catalog', 'Artifacts'], catalogTests: [
     { id: 'cgal-matrix', name: 'CGAL validation matrix', recipeId: 'matrix.cgal.validation', action: 'run-matrix', expected: 'Registered mesh cases match their expected verdicts.', requires: 'matrix' },
     { id: 'math3d-native', name: 'Math3D native Boolean integration', recipeId: 'integration.math3d.native-boolean', action: 'math3d-prepare-run', expected: 'Fourteen native Boolean cases pass their saved comparisons.', requires: 'integration' },
-  ], capabilities: ['mesh.read', 'mesh.write', 'mesh.validate', 'mesh.repair', 'mesh.boolean', 'mesh.decimate', 'mesh.remesh', 'geometry.aabb', 'geometry.distance'], checks: [
+  ], checks: [
     { id: 'cgal.dependencies', name: 'Boost / GMP / MPFR / Eigen provenance', category: 'package' },
     { id: 'cgal.include', name: 'CGAL include / compiler test', category: 'compiler' },
     { id: 'cgal.link', name: 'CGAL link test and linked libraries', category: 'compiler' },
@@ -49,18 +48,18 @@ export const scientificRuntimePlugins: ScientificRuntimePlugin[] = [
   { kind: 'vtk', name: 'VTK', environmentName: 'devshell-vtk', commandView: 'mesh', testView: 'vtk', artifactView: 'mesh', integrationView: 'unconfigured', versionArguments: ['-c', 'from vtkmodules.vtkCommonCore import vtkVersion; print(vtkVersion.GetVTKVersion())'], sdk: true, labProbe: true, holdTest: true, configuredBackends: ['windows-native'], sections: [...common, 'Commands', 'Catalog', 'Artifacts'], catalogTests: [
     { id: 'vtk-probe', name: 'VTK runtime probes', recipeId: 'lab.probe', action: 'lab-probe', expected: 'Installed VTK binding and render probes report their evidence.' },
     { id: 'vtk-rejections', name: 'VTK rejection checks', recipeId: 'matrix.vtk.rejections', action: 'vtk-rejections', expected: 'Invalid mesh requests are rejected with diagnostics.', requires: 'datasets' },
-  ], capabilities: ['mesh.read', 'mesh.write', 'mesh.filter', 'geometry.polydata', 'render.interactive', 'render.offscreen'], checks: [
+  ], checks: [
     { id: 'vtk.cpp', name: 'VTK C++ SDK / include / link', category: 'compiler' },
     { id: 'vtk.python', name: 'VTK Python bindings', category: 'package' },
     { id: 'vtk.polydata', name: 'vtkPolyData smoke test', category: 'geometry', capability: 'geometry.polydata' },
     { id: 'vtk.opengl', name: 'Rendering / OpenGL / offscreen rendering', category: 'rendering', capability: 'render.offscreen' },
   ] },
-  { kind: 'gmsh', name: 'Gmsh', environmentName: 'devshell-scientific', commandView: 'none', testView: 'candidate', artifactView: 'none', integrationView: 'unconfigured', sdk: false, configuredBackends: ['windows-native'], sections: common, capabilities: ['mesh.generate', 'mesh.read', 'mesh.write'], checks: [{ id: 'gmsh.import', name: 'Executable / Python module probe', category: 'package' }] },
+  { kind: 'gmsh', name: 'Gmsh', environmentName: 'devshell-scientific', commandView: 'none', testView: 'candidate', artifactView: 'none', integrationView: 'unconfigured', sdk: false, configuredBackends: ['windows-native'], sections: common, checks: [{ id: 'gmsh.import', name: 'Executable / Python module probe', category: 'package' }] },
   { kind: 'sage', name: 'SageMath', environmentName: '', commandView: 'sage', testView: 'sage', artifactView: 'none', integrationView: 'unconfigured', sdk: false, configuredBackends: ['wsl'], sections: [...common, 'Commands', 'Catalog'], catalogTests: [
     { id: 'sage-version', name: 'SageMath installation', recipeId: 'sage.version', action: 'sage-recipe', expected: 'Sage version is recorded.' },
     { id: 'sage-factor', name: 'Exact factorization', recipeId: 'sage.factor-smoke', action: 'sage-recipe', expected: 'x² − 1 factors as (x − 1) × (x + 1).' },
-  ], capabilities: ['math.symbolic', 'math.number-theory'], checks: [{ id: 'sage.session', name: 'Sage interpreter smoke test', category: 'geometry' }] },
-  { kind: 'python', name: 'Python / SciPy', environmentName: 'devshell-scientific', commandView: 'none', testView: 'candidate', artifactView: 'none', integrationView: 'unconfigured', versionArguments: ['--version'], sdk: false, configuredBackends: ['windows-native'], sections: common, capabilities: ['math.numeric', 'math.linear-algebra'], checks: [{ id: 'python.scipy', name: 'Python / NumPy / SciPy imports and versions', category: 'package' }] },
+  ], checks: [{ id: 'sage.session', name: 'Sage interpreter smoke test', category: 'geometry' }] },
+  { kind: 'python', name: 'Python / SciPy', environmentName: 'devshell-scientific', commandView: 'none', testView: 'candidate', artifactView: 'none', integrationView: 'unconfigured', versionArguments: ['--version'], sdk: false, configuredBackends: ['windows-native'], sections: common, checks: [{ id: 'python.scipy', name: 'Python / NumPy / SciPy imports and versions', category: 'package' }] },
 ]
 
 export function scientificPlugin(kind: RuntimeKind): ScientificRuntimePlugin | undefined {

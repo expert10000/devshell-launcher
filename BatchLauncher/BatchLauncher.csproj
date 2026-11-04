@@ -75,6 +75,7 @@
   <ItemGroup>
     <ProjectReference Include="..\tools\runtime-lab\RuntimeLab.csproj" ReferenceOutputAssembly="false" />
     <Content Include="..\runtimes\**\runtime.json" Link="runtimes\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <EmbeddedResource Include="..\schemas\scientific-capabilities.v1.json" LogicalName="ScientificCapabilities" />
   </ItemGroup>
   <Target Name="CopyRuntimeLab" AfterTargets="Build">
     <MSBuild Projects="..\tools\runtime-lab\RuntimeLab.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration)">

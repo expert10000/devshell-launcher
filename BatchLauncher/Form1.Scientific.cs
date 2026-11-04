@@ -214,6 +214,7 @@ public partial class Form1
             if(action=="status")data=_scientificJobs.Values.Where(job=>job.ProfileId==profileId).Select(ScientificJobSnapshot).ToArray();
             else if(action=="history")data=ScientificHistoryList(profileId);
             else if(action=="qualification-summary")data=ScientificQualificationSummary(profileId,runtimeId);
+            else if(action=="capabilities")data=new{schemaVersion=ScientificCapabilityRegistry.SchemaVersion,capabilities=ScientificCapabilityRegistry.Discover(runtimeId)};
             else if(action=="history-result")data=ScientificHistoryResult(profileId,request.GetProperty("jobId").GetString()??"");
             else if(action=="history-boolean-draft")data=ScientificBooleanDraft(profileId,request.GetProperty("jobId").GetString()??"");
             else if(action=="import-meshes"){ScientificProviderRegistry.RequireAction(runtimeId,action);data=ScientificMeshImportStart(profileId,runtimeId);}

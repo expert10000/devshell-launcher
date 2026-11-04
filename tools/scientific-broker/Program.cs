@@ -126,6 +126,7 @@ static class BrokerManifest
                 && item["capabilityId"]?.GetValue<string>() == "mesh.interop.vtk-math3d")
             .OrderByDescending(item => item["finishedAtUtc"]?.GetValue<string>(), StringComparer.Ordinal).Take(1))
         {
+            if (!ScientificCapabilityRegistry.IsDeclared("cgal-win-conda", "mesh.interop.vtk-math3d")) continue;
             var run = runs.Single(item => item["runId"]?.GetValue<string>() == current["runId"]?.GetValue<string>());
             var directory = run["directory"]!.GetValue<string>();
             var result = JsonNode.Parse(File.ReadAllText(Path.Combine(directory, "results.json")))!;
@@ -196,6 +197,7 @@ static class BrokerManifest
             || manifest["certifiedCapabilities"] is not JsonArray capabilities
             || capabilities.Any(item => item?["runtimeId"]?.GetValue<string>() != "cgal-win-conda"
                 || item?["capabilityId"]?.GetValue<string>() != "mesh.interop.vtk-math3d"
+                || !ScientificCapabilityRegistry.IsDeclared("cgal-win-conda", "mesh.interop.vtk-math3d")
                 || item?["level"]?.GetValue<string>() != "L9"))
             throw new InvalidDataException("Unsupported certified manifest content.");
     }

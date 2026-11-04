@@ -256,6 +256,22 @@ Reject(()=>ScientificProviderRegistry.RequireAction("vtk-win-conda","boolean-rec
 Reject(()=>ScientificProviderRegistry.RequireAction("cgal-win-conda","sage-recipe"),"CGAL rejects Sage action");
 Reject(()=>ScientificProviderRegistry.RequireAction("gmsh-win-conda","recipe"),"Gmsh rejects unmanaged recipe action");
 Reject(()=>ScientificProviderRegistry.RequireAction("sage-wsl","import-meshes"),"Sage rejects CGAL import action");
+var semanticCapabilities = ScientificCapabilityRegistry.Capabilities;
+Check(semanticCapabilities.Count >= 20 && semanticCapabilities.Select(item => item.Id).Distinct().Count() == semanticCapabilities.Count,
+    "versioned semantic capability catalog has unique IDs");
+var meshRead = ScientificCapabilityRegistry.Get("mesh.read");
+Check(meshRead.Version == 1 && meshRead.ParametersSchema.GetProperty("required")[0].GetString() == "input"
+    && meshRead.ResultSchema.GetProperty("required")[0].GetString() == "points"
+    && meshRead.Providers.Any(item => item.RuntimeId == "cgal-win-conda")
+    && meshRead.Providers.Any(item => item.RuntimeId == "vtk-win-conda")
+    && meshRead.Providers.Single(item => item.RuntimeId == "cgal-win-conda").Limitations
+        != meshRead.Providers.Single(item => item.RuntimeId == "vtk-win-conda").Limitations,
+    "one semantic capability retains distinct CGAL and VTK limits");
+Check(ScientificCapabilityRegistry.Discover("vtk-win-conda").Count > 0
+    && ScientificCapabilityRegistry.IsDeclared("sage-wsl", "math.symbolic")
+    && !ScientificCapabilityRegistry.IsDeclared("sage-wsl", "mesh.validate"),
+    "provider-scoped capability discovery excludes unrelated operations");
+Reject(() => ScientificCapabilityRegistry.Get("mesh.unknown"), "unknown semantic capability is rejected");
 foreach(var name in new[]{"tools/scientific_worker_contract.py","tools/runtime-lab/Program.cs",
     "BatchLauncher/ScientificProviderRegistry.cs","BatchLauncher/ScientificRunFingerprint.cs",
     "BatchLauncher/ScientificQualificationRecords.cs",

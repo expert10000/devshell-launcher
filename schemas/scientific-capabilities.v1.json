@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "schemaId": "devshell.scientific-capabilities",
+  "parameterSchemas": {
+    "mesh-file.v1": { "type": "object", "required": ["input"], "properties": { "input": { "type": "string", "description": "Registered, hash-verified mesh artifact" } }, "additionalProperties": false },
+    "mesh-pair.v1": { "type": "object", "required": ["left", "right"], "properties": { "left": { "type": "string" }, "right": { "type": "string" } }, "additionalProperties": false },
+    "mesh-operation.v1": { "type": "object", "required": ["input", "options"], "properties": { "input": { "type": "string" }, "options": { "type": "object" } }, "additionalProperties": false },
+    "field-file.v1": { "type": "object", "required": ["input"], "properties": { "input": { "type": "string" } }, "additionalProperties": false },
+    "expression.v1": { "type": "object", "required": ["expression"], "properties": { "expression": { "type": "string" } }, "additionalProperties": false },
+    "matrix-system.v1": { "type": "object", "required": ["matrix", "rhs"], "properties": { "matrix": { "type": "array", "items": { "type": "array", "items": { "type": "number" } } }, "rhs": { "type": "array", "items": { "type": "number" } } }, "additionalProperties": false }
+  },
+  "resultSchemas": {
+    "mesh-artifact.v1": { "type": "object", "required": ["artifact", "sha256", "format"], "properties": { "artifact": { "type": "string" }, "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }, "format": { "type": "string" } } },
+    "mesh-diagnostics.v1": { "type": "object", "required": ["points", "triangles"], "properties": { "points": { "type": "integer" }, "triangles": { "type": "integer" }, "closed": { "type": "boolean" } } },
+    "field-artifact.v1": { "type": "object", "required": ["artifact", "sha256"], "properties": { "artifact": { "type": "string" }, "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" } } },
+    "exact-value.v1": { "type": "object", "required": ["value", "encoding"], "properties": { "value": { "type": "string" }, "encoding": { "type": "string" } } },
+    "numeric-value.v1": { "type": "object", "required": ["value"], "properties": { "value": { "type": "number" } } },
+    "numeric-vector.v1": { "type": "object", "required": ["values"], "properties": { "values": { "type": "array", "items": { "type": "number" } } } },
+    "render-session.v1": { "type": "object", "required": ["state", "backend"], "properties": { "state": { "type": "string" }, "backend": { "type": "string" } } }
+  },
+  "capabilities": [
+    { "id": "mesh.read", "version": 1, "parametersSchema": "mesh-file.v1", "resultSchema": "mesh-diagnostics.v1", "providers": [
+      { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Registered OBJ/STL/PLY/OFF fixtures; worker acceptance is separate from package discovery." },
+      { "runtimeId": "vtk-win-conda", "backend": "windows-native", "limitations": "Registered OBJ/STL/PLY/VTP fixtures; malformed PLY rejection is scoped." },
+      { "runtimeId": "gmsh-win-conda", "backend": "windows-native", "limitations": "Candidate declaration only; Gmsh package and worker are not configured." }
+    ] },
+    { "id": "mesh.write", "version": 1, "parametersSchema": "mesh-operation.v1", "resultSchema": "mesh-artifact.v1", "providers": [
+      { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "OBJ output from registered validation worker." },
+      { "runtimeId": "vtk-win-conda", "backend": "windows-native", "limitations": "VTP output from registered mesh worker." },
+      { "runtimeId": "gmsh-win-conda", "backend": "windows-native", "limitations": "Candidate declaration only; no qualified output worker." }
+    ] },
+    { "id": "mesh.validate", "version": 1, "parametersSchema": "mesh-file.v1", "resultSchema": "mesh-diagnostics.v1", "providers": [
+      { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Fixed surface-mesh fixture and expected rejection; broader geometry is unqualified." }
+    ] },
+    { "id": "mesh.repair", "version": 1, "parametersSchema": "mesh-operation.v1", "resultSchema": "mesh-artifact.v1", "providers": [
+      { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Planned; no registered repair worker." }
+    ] },
+    { "id": "mesh.boolean.union", "version": 1, "parametersSchema": "mesh-pair.v1", "resultSchema": "mesh-artifact.v1", "providers": [
+      { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "MATH3D native CGAL Boolean path; separate from the fixed broker mesh.validate path." }
+    ] },
+    { "id": "mesh.boolean.intersection", "version": 1, "parametersSchema": "mesh-pair.v1", "resultSchema": "mesh-artifact.v1", "providers": [
+      { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "MATH3D native CGAL Boolean path with scoped rejection fixtures." }
+    ] },
+    { "id": "mesh.boolean.difference", "version": 1, "parametersSchema": "mesh-pair.v1", "resultSchema": "mesh-artifact.v1", "providers": [
+      { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "MATH3D native CGAL Boolean path with scoped rejection fixtures." }
+    ] },
+    { "id": "mesh.boolean", "version": 1, "parametersSchema": "mesh-pair.v1", "resultSchema": "mesh-artifact.v1", "providers": [
+      { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Legacy aggregate result ID; use operation-specific IDs for new qualification." }
+    ] },
+    { "id": "mesh.remesh", "version": 1, "parametersSchema": "mesh-operation.v1", "resultSchema": "mesh-artifact.v1", "providers": [
+      { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Isotropic remesh recipe; negative acceptance case remains open." }
+    ] },
+    { "id": "mesh.decimate", "version": 1, "parametersSchema": "mesh-operation.v1", "resultSchema": "mesh-artifact.v1", "providers": [
+      { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Planned; no registered decimation worker." }
+    ] },
+    { "id": "mesh.filter", "version": 1, "parametersSchema": "mesh-operation.v1", "resultSchema": "mesh-artifact.v1", "providers": [
+      { "runtimeId": "vtk-win-conda", "backend": "windows-native", "limitations": "Scoped topology-preserving simplification recipe." }
+    ] },
+    { "id": "mesh.normals", "version": 1, "parametersSchema": "mesh-operation.v1", "resultSchema": "mesh-artifact.v1", "providers": [
+      { "runtimeId": "vtk-win-conda", "backend": "windows-native", "limitations": "Scoped normal-generation recipe; open-surface auto-orient is rejected." }
+    ] },
+    { "id": "mesh.generate", "version": 1, "parametersSchema": "mesh-operation.v1", "resultSchema": "mesh-artifact.v1", "providers": [
+      { "runtimeId": "gmsh-win-conda", "backend": "windows-native", "limitations": "Candidate declaration only; no qualified volume-mesh pipeline." }
+    ] },
+    { "id": "mesh.generate3d", "version": 1, "parametersSchema": "mesh-operation.v1", "resultSchema": "mesh-artifact.v1", "providers": [
+      { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Planned MATH3D coverage row; no registered 3D generation worker." }
+    ] },
+    { "id": "pointset.process", "version": 1, "parametersSchema": "mesh-operation.v1", "resultSchema": "mesh-artifact.v1", "providers": [
+      { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Planned; no registered point-set worker." }
+    ] },
+    { "id": "geometry.polydata", "version": 1, "parametersSchema": "mesh-file.v1", "resultSchema": "mesh-diagnostics.v1", "providers": [
+      { "runtimeId": "vtk-win-conda", "backend": "windows-native", "limitations": "vtkPolyData construction and registered mesh inspection." }
+    ] },
+    { "id": "geometry.aabb", "version": 1, "parametersSchema": "mesh-operation.v1", "resultSchema": "mesh-diagnostics.v1", "providers": [
+      { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Planned; no registered AABB query worker." }
+    ] },
+    { "id": "geometry.distance", "version": 1, "parametersSchema": "mesh-operation.v1", "resultSchema": "numeric-value.v1", "providers": [
+      { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Planned; no registered distance worker." }
+    ] },
+    { "id": "geometry.intersection", "version": 1, "parametersSchema": "mesh-pair.v1", "resultSchema": "mesh-diagnostics.v1", "providers": [
+      { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Planned; no registered intersection-query worker." }
+    ] },
+    { "id": "render.interactive", "version": 1, "parametersSchema": "mesh-file.v1", "resultSchema": "render-session.v1", "providers": [
+      { "runtimeId": "vtk-win-conda", "backend": "windows-native", "limitations": "Candidate UI capability; no qualified interactive-render artifact." }
+    ] },
+    { "id": "render.offscreen", "version": 1, "parametersSchema": "mesh-file.v1", "resultSchema": "field-artifact.v1", "providers": [
+      { "runtimeId": "vtk-win-conda", "backend": "windows-native", "limitations": "Offscreen smoke only; image regression evidence is pending." }
+    ] },
+    { "id": "image.filters", "version": 1, "parametersSchema": "field-file.v1", "resultSchema": "field-artifact.v1", "providers": [
+      { "runtimeId": "vtk-win-conda", "backend": "windows-native", "limitations": "Planned; no registered image-filter worker." }
+    ] },
+    { "id": "volume.render", "version": 1, "parametersSchema": "field-file.v1", "resultSchema": "field-artifact.v1", "providers": [
+      { "runtimeId": "vtk-win-conda", "backend": "windows-native", "limitations": "Planned; no registered volume-render worker." }
+    ] },
+    { "id": "mesh.clip", "version": 1, "parametersSchema": "mesh-operation.v1", "resultSchema": "mesh-artifact.v1", "providers": [
+      { "runtimeId": "vtk-win-conda", "backend": "windows-native", "limitations": "Planned; no registered mesh-clip worker." }
+    ] },
+    { "id": "math.symbolic", "version": 1, "parametersSchema": "expression.v1", "resultSchema": "exact-value.v1", "providers": [
+      { "runtimeId": "sage-wsl", "backend": "wsl", "limitations": "Exact factorization smoke; typed general symbolic protocol is pending." }
+    ] },
+    { "id": "math.number-theory", "version": 1, "parametersSchema": "expression.v1", "resultSchema": "exact-value.v1", "providers": [
+      { "runtimeId": "sage-wsl", "backend": "wsl", "limitations": "Candidate family; no general number-theory worker qualification." }
+    ] },
+    { "id": "math.numeric", "version": 1, "parametersSchema": "matrix-system.v1", "resultSchema": "numeric-vector.v1", "providers": [
+      { "runtimeId": "python-win-conda", "backend": "windows-native", "limitations": "SciPy probe and scoped dense-solve smoke only." }
+    ] },
+    { "id": "math.linear-algebra", "version": 1, "parametersSchema": "matrix-system.v1", "resultSchema": "numeric-vector.v1", "providers": [
+      { "runtimeId": "python-win-conda", "backend": "windows-native", "limitations": "Dense solve and expected singular rejection; no general algebra certification." }
+    ] },
+    { "id": "mesh.interop.math3d", "version": 1, "parametersSchema": "mesh-file.v1", "resultSchema": "mesh-artifact.v1", "providers": [
+      { "runtimeId": "vtk-win-conda", "backend": "windows-native", "limitations": "Scoped VTP-to-OBJ MATH3D importer handoff." }
+    ] },
+    { "id": "mesh.interop.vtk-math3d", "version": 1, "parametersSchema": "mesh-file.v1", "resultSchema": "mesh-artifact.v1", "providers": [
+      { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Fixed CGAL-to-VTK-to-MATH3D mesh path only." }
+    ] }
+  ]
+}

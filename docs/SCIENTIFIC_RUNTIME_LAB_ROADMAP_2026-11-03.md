@@ -1332,6 +1332,8 @@ Model gate state, applicable prerequisites, evidence links and reasons.\
 Define versioned capability IDs, parameter/output schemas, providers and capability discovery.\
 **Acceptance:** one capability can have multiple providers without losing provider-specific limitations.
 
+**2026-11-04 scoped delivery:** `schemas/scientific-capabilities.v1.json` is the shared catalog. React uses it for provider declarations and acceptance-row limits; the desktop and standalone broker embed the same file. Desktop `capabilities` discovery returns the version, scoped providers, limitations and parameter/result schema objects. CGAL and VTK share `mesh.read` with distinct limits. This is declaration and discovery only; saved run evidence still determines qualification and certification. Worker request validation and version negotiation remain DS-SCI-007.
+
 **DS-SCI-006 — `feat(scientific): invalidate stale qualification evidence`**\
 Build fingerprint and dependency-based staleness calculations and a requalify action.\
 **Acceptance:** worker or contract changes mark the appropriate historical certificate as stale without altering its original run.

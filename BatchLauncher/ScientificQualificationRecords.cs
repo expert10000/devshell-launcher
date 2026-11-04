@@ -730,6 +730,8 @@ public static class ScientificQualificationRecords
         void Add(string capability, string level, string evidence, string? evidenceHash = null, JsonNode? lower = null,
             string? consumerSourceSha256 = null, string? consumerContractSha256 = null, string? consumerEnvironmentSha256 = null)
         {
+            if (level is "L5" or "L6" or "L7" or "L8" or "L9"
+                && !ScientificCapabilityRegistry.IsDeclared(runtimeId, capability)) return;
             if (records.Any(item => item["capabilityId"]?.GetValue<string>() == capability
                 && item["level"]?.GetValue<string>() == level)) return;
             records.Add(Record(runId, runtimeId, capability, level, evidence, fingerprintSha256, suiteRevision,

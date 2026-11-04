@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { ObservedScientificRuntime } from './scientificRuntimeReport'
 import type { RuntimeProfile, ScientificRunResult } from './scientificRuntimeProfiles'
 import type { useScientificRuntime } from './useScientificRuntime'
+import { capabilityProvider, semanticCapabilities } from './scientificCapabilityRegistry'
 
 type TestKey = 'cgal-matrix' | 'cgal-remesh' | 'real-mesh' | 'vtk-inspect' | 'vtk-simplify' | 'vtk-normals' | 'vtk-offscreen'
 type Capability = {
@@ -133,6 +134,8 @@ export function ScientificCapabilityCoverage({ runtime, native, edited, observed
     {runtime.kind === 'vtk' && <p className="scientific-runtime-note">VTK rejection suite: {activeSuite?.recipeId === 'matrix.vtk.rejections' && activeSuite.state === 'running' ? `Running ${activeSuite.stage ?? ''}` : rejectionSummary ? `${rejectionSummary.passed}/${rejectionSummary.total} cases passed; saved ${rejectionResult?.state ?? 'unknown'}` : 'No saved evidence loaded.'}{rejectionEntry && <> <button onClick={() => native.send(runtime.id, 'history-open-log', { jobId: rejectionEntry.jobId })}>Suite log</button></>}</p>}
     <div className="scientific-history-scroll"><table><thead><tr><th>Capability</th><th>Installed</th><th>Worker</th><th>Contract</th><th>MATH3D UI</th><th>Test evidence / action</th></tr></thead><tbody>
       {rows.map(row => {
+        const contract = semanticCapabilities.find(capability => capability.id === row.id)
+        const provider = capabilityProvider(row.id, runtime.kind === 'vtk' ? 'vtk' : 'cgal', runtime.execution)
         const evidence = row.test ? testEvidence(row.test) : undefined
         const needsFixture = row.test && !['real-mesh', 'vtk-offscreen'].includes(row.test)
         const disabled = !available || !row.test || (needsFixture && !fixture) || (row.test === 'cgal-matrix' && !native.datasets?.entries.length)
@@ -147,7 +150,7 @@ export function ScientificCapabilityCoverage({ runtime, native, edited, observed
         const rejectionPassed = realMeshRejectionPassed || vtkRejectionPassed
         const fullyPassed = !!evidence?.passed && (rejectionPassed || (!!row.rejectionAutomated && !row.rejectionCaseIds))
         return <tr key={row.id}>
-          <td><strong>{row.name}</strong><br /><small>{row.group} / <code>{row.id}</code></small><details><summary>Acceptance scope</summary><small>Valid: {row.positive}<br />Rejection: {row.rejection}<br />{row.rejectionAutomated || row.rejectionCaseIds ? 'Valid and rejection cases automated.' : row.rejectionCaseId ? 'Rejection case runs in the VTK suite.' : 'Rejection case is not yet automated.'}</small></details></td>
+          <td><strong>{row.name}</strong><br /><small>{row.group} / <code>{row.id}</code></small><details><summary>Acceptance scope</summary><small>Valid: {row.positive}<br />Rejection: {row.rejection}<br />{row.rejectionAutomated || row.rejectionCaseIds ? 'Valid and rejection cases automated.' : row.rejectionCaseId ? 'Rejection case runs in the VTK suite.' : 'Rejection case is not yet automated.'}<br />Provider: {provider?.limitations ?? 'No provider declaration yet.'}{contract && <> / contract v{contract.version} / parameters: {contract.parametersSchema} / result: {contract.resultSchema}</>}</small></details></td>
           <td>{observed && observed.state !== 'missing' && observed.state !== 'failed' ? `Recorded ${observed.version ?? 'version unknown'}` : observed?.state ?? 'Not loaded'}</td>
           <td>{row.implementation ?? 'Not implemented'}{row.implementation && <><br /><small>{row.implementation}</small></>}</td>
           <td>{row.implementation ? 'Structured request/result' : 'Not exposed'}</td>

@@ -1,4 +1,5 @@
 import { scientificRuntimePlugins } from './scientificRuntimePlugins'
+import { capabilitiesFor } from './scientificCapabilityRegistry'
 
 export type RuntimeKind = 'cgal' | 'vtk' | 'gmsh' | 'sage' | 'python' | 'custom'
 export type RuntimeExecution = 'windows-native' | 'wsl' | 'docker'
@@ -120,7 +121,7 @@ export function createScientificProfiles(hostRoot: string, execution: RuntimeExe
       executable, compiler: definition.sdk ? execution === 'windows-native' ? 'MSVC (configure toolchain)' : 'C++ (configure toolchain)' : undefined,
       cmake: definition.sdk ? 'cmake' : undefined,
       environment: {}, versionProbe: { id: `${definition.kind}.version`, name: `${definition.name} version / provenance`, category: 'version', recipeId: recipes[0]?.id },
-      healthChecks: definition.checks, capabilities: definition.capabilities, recipes,
+      healthChecks: definition.checks, capabilities: capabilitiesFor(definition.kind, execution).map(capability => capability.id), recipes,
     }
   })
 }

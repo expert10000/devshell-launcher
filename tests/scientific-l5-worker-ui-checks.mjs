@@ -92,6 +92,14 @@ try {
         assert.equal(comparison.baseline.artifactSha256, l5Run.l5Evidence.positive.artifactSha256)
         assert.equal(comparison.rejection.state, 'failed')
         assert.equal(comparison.rejection.outputAbsent, true)
+        assert.equal(comparison.roundTrip.points, 4)
+        assert.equal(comparison.roundTrip.triangles, 4)
+        assert.equal(comparison.roundTrip.boundaryEdges, 0)
+        assert.equal(comparison.roundTrip.nonManifoldEdges, 0)
+        assert.equal(comparison.roundTrip.closed, true)
+        assert.deepEqual(comparison.roundTrip.bounds, [-1, 1, -1, 1, -1, 1])
+        assert.ok(result.artifacts.some(item => item.path === 'reload/results.json'
+          && item.sha256 === comparison.roundTripResultSha256))
         assert.ok(qualification.records.some(item => item.level === 'L6' && item.capabilityId === capability))
         await nav.getByRole('button', { name: 'History' }).click()
         await history.getByRole('button', { name: /Load history|Refresh history/ }).click()
@@ -110,15 +118,39 @@ try {
       }
       console.log(`${id} ${recipe}: ${result.runId} / ${level}`)
     }
+    if (id === 'vtk-win-conda') {
+      const previous = new Set(readdirSync(runs))
+      await detail.getByRole('button', { name: 'Run L7 MATH3D handoff' }).click()
+      const { result, qualification } = await newRun(previous, 'l7.math3d-import')
+      assert.equal(result.runtimeId, id)
+      assert.equal(result.state, 'succeeded', result.diagnostics?.map(item => item.message).join('; '))
+      assert.ok(qualification?.records.some(item => item.level === 'L7' && item.capabilityId === 'mesh.interop.math3d'))
+      assert.equal(result.l7Evidence.consumer.consumer, 'MATH3D desktop loadSurfaceMeshFromFile')
+      assert.equal(result.l7Evidence.consumer.points, 4)
+      assert.equal(result.l7Evidence.consumer.triangles, 4)
+      assert.equal(result.l7Evidence.consumer.closed, true)
+      assert.ok(result.artifacts.some(item => item.path === 'handoff/vtk-math3d.obj'
+        && item.sha256 === result.l7Evidence.objSha256))
+      await nav.getByRole('button', { name: 'History' }).click()
+      await history.getByRole('button', { name: /Load history|Refresh history/ }).click()
+      const row = history.locator('section[aria-label="Current qualification summary"] tr').filter({ hasText: 'mesh.interop.math3d' })
+      await row.waitFor()
+      assert.match(await row.innerText(), /L7/)
+      await row.getByRole('button', { name: result.runId.slice(0, 12) }).click()
+      await history.locator('section[aria-label="L7 MATH3D handoff evidence"]')
+        .getByText('L7 VTK → MATH3D importer').waitFor()
+      console.log(`${id} l7.math3d-import: ${result.runId} / L7`)
+    }
   }
   await main.locator('.scientific-runtime-item').filter({ hasText: 'Gmsh' }).first().click()
   assert.equal(await detail.getByRole('button', { name: 'Run L5 worker check' }).count(), 0)
   assert.equal(await detail.getByRole('button', { name: 'Run L6 reproduction check' }).count(), 0)
+  assert.equal(await detail.getByRole('button', { name: 'Run L7 MATH3D handoff' }).count(), 0)
   await nav.getByRole('button', { name: 'History' }).click()
   await history.getByRole('button', { name: /Load history|Refresh history/ }).click()
   await history.locator('section[aria-label="Current qualification summary"]')
     .getByText('No current qualifications for this provider.').waitFor()
-  console.log('PASS: CGAL and VTK L5 worker evidence and L6 reproduction; Gmsh unqualified')
+  console.log('PASS: CGAL and VTK L6 round trips; VTK L7 MATH3D importer; Gmsh unqualified')
 } finally {
   await browser.close()
 }

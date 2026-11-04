@@ -11,7 +11,7 @@ public partial class Form1
     private static string ScientificL6Digest(JsonNode? value) => Convert.ToHexString(
         SHA256.HashData(Encoding.UTF8.GetBytes(value?.ToJsonString() ?? "null"))).ToLowerInvariant();
 
-    private static JsonObject ScientificCurrentL5(string profileId, string runtimeId, string capability)
+    private JsonObject ScientificCurrentL5(string profileId, string runtimeId, string capability)
     {
         var summary = ScientificQualificationSummary(profileId, runtimeId);
         var support = summary["currentRecords"]?.AsArray().OfType<JsonObject>()
@@ -89,7 +89,8 @@ public partial class Form1
                 positiveCase = positive.DatasetId, rejectionCase = rejection.DatasetId }, ScientificJson);
             ScientificWriteRequest(job, parameters, positiveInput, additionalInputs: new JsonArray(rejectionInput.DeepClone()),
                 additionalOutputs: new JsonArray(new JsonObject { ["path"] = "positive/" + positive.OutputName,
-                    ["mediaType"] = ScientificMediaType(positive.OutputName) }));
+                    ["mediaType"] = ScientificMediaType(positive.OutputName) },
+                    new JsonObject { ["path"] = "reload/results.json", ["mediaType"] = "application/json" }));
             _scientificJobs[profileId + ":" + runtimeId] = job;
             ScientificSend(new { type = "scientific.runtime.job", job = ScientificJobSnapshot(job) });
             _ = ScientificL6RunAsync(job, prefix, capability, positive, rejection, positiveInput, rejectionInput, lower, support, baseline);
@@ -109,6 +110,17 @@ public partial class Form1
             var passed = await ScientificL5CaseAsync(job, prefix, "positive", positive, positiveInput);
             job.Stage = "rejection";
             var rejected = await ScientificL5CaseAsync(job, prefix, "rejection", rejection, rejectionInput);
+            job.Stage = "reload";
+            var reloadDirectory = Path.Combine(job.Directory, "reload");
+            Directory.CreateDirectory(reloadDirectory);
+            var reloadResult = Path.Combine(reloadDirectory, "results.json");
+            await ScientificProcessAsync(job, prefix, Path.Combine(prefix, "python.exe"),
+                [Path.Combine(ScientificSourceRoot, "tools", "scientific-artifact-roundtrip.py"),
+                    "--input", Path.Combine(job.Directory, "positive", positive.OutputName),
+                    "--result", reloadResult], reloadDirectory, 60);
+            var reloaded = JsonNode.Parse(File.ReadAllText(reloadResult)) as JsonObject
+                ?? throw new InvalidDataException("Independent artifact reload did not return a result.");
+            var reloadHash = ScientificHash(reloadResult);
             var contract = job.FingerprintComponents?["contract"];
             var currentEnvironment = ScientificL6Digest(job.FingerprintComponents?["environment"]);
             var matched = passed["artifactSha256"]?.GetValue<string>() == baseline["artifactSha256"]?.GetValue<string>()
@@ -116,7 +128,9 @@ public partial class Form1
                 && passed["inputSha256"]?.GetValue<string>() == baseline["positiveInputSha256"]?.GetValue<string>()
                 && rejected["inputSha256"]?.GetValue<string>() == baseline["rejectionInputSha256"]?.GetValue<string>()
                 && contract?["workerContractModule"]?["sha256"]?.GetValue<string>() == baseline["workerContractSha256"]?.GetValue<string>()
-                && currentEnvironment == baseline["environmentSha256"]?.GetValue<string>();
+                && currentEnvironment == baseline["environmentSha256"]?.GetValue<string>()
+                && ScientificQualificationRecords.ValidRoundTrip(reloaded, job.RuntimeId, passed["artifactSha256"]?.GetValue<string>(),
+                    job.FingerprintComponents?["suite"]?["files"]?["tools/scientific-artifact-roundtrip.py"]?["sha256"]?.GetValue<string>());
             var currentLower = ScientificCurrentLowerLevels(job.ProfileId, job.RuntimeId);
             var currentL5 = ScientificCurrentL5(job.ProfileId, job.RuntimeId, capability);
             if (currentLower.ToJsonString() != lower.ToJsonString()
@@ -132,7 +146,8 @@ public partial class Form1
             var comparison = new JsonObject { ["suiteId"] = "l6-reproduce-v1", ["capabilityId"] = capability,
                 ["comparison"] = "sha256-exact", ["verdict"] = matched ? "matched" : "mismatch",
                 ["baseline"] = baseline.DeepClone(), ["positive"] = passed.DeepClone(), ["rejection"] = rejected.DeepClone(),
-                ["environmentSha256"] = currentEnvironment,
+                ["environmentSha256"] = currentEnvironment, ["roundTrip"] = reloaded.DeepClone(),
+                ["roundTripResultSha256"] = reloadHash,
                 ["lowerQualification"] = new JsonObject { ["records"] = lowerRecords } };
             File.WriteAllText(Path.Combine(job.Directory, "results.json"), new JsonObject
             {

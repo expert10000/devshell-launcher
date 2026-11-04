@@ -20,7 +20,7 @@ public partial class Form1
         _ => throw new InvalidOperationException("L5 worker evidence is registered only for CGAL and VTK.")
     };
 
-    private static JsonObject ScientificCurrentLowerLevels(string profileId, string runtimeId)
+    private JsonObject ScientificCurrentLowerLevels(string profileId, string runtimeId)
     {
         var summary = ScientificQualificationSummary(profileId, runtimeId);
         var kind = runtimeId == "cgal-win-conda" ? "cgal" : "vtk";

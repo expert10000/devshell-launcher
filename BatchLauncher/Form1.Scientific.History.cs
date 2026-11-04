@@ -48,7 +48,7 @@ public partial class Form1
         throw new InvalidOperationException("Run is unavailable in this profile.");
     }
 
-    private static JsonElement ScientificHistoryResult(string profileId, string jobId)
+    private JsonElement ScientificHistoryResult(string profileId, string jobId)
     {
         var (directory, result) = ScientificHistoryFind(profileId, jobId);
         if (!result.TryGetProperty("runFingerprintSha256", out _)) return result;
@@ -64,13 +64,18 @@ public partial class Form1
         {
             var assessed = ScientificQualificationRecords.Assess(
                 ScientificQualificationRecords.Verify(directory, result), sourceDrift, environmentDrift);
-            if (assessed.OfType<JsonObject>().Any(item => item["level"]?.GetValue<string>() is "L5" or "L6"))
+            if (assessed.OfType<JsonObject>().Any(item => item["level"]?.GetValue<string>() is "L5" or "L6" or "L7"))
             {
                 var summary = ScientificQualificationSummary(profileId, result.GetProperty("runtimeId").GetString() ?? "");
                 var current = summary["currentRecords"]?.AsArray().OfType<JsonObject>()
                     .Select(item => item["recordId"]?.GetValue<string>()).OfType<string>()
                     .ToHashSet(StringComparer.Ordinal) ?? new HashSet<string>(StringComparer.Ordinal);
                 ScientificQualificationRecords.AssessL5Dependencies(assessed, current);
+            }
+            if (assessed.OfType<JsonObject>().Any(item => item["level"]?.GetValue<string>() == "L7"))
+            {
+                var importer = Path.Combine(ScientificL7Checkout(), "renderer", "src", "mesh", "surfaceMesh.ts");
+                ScientificQualificationRecords.AssessL7Consumer(assessed, File.Exists(importer) ? ScientificHash(importer) : null);
             }
             view["qualifications"] = assessed;
         }
@@ -113,7 +118,7 @@ public partial class Form1
         return entries;
     }
 
-    private static JsonObject ScientificQualificationSummary(string profileId, string runtimeId)
+    private JsonObject ScientificQualificationSummary(string profileId, string runtimeId)
     {
         ScientificProviderRegistry.Get(runtimeId);
         var root = Path.Combine(ScientificDataRoot, "runs");
@@ -156,12 +161,23 @@ public partial class Form1
             .Select(record => record["recordId"]?.GetValue<string>()).OfType<string>()
             .ToHashSet(StringComparer.Ordinal);
         foreach (var run in runs)
-            if (run["qualifications"] is JsonArray records) ScientificQualificationRecords.AssessL5Dependencies(records, lowerIds, includeL6: false);
+            if (run["qualifications"] is JsonArray records) ScientificQualificationRecords.AssessL5Dependencies(records, lowerIds, includeL6: false, includeL7: false);
         lowerIds.UnionWith(runs.SelectMany(run => run["qualifications"]?.AsArray().OfType<JsonObject>() ?? [])
             .Where(record => record["status"]?.GetValue<string>() == "current" && record["level"]?.GetValue<string>() == "L5")
             .Select(record => record["recordId"]?.GetValue<string>()).OfType<string>());
         foreach (var run in runs)
-            if (run["qualifications"] is JsonArray records) ScientificQualificationRecords.AssessL5Dependencies(records, lowerIds);
+            if (run["qualifications"] is JsonArray records) ScientificQualificationRecords.AssessL5Dependencies(records, lowerIds, includeL7: false);
+        lowerIds.UnionWith(runs.SelectMany(run => run["qualifications"]?.AsArray().OfType<JsonObject>() ?? [])
+            .Where(record => record["status"]?.GetValue<string>() == "current" && record["level"]?.GetValue<string>() == "L6")
+            .Select(record => record["recordId"]?.GetValue<string>()).OfType<string>());
+        var importerPath = Path.Combine(ScientificL7Checkout(), "renderer", "src", "mesh", "surfaceMesh.ts");
+        var importerHash = File.Exists(importerPath) ? ScientificHash(importerPath) : null;
+        foreach (var run in runs)
+            if (run["qualifications"] is JsonArray records)
+            {
+                ScientificQualificationRecords.AssessL5Dependencies(records, lowerIds);
+                ScientificQualificationRecords.AssessL7Consumer(records, importerHash);
+            }
         return ScientificQualificationRecords.Summarize(runtimeId, runs);
     }
 

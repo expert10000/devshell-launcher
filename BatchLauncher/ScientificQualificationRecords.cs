@@ -23,7 +23,7 @@ public static class ScientificQualificationRecords
 
     private static JsonObject Record(string runId, string runtimeId, string capabilityId, string level,
         string evidenceId, string fingerprintSha256, string suiteRevisionSha256, JsonObject contract,
-        string? evidenceSha256 = null, JsonNode? lowerQualification = null)
+        string? evidenceSha256 = null, JsonNode? lowerQualification = null, string? consumerSourceSha256 = null)
     {
         var record = new JsonObject
         {
@@ -34,6 +34,7 @@ public static class ScientificQualificationRecords
         };
         if (evidenceSha256 != null) record["evidenceSha256"] = evidenceSha256;
         if (lowerQualification != null) record["lowerQualification"] = lowerQualification.DeepClone();
+        if (consumerSourceSha256 != null) record["consumerSourceSha256"] = consumerSourceSha256;
         record["recordId"] = Digest(record.ToJsonString());
         return record;
     }
@@ -167,9 +168,20 @@ public static class ScientificQualificationRecords
             || evidence["capabilityId"]?.GetValue<string>() != candidate["capabilityId"]?.GetValue<string>()
             || evidence["positive"]?.ToJsonString() != candidate["positive"]?.ToJsonString()
             || evidence["rejection"]?.ToJsonString() != candidate["rejection"]?.ToJsonString()
+            || evidence["roundTrip"] is not JsonObject roundTrip
+            || evidence["roundTripResultSha256"]?.GetValue<string>() is not { Length: 64 } reloadHash
             || evidence["lowerQualification"]?["records"] is not JsonArray lower || lower.Count != 6
             || candidate["lowerQualification"]?["records"] is not JsonArray l5Lower || l5Lower.Count != 5)
             return null;
+        var reloadPath = Path.Combine(directory, "reload", "results.json");
+        if (!File.Exists(reloadPath) || new FileInfo(reloadPath).Length > 65536
+            || Digest(File.ReadAllText(reloadPath)) != reloadHash
+            || JsonNode.Parse(File.ReadAllText(reloadPath))?.ToJsonString() != roundTrip.ToJsonString()
+            || !ValidRoundTrip(roundTrip, runtimeId, candidate["positive"]?["artifactSha256"]?.GetValue<string>(),
+                components["suite"]?["files"]?["tools/scientific-artifact-roundtrip.py"]?["sha256"]?.GetValue<string>())
+            || result["artifacts"] is not JsonArray reloadArtifacts
+            || !reloadArtifacts.Any(item => item?["path"]?.GetValue<string>() == "reload/results.json"
+                && item?["sha256"]?.GetValue<string>() == reloadHash)) return null;
         for (var i = 0; i < 5; i++)
             if (lower[i]?.ToJsonString() != l5Lower[i]?.ToJsonString()) return null;
         var baselineRunId = baseline["runId"]?.GetValue<string>();
@@ -222,6 +234,118 @@ public static class ScientificQualificationRecords
         return Digest(evidence.ToJsonString());
     }
 
+    public static bool ValidRoundTrip(JsonObject? reload, string runtimeId, string? artifactSha256, string? parserSha256)
+    {
+        var format = runtimeId == "cgal-win-conda" ? "obj" : runtimeId == "vtk-win-conda" ? "vtp" : null;
+        if (format == null || artifactSha256 is not { Length: 64 } || parserSha256 is not { Length: 64 }
+            || reload?["parserVersion"]?.GetValue<int>() != 1 || reload["format"]?.GetValue<string>() != format
+            || reload["artifactSha256"]?.GetValue<string>() != artifactSha256
+            || reload["parserSourceSha256"]?.GetValue<string>() != parserSha256
+            || reload["points"]?.GetValue<int>() != 4 || reload["triangles"]?.GetValue<int>() != 4
+            || reload["boundaryEdges"]?.GetValue<int>() != 0 || reload["nonManifoldEdges"]?.GetValue<int>() != 0
+            || reload["closed"]?.GetValue<bool>() != true || reload["bounds"] is not JsonArray bounds || bounds.Count != 6)
+            return false;
+        for (var index = 0; index < 6; index++)
+            if (!double.IsFinite(bounds[index]?.GetValue<double>() ?? double.NaN)
+                || Math.Abs((bounds[index]?.GetValue<double>() ?? double.NaN) - (index % 2 == 0 ? -1 : 1)) > 1e-6)
+                return false;
+        return Math.Abs((reload["absoluteVolume"]?.GetValue<double>() ?? double.NaN) - 8.0 / 3.0) <= 1e-6;
+    }
+
+    public static bool ValidMath3DImport(JsonObject reload, JsonObject consumer)
+    {
+        if (consumer["consumer"]?.GetValue<string>() != "MATH3D desktop loadSurfaceMeshFromFile"
+            || consumer["consumerVersion"]?.GetValue<int>() != 1 || consumer["format"]?.GetValue<string>() != "obj"
+            || consumer["indicesInRange"]?.GetValue<bool>() != true
+            || consumer["points"]?.GetValue<int>() != reload["points"]?.GetValue<int>()
+            || consumer["triangles"]?.GetValue<int>() != reload["triangles"]?.GetValue<int>()
+            || consumer["boundaryEdges"]?.GetValue<int>() != reload["boundaryEdges"]?.GetValue<int>()
+            || consumer["nonManifoldEdges"]?.GetValue<int>() != reload["nonManifoldEdges"]?.GetValue<int>()
+            || consumer["closed"]?.GetValue<bool>() != reload["closed"]?.GetValue<bool>()
+            || consumer["bounds"] is not JsonArray bounds || reload["bounds"] is not JsonArray expected || bounds.Count != 6 || expected.Count != 6)
+            return false;
+        return Enumerable.Range(0, 6).All(index =>
+        {
+            var actual = bounds[index]?.GetValue<double>() ?? double.NaN;
+            var reference = expected[index]?.GetValue<double>() ?? double.NaN;
+            return double.IsFinite(actual) && double.IsFinite(reference) && Math.Abs(actual - reference) <= 1e-6;
+        });
+    }
+
+    private static string? L7Hash(string directory, JsonObject result, JsonObject components)
+    {
+        if (result["recipeId"]?.GetValue<string>() != "l7.math3d-import"
+            || result["runtimeId"]?.GetValue<string>() != "vtk-win-conda"
+            || result["l7Evidence"] is not JsonObject evidence
+            || evidence["suiteId"]?.GetValue<string>() != "l7-math3d-import-v1"
+            || evidence["capabilityId"]?.GetValue<string>() != "mesh.interop.math3d"
+            || evidence["source"] is not JsonObject source
+            || evidence["conversion"] is not JsonObject conversion
+            || evidence["consumer"] is not JsonObject consumer
+            || evidence["lowerQualification"]?["records"] is not JsonArray lower || lower.Count != 7
+            || source["lowerQualification"]?["records"] is not JsonArray sourceLower || sourceLower.Count != 6)
+            return null;
+        for (var index = 0; index < 6; index++)
+            if (lower[index]?.ToJsonString() != sourceLower[index]?.ToJsonString()) return null;
+        var folder = source["folderId"]?.GetValue<string>();
+        var runId = source["runId"]?.GetValue<string>();
+        var recordId = source["recordId"]?.GetValue<string>();
+        if (folder is not { Length: 32 } || !folder.All(Uri.IsHexDigit)
+            || runId is not { Length: 32 } || !runId.All(Uri.IsHexDigit)
+            || recordId is not { Length: 64 } || !recordId.All(Uri.IsHexDigit)
+            || lower[6]?["runId"]?.GetValue<string>() != runId
+            || lower[6]?["recordId"]?.GetValue<string>() != recordId
+            || lower[6]?["level"]?.GetValue<string>() != "L6") return null;
+        var sourceDirectory = Path.Combine(Path.GetDirectoryName(directory)!, folder);
+        var sourceResultPath = Path.Combine(sourceDirectory, "results.json");
+        if (!File.Exists(sourceResultPath) || new FileInfo(sourceResultPath).Length > 1048576) return null;
+        using var sourceDocument = JsonDocument.Parse(File.ReadAllText(sourceResultPath));
+        var sourceResult = sourceDocument.RootElement;
+        if (sourceResult.GetProperty("runId").GetString() != runId
+            || sourceResult.GetProperty("runtimeId").GetString() != "vtk-win-conda"
+            || sourceResult.GetProperty("profileId").GetString() != result["profileId"]?.GetValue<string>()
+            || sourceResult.GetProperty("recipeId").GetString() != "l6.reproduce"
+            || sourceResult.GetProperty("state").GetString() != "succeeded"
+            || sourceResult.GetProperty("runFingerprintSha256").GetString() != source["runFingerprintSha256"]?.GetValue<string>()
+            || !Verify(sourceDirectory, sourceResult).OfType<JsonObject>().Any(item => item["recordId"]?.GetValue<string>() == recordId
+                && item["level"]?.GetValue<string>() == "L6")) return null;
+        ScientificRunFingerprint.Verify(sourceDirectory, sourceResult.GetProperty("runFingerprintSha256").GetString() ?? "");
+        var sourceEvidence = JsonNode.Parse(sourceResult.GetRawText())?["l6Evidence"];
+        if (sourceEvidence?["positive"]?["artifactSha256"]?.GetValue<string>() != source["artifactSha256"]?.GetValue<string>()
+            || sourceEvidence?["roundTrip"]?.ToJsonString() != source["roundTrip"]?.ToJsonString()
+            || source["artifactPath"]?.GetValue<string>() != "positive/l5-positive.vtp") return null;
+        var sourceArtifact = Path.Combine(sourceDirectory, "positive", "l5-positive.vtp");
+        if (!File.Exists(sourceArtifact)
+            || Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(sourceArtifact))).ToLowerInvariant() != source["artifactSha256"]?.GetValue<string>()) return null;
+        var handoff = Path.Combine(directory, "handoff");
+        var converted = Path.Combine(handoff, "vtk-math3d.obj");
+        var reloadPath = Path.Combine(handoff, "reload.json");
+        var consumedPath = Path.Combine(handoff, "consumed.json");
+        if (!File.Exists(converted) || !File.Exists(reloadPath) || !File.Exists(consumedPath)
+            || new FileInfo(converted).Length > 33554432 || new FileInfo(reloadPath).Length > 65536
+            || new FileInfo(consumedPath).Length > 65536
+            || evidence["objSha256"]?.GetValue<string>() != Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(converted))).ToLowerInvariant()
+            || evidence["conversionSha256"]?.GetValue<string>() != Digest(File.ReadAllText(reloadPath))
+            || evidence["consumerSha256"]?.GetValue<string>() != Digest(File.ReadAllText(consumedPath))
+            || JsonNode.Parse(File.ReadAllText(reloadPath))?.ToJsonString() != conversion.ToJsonString()
+            || JsonNode.Parse(File.ReadAllText(consumedPath))?.ToJsonString() != consumer.ToJsonString()
+            || conversion["artifactSha256"]?.GetValue<string>() != source["artifactSha256"]?.GetValue<string>()
+            || conversion["exportObjSha256"]?.GetValue<string>() != evidence["objSha256"]?.GetValue<string>()
+            || conversion["parserSourceSha256"]?.GetValue<string>() != components["suite"]?["files"]?["tools/scientific-artifact-roundtrip.py"]?["sha256"]?.GetValue<string>()
+            || consumer["inputObjSha256"]?.GetValue<string>() != evidence["objSha256"]?.GetValue<string>()
+            || consumer["importerSourceSha256"]?.GetValue<string>() != evidence["importerSourceSha256"]?.GetValue<string>()
+            || !ValidMath3DImport(conversion, consumer)
+            || result["inputArtifacts"] is not JsonArray inputs || inputs.Count != 1
+            || inputs[0]?["sha256"]?.GetValue<string>() != source["artifactSha256"]?.GetValue<string>()
+            || inputs[0]?["sourceRunId"]?.GetValue<string>() != runId
+            || result["artifacts"] is not JsonArray artifacts
+            || !new[] { ("handoff/vtk-math3d.obj", "objSha256"), ("handoff/reload.json", "conversionSha256"),
+                    ("handoff/consumed.json", "consumerSha256") }.All(item => artifacts.Any(artifact =>
+                        artifact?["path"]?.GetValue<string>() == item.Item1
+                        && artifact?["sha256"]?.GetValue<string>() == evidence[item.Item2]?.GetValue<string>()))) return null;
+        return Digest(evidence.ToJsonString());
+    }
+
     public static string? Save(string directory, JsonObject result, string sourceRoot, string installedRoot)
     {
         if (result["state"]?.GetValue<string>() != "succeeded") return null;
@@ -246,11 +370,11 @@ public static class ScientificQualificationRecords
         if (!packagesRecorded || components?["worker"]?["executedFiles"] is not JsonArray workers || workers.Count == 0)
             return null;
         var records = new List<JsonObject>();
-        void Add(string capability, string level, string evidence, string? evidenceHash = null, JsonNode? lower = null)
+        void Add(string capability, string level, string evidence, string? evidenceHash = null, JsonNode? lower = null, string? consumerSourceSha256 = null)
         {
             if (records.Any(item => item["capabilityId"]?.GetValue<string>() == capability
                 && item["level"]?.GetValue<string>() == level)) return;
-            records.Add(Record(runId, runtimeId, capability, level, evidence, fingerprintSha256, suiteRevision, contract, evidenceHash, lower));
+            records.Add(Record(runId, runtimeId, capability, level, evidence, fingerprintSha256, suiteRevision, contract, evidenceHash, lower, consumerSourceSha256));
         }
         Add("runtime.inventory", "L0", "fingerprint.environment");
         var recipeId = result["recipeId"]?.GetValue<string>();
@@ -315,6 +439,17 @@ public static class ScientificQualificationRecords
             if (capability != null && declaration?["capability"]?.GetValue<string>() == capability && hash != null)
                 Add(capability, "L6", "l6.reproduce", hash, result["l6Evidence"]?["lowerQualification"]);
         }
+        else if (recipeId == "l7.math3d-import" && manifest["qualificationRecipes"] is JsonArray l7Recipes)
+        {
+            var declaration = l7Recipes.OfType<JsonObject>().FirstOrDefault(item => item["id"]?.GetValue<string>() == "l7.math3d-import"
+                && item["readinessLevel"]?.GetValue<string>() == "L7"
+                && item["capability"]?.GetValue<string>() == "mesh.interop.math3d"
+                && item["referenceRecipe"]?.GetValue<string>() == "l6.reproduce");
+            var hash = L7Hash(directory, result, components!);
+            if (declaration != null && hash != null)
+                Add("mesh.interop.math3d", "L7", "l7.math3d-import", hash,
+                    result["l7Evidence"]?["lowerQualification"], result["l7Evidence"]?["importerSourceSha256"]?.GetValue<string>());
+        }
         var document = new JsonObject
         {
             ["schemaVersion"] = 1, ["runId"] = runId, ["runtimeId"] = runtimeId,
@@ -372,7 +507,7 @@ public static class ScientificQualificationRecords
                 || record["runFingerprintSha256"]?.GetValue<string>() != fingerprintSha256
                 || record["suiteRevisionSha256"]?.GetValue<string>() != suiteRevision
                 || record["contract"]?.ToJsonString() != contract?.ToJsonString()
-                || record["level"]?.GetValue<string>() is not ("L0" or "L1" or "L2" or "L3" or "L4" or "L5" or "L6"))
+                || record["level"]?.GetValue<string>() is not ("L0" or "L1" or "L2" or "L3" or "L4" or "L5" or "L6" or "L7"))
                 throw new InvalidDataException("Qualification entry does not match its run.");
             if (record["level"]?.GetValue<string>() == "L4")
             {
@@ -404,6 +539,16 @@ public static class ScientificQualificationRecords
                         fingerprint!["components"]!.AsObject()))
                     throw new InvalidDataException("L6 reproduction evidence has changed.");
             }
+            if (record["level"]?.GetValue<string>() == "L7")
+            {
+                var sourceResult = JsonNode.Parse(result.GetRawText()) as JsonObject;
+                if (sourceResult == null || record["evidenceId"]?.GetValue<string>() != "l7.math3d-import"
+                    || record["lowerQualification"]?.ToJsonString() != sourceResult["l7Evidence"]?["lowerQualification"]?.ToJsonString()
+                    || record["consumerSourceSha256"]?.GetValue<string>() != sourceResult["l7Evidence"]?["importerSourceSha256"]?.GetValue<string>()
+                    || record["evidenceSha256"]?.GetValue<string>() != L7Hash(directory, sourceResult,
+                        fingerprint!["components"]!.AsObject()))
+                    throw new InvalidDataException("L7 MATH3D importer evidence has changed.");
+            }
         }
         return records;
     }
@@ -433,21 +578,35 @@ public static class ScientificQualificationRecords
         }).ToArray());
     }
 
-    public static void AssessL5Dependencies(JsonArray records, IReadOnlySet<string> currentLowerRecordIds, bool includeL6 = true)
+    public static void AssessL5Dependencies(JsonArray records, IReadOnlySet<string> currentLowerRecordIds, bool includeL6 = true, bool includeL7 = true)
     {
         foreach (var record in records.OfType<JsonObject>().Where(item => item["level"]?.GetValue<string>() == "L5"
-            || includeL6 && item["level"]?.GetValue<string>() == "L6"))
+            || includeL6 && item["level"]?.GetValue<string>() == "L6"
+            || includeL7 && item["level"]?.GetValue<string>() == "L7"))
         {
             var level = record["level"]?.GetValue<string>();
             var lower = record["lowerQualification"]?["records"] as JsonArray;
-            if (lower is { Count: > 0 } && lower.Count == (level == "L5" ? 5 : 6)
+            if (lower is { Count: > 0 } && lower.Count == (level == "L5" ? 5 : level == "L6" ? 6 : 7)
                 && lower.All(item => item?["recordId"]?.GetValue<string>() is { } id
                 && currentLowerRecordIds.Contains(id))) continue;
             record["status"] = "stale";
             var reasons = record["staleReasons"] as JsonArray ?? new JsonArray();
             var reason = level == "L5" ? "supporting L0-L4 qualification is no longer current"
-                : "supporting L0-L5 qualification is no longer current";
+                : level == "L6" ? "supporting L0-L5 qualification is no longer current"
+                : "supporting L0-L6 qualification is no longer current";
             if (!reasons.Any(item => item?.GetValue<string>() == reason)) reasons.Add(reason);
+            record["staleReasons"] = reasons;
+        }
+    }
+
+    public static void AssessL7Consumer(JsonArray records, string? currentImporterSha256)
+    {
+        foreach (var record in records.OfType<JsonObject>().Where(item => item["level"]?.GetValue<string>() == "L7"))
+        {
+            if (record["consumerSourceSha256"]?.GetValue<string>() == currentImporterSha256) continue;
+            record["status"] = currentImporterSha256 == null ? "unknown" : "stale";
+            var reasons = record["staleReasons"] as JsonArray ?? new JsonArray();
+            reasons.Add(currentImporterSha256 == null ? "MATH3D importer source is unavailable" : "MATH3D importer source changed");
             record["staleReasons"] = reasons;
         }
     }

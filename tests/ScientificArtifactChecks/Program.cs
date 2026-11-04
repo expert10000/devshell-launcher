@@ -261,6 +261,8 @@ foreach(var name in new[]{"tools/scientific_worker_contract.py","tools/runtime-l
     "BatchLauncher/ScientificQualificationRecords.cs",
     "BatchLauncher/Form1.Scientific.L5.cs",
     "BatchLauncher/Form1.Scientific.L6.cs",
+    "BatchLauncher/Form1.Scientific.L7.cs",
+    "tools/scientific-artifact-roundtrip.py","tools/math3d-vtk-import-handoff.mjs",
     "tools/scientific-mesh-worker.py","tools/scientific-vtk-render-check.py",
     "BatchLauncher/Form1.Scientific.cs","BatchLauncher/Form1.Scientific.Artifacts.cs",
     "BatchLauncher/Form1.Scientific.RuntimeLab.cs",
@@ -439,6 +441,38 @@ ScientificQualificationRecords.AssessL5Dependencies(l6Assessed,
 Check(l6Assessed[0]?["status"]?.GetValue<string>()=="stale"
     && l6Assessed[0]?["staleReasons"]?.ToJsonString().Contains("L0-L5",StringComparison.Ordinal)==true,
     "L6 becomes stale when its L5 reference is no longer current");
+var parserHash=new string('a',64);var artifactHash=new string('b',64);
+var reloadedTetra=new JsonObject { ["parserVersion"]=1,["format"]="vtp",["artifactSha256"]=artifactHash,
+    ["parserSourceSha256"]=parserHash,["points"]=4,["triangles"]=4,["bounds"]=new JsonArray(-1.0,1.0,-1.0,1.0,-1.0,1.0),
+    ["boundaryEdges"]=0,["nonManifoldEdges"]=0,["closed"]=true,["absoluteVolume"]=8.0/3.0 };
+Check(ScientificQualificationRecords.ValidRoundTrip(reloadedTetra,"vtk-win-conda",artifactHash,parserHash),
+    "L6 accepts independently reloaded closed tetrahedron geometry");
+var changedReload=(JsonObject)reloadedTetra.DeepClone();changedReload["boundaryEdges"]=1;
+Check(!ScientificQualificationRecords.ValidRoundTrip(changedReload,"vtk-win-conda",artifactHash,parserHash),
+    "L6 rejects changed reloaded topology");
+var importedTetra=new JsonObject { ["consumer"]="MATH3D desktop loadSurfaceMeshFromFile",["consumerVersion"]=1,
+    ["format"]="obj",["indicesInRange"]=true,["points"]=4,["triangles"]=4,
+    ["bounds"]=new JsonArray(-1.0,1.0,-1.0,1.0,-1.0,1.0),["boundaryEdges"]=0,["nonManifoldEdges"]=0,["closed"]=true };
+Check(ScientificQualificationRecords.ValidMath3DImport(reloadedTetra,importedTetra),
+    "L7 accepts MATH3D importer geometry matching the independent VTK reload");
+importedTetra["triangles"]=3;
+Check(!ScientificQualificationRecords.ValidMath3DImport(reloadedTetra,importedTetra),
+    "L7 rejects importer geometry with missing triangles");
+var l7Lower=new JsonArray(Enumerable.Range(0,7).Select(index=>(JsonNode?)new JsonObject
+    { ["level"]="L"+index,["recordId"]="interop-"+index }).ToArray());
+var l7Assessed=new JsonArray(new JsonObject { ["level"]="L7",["status"]="current",
+    ["staleReasons"]=new JsonArray(),["consumerSourceSha256"]=parserHash,
+    ["lowerQualification"]=new JsonObject { ["records"]=l7Lower } });
+ScientificQualificationRecords.AssessL5Dependencies(l7Assessed,
+    Enumerable.Range(0,6).Select(index=>"interop-"+index).ToHashSet(StringComparer.Ordinal));
+Check(l7Assessed[0]?["status"]?.GetValue<string>()=="stale",
+    "L7 becomes stale when its L6 reference is no longer current");
+var currentL7=new JsonArray(new JsonObject { ["level"]="L7",["status"]="current",
+    ["staleReasons"]=new JsonArray(),["consumerSourceSha256"]=parserHash,
+    ["lowerQualification"]=new JsonObject { ["records"]=l7Lower.DeepClone() } });
+ScientificQualificationRecords.AssessL7Consumer(currentL7,artifactHash);
+Check(currentL7[0]?["status"]?.GetValue<string>()=="stale",
+    "L7 becomes stale when MATH3D importer source changes");
 var buildManifest=new JsonObject { ["schemaVersion"]=1,["id"]="vtk-win-conda",
     ["qualificationRecipes"]=new JsonArray(new JsonObject { ["id"]="compile-link",["readinessLevel"]="L4",["capability"]="vtk.cpp.compile-link" }) };
 File.WriteAllText(manifestFile,buildManifest.ToJsonString());

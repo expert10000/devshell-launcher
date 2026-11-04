@@ -9,7 +9,8 @@
     { "id": "l5.worker", "readinessLevel": "L5", "capability": "mesh.read",
       "positive": { "recipeId": "mesh.inspect", "datasetId": "math3d/basic/01_tetrahedron.obj", "outputName": "l5-positive.vtp" },
       "rejection": { "recipeId": "mesh.inspect", "datasetId": "math3d/import/truncated-ascii.ply", "outputName": "l5-rejected.vtp", "expectedReason": "surface is empty" } },
-    { "id": "l6.reproduce", "readinessLevel": "L6", "capability": "mesh.read", "referenceRecipe": "l5.worker", "comparison": "sha256-exact" }
+    { "id": "l6.reproduce", "readinessLevel": "L6", "capability": "mesh.read", "referenceRecipe": "l5.worker", "comparison": "sha256-exact" },
+    { "id": "l7.math3d-import", "readinessLevel": "L7", "capability": "mesh.interop.math3d", "referenceRecipe": "l6.reproduce", "consumer": "MATH3D desktop loadSurfaceMeshFromFile" }
   ],
   "probes": [
     {

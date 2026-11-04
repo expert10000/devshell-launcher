@@ -138,7 +138,8 @@ public partial class Form1
         {
             var kind=job.RuntimeId.StartsWith("cgal",StringComparison.Ordinal)?"cgal":"vtk";
             var hash=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(job.ProfileId)))[..12];
-            var build=Path.Combine(ScientificDataRoot,"builds",hash,kind);var cmake=Path.Combine(prefix,"Library","bin","cmake.exe");
+            var build=job.RecipeId=="compile-link"?Path.Combine(job.Directory,"build")
+                :Path.Combine(ScientificDataRoot,"builds",hash,kind);var cmake=Path.Combine(prefix,"Library","bin","cmake.exe");
             if(job.RecipeId=="diagnostics")await ScientificProcessAsync(job,prefix,ScientificExecutable("pwsh.exe"),new[]{"-NoProfile","-File",Path.Combine(ScientificSourceRoot,"tools","Inspect-ScientificRuntimes.ps1"),"-RuntimeRoot",Path.GetDirectoryName(prefix)!,"-OutputPath",Path.Combine(ScientificDataRoot,"runtime-report.json"),"-PublishToLauncher"},job.Directory,150);
             else if(job.RecipeId=="version")await ScientificProcessAsync(job,prefix,Path.Combine(prefix,"python.exe"),new[]{Path.Combine(ScientificSourceRoot,"tools","scientific-runtime-probe.py"),"--kind",kind},job.Directory,60);
             else if(job.RecipeId.StartsWith("mesh.",StringComparison.Ordinal))
@@ -155,8 +156,14 @@ public partial class Form1
             }
             else
             {
-                if(job.RecipeId is "configure" or "test-all")await ScientificProcessAsync(job,prefix,cmake,new[]{"-S",Path.Combine(ScientificSourceRoot,"scientific","smoke",kind),"-B",build,"-G","Visual Studio 17 2022","-A","x64","-DCMAKE_PREFIX_PATH="+Path.Combine(prefix,"Library")},job.Directory,180);
-                if(job.RecipeId is "build" or "test-all")await ScientificProcessAsync(job,prefix,cmake,new[]{"--build",build,"--config","Release","--parallel","2"},job.Directory,180);
+                if(job.RecipeId is "configure" or "test-all" or "compile-link")await ScientificProcessAsync(job,prefix,cmake,new[]{"-S",Path.Combine(ScientificSourceRoot,"scientific","smoke",kind),"-B",build,"-G","Visual Studio 17 2022","-A","x64","-DCMAKE_PREFIX_PATH="+Path.Combine(prefix,"Library")},job.Directory,180);
+                if(job.RecipeId is "build" or "test-all" or "compile-link")await ScientificProcessAsync(job,prefix,cmake,new[]{"--build",build,"--config","Release","--parallel","2"},job.Directory,180);
+                if(job.RecipeId=="compile-link")
+                {
+                    var binary=Path.Combine(build,"Release","devshell_"+kind+"_smoke.exe");
+                    if(!File.Exists(binary))throw new FileNotFoundException("Compiled smoke executable is missing.",binary);
+                    job.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(binary,"linked-binary"));
+                }
                 if(job.RecipeId is "run" or "test-all")await ScientificProcessAsync(job,prefix,Path.Combine(build,"Release","devshell_"+kind+"_smoke.exe"),Array.Empty<string>(),job.Directory,30);
                 if(kind=="vtk"&&job.RecipeId=="test-all"){var render=Path.Combine(job.Directory,"render");Directory.CreateDirectory(render);await ScientificProcessAsync(job,prefix,Path.Combine(prefix,"python.exe"),new[]{Path.Combine(ScientificSourceRoot,"tools","scientific-vtk-render-check.py")},render,60);}
             }
@@ -204,6 +211,7 @@ public partial class Form1
             if(!_scientificCloseHook){_scientificCloseHook=true;FormClosed+=(_,_)=>{_scientificLifetime.Cancel();foreach(var job in _scientificJobs.Values)if(job.State=="running")job.Cancellation.Cancel();};}
             if(action=="status")data=_scientificJobs.Values.Where(job=>job.ProfileId==profileId).Select(ScientificJobSnapshot).ToArray();
             else if(action=="history")data=ScientificHistoryList(profileId);
+            else if(action=="qualification-summary")data=ScientificQualificationSummary(profileId,runtimeId);
             else if(action=="history-result")data=ScientificHistoryResult(profileId,request.GetProperty("jobId").GetString()??"");
             else if(action=="history-boolean-draft")data=ScientificBooleanDraft(profileId,request.GetProperty("jobId").GetString()??"");
             else if(action=="import-meshes"){ScientificProviderRegistry.RequireAction(runtimeId,action);data=ScientificMeshImportStart(profileId,runtimeId);}
@@ -251,7 +259,7 @@ public partial class Form1
                 else if(action=="recipe")
                 {
                     var recipe=request.GetProperty("recipeId").GetString()??"";
-                    if(!new[]{"version","configure","build","run","test-all","diagnostics","mesh.inspect","mesh.simplify","mesh.normals"}.Contains(recipe))throw new InvalidOperationException("Recipe not registered.");
+                    if(!new[]{"version","configure","build","run","test-all","compile-link","diagnostics","mesh.inspect","mesh.simplify","mesh.normals"}.Contains(recipe))throw new InvalidOperationException("Recipe not registered.");
                     if(!_scientificGate.Wait(0))throw new InvalidOperationException("Another Scientific job is running; stop or wait for it.");
                     try
                     {

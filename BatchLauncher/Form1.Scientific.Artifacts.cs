@@ -112,6 +112,14 @@ public partial class Form1
         if (job.RecipeId != "integration.math3d.native-boolean" || result["provenance"] == null)
             result["provenance"] = job.Request is { } invocation ? JsonNode.Parse(invocation.GetRawText())?["provenance"]?.DeepClone() ?? new JsonObject() : new JsonObject();
         result["steps"] = JsonSerializer.SerializeToNode(job.Steps, ScientificJson);
+        if (job.State == "succeeded" && job.RecipeId == "compile-link")
+        {
+            var linked = job.ExecutedFiles.LastOrDefault(item => item["role"]?.GetValue<string>() == "linked-binary");
+            if (linked?["state"]?.GetValue<string>() != "recorded")
+                throw new InvalidDataException("The compiled executable has no recorded hash.");
+            result["compileLink"] = new JsonObject { ["binaryName"] = linked["name"]?.GetValue<string>(),
+                ["sha256"] = linked["sha256"]?.GetValue<string>() };
+        }
         var artifacts = new JsonArray();
         if ((job.State == "succeeded" || job.RecipeId == "matrix.cgal.real-mesh") && job.Request is { } definition)
         {

@@ -28,7 +28,7 @@ export function ScientificRecipePanel({ runtime, native, edited, onArtifacts }: 
   const job = native.jobs[runtime.id]
   return <section className="scientific-recipe-panel" aria-label="Scientific command recipes">
     <h3>Quick commands / registered recipes</h3>
-    <div className="scientific-inspector-actions">{[['version', 'Version'], ['configure', 'Configure'], ['build', 'Build'], ['run', 'Run'], ['test-all', 'Test all']].map(([id, name]) => <button key={id} disabled={!executable || native.busy || native.pending} onClick={() => native.send(runtime.id, 'recipe', { recipeId: id })}>{name}</button>)}</div>
+    <div className="scientific-inspector-actions">{[['version', 'Version'], ['configure', 'Configure'], ['build', 'Build'], ['compile-link', 'Compile & link'], ['run', 'Run'], ['test-all', 'Test all']].map(([id, name]) => <button key={id} disabled={!executable || native.busy || native.pending} onClick={() => native.send(runtime.id, 'recipe', { recipeId: id })}>{name}</button>)}</div>
     <p className="scientific-runtime-note">Configure, Build, and Run are separate actions; Test all sequences the shipped smoke test and VTK offscreen check. It is not a complete algorithm test suite. Only registered argv-based commands execute, with owned processes and timeouts.</p>
     <h3>Parameterized mesh operations</h3>
     <button disabled={native.pending} onClick={() => native.send(runtime.id, 'datasets')}>Load duplicated test sets</button>

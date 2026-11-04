@@ -76,7 +76,7 @@ public static class ScientificRunFingerprint
         if (recipeId == "version") names.Add("tools/scientific-runtime-probe.py");
         if (recipeId?.StartsWith("mesh.", StringComparison.Ordinal) == true)
             names.Add("tools/scientific-mesh-worker.py");
-        if (recipeId is "configure" or "build" or "run" or "test-all")
+        if (recipeId is "configure" or "build" or "run" or "test-all" or "compile-link")
         {
             var kind = runtimeId.StartsWith("cgal", StringComparison.Ordinal) ? "cgal" :
                 runtimeId.StartsWith("vtk", StringComparison.Ordinal) ? "vtk" : null;

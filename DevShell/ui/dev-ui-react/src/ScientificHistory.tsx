@@ -32,10 +32,17 @@ function HistoryThumbnail({ entry, native, onPreview }: { entry: ScientificHisto
 
 export function ScientificHistory({ native, runtimeId, comparisonSeed = [], showComparisonPresets = false }: { native: ReturnType<typeof useScientificRuntime>; runtimeId: string; comparisonSeed?: string[]; showComparisonPresets?: boolean }) {
   const entries = native.history
+  const qualificationSummary = native.qualificationSummaries[runtimeId]
+  useEffect(() => {
+    if (entries) native.send(runtimeId, 'qualification-summary')
+    // A new History list or selected provider needs a fresh derived summary.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entries, runtimeId])
   const [stateFilter, setStateFilter] = useState('')
   const filteredEntries = entries?.filter(entry => entry.runtimeId === runtimeId && (!stateFilter || entry.state === stateFilter))
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
-  const selectedVisible = !!selectedJobId && !!filteredEntries?.some(entry => entry.jobId === selectedJobId)
+  const selectedVisible = !!selectedJobId && (!!filteredEntries?.some(entry => entry.jobId === selectedJobId)
+    || !!qualificationSummary?.capabilities.some(capability => capability.supportingRuns.some(run => run.runId === selectedJobId)))
   const result = selectedVisible && selectedJobId ? native.historyResults[selectedJobId] ?? null : null
   const [imageSelection, setImageSelection] = useState<{ jobId: string; path: string } | null>(null)
   const imagePreview = imageSelection ? native.historyImages[`${imageSelection.jobId}|${imageSelection.path}`] : undefined
@@ -99,6 +106,10 @@ export function ScientificHistory({ native, runtimeId, comparisonSeed = [], show
     {showComparisonPresets && <details className="scientific-history-presets"><summary>Prepare comparable runs</summary><ScientificComparisonPresets native={native} /></details>}
     <p className="scientific-runtime-note">Completed runs for this profile are read from local result files. Loading history never starts a recipe.</p>
     <button disabled={native.pending} onClick={() => native.send('', 'history')}>{entries ? 'Refresh history' : 'Load history'}</button>
+    {entries && <section aria-label="Current qualification summary"><h4>Highest current level by capability / {runtimeId}</h4>
+      {qualificationSummary ? <><p className="scientific-runtime-note">Only verified, successful runs with current source, environment and contract count. Excluded: {qualificationSummary.excludedFailedRuns} non-successful runs, {qualificationSummary.excludedStaleRecords} stale records, {qualificationSummary.excludedUnknownRecords} unknown records.</p>
+        {qualificationSummary.capabilities.length ? <div className="scientific-history-scroll"><table><thead><tr><th>Capability</th><th>Highest level</th><th>Supporting runs</th></tr></thead><tbody>{qualificationSummary.capabilities.map(capability => <tr key={capability.capabilityId}><td><code>{capability.capabilityId}</code></td><td><strong>{capability.highestLevel}</strong></td><td>{capability.supportingRuns.map(run => <button key={run.recordId} type="button" title={`${run.recipeId} / ${run.runId}`} onClick={() => { setStateFilter(''); setSelectedJobId(run.runId); native.send(runtimeId, 'history-result', { jobId: run.runId }) }}>{run.runId.slice(0, 12)}</button>)}</td></tr>)}</tbody></table></div> : <p>No current qualifications for this provider.</p>}</> : <p role="status">Loading current qualification levels...</p>}
+    </section>}
     {entries && (entries.length ? <>
       <div className="scientific-history-filters"><label>Runtime<select aria-label="History runtime filter" value={runtimeId} disabled><option value={runtimeId}>{runtimeId}</option></select></label><label>Status<select aria-label="History status filter" value={stateFilter} onChange={event => setStateFilter(event.target.value)}><option value="">All statuses</option>{['succeeded', 'failed', 'cancelled', 'timed-out'].map(state => <option key={state} value={state}>{state}</option>)}</select></label><button disabled={!stateFilter} onClick={() => setStateFilter('')}>Clear filters</button><span role="status">{filteredEntries?.length} of {entries.length} runs</span></div>
       {filteredEntries?.length ? <div className="scientific-history-scroll"><table><thead><tr><th>Preview</th><th>Finished</th><th>Runtime / recipe</th><th>State</th><th>Duration</th><th>Artifacts</th><th>Actions</th></tr></thead><tbody>{filteredEntries.map(entry => <tr key={entry.jobId} data-run-id={entry.jobId}>

@@ -379,6 +379,54 @@ Check(sageQualificationRecords.Count==3 && sageQualificationRecords.Any(item=>it
 File.AppendAllText(Path.Combine(qualificationRun,"qualifications.json"),"tampered");
 Reject(()=>ScientificQualificationRecords.Verify(qualificationRun,Element(qualificationResult)),
     "modified qualification file is rejected by History verification");
+var summary=ScientificQualificationRecords.Summarize("vtk-win-conda",new[]{
+    new JsonObject { ["runtimeId"]="vtk-win-conda",["runId"]=new string('1',32),["recipeId"]="probe",
+        ["state"]="succeeded",["finishedAtUtc"]="2026-11-04T10:00:00Z",["qualifications"]=new JsonArray(
+            new JsonObject { ["capabilityId"]="geometry.polydata",["level"]="L2",["status"]="current",["recordId"]="one" }) },
+    new JsonObject { ["runtimeId"]="vtk-win-conda",["runId"]=new string('2',32),["recipeId"]="probe",
+        ["state"]="succeeded",["finishedAtUtc"]="2026-11-04T11:00:00Z",["qualifications"]=new JsonArray(
+            new JsonObject { ["capabilityId"]="geometry.polydata",["level"]="L3",["status"]="current",["recordId"]="two" }) },
+    new JsonObject { ["runtimeId"]="vtk-win-conda",["runId"]=new string('3',32),["recipeId"]="compile-link",
+        ["state"]="succeeded",["finishedAtUtc"]="2026-11-04T12:00:00Z",["qualifications"]=new JsonArray(
+            new JsonObject { ["capabilityId"]="geometry.polydata",["level"]="L4",["status"]="stale",["recordId"]="three" }) },
+    new JsonObject { ["runtimeId"]="vtk-win-conda",["runId"]=new string('4',32),["recipeId"]="compile-link",
+        ["state"]="failed",["finishedAtUtc"]="2026-11-04T13:00:00Z",["qualifications"]=new JsonArray(
+            new JsonObject { ["capabilityId"]="geometry.polydata",["level"]="L4",["status"]="current",["recordId"]="four" }) }
+});
+Check(summary["capabilities"]?.AsArray().Single()?["highestLevel"]?.GetValue<string>()=="L3"
+    && summary["capabilities"]?[0]?["supportingRuns"]?.AsArray().Single()?["runId"]?.GetValue<string>()==new string('2',32)
+    && summary["excludedFailedRuns"]?.GetValue<int>()==1 && summary["excludedStaleRecords"]?.GetValue<int>()==1,
+    "cross-run summary uses highest current level and excludes stale and failed runs");
+var buildManifest=new JsonObject { ["schemaVersion"]=1,["id"]="vtk-win-conda",
+    ["qualificationRecipes"]=new JsonArray(new JsonObject { ["id"]="compile-link",["readinessLevel"]="L4",["capability"]="vtk.cpp.compile-link" }) };
+File.WriteAllText(manifestFile,buildManifest.ToJsonString());
+var buildRun=Path.Combine(directory,"compile-link-run");Directory.CreateDirectory(buildRun);
+var linkedBinary=Path.Combine(buildRun,"build","Release","devshell_vtk_smoke.exe");
+Directory.CreateDirectory(Path.GetDirectoryName(linkedBinary)!);File.WriteAllText(linkedBinary,"linked VTK smoke binary");
+var binaryHash=Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(linkedBinary))).ToLowerInvariant();
+var buildCaptured=ScientificRunFingerprint.Capture("vtk-win-conda","laptop",fingerprintRoot,fingerprintRoot,reportFile,recipeId:"compile-link");
+var buildFingerprint=ScientificRunFingerprint.Save(buildRun,buildCaptured,new[]{
+    ScientificRunFingerprint.ExecutedFile(cmake,"executable"),ScientificRunFingerprint.ExecutedFile(cmake,"executable"),
+    ScientificRunFingerprint.ExecutedFile(linkedBinary,"linked-binary") });
+var buildRoot=Path.Combine(buildRun,"build");var buildSource=Path.Combine(fingerprintRoot,"scientific","smoke","vtk");
+var buildResult=new JsonObject { ["runId"]=new string('6',32),["runtimeId"]="vtk-win-conda",
+    ["recipeId"]="compile-link",["state"]="succeeded",["runFingerprintSha256"]=buildFingerprint,
+    ["versions"]=new JsonObject { ["msvc"]="19.44.35217" },
+    ["compileLink"]=new JsonObject { ["binaryName"]="devshell_vtk_smoke.exe",["sha256"]=binaryHash },
+    ["steps"]=new JsonArray(
+        new JsonObject { ["stage"]="configure",["executable"]=cmake,["exitCode"]=0,
+            ["arguments"]=new JsonArray("-S",buildSource,"-B",buildRoot) },
+        new JsonObject { ["stage"]="build",["executable"]=cmake,["exitCode"]=0,
+            ["arguments"]=new JsonArray("--build",buildRoot,"--config","Release") }) };
+buildResult["qualificationSha256"]=ScientificQualificationRecords.Save(buildRun,buildResult,fingerprintRoot,fingerprintRoot);
+var buildRecords=ScientificQualificationRecords.Verify(buildRun,Element(buildResult));
+Check(buildRecords.Count==2 && buildRecords.Any(item=>item?["level"]?.GetValue<string>()=="L4"
+    && item?["capabilityId"]?.GetValue<string>()=="vtk.cpp.compile-link"
+    && item?["evidenceSha256"]?.GetValue<string>()==binaryHash),
+    "fresh configure, build, and linked executable yield scoped L4 evidence");
+File.AppendAllText(linkedBinary,"tampered");
+Reject(()=>ScientificQualificationRecords.Verify(buildRun,Element(buildResult)),
+    "changed linked executable invalidates L4 evidence");
 
 
 if (args.Length == 4)

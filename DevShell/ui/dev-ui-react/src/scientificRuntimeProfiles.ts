@@ -67,7 +67,7 @@ export interface ScientificRunResult {
   runFingerprintReference?: string
   qualificationSha256?: string
   qualificationReference?: string
-  qualifications?: { recordId: string; capabilityId: string; level: 'L0' | 'L1' | 'L2' | 'L3'; evidenceId: string; status: 'current' | 'stale' | 'unknown'; staleReasons: string[] }[]
+  qualifications?: { recordId: string; capabilityId: string; level: 'L0' | 'L1' | 'L2' | 'L3' | 'L4'; evidenceId: string; evidenceSha256?: string; status: 'current' | 'stale' | 'unknown'; staleReasons: string[] }[]
   sourceDrift?: { state: 'current' | 'stale' | 'unknown'; comparedFiles: number; unavailableFiles: number; reasons: string[] }
   environmentDrift?: { state: 'current' | 'stale' | 'unknown'; comparedComponents: number; unavailableComponents: number; reasons: string[] }
   state: 'succeeded' | 'failed' | 'cancelled' | 'timed-out'

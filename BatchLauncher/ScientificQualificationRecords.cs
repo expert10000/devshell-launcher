@@ -22,7 +22,8 @@ public static class ScientificQualificationRecords
     }
 
     private static JsonObject Record(string runId, string runtimeId, string capabilityId, string level,
-        string evidenceId, string fingerprintSha256, string suiteRevisionSha256, JsonObject contract)
+        string evidenceId, string fingerprintSha256, string suiteRevisionSha256, JsonObject contract,
+        string? evidenceSha256 = null)
     {
         var record = new JsonObject
         {
@@ -31,8 +32,56 @@ public static class ScientificQualificationRecords
             ["runFingerprintSha256"] = fingerprintSha256, ["suiteRevisionSha256"] = suiteRevisionSha256,
             ["contract"] = contract.DeepClone()
         };
+        if (evidenceSha256 != null) record["evidenceSha256"] = evidenceSha256;
         record["recordId"] = Digest(record.ToJsonString());
         return record;
+    }
+
+    private static string[] Arguments(JsonNode? step) => step?["arguments"] is JsonArray values
+        ? values.Select(item => item?.GetValue<string>() ?? "").ToArray() : Array.Empty<string>();
+
+    private static bool HasArgument(string[] arguments, string option, string value)
+    {
+        for (var index = 0; index < arguments.Length - 1; index++)
+            if (arguments[index] == option && string.Equals(arguments[index + 1], value, StringComparison.OrdinalIgnoreCase))
+                return true;
+        return false;
+    }
+
+    private static string? CompileLinkHash(string directory, string sourceRoot, string runtimeId,
+        JsonObject result, JsonObject components)
+    {
+        if (runtimeId is not ("cgal-win-conda" or "vtk-win-conda")
+            || result["steps"] is not JsonArray steps || steps.Count != 2
+            || result["compileLink"] is not JsonObject buildEvidence
+            || components["worker"]?["executedFiles"] is not JsonArray executed
+            || components["environment"]?["toolchain"]?["cmake"]?["state"]?.GetValue<string>() != "recorded"
+            || components["environment"]?["toolchain"]?["msvcCompiler"]?["state"]?.GetValue<string>() != "recorded"
+            || string.IsNullOrWhiteSpace(result["versions"]?["msvc"]?.GetValue<string>())) return null;
+        var kind = runtimeId.StartsWith("cgal", StringComparison.Ordinal) ? "cgal" : "vtk";
+        var build = Path.Combine(directory, "build");
+        var source = Path.Combine(sourceRoot, "scientific", "smoke", kind);
+        var configure = steps[0]; var compile = steps[1];
+        var configureArguments = Arguments(configure); var compileArguments = Arguments(compile);
+        if (configure?["stage"]?.GetValue<string>() != "configure" || compile?["stage"]?.GetValue<string>() != "build"
+            || configure["exitCode"]?.GetValue<int>() != 0 || compile["exitCode"]?.GetValue<int>() != 0
+            || !HasArgument(configureArguments, "-S", source) || !HasArgument(configureArguments, "-B", build)
+            || !HasArgument(compileArguments, "--build", build) || !HasArgument(compileArguments, "--config", "Release")) return null;
+        var cmake = components["environment"]?["toolchain"]?["cmake"]?["sha256"]?.GetValue<string>();
+        if (!string.Equals(configure["executable"]?.GetValue<string>(), compile["executable"]?.GetValue<string>(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(Path.GetFileName(configure["executable"]?.GetValue<string>()), "cmake.exe", StringComparison.OrdinalIgnoreCase)
+            || !executed.Any(item => item?["role"]?.GetValue<string>() == "executable"
+                && item?["name"]?.GetValue<string>() == "cmake.exe" && item?["sha256"]?.GetValue<string>() == cmake)) return null;
+        var binaryName = "devshell_" + kind + "_smoke.exe";
+        var hash = buildEvidence["sha256"]?.GetValue<string>();
+        var binary = Path.Combine(build, "Release", binaryName);
+        if (buildEvidence["binaryName"]?.GetValue<string>() != binaryName || hash?.Length != 64 || !File.Exists(binary)) return null;
+        var actual = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(binary))).ToLowerInvariant();
+        return string.Equals(actual, hash, StringComparison.OrdinalIgnoreCase)
+            && executed.Any(item => item?["role"]?.GetValue<string>() == "linked-binary"
+                && item?["name"]?.GetValue<string>() == binaryName
+                && string.Equals(item?["sha256"]?.GetValue<string>(), hash, StringComparison.OrdinalIgnoreCase))
+            ? hash : null;
     }
 
     public static string? Save(string directory, JsonObject result, string sourceRoot, string installedRoot)
@@ -59,11 +108,11 @@ public static class ScientificQualificationRecords
         if (!packagesRecorded || components?["worker"]?["executedFiles"] is not JsonArray workers || workers.Count == 0)
             return null;
         var records = new List<JsonObject>();
-        void Add(string capability, string level, string evidence)
+        void Add(string capability, string level, string evidence, string? evidenceHash = null)
         {
             if (records.Any(item => item["capabilityId"]?.GetValue<string>() == capability
                 && item["level"]?.GetValue<string>() == level)) return;
-            records.Add(Record(runId, runtimeId, capability, level, evidence, fingerprintSha256, suiteRevision, contract));
+            records.Add(Record(runId, runtimeId, capability, level, evidence, fingerprintSha256, suiteRevision, contract, evidenceHash));
         }
         Add("runtime.inventory", "L0", "fingerprint.environment");
         var recipeId = result["recipeId"]?.GetValue<string>();
@@ -97,6 +146,16 @@ public static class ScientificQualificationRecords
         {
             Add("sage.python.binding", "L2", "sage.factor-smoke");
             Add("math.symbolic", "L3", "sage.factor-smoke");
+        }
+        else if (recipeId == "compile-link" && manifest["qualificationRecipes"] is JsonArray recipes)
+        {
+            var declaration = recipes.OfType<JsonObject>().FirstOrDefault(item => item["id"]?.GetValue<string>() == "compile-link"
+                && item["readinessLevel"]?.GetValue<string>() == "L4");
+            var expectedCapability = runtimeId == "cgal-win-conda" ? "cgal.cpp.compile-link"
+                : runtimeId == "vtk-win-conda" ? "vtk.cpp.compile-link" : null;
+            var hash = CompileLinkHash(directory, sourceRoot, runtimeId, result, components!);
+            if (declaration?["capability"]?.GetValue<string>() == expectedCapability && hash != null)
+                Add(expectedCapability!, "L4", "compile-link", hash);
         }
         var document = new JsonObject
         {
@@ -155,8 +214,20 @@ public static class ScientificQualificationRecords
                 || record["runFingerprintSha256"]?.GetValue<string>() != fingerprintSha256
                 || record["suiteRevisionSha256"]?.GetValue<string>() != suiteRevision
                 || record["contract"]?.ToJsonString() != contract?.ToJsonString()
-                || record["level"]?.GetValue<string>() is not ("L0" or "L1" or "L2" or "L3"))
+                || record["level"]?.GetValue<string>() is not ("L0" or "L1" or "L2" or "L3" or "L4"))
                 throw new InvalidDataException("Qualification entry does not match its run.");
+            if (record["level"]?.GetValue<string>() == "L4")
+            {
+                var kind = runtimeId == "cgal-win-conda" ? "cgal" : runtimeId == "vtk-win-conda" ? "vtk" : null;
+                var binaryName = kind == null ? null : "devshell_" + kind + "_smoke.exe";
+                var binary = binaryName == null ? null : Path.Combine(directory, "build", "Release", binaryName);
+                if (binary == null || !File.Exists(binary)
+                    || record["capabilityId"]?.GetValue<string>() != kind + ".cpp.compile-link"
+                    || record["evidenceId"]?.GetValue<string>() != "compile-link"
+                    || !string.Equals(record["evidenceSha256"]?.GetValue<string>(),
+                        Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(binary))).ToLowerInvariant(), StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException("Compiled qualification binary has changed.");
+            }
         }
         return records;
     }
@@ -184,5 +255,54 @@ public static class ScientificQualificationRecords
             view["staleReasons"] = reasons.DeepClone();
             return (JsonNode?)view;
         }).ToArray());
+    }
+
+    public static JsonObject Summarize(string runtimeId, IEnumerable<JsonObject> runs)
+    {
+        var current = new Dictionary<string, List<(int Level, JsonObject Run)>>(StringComparer.Ordinal);
+        var excludedFailed = 0;
+        var excludedStale = 0;
+        var excludedUnknown = 0;
+        foreach (var run in runs)
+        {
+            if (run["runtimeId"]?.GetValue<string>() != runtimeId) continue;
+            if (run["state"]?.GetValue<string>() != "succeeded") { excludedFailed++; continue; }
+            if (run["qualifications"] is not JsonArray records) continue;
+            foreach (var record in records.OfType<JsonObject>())
+            {
+                var status = record["status"]?.GetValue<string>();
+                if (status == "stale") { excludedStale++; continue; }
+                if (status != "current") { excludedUnknown++; continue; }
+                var capability = record["capabilityId"]?.GetValue<string>();
+                var level = record["level"]?.GetValue<string>();
+                if (capability == null || level?.Length != 2 || level[0] != 'L' || !int.TryParse(level[1..], out var number))
+                    continue;
+                if (!current.TryGetValue(capability, out var candidates))
+                    current[capability] = candidates = new List<(int, JsonObject)>();
+                candidates.Add((number, new JsonObject
+                {
+                    ["runId"] = run["runId"]?.GetValue<string>(),
+                    ["recordId"] = record["recordId"]?.GetValue<string>(),
+                    ["recipeId"] = run["recipeId"]?.GetValue<string>(),
+                    ["finishedAtUtc"] = run["finishedAtUtc"]?.GetValue<string>()
+                }));
+            }
+        }
+        var capabilities = new JsonArray();
+        foreach (var (capability, candidates) in current.OrderBy(item => item.Key, StringComparer.Ordinal))
+        {
+            var highest = candidates.Max(item => item.Level);
+            capabilities.Add(new JsonObject
+            {
+                ["capabilityId"] = capability,
+                ["highestLevel"] = "L" + highest,
+                ["supportingRuns"] = new JsonArray(candidates.Where(item => item.Level == highest)
+                    .OrderByDescending(item => item.Run["finishedAtUtc"]?.GetValue<string>(), StringComparer.Ordinal)
+                    .Select(item => (JsonNode?)item.Run).ToArray())
+            });
+        }
+        return new JsonObject { ["runtimeId"] = runtimeId, ["capabilities"] = capabilities,
+            ["excludedFailedRuns"] = excludedFailed, ["excludedStaleRecords"] = excludedStale,
+            ["excludedUnknownRecords"] = excludedUnknown };
     }
 }

@@ -12,6 +12,7 @@ export interface ScientificArtifactPreview { jobId: string; artifactPath: string
 export interface ScientificHistoryImagePreview { jobId: string; artifactPath: string; image: { dataUrl: string; mimeType: string; size: number } }
 export interface ScientificHistoryThumbnail { jobId: string; artifactPath: string; dataUrl?: string; error?: string }
 export interface ScientificHistoryEntry { jobId: string; runtimeId: string; recipeId: string; testCaseId?: string | null; state: string; durationMs: number; finishedAtUtc: string; artifactCount: number; meshArtifactCount?: number; thumbnailPath?: string | null }
+export interface ScientificQualificationSummary { runtimeId: string; capabilities: { capabilityId: string; highestLevel: string; supportingRuns: { runId: string; recordId: string; recipeId: string; finishedAtUtc: string }[] }[]; excludedFailedRuns: number; excludedStaleRecords: number; excludedUnknownRecords: number }
 export interface Math3DReadiness { ready: boolean; canPrepare: boolean; checks: { id: string; label: string; ready: boolean; canPrepare: boolean; detail: string }[] }
 export interface ScientificMatrixCase { id: string; datasetId: string; name: string; expected: 'succeeded' | 'rejected'; reason: string }
 
@@ -23,6 +24,7 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
   const [history, setHistory] = useState<ScientificHistoryEntry[] | null>(null)
   const [historyResult, setHistoryResult] = useState<ScientificRunResult | null>(null)
   const [historyResults, setHistoryResults] = useState<Record<string, ScientificRunResult>>({})
+  const [qualificationSummaries, setQualificationSummaries] = useState<Record<string, ScientificQualificationSummary>>({})
   const [historyPreviews, setHistoryPreviews] = useState<Record<string, ScientificArtifactPreview>>({})
   const [historyImages, setHistoryImages] = useState<Record<string, ScientificHistoryImagePreview>>({})
   const [historyThumbnails, setHistoryThumbnails] = useState<Record<string, ScientificHistoryThumbnail>>({})
@@ -56,7 +58,7 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
     bridge.postMessage({ type: 'scientific.runtime', profileId, runtimeId, requestId, action, ...extra })
   }
   useEffect(() => {
-    setJobs({}); setEnvironments({}); setPreviews({}); setDatasets(null); setHistory(null); setHistoryResult(null); setHistoryResults({}); setHistoryPreviews({}); setHistoryImages({}); setHistoryThumbnails({}); setTestMatrix(null); setMath3dReadiness(null); setBooleanDraft(null); setError(''); setNotice(''); setPending(false); completed.current.clear()
+    setJobs({}); setEnvironments({}); setPreviews({}); setDatasets(null); setHistory(null); setHistoryResult(null); setHistoryResults({}); setQualificationSummaries({}); setHistoryPreviews({}); setHistoryImages({}); setHistoryThumbnails({}); setTestMatrix(null); setMath3dReadiness(null); setBooleanDraft(null); setError(''); setNotice(''); setPending(false); completed.current.clear()
     if (!bridge || !profileId) return
     const receive = (event: MessageEvent) => {
       let message: { type?: string; profileId?: string; runtimeId?: string; requestId?: string; action?: string; error?: string; job?: ScientificJob; data?: unknown }
@@ -75,7 +77,8 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
       }
       if (message.error) { setError(message.error); return }
       if (message.action === 'status' && Array.isArray(message.data)) message.data.forEach(item => mergeJob(item as ScientificJob))
-      else if (message.action === 'history' && Array.isArray(message.data)) { setHistory(message.data as ScientificHistoryEntry[]); setHistoryResult(null); setHistoryResults({}); setHistoryPreviews({}); setHistoryImages({}); setHistoryThumbnails({}) }
+      else if (message.action === 'history' && Array.isArray(message.data)) { setHistory(message.data as ScientificHistoryEntry[]); setHistoryResult(null); setHistoryResults({}); setQualificationSummaries({}); setHistoryPreviews({}); setHistoryImages({}); setHistoryThumbnails({}) }
+      else if (message.action === 'qualification-summary' && message.data) { const summary = message.data as ScientificQualificationSummary; setQualificationSummaries(previous => ({ ...previous, [summary.runtimeId]: summary })) }
       else if (message.action === 'history-boolean-draft' && message.data) setBooleanDraft({ ...message.data as Omit<BooleanDraft, 'draftId'>, draftId: message.requestId })
       else if (message.action === 'import-meshes' && message.data) { const imported = message.data as ScientificJob & { cancelled?: boolean }; if (imported.cancelled) setNotice('Mesh import cancelled.'); else mergeJob(imported) }
       else if (message.action === 'history-result' && message.data) { const result = message.data as ScientificRunResult; setHistoryResult(result); setHistoryResults(previous => ({ ...previous, [result.runId]: result })) }
@@ -97,5 +100,5 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
     // Callback refs keep completed diagnostics from restarting subscriptions.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bridge, profileId])
-  return { profileId, jobs, environments, previews, datasets, history, historyResult, historyResults, historyPreviews, historyImages, historyThumbnails, testMatrix, math3dReadiness, booleanDraft, pending, error, notice, send, busy: Object.values(jobs).some(job => job.state === 'running') }
+  return { profileId, jobs, environments, previews, datasets, history, historyResult, historyResults, qualificationSummaries, historyPreviews, historyImages, historyThumbnails, testMatrix, math3dReadiness, booleanDraft, pending, error, notice, send, busy: Object.values(jobs).some(job => job.state === 'running') }
 }

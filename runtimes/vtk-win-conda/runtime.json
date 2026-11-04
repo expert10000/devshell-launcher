@@ -4,6 +4,9 @@
   "kind": "vtk",
   "execution": "windows-native",
   "description": "Isolated VTK Python probes. C++ SDK and rendering checks remain separate.",
+  "qualificationRecipes": [
+    { "id": "compile-link", "readinessLevel": "L4", "capability": "vtk.cpp.compile-link" }
+  ],
   "probes": [
     {
       "id": "python.version",

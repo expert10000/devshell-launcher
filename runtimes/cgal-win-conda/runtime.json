@@ -4,6 +4,9 @@
   "kind": "cgal",
   "execution": "windows-native",
   "description": "Isolated Python binding probes for the local CGAL Conda prefix. C++ SDK checks remain separate.",
+  "qualificationRecipes": [
+    { "id": "compile-link", "readinessLevel": "L4", "capability": "cgal.cpp.compile-link" }
+  ],
   "recipes": [
     {
       "id": "cgal.validate",

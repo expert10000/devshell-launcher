@@ -102,6 +102,47 @@ public partial class Form1
         return entries;
     }
 
+    private static JsonObject ScientificQualificationSummary(string profileId, string runtimeId)
+    {
+        ScientificProviderRegistry.Get(runtimeId);
+        var root = Path.Combine(ScientificDataRoot, "runs");
+        if (!Directory.Exists(root)) return ScientificQualificationRecords.Summarize(runtimeId, Array.Empty<JsonObject>());
+        var wsl = runtimeId == "sage-wsl";
+        var wslEvidence = wsl ? ScientificSageCurrentEvidence() : null;
+        var runs = new List<JsonObject>();
+        foreach (var folder in new DirectoryInfo(root).EnumerateDirectories()
+            .Where(item => Regex.IsMatch(item.Name, "^[0-9a-f]{32}$"))
+            .OrderByDescending(item => item.LastWriteTimeUtc))
+        {
+            try
+            {
+                var (directory, result) = ScientificHistoryReadDirectory(profileId, folder.Name);
+                if (result.GetProperty("runtimeId").GetString() != runtimeId) continue;
+                var run = new JsonObject { ["runId"] = result.GetProperty("runId").GetString(),
+                    ["runtimeId"] = runtimeId, ["recipeId"] = result.GetProperty("recipeId").GetString(),
+                    ["state"] = result.GetProperty("state").GetString(),
+                    ["finishedAtUtc"] = File.GetLastWriteTimeUtc(Path.Combine(directory, "results.json")).ToString("O") };
+                if (result.GetProperty("state").GetString() == "succeeded"
+                    && result.TryGetProperty("qualificationSha256", out _))
+                {
+                    var source = ScientificRunFingerprint.AssessSourceDrift(directory, ScientificSourceRoot, AppContext.BaseDirectory);
+                    var environment = ScientificRunFingerprint.AssessEnvironmentDrift(directory, AppContext.BaseDirectory,
+                        ScientificReportPath(), wsl ? Environment.GetEnvironmentVariable("MATH3D_WSL_DISTRO") ?? "Ubuntu" : null,
+                        wslEvidence);
+                    run["qualifications"] = ScientificQualificationRecords.Assess(
+                        ScientificQualificationRecords.Verify(directory, result), source, environment);
+                }
+                runs.Add(run);
+            }
+            catch (Exception exception) when (exception is IOException or InvalidDataException or JsonException
+                or InvalidOperationException or UnauthorizedAccessException or KeyNotFoundException)
+            {
+                Debug.WriteLine($"Skipping invalid Scientific qualification run: {exception.Message}");
+            }
+        }
+        return ScientificQualificationRecords.Summarize(runtimeId, runs);
+    }
+
     private static object ScientificHistoryOpen(string profileId, JsonElement request, string action)
     {
         var jobId = request.GetProperty("jobId").GetString() ?? "";

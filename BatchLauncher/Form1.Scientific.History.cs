@@ -64,7 +64,7 @@ public partial class Form1
         {
             var assessed = ScientificQualificationRecords.Assess(
                 ScientificQualificationRecords.Verify(directory, result), sourceDrift, environmentDrift);
-            if (assessed.OfType<JsonObject>().Any(item => item["level"]?.GetValue<string>() is "L5" or "L6" or "L7"))
+            if (assessed.OfType<JsonObject>().Any(item => item["level"]?.GetValue<string>() is "L5" or "L6" or "L7" or "L8"))
             {
                 var summary = ScientificQualificationSummary(profileId, result.GetProperty("runtimeId").GetString() ?? "");
                 var current = summary["currentRecords"]?.AsArray().OfType<JsonObject>()
@@ -75,7 +75,8 @@ public partial class Form1
             if (assessed.OfType<JsonObject>().Any(item => item["level"]?.GetValue<string>() == "L7"))
             {
                 var importer = Path.Combine(ScientificL7Checkout(), "renderer", "src", "mesh", "surfaceMesh.ts");
-                ScientificQualificationRecords.AssessL7Consumer(assessed, File.Exists(importer) ? ScientificHash(importer) : null);
+                ScientificQualificationRecords.AssessL7Consumer(assessed, File.Exists(importer) ? ScientificHash(importer) : null,
+                    ScientificCurrentVtkConsumerEnvironment(profileId));
             }
             view["qualifications"] = assessed;
         }
@@ -161,24 +162,44 @@ public partial class Form1
             .Select(record => record["recordId"]?.GetValue<string>()).OfType<string>()
             .ToHashSet(StringComparer.Ordinal);
         foreach (var run in runs)
-            if (run["qualifications"] is JsonArray records) ScientificQualificationRecords.AssessL5Dependencies(records, lowerIds, includeL6: false, includeL7: false);
+            if (run["qualifications"] is JsonArray records) ScientificQualificationRecords.AssessL5Dependencies(records, lowerIds, includeL6: false, includeL7: false, includeL8: false);
         lowerIds.UnionWith(runs.SelectMany(run => run["qualifications"]?.AsArray().OfType<JsonObject>() ?? [])
             .Where(record => record["status"]?.GetValue<string>() == "current" && record["level"]?.GetValue<string>() == "L5")
             .Select(record => record["recordId"]?.GetValue<string>()).OfType<string>());
         foreach (var run in runs)
-            if (run["qualifications"] is JsonArray records) ScientificQualificationRecords.AssessL5Dependencies(records, lowerIds, includeL7: false);
+            if (run["qualifications"] is JsonArray records) ScientificQualificationRecords.AssessL5Dependencies(records, lowerIds, includeL7: false, includeL8: false);
         lowerIds.UnionWith(runs.SelectMany(run => run["qualifications"]?.AsArray().OfType<JsonObject>() ?? [])
             .Where(record => record["status"]?.GetValue<string>() == "current" && record["level"]?.GetValue<string>() == "L6")
             .Select(record => record["recordId"]?.GetValue<string>()).OfType<string>());
         var importerPath = Path.Combine(ScientificL7Checkout(), "renderer", "src", "mesh", "surfaceMesh.ts");
         var importerHash = File.Exists(importerPath) ? ScientificHash(importerPath) : null;
+        var vtkConsumerEnvironment = runtimeId == "cgal-win-conda" ? ScientificCurrentVtkConsumerEnvironment(profileId) : null;
         foreach (var run in runs)
             if (run["qualifications"] is JsonArray records)
             {
-                ScientificQualificationRecords.AssessL5Dependencies(records, lowerIds);
-                ScientificQualificationRecords.AssessL7Consumer(records, importerHash);
+                ScientificQualificationRecords.AssessL5Dependencies(records, lowerIds, includeL8: false);
+                ScientificQualificationRecords.AssessL7Consumer(records, importerHash, vtkConsumerEnvironment);
             }
+        lowerIds.UnionWith(runs.SelectMany(run => run["qualifications"]?.AsArray().OfType<JsonObject>() ?? [])
+            .Where(record => record["status"]?.GetValue<string>() == "current" && record["level"]?.GetValue<string>() == "L7")
+            .Select(record => record["recordId"]?.GetValue<string>()).OfType<string>());
+        foreach (var run in runs)
+            if (run["qualifications"] is JsonArray records)
+                ScientificQualificationRecords.AssessL5Dependencies(records, lowerIds);
         return ScientificQualificationRecords.Summarize(runtimeId, runs);
+    }
+
+    private static string? ScientificCurrentVtkConsumerEnvironment(string profileId)
+    {
+        try
+        {
+            var captured = ScientificRunFingerprint.Capture("vtk-win-conda", profileId, ScientificSourceRoot,
+                AppContext.BaseDirectory, ScientificReportPath());
+            return captured["environment"]?["condaPackageRecords"]?["state"]?.GetValue<string>() == "recorded"
+                ? ScientificL6Digest(captured["environment"]) : null;
+        }
+        catch (Exception exception) when (exception is IOException or InvalidOperationException or JsonException
+            or UnauthorizedAccessException or KeyNotFoundException) { return null; }
     }
 
     private static object ScientificHistoryOpen(string profileId, JsonElement request, string action)

@@ -17,17 +17,18 @@ public partial class Form1
             ?? Math3DCheckout;
     }
 
-    private JsonObject ScientificCurrentL6(string profileId)
+    private JsonObject ScientificCurrentL6(string profileId, string runtimeId = "vtk-win-conda")
     {
-        var summary = ScientificQualificationSummary(profileId, "vtk-win-conda");
+        var summary = ScientificQualificationSummary(profileId, runtimeId);
+        var capability = runtimeId == "cgal-win-conda" ? "mesh.validate" : "mesh.read";
         var support = summary["currentRecords"]?.AsArray().OfType<JsonObject>()
-            .Where(item => item["capabilityId"]?.GetValue<string>() == "mesh.read"
+            .Where(item => item["capabilityId"]?.GetValue<string>() == capability
                 && item["level"]?.GetValue<string>() == "L6")
             .OrderByDescending(item => item["finishedAtUtc"]?.GetValue<string>(), StringComparer.Ordinal)
             .FirstOrDefault();
-        if (support == null) throw new InvalidOperationException("A current VTK L6 round-trip qualification is required before L7.");
+        if (support == null) throw new InvalidOperationException("A current L6 round-trip qualification is required before L7.");
         return new JsonObject { ["runId"] = support["runId"]?.GetValue<string>(),
-            ["recordId"] = support["recordId"]?.GetValue<string>(), ["capabilityId"] = "mesh.read", ["level"] = "L6" };
+            ["recordId"] = support["recordId"]?.GetValue<string>(), ["capabilityId"] = capability, ["level"] = "L6" };
     }
 
     private static void ScientificCheckL7Declaration()
@@ -42,21 +43,21 @@ public partial class Form1
             throw new InvalidOperationException("L7 MATH3D handoff is not registered in the VTK manifest.");
     }
 
-    private static JsonObject ScientificL7Source(string profileId, JsonObject support)
+    private static JsonObject ScientificL7Source(string profileId, JsonObject support, string runtimeId = "vtk-win-conda")
     {
         var runId = support["runId"]?.GetValue<string>() ?? "";
         var (directory, result) = ScientificHistoryFind(profileId, runId);
         var source = JsonNode.Parse(result.GetRawText()) as JsonObject;
         var evidence = source?["l6Evidence"] as JsonObject;
         var recordId = support["recordId"]?.GetValue<string>();
-        if (source?["runtimeId"]?.GetValue<string>() != "vtk-win-conda"
+        if (source?["runtimeId"]?.GetValue<string>() != runtimeId
             || source["recipeId"]?.GetValue<string>() != "l6.reproduce"
             || source["state"]?.GetValue<string>() != "succeeded"
             || evidence?["verdict"]?.GetValue<string>() != "matched"
             || evidence["roundTrip"]?["closed"]?.GetValue<bool>() != true
             || !ScientificQualificationRecords.Verify(directory, result).OfType<JsonObject>()
                 .Any(item => item["recordId"]?.GetValue<string>() == recordId && item["level"]?.GetValue<string>() == "L6"))
-            throw new InvalidDataException("The L6 VTK source is not a verified round-trip run.");
+            throw new InvalidDataException("The L6 source is not a verified round-trip run.");
         var relative = evidence["positive"]?["artifactPath"]?.GetValue<string>() ?? "";
         var artifact = ScientificArtifactFiles.ResolveRegistered(directory, result, relative);
         var hash = ScientificHash(artifact);

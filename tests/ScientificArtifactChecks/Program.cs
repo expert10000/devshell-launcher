@@ -262,7 +262,9 @@ foreach(var name in new[]{"tools/scientific_worker_contract.py","tools/runtime-l
     "BatchLauncher/Form1.Scientific.L5.cs",
     "BatchLauncher/Form1.Scientific.L6.cs",
     "BatchLauncher/Form1.Scientific.L7.cs",
-    "tools/scientific-artifact-roundtrip.py","tools/math3d-vtk-import-handoff.mjs",
+    "BatchLauncher/Form1.Scientific.L7Interop.cs",
+    "BatchLauncher/Form1.Scientific.L8.cs","BatchLauncher/OwnedProcessJob.cs",
+    "tools/scientific-artifact-roundtrip.py","tools/math3d-vtk-import-handoff.mjs","tools/scientific-vtk-interop.py",
     "tools/scientific-mesh-worker.py","tools/scientific-vtk-render-check.py",
     "BatchLauncher/Form1.Scientific.cs","BatchLauncher/Form1.Scientific.Artifacts.cs",
     "BatchLauncher/Form1.Scientific.RuntimeLab.cs",
@@ -458,6 +460,34 @@ Check(ScientificQualificationRecords.ValidMath3DImport(reloadedTetra,importedTet
 importedTetra["triangles"]=3;
 Check(!ScientificQualificationRecords.ValidMath3DImport(reloadedTetra,importedTetra),
     "L7 rejects importer geometry with missing triangles");
+var cgalReload=(JsonObject)reloadedTetra.DeepClone();cgalReload["format"]="obj";
+cgalReload["signedVolume"]=8.0/3.0;cgalReload["surfaceArea"]=8.0*Math.Sqrt(3.0);
+var vtkConsumer=new JsonObject { ["consumer"]="VTK vtkOBJReader",["readerSourceSha256"]=parserHash,
+    ["inputObjSha256"]=artifactHash,["points"]=4,["triangles"]=4,
+    ["bounds"]=new JsonArray(-1.0,1.0,-1.0,1.0,-1.0,1.0),["boundaryEdges"]=0,
+    ["nonManifoldEdges"]=0,["closed"]=true,["signedVolume"]=8.0/3.0,["surfaceArea"]=8.0*Math.Sqrt(3.0) };
+var math3dConsumer=(JsonObject)vtkConsumer.DeepClone();math3dConsumer["consumer"]="MATH3D desktop loadSurfaceMeshFromFile";
+math3dConsumer.Remove("readerSourceSha256");math3dConsumer["importerSourceSha256"]=parserHash;
+var rejectedHandoff=new JsonObject { ["state"]="rejected",["inputObjSha256"]=artifactHash,
+    ["readerSourceSha256"]=parserHash,["reason"]="VTK mesh contains invalid face indices" };
+Check(ScientificQualificationRecords.ValidInteropSemantics(cgalReload,vtkConsumer,math3dConsumer,rejectedHandoff,
+    artifactHash,parserHash,parserHash),"L7 accepts matching CGAL, VTK and MATH3D semantics plus rejection");
+math3dConsumer["signedVolume"]=-8.0/3.0;
+Check(!ScientificQualificationRecords.ValidInteropSemantics(cgalReload,vtkConsumer,math3dConsumer,rejectedHandoff,
+    artifactHash,parserHash,parserHash),"L7 rejects changed MATH3D orientation");
+math3dConsumer["signedVolume"]=8.0/3.0;vtkConsumer["bounds"]![1]=2.0;
+Check(!ScientificQualificationRecords.ValidInteropSemantics(cgalReload,vtkConsumer,math3dConsumer,rejectedHandoff,
+    artifactHash,parserHash,parserHash),"L7 rejects changed VTK scale");
+var l8Lower=new JsonArray(Enumerable.Range(0,8).Select(index=>(JsonNode?)new JsonObject
+    { ["level"]="L"+index,["recordId"]="resilience-"+index }).ToArray());
+var l8Assessed=new JsonArray(new JsonObject { ["level"]="L8",["status"]="current",
+    ["staleReasons"]=new JsonArray(),["lowerQualification"]=new JsonObject { ["records"]=l8Lower } });
+ScientificQualificationRecords.AssessL5Dependencies(l8Assessed,
+    Enumerable.Range(0,8).Select(index=>"resilience-"+index).ToHashSet(StringComparer.Ordinal));
+Check(l8Assessed[0]?["status"]?.GetValue<string>()=="current","L8 remains current with pinned L0-L7 support");
+ScientificQualificationRecords.AssessL5Dependencies(l8Assessed,
+    Enumerable.Range(0,7).Select(index=>"resilience-"+index).ToHashSet(StringComparer.Ordinal));
+Check(l8Assessed[0]?["status"]?.GetValue<string>()=="stale","L8 becomes stale when L7 support is unavailable");
 var l7Lower=new JsonArray(Enumerable.Range(0,7).Select(index=>(JsonNode?)new JsonObject
     { ["level"]="L"+index,["recordId"]="interop-"+index }).ToArray());
 var l7Assessed=new JsonArray(new JsonObject { ["level"]="L7",["status"]="current",

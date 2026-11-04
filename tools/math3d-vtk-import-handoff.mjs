@@ -34,7 +34,16 @@ try {
     return [Math.min(...values), Math.max(...values)]
   })
   const edges = new Map()
+  let signedVolume = 0
+  let surfaceArea = 0
   for (let index = 0; index < indices.length; index += 3) {
+    const point = offset => positions.slice(3 * indices[index + offset], 3 * indices[index + offset] + 3)
+    const [a, b, c] = [point(0), point(1), point(2)]
+    const ab = b.map((value, axis) => value - a[axis])
+    const ac = c.map((value, axis) => value - a[axis])
+    const cross = [ab[1] * ac[2] - ab[2] * ac[1], ab[2] * ac[0] - ab[0] * ac[2], ab[0] * ac[1] - ab[1] * ac[0]]
+    surfaceArea += Math.hypot(...cross) / 2
+    signedVolume += a.reduce((total, value, axis) => total + value * cross[axis], 0) / 6
     for (const [a, b] of [[indices[index], indices[index + 1]], [indices[index + 1], indices[index + 2]], [indices[index + 2], indices[index]]]) {
       const key = [Math.min(a, b), Math.max(a, b)].join(':')
       edges.set(key, (edges.get(key) || 0) + 1)
@@ -47,7 +56,8 @@ try {
     format: mesh.source?.format || null, points: positions.length / 3, triangles: indices.length / 3,
     bounds, boundaryEdges: [...edges.values()].filter(count => count === 1).length,
     nonManifoldEdges: [...edges.values()].filter(count => count > 2).length,
-    closed: [...edges.values()].every(count => count === 2), indicesInRange: true
+    closed: [...edges.values()].every(count => count === 2), indicesInRange: true,
+    signedVolume, surfaceArea
   }
   await mkdir(dirname(resultPath), { recursive: true })
   await writeFile(resultPath, JSON.stringify(result))

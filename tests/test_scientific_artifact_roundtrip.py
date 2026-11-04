@@ -45,6 +45,8 @@ class RoundTripTests(unittest.TestCase):
                 self.assertEqual((summary["points"], summary["triangles"], summary["boundaryEdges"],
                                   summary["nonManifoldEdges"], summary["closed"]), (4, 4, 0, 0, True))
                 self.assertEqual(summary["bounds"], [-1, 1, -1, 1, -1, 1])
+                self.assertAlmostEqual(abs(summary["signedVolume"]), 8 / 3)
+                self.assertAlmostEqual(summary["surfaceArea"], 8 * 3 ** 0.5)
 
     def test_out_of_range_vtp_index_is_rejected(self):
         with tempfile.TemporaryDirectory() as folder:

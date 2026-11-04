@@ -101,7 +101,7 @@ public partial class Form1
         }
         ScientificSend(new{type="scientific.runtime.job",job=ScientificJobSnapshot(job)});
     }
-    private async Task ScientificProcessAsync(ScientificJob job,string prefix,string executable,string[] arguments,string directory,int timeoutSeconds,string? extraPath=null)
+    private async Task ScientificProcessAsync(ScientificJob job,string prefix,string executable,string[] arguments,string directory,int timeoutSeconds,string? extraPath=null,long? memoryLimitBytes=null,Action<long>? peakMemory=null)
     {
         job.Cancellation.Token.ThrowIfCancellationRequested();
         job.Stage=arguments.Contains("--build")?"build":arguments.Contains("-S")?"configure":executable.EndsWith("python.exe",StringComparison.OrdinalIgnoreCase)?"worker":"run";
@@ -117,7 +117,7 @@ public partial class Form1
         if(extraPath!=null)start.Environment["PATH"]=extraPath+Path.PathSeparator+start.Environment["PATH"];
         start.Environment.Remove("PYTHONPATH");
         ScientificLog(job,"$ "+executable+" "+string.Join(" ",arguments.Select(argument=>JsonSerializer.Serialize(argument)))+"\n");
-        using var process=new Process{StartInfo=start};using var owner=new OwnedProcessJob();
+        using var process=new Process{StartInfo=start};using var owner=new OwnedProcessJob(memoryLimitBytes);
         using var cancellation=CancellationTokenSource.CreateLinkedTokenSource(job.Cancellation.Token);cancellation.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
         if(!process.Start())throw new InvalidOperationException("Could not start registered command.");
         try
@@ -127,7 +127,9 @@ public partial class Form1
             var output=Drain(process.StandardOutput);var errors=Drain(process.StandardError);
             try{await process.WaitForExitAsync(cancellation.Token);}
             catch(OperationCanceledException){owner.Stop();await process.WaitForExitAsync();await Task.WhenAll(output,errors);if(job.Cancellation.IsCancellationRequested)throw;throw new TimeoutException($"Step exceeded {timeoutSeconds} seconds.");}
-            await Task.WhenAll(output,errors);job.ExitCode=process.ExitCode;if(process.ExitCode!=0)throw new InvalidOperationException($"Registered command exited {process.ExitCode}. See full log.");
+            await Task.WhenAll(output,errors);job.ExitCode=process.ExitCode;
+            peakMemory?.Invoke(owner.PeakProcessMemoryBytes);
+            if(process.ExitCode!=0)throw new InvalidOperationException($"Registered command exited {process.ExitCode}. See full log.");
         }
         finally{owner.Stop();job.Steps.Add(new{stage=job.Stage,executable,arguments,durationMs=stepTimer.ElapsedMilliseconds,exitCode=process.HasExited?(int?)process.ExitCode:null});}
     }
@@ -238,6 +240,8 @@ public partial class Form1
             else if(action=="l5-worker")data=ScientificL5Start(profileId,runtimeId);
             else if(action=="l6-reproduce")data=ScientificL6Start(profileId,runtimeId);
             else if(action=="l7-math3d-import")data=ScientificL7Start(profileId,runtimeId);
+            else if(action=="l7-cgal-vtk-math3d")data=ScientificL7InteropStart(profileId,runtimeId);
+            else if(action=="l8-resilience")data=ScientificL8Start(profileId,runtimeId);
             else
             {
                 ScientificProviderRegistry.RequireAction(runtimeId,action);

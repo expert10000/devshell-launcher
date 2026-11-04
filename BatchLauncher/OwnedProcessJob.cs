@@ -12,10 +12,16 @@ internal sealed class OwnedProcessJob : IDisposable
     private readonly Dictionary<int, Process> _tracked = new();
     private readonly CancellationTokenSource _trackingCancellation = new();
     private Task? _trackingTask;
-    public OwnedProcessJob()
+    public OwnedProcessJob(long? memoryLimitBytes = null)
     {
         if (_handle.IsInvalid) throw new Win32Exception();
         var limits = new ExtendedLimits { Basic = new BasicLimits { Flags = 0x2000 } };
+        if (memoryLimitBytes is > 0)
+        {
+            limits.Basic.Flags |= 0x100 | 0x200;
+            limits.ProcessMemory = (UIntPtr)(ulong)memoryLimitBytes.Value;
+            limits.JobMemory = (UIntPtr)(ulong)memoryLimitBytes.Value;
+        }
         if (!SetInformationJobObject(_handle, 9, ref limits, (uint)Marshal.SizeOf<ExtendedLimits>())) throw new Win32Exception();
     }
     public void Add(Process process)
@@ -42,6 +48,17 @@ internal sealed class OwnedProcessJob : IDisposable
             var data = new byte[48];
             if (!QueryInformationJobObject(_handle, 1, data, 48, IntPtr.Zero)) throw new Win32Exception();
             return BitConverter.ToUInt32(data, 40) != 0;
+        }
+    }
+    public long PeakProcessMemoryBytes
+    {
+        get
+        {
+            var data = new byte[Marshal.SizeOf<ExtendedLimits>()];
+            if (!QueryInformationJobObject(_handle, 9, data, (uint)data.Length, IntPtr.Zero)) throw new Win32Exception();
+            var pinned = GCHandle.Alloc(data, GCHandleType.Pinned);
+            try { return (long)(ulong)Marshal.PtrToStructure<ExtendedLimits>(pinned.AddrOfPinnedObject()).PeakProcessMemory; }
+            finally { pinned.Free(); }
         }
     }
     public void Stop()

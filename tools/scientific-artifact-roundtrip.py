@@ -126,6 +126,7 @@ def inspect(path):
         raise ValueError("Reloaded mesh has non-finite coordinates")
     edges = {}
     signed_volume = 0.0
+    surface_area = 0.0
     for a, b, c in faces:
         if min(a, b, c) < 0 or max(a, b, c) >= len(points) or len({a, b, c}) != 3:
             raise ValueError("Reloaded triangle has invalid indices")
@@ -133,8 +134,10 @@ def inspect(path):
         cross = ((pb[1] - pa[1]) * (pc[2] - pa[2]) - (pb[2] - pa[2]) * (pc[1] - pa[1]),
                  (pb[2] - pa[2]) * (pc[0] - pa[0]) - (pb[0] - pa[0]) * (pc[2] - pa[2]),
                  (pb[0] - pa[0]) * (pc[1] - pa[1]) - (pb[1] - pa[1]) * (pc[0] - pa[0]))
-        if math.sqrt(sum(value * value for value in cross)) <= 1e-12:
+        double_area = math.sqrt(sum(value * value for value in cross))
+        if double_area <= 1e-12:
             raise ValueError("Reloaded triangle is degenerate")
+        surface_area += double_area / 2.0
         signed_volume += sum(pa[axis] * cross[axis] for axis in range(3)) / 6.0
         for left, right in ((a, b), (b, c), (c, a)):
             key = tuple(sorted((left, right)))
@@ -146,7 +149,8 @@ def inspect(path):
             "triangles": len(faces), "bounds": bounds,
             "boundaryEdges": sum(count == 1 for count in edges.values()),
             "nonManifoldEdges": sum(count > 2 for count in edges.values()),
-            "closed": all(count == 2 for count in edges.values()), "absoluteVolume": abs(signed_volume)}, points, faces
+            "closed": all(count == 2 for count in edges.values()), "absoluteVolume": abs(signed_volume),
+            "signedVolume": signed_volume, "surfaceArea": surface_area}, points, faces
 
 
 def main():

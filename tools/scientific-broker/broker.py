@@ -9,10 +9,14 @@ import re
 import shutil
 import signal
 import subprocess
+import sys
 import threading
 import time
 import uuid
 from urllib.parse import urlsplit
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from telemetry import ResourceSampler, active_processes, stop_observed
 
 
 CONTRACT = dict(id='math3d.mesh-product-handoff', version=1, workerResultSchemaVersion=1,
@@ -123,7 +127,7 @@ class Broker:
 
     def snapshot(self, job):
         with self.lock:
-            return {key: value for key, value in job.items() if key not in ('process', 'cancel')}
+            return {key: value for key, value in job.items() if key not in ('process', 'cancel', 'pendingState')}
 
     def submit(self, body):
         self.verify()
@@ -193,6 +197,7 @@ class Broker:
         directory = Path(job['directory'])
         started = time.monotonic()
         process = None
+        sampler = None
         try:
             self.verify()
             with self.lock:
@@ -208,21 +213,25 @@ class Broker:
             with log_path.open('w', encoding='utf-8') as log:
                 process = subprocess.Popen(command, cwd=directory, env=env, stdout=log, stderr=subprocess.STDOUT,
                                            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0), start_new_session=os.name != 'nt')
+                sampler = ResourceSampler(process.pid)
+                sampler.start()
                 with self.lock:
                     job['process'] = process
+                    job['workerPid'] = process.pid
                 while process.poll() is None:
-                    if job['cancel'].is_set() or time.monotonic() - started > timeout + 5:
+                    if job['cancel'].is_set() or time.monotonic() - started > timeout + 1:
                         self._stop_process(process)
                         break
                     with self.lock:
                         job['progress'] = min(85, max(job['progress'], int((time.monotonic() - started) / timeout * 80) + 20))
                     time.sleep(0.1)
                 process.wait(timeout=5)
+                job['workerDurationMs'] = round((time.monotonic() - started) * 1000)
             if job['cancel'].is_set():
-                with self.lock: job.update(state='cancelled', stage='completed', diagnostics=['Job cancelled.'])
+                with self.lock: job.update(pendingState='cancelled', stage='finalizing', diagnostics=['Job cancelled.'])
                 return
             if time.monotonic() - started >= timeout:
-                with self.lock: job.update(state='timed-out', stage='completed', diagnostics=['Job time limit exceeded.'])
+                with self.lock: job.update(pendingState='timed-out', stage='finalizing', diagnostics=['Job time limit exceeded.'])
                 return
             result_path = directory / 'results.json'
             if result_path.is_file() and result_path.stat().st_size > 1048576:
@@ -233,19 +242,19 @@ class Broker:
                 raise ValueError('Worker artifact exceeds 32 MiB.')
             if process.returncode != 0 or result is None or result.get('state') != 'succeeded':
                 state = 'partial' if artifact.exists() else 'failed'
-                with self.lock: job.update(state=state, stage='completed', diagnostics=[
+                with self.lock: job.update(pendingState=state, stage='finalizing', diagnostics=[
                     item.get('message', '') for item in (result or {}).get('diagnostics', [])] or ['Worker failed.'])
                 return
             artifact_hash = sha(artifact)
             if (result.get('runId') != job['jobId'] or 'mesh.validate' not in result.get('validatedCapabilities', [])
                     or not any(item.get('path') == 'l5-positive.obj' and item.get('sha256') == artifact_hash
                                for item in result.get('artifacts', []))):
-                with self.lock: job.update(state='partial', stage='completed', diagnostics=['Worker artifact verification failed.'])
+                with self.lock: job.update(pendingState='partial', stage='finalizing', diagnostics=['Worker artifact verification failed.'])
                 return
             self.verify()
             entry = next((item for item in self.capabilities if item['recordId'] == job['certificationRecordId']), None)
             if entry is None or artifact_hash != entry['referenceArtifactSha256']:
-                with self.lock: job.update(state='partial', stage='completed', diagnostics=['Current qualification or reference artifact differs.'])
+                with self.lock: job.update(pendingState='partial', stage='finalizing', diagnostics=['Current qualification or reference artifact differs.'])
                 return
             handoff = {'schemaVersion': 1, 'contract': CONTRACT, 'runtimeId': 'cgal-win-conda',
                        'capabilityId': 'mesh.interop.vtk-math3d', 'sourceL8RunId': entry['sourceL8RunId'],
@@ -257,12 +266,54 @@ class Broker:
             handoff_path.write_text(json.dumps(handoff, separators=(',', ':')), encoding='utf-8')
             artifacts = [{'path': name, 'sha256': sha(directory / name), 'bytes': (directory / name).stat().st_size}
                          for name in ('l5-positive.obj', 'handoff.json')]
-            with self.lock: job.update(state='succeeded', stage='completed', progress=100, artifacts=artifacts)
+            with self.lock: job.update(pendingState='succeeded', stage='finalizing', progress=95, artifacts=artifacts)
         except Exception as error:
-            with self.lock: job.update(state='failed', stage='completed', diagnostics=[str(error)[:1000]])
+            with self.lock: job.update(pendingState='failed', stage='finalizing', diagnostics=[str(error)[:1000]])
         finally:
+            if process is not None and process.poll() is None:
+                self._stop_process(process)
+            try:
+                telemetry = sampler.finish() if sampler else ResourceSampler(-1).finish()
+            except Exception as error:
+                telemetry = {'schemaVersion': 1, 'state': 'unavailable', 'reason': str(error)[:200],
+                             'observedProcesses': []}
+            telemetry['sourceJobId'] = job['jobId']
+            telemetry_path = directory / 'telemetry.json'
+            telemetry_path.write_text(json.dumps(telemetry, separators=(',', ':')), encoding='utf-8')
+            observed = telemetry.get('observedProcesses', [])
+            active = active_processes(observed)
+            orphan_pids = list(active or [])
+            if active:
+                active = stop_observed(observed)
+            cleanup_state = 'passed' if active == [] else 'unverified' if active is None else 'failed'
+            if process is not None and not any(item['pid'] == process.pid for item in observed):
+                cleanup_state = 'unverified'
+            pending = job.get('pendingState', 'failed')
+            if pending == 'succeeded' and (cleanup_state != 'passed' or orphan_pids):
+                pending = 'partial'
+                job['diagnostics'].append('Worker process cleanup was not cleanly verified.')
+            removed = []
+            if pending != 'succeeded':
+                for name in ('l5-positive.obj', 'handoff.json'):
+                    path = directory / name
+                    if path.exists():
+                        try:
+                            path.unlink()
+                            removed.append(name)
+                        except OSError as error:
+                            cleanup_state = 'failed'
+                            job['diagnostics'].append(f'Could not remove partial {name}: {error}')
             with self.lock:
                 job['process'] = None
+                job.pop('pendingState', None)
+                job['state'] = pending
+                job['stage'] = 'completed'
+                job['progress'] = 100 if pending == 'succeeded' else job['progress']
+                job['artifacts'] = job['artifacts'] if pending == 'succeeded' else []
+                job['telemetrySha256'] = sha(telemetry_path)
+                job['cleanup'] = {'state': cleanup_state, 'observedPids': [item['pid'] for item in observed],
+                                  'orphanPids': orphan_pids, 'activePids': active,
+                                  'removedPartialArtifacts': removed}
                 job['durationMs'] = round((time.monotonic() - started) * 1000)
                 (directory / 'broker-result.json').write_text(json.dumps(self.snapshot(job), separators=(',', ':')), encoding='utf-8')
 
@@ -281,6 +332,17 @@ class Broker:
                 raise ValueError('Output artifact size changed.')
             require_hash(path, entry['sha256'], 'Output artifact')
             return path.read_bytes()
+
+    def telemetry(self, job_id):
+        with self.lock:
+            job = self.jobs.get(job_id)
+            if job is None:
+                raise KeyError(job_id)
+            if job['state'] == 'running' or not job.get('telemetrySha256'):
+                raise ValueError('Job telemetry is not finalized.')
+            path = Path(job['directory']) / 'telemetry.json'
+            require_hash(path, job['telemetrySha256'], 'Job telemetry')
+            return json.loads(path.read_text(encoding='utf-8'))
 
     def promote(self, job_id):
         with self.lock:
@@ -366,6 +428,8 @@ def handler_for(broker):
                         job = broker.jobs.get(parts[2])
                         if job is None: raise KeyError(parts[2])
                         return self.reply(200, broker.snapshot(job))
+                if len(parts) == 4 and parts[:2] == ['v1', 'jobs'] and parts[3] == 'telemetry':
+                    return self.reply(200, broker.telemetry(parts[2]))
                 if len(parts) == 5 and parts[:2] == ['v1', 'jobs'] and parts[3] == 'artifacts':
                     raw = broker.artifact(parts[2], parts[4])
                     self.send_response(200)

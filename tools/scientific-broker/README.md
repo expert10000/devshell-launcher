@@ -44,6 +44,7 @@ python tools/scientific-broker/broker.py serve --config <config.json> --port 876
 - `GET /v1/providers`: certified provider and capability discovery.
 - `POST /v1/jobs`: accept `schemaVersion`, `runtimeId`, `capabilityId`, `input: {path, sha256}`, and optional `timeoutSeconds` (1–120). The input must be a bounded OBJ inside `datasetRoot` with the exact hash of the qualified L9 fixture.
 - `GET /v1/jobs/{id}`: state (`running`, `succeeded`, `partial`, `failed`, `cancelled`, `timed-out`), stage, progress, diagnostics, and verified artifact metadata.
+- `GET /v1/jobs/{id}/telemetry`: hash-verified CPU, RAM, GPU and VRAM measurements after finalization. Every metric includes a collector, unit, scope, availability and sample count.
 - `POST /v1/jobs/{id}/cancel`: terminate the owned worker process tree.
 - `POST /v1/jobs/{id}/promote`: save an immutable allow/block decision with reasons. It requires a successful job, a current matching L0–L9 certification chain, unchanged worker/package and MATH3D consumer identities, and a verified version 1 handoff. `math3dRoot` is required for an allowed decision.
 - `GET /v1/jobs/{id}/artifacts/{name}`: serve only a registered artifact from a successful job after rechecking its hash. Current names are `l5-positive.obj` and `handoff.json`.
@@ -58,3 +59,24 @@ python tools/scientific-broker/smoke.py --config <config.json> --verify-job <32-
 ```
 
 The smoke starts the broker API on a temporary localhost port, submits the fixed CGAL job, requests promotion, imports the handoff into a saved MATH3D Mesh document, mounts the viewer, and writes `qualified-mesh.m3dm` through MATH3D's native codec. `check_m3dm_roundtrip.py` independently reloads the binary with Python `struct` and checks exact triangle topology/winding, finite coordinates, closed orientation, volume and scale against the worker OBJ. The immutable `document-qualification.json` pins the source L9 record, codec/parser sources, promotion, format, scene and artifact hashes. `smoke-result.json` records the source job, promotion decision, contract version, scene/resource/viewer and round-trip hashes; `--verify-job` checks those saved files again. A failure saves its stage, source job and reason to the same job directory. The scope is the fixed tetrahedron mesh; volume meshes and exact mathematical documents remain unqualified.
+
+## Persistent benchmarks and telemetry (DS-SCI-026/027)
+
+```powershell
+python tools/scientific-broker/benchmark.py run --config <config.json> --repetitions 3
+python tools/scientific-broker/benchmark.py history --config <config.json>
+python tools/scientific-broker/benchmark.py compare --config <config.json> --baseline <record.json> --candidate <record.json>
+python tools/scientific-broker/benchmark.py pin --config <config.json> --run-id <32-character-benchmark-run-id>
+```
+
+The benchmark uses the **same qualified tetrahedron input** in fixed tiers of 1, 3 and 5 sequential jobs per batch. It captures the first job after a fresh broker instance as its cold sample, runs one warmup batch and then the requested measured batches. OS caches are not reset. First use pins an immutable baseline record; `pin` deliberately selects a later record while archiving the prior pointer. History retains every run. Host, package/toolchain, suite, broker source, input or policy mismatches produce an **inconclusive** warning. These results are performance observations and do not grant qualification or promotion. Larger mesh size tiers need separate fixture qualification.
+
+Each broker job saves `telemetry.json` and its hash. `psutil` samples CPU seconds and peak resident bytes across the worker process tree. `nvidia-smi` supplies GPU utilization and VRAM used for the **host**, with that scope recorded explicitly; those values are not attributed to the CGAL job. Unsupported or missed measurements have `state: unavailable`, a reason and a null value.
+
+## Cancellation and cleanup gate (DS-SCI-028)
+
+```powershell
+python tools/scientific-broker/qualify_cleanup.py --config <config.json>
+```
+
+The suite cancels the real CGAL adapter, then uses a test-only child process to exercise forced cancellation, timeout and orphan recovery. It verifies status mapping, removed partial mesh/handoff outputs, promotion blocking and absence of live children. The diagnostic adapter never receives capability qualification. The broker finalizes terminal status after child cleanup; an unverified cleanup cannot count as success. `psutil` is required for this cleanup gate.

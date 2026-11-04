@@ -1432,13 +1432,19 @@ Broker worker → validated result → document import → viewer/workbook modul
 Benchmark IDs, tiered input sizes, controlled repetitions, cold/warm policy and historical trends.\
 **Acceptance:** inconsistent host/fingerprint comparisons are warned as inconclusive.
 
+**2026-11-04 scoped delivery:** the fixed CGAL tetrahedron benchmark records first-run cold observations, warmup and repeated batches of 1/3/5 qualified inputs. It pins an immutable baseline, retains history, supports explicit re-pinning, and warns that host, environment, source, fixture or policy differences are inconclusive. Batch size is the current tier dimension; larger mesh fixtures require separate qualification.
+
 **DS-SCI-027 — `feat(benchmarks): collect CPU, RAM, GPU and VRAM telemetry`**\
 Best-effort resource measurements with explicit supported/unavailable statuses.\
 **Acceptance:** every measurement names its collector, units and availability; metrics are not fabricated.
 
+**2026-11-04 scoped delivery:** broker jobs save hash-verified `telemetry.json`. `psutil` samples CPU time and peak resident memory of the worker tree. `nvidia-smi` samples host GPU utilization and VRAM, explicitly marked as host-wide rather than job-attributed. Unavailable readings have a reason and null value.
+
 **DS-SCI-028 — `feat(testing): qualify cancellation and process cleanup`**\
 Timeout, kill, orphan detection, partial artifact cleanup and status mapping.\
 **Acceptance:** cancelled jobs cannot be marked successful and cannot silently leave active children.
+
+**2026-11-04 scoped delivery:** broker finalization inspects observed descendants, kills surviving children, removes partial mesh/handoff outputs and withholds success when cleanup cannot be verified. The cleanup suite passes real CGAL cancellation plus test-only forced cancellation, timeout and orphan cases; each blocked artifact transport and MATH3D promotion. Wider provider and operating-system qualification remains future work.
 
 **DS-SCI-029 — `feat(testing): qualify concurrent scientific workers`**\
 Concurrent recipes, artifact isolation, memory pressure and scheduling tests.\

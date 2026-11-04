@@ -45,6 +45,11 @@ class BrokerIntegration(unittest.TestCase):
             job = self.broker.snapshot(self.broker.jobs[job['jobId']])
         self.assertEqual(job['state'], 'succeeded', job['diagnostics'])
         self.assertEqual(job['progress'], 100)
+        self.assertEqual(job['cleanup']['state'], 'passed')
+        telemetry = self.broker.telemetry(job['jobId'])
+        self.assertEqual(telemetry['sourceJobId'], job['jobId'])
+        self.assertEqual(telemetry['cpu']['unit'], 's')
+        self.assertEqual(telemetry['ram']['unit'], 'byte')
         handoff = json.loads(self.broker.artifact(job['jobId'], 'handoff.json'))
         self.assertEqual(handoff['contract'], module.CONTRACT)
         self.assertEqual(handoff['artifact']['sha256'],

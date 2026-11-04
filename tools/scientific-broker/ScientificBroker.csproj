@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../BatchLauncher/ScientificRunFingerprint.cs" Link="ScientificRunFingerprint.cs" />
+    <Compile Include="../../BatchLauncher/ScientificQualificationRecords.cs" Link="ScientificQualificationRecords.cs" />
+    <Compile Include="../../BatchLauncher/ScientificProviderRegistry.cs" Link="ScientificProviderRegistry.cs" />
+  </ItemGroup>
+</Project>

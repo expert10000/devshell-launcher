@@ -1400,9 +1400,13 @@ Geometry invariants, numerical tolerance policy and shrinking.\
 Provider discovery, job lifecycle, progress, timeout, cancellation and artifact transport.\
 **Acceptance:** no native SDK linked into renderer; jobs have typed completion/partial/failure semantics.
 
+**2026-11-04 scoped delivery:** `tools/scientific-broker/broker.py` runs independently of the DevShell desktop process on localhost. It discovers the current certified CGAL mesh path, owns worker jobs with progress/cancellation/timeouts and typed outcomes, and serves only verified output and handoff artifacts. The current contract accepts the fixed qualified OBJ fixture; broader input and provider support require fresh qualification.
+
 **DS-SCI-022 — `feat(integration): publish certified capability manifest`**\
 Export verified provider/contract/evidence identities and support standalone broker deployment.\
 **Acceptance:** unqualified provider cannot appear as certified; manifest verification catches mismatched hashes.
+
+**2026-11-04 scoped delivery:** the standalone exporter re-assesses saved L0–L9 records and drift before publishing the current CGAL L9 mesh identity. The broker checks the manifest digest, contract, runtime manifest, worker files, Python, Conda package inventory and output hashes. Gmsh is excluded. The digest provides integrity checking; signed deployment identities remain future work.
 
 **DS-SCI-023 — `feat(integration): add Promote to Math3D workflow`**\
 Gate promotion by current applicable L0–L9 evidence and version compatibility.\

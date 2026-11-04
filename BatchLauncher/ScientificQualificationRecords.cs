@@ -5,7 +5,7 @@ using System.Text.Json.Nodes;
 
 namespace BatchLauncher;
 
-// L0-L3 records describe only the named inventory or probe that passed in this run.
+// Qualification records describe only named evidence that passed in this run.
 // The file is written once; History derives current status without changing it.
 public static class ScientificQualificationRecords
 {
@@ -23,7 +23,7 @@ public static class ScientificQualificationRecords
 
     private static JsonObject Record(string runId, string runtimeId, string capabilityId, string level,
         string evidenceId, string fingerprintSha256, string suiteRevisionSha256, JsonObject contract,
-        string? evidenceSha256 = null)
+        string? evidenceSha256 = null, JsonNode? lowerQualification = null)
     {
         var record = new JsonObject
         {
@@ -33,6 +33,7 @@ public static class ScientificQualificationRecords
             ["contract"] = contract.DeepClone()
         };
         if (evidenceSha256 != null) record["evidenceSha256"] = evidenceSha256;
+        if (lowerQualification != null) record["lowerQualification"] = lowerQualification.DeepClone();
         record["recordId"] = Digest(record.ToJsonString());
         return record;
     }
@@ -84,6 +85,76 @@ public static class ScientificQualificationRecords
             ? hash : null;
     }
 
+    private static string? L5Hash(string directory, string runtimeId, JsonObject result, JsonObject components)
+    {
+        var (capability, recipe, negativeId, positiveName, negativeName, reason) = runtimeId switch
+        {
+            "cgal-win-conda" => ("mesh.validate", "cgal.validate", "math3d/problematic/18_degenerate_faces.obj", "l5-positive.obj", "l5-rejected.obj", "not a readable manifold polygon mesh"),
+            "vtk-win-conda" => ("mesh.read", "mesh.inspect", "math3d/import/truncated-ascii.ply", "l5-positive.vtp", "l5-rejected.vtp", "surface is empty"),
+            _ => ("", "", "", "", "", "")
+        };
+        if (capability.Length == 0 || result["recipeId"]?.GetValue<string>() != "l5.worker"
+            || result["l5Evidence"] is not JsonObject evidence || evidence["suiteId"]?.GetValue<string>() != "l5-worker-v1"
+            || evidence["capabilityId"]?.GetValue<string>() != capability
+            || evidence["workerContractVersion"]?.GetValue<int>() != 1
+            || evidence["workerContractSha256"]?.GetValue<string>() != components["contract"]?["workerContractModule"]?["sha256"]?.GetValue<string>()
+            || evidence["fixtureManifestSha256"]?.GetValue<string>() is not { Length: 64 }
+            || evidence["lowerQualification"]?["records"] is not JsonArray lower || lower.Count != 5
+            || result["validatedCapabilities"] is not JsonArray validated || !validated.Any(item => item?.GetValue<string>() == capability)) return null;
+        var required = new[] { "L0", "L1", "L2", "L3", "L4" };
+        for (var i = 0; i < 5; i++)
+            if (lower[i]?["level"]?.GetValue<string>() != required[i]
+                || lower[i]?["runId"]?.GetValue<string>() is not { Length: 32 }
+                || lower[i]?["recordId"]?.GetValue<string>() is not { Length: 64 }) return null;
+        var cases = new[] { ("positive", "math3d/basic/01_tetrahedron.obj", positiveName, "succeeded"),
+            ("rejection", negativeId, negativeName, "failed") };
+        foreach (var (folder, datasetId, outputName, state) in cases)
+        {
+            if (evidence[folder] is not JsonObject entry || entry["caseId"]?.GetValue<string>() != folder
+                || entry["recipeId"]?.GetValue<string>() != recipe || entry["datasetId"]?.GetValue<string>() != datasetId
+                || entry["state"]?.GetValue<string>() != state) return null;
+            var childDirectory = Path.Combine(directory, folder);
+            var requestPath = Path.Combine(childDirectory, "request.json");
+            var resultPath = Path.Combine(childDirectory, "results.json");
+            if (!File.Exists(requestPath) || !File.Exists(resultPath)
+                || new FileInfo(requestPath).Length > 1048576 || new FileInfo(resultPath).Length > 1048576
+                || Digest(File.ReadAllText(requestPath)) != entry["requestSha256"]?.GetValue<string>()
+                || Digest(File.ReadAllText(resultPath)) != entry["resultSha256"]?.GetValue<string>()) return null;
+            var childRequest = JsonNode.Parse(File.ReadAllText(requestPath));
+            var childResult = JsonNode.Parse(File.ReadAllText(resultPath));
+            if (childRequest?["recipeId"]?.GetValue<string>() != recipe
+                || childRequest["runtimeId"]?.GetValue<string>() != runtimeId
+                || childRequest["inputArtifacts"] is not JsonArray inputs || inputs.Count != 1
+                || inputs[0]?["datasetId"]?.GetValue<string>() != datasetId
+                || inputs[0]?["sha256"]?.GetValue<string>() != entry["inputSha256"]?.GetValue<string>()
+                || childRequest["outputArtifacts"] is not JsonArray outputs || outputs.Count != 1
+                || outputs[0]?["path"]?.GetValue<string>() != outputName
+                || childResult?["state"]?.GetValue<string>() != state
+                || result["inputArtifacts"] is not JsonArray parentInputs
+                || !parentInputs.Any(item => item?["datasetId"]?.GetValue<string>() == datasetId
+                    && item?["sha256"]?.GetValue<string>() == entry["inputSha256"]?.GetValue<string>())) return null;
+            var outputPath = Path.Combine(childDirectory, outputName);
+            if (folder == "positive")
+            {
+                var hash = entry["artifactSha256"]?.GetValue<string>();
+                if (entry["artifactPath"]?.GetValue<string>() != folder + "/" + outputName
+                    || hash is not { Length: 64 } || !File.Exists(outputPath)
+                    || Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(outputPath))).ToLowerInvariant() != hash
+                    || childResult["validatedCapabilities"] is not JsonArray childCapabilities
+                    || !childCapabilities.Any(item => item?.GetValue<string>() == capability)
+                    || result["artifacts"] is not JsonArray artifacts
+                    || !artifacts.Any(item => item?["path"]?.GetValue<string>() == folder + "/" + outputName
+                        && item?["sha256"]?.GetValue<string>() == hash)) return null;
+            }
+            else if (File.Exists(outputPath) || entry["outputAbsent"]?.GetValue<bool>() != true
+                || entry["expectedReason"]?.GetValue<string>() != reason
+                || !string.Join("; ", childResult["diagnostics"]?.AsArray().OfType<JsonObject>()
+                    .Select(item => item["message"]?.GetValue<string>()) ?? Array.Empty<string?>())
+                    .Contains(reason, StringComparison.OrdinalIgnoreCase)) return null;
+        }
+        return Digest(evidence.ToJsonString());
+    }
+
     public static string? Save(string directory, JsonObject result, string sourceRoot, string installedRoot)
     {
         if (result["state"]?.GetValue<string>() != "succeeded") return null;
@@ -108,11 +179,11 @@ public static class ScientificQualificationRecords
         if (!packagesRecorded || components?["worker"]?["executedFiles"] is not JsonArray workers || workers.Count == 0)
             return null;
         var records = new List<JsonObject>();
-        void Add(string capability, string level, string evidence, string? evidenceHash = null)
+        void Add(string capability, string level, string evidence, string? evidenceHash = null, JsonNode? lower = null)
         {
             if (records.Any(item => item["capabilityId"]?.GetValue<string>() == capability
                 && item["level"]?.GetValue<string>() == level)) return;
-            records.Add(Record(runId, runtimeId, capability, level, evidence, fingerprintSha256, suiteRevision, contract, evidenceHash));
+            records.Add(Record(runId, runtimeId, capability, level, evidence, fingerprintSha256, suiteRevision, contract, evidenceHash, lower));
         }
         Add("runtime.inventory", "L0", "fingerprint.environment");
         var recipeId = result["recipeId"]?.GetValue<string>();
@@ -156,6 +227,15 @@ public static class ScientificQualificationRecords
             var hash = CompileLinkHash(directory, sourceRoot, runtimeId, result, components!);
             if (declaration?["capability"]?.GetValue<string>() == expectedCapability && hash != null)
                 Add(expectedCapability!, "L4", "compile-link", hash);
+        }
+        else if (recipeId == "l5.worker" && manifest["qualificationRecipes"] is JsonArray l5Recipes)
+        {
+            var declaration = l5Recipes.OfType<JsonObject>().FirstOrDefault(item => item["id"]?.GetValue<string>() == "l5.worker"
+                && item["readinessLevel"]?.GetValue<string>() == "L5");
+            var capability = runtimeId == "cgal-win-conda" ? "mesh.validate" : runtimeId == "vtk-win-conda" ? "mesh.read" : null;
+            var hash = L5Hash(directory, runtimeId, result, components!);
+            if (capability != null && declaration?["capability"]?.GetValue<string>() == capability && hash != null)
+                Add(capability, "L5", "l5.worker", hash, result["l5Evidence"]?["lowerQualification"]);
         }
         var document = new JsonObject
         {
@@ -214,7 +294,7 @@ public static class ScientificQualificationRecords
                 || record["runFingerprintSha256"]?.GetValue<string>() != fingerprintSha256
                 || record["suiteRevisionSha256"]?.GetValue<string>() != suiteRevision
                 || record["contract"]?.ToJsonString() != contract?.ToJsonString()
-                || record["level"]?.GetValue<string>() is not ("L0" or "L1" or "L2" or "L3" or "L4"))
+                || record["level"]?.GetValue<string>() is not ("L0" or "L1" or "L2" or "L3" or "L4" or "L5"))
                 throw new InvalidDataException("Qualification entry does not match its run.");
             if (record["level"]?.GetValue<string>() == "L4")
             {
@@ -227,6 +307,15 @@ public static class ScientificQualificationRecords
                     || !string.Equals(record["evidenceSha256"]?.GetValue<string>(),
                         Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(binary))).ToLowerInvariant(), StringComparison.OrdinalIgnoreCase))
                     throw new InvalidDataException("Compiled qualification binary has changed.");
+            }
+            if (record["level"]?.GetValue<string>() == "L5")
+            {
+                var sourceResult = JsonNode.Parse(result.GetRawText()) as JsonObject;
+                if (sourceResult == null || record["evidenceId"]?.GetValue<string>() != "l5.worker"
+                    || record["lowerQualification"]?.ToJsonString() != sourceResult["l5Evidence"]?["lowerQualification"]?.ToJsonString()
+                    || record["evidenceSha256"]?.GetValue<string>() != L5Hash(directory, runtimeId!, sourceResult,
+                        fingerprint!["components"]!.AsObject()))
+                    throw new InvalidDataException("L5 worker qualification evidence has changed.");
             }
         }
         return records;
@@ -255,6 +344,20 @@ public static class ScientificQualificationRecords
             view["staleReasons"] = reasons.DeepClone();
             return (JsonNode?)view;
         }).ToArray());
+    }
+
+    public static void AssessL5Dependencies(JsonArray records, IReadOnlySet<string> currentLowerRecordIds)
+    {
+        foreach (var record in records.OfType<JsonObject>().Where(item => item["level"]?.GetValue<string>() == "L5"))
+        {
+            var lower = record["lowerQualification"]?["records"] as JsonArray;
+            if (lower is { Count: 5 } && lower.All(item => item?["recordId"]?.GetValue<string>() is { } id
+                && currentLowerRecordIds.Contains(id))) continue;
+            record["status"] = "stale";
+            var reasons = record["staleReasons"] as JsonArray ?? new JsonArray();
+            reasons.Add("supporting L0-L4 qualification is no longer current");
+            record["staleReasons"] = reasons;
+        }
     }
 
     public static JsonObject Summarize(string runtimeId, IEnumerable<JsonObject> runs)

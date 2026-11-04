@@ -235,6 +235,7 @@ public partial class Form1
                 else{var path=action=="open-log"?Path.Combine(job.Directory,"full.log"):job.Directory;var start=new ProcessStartInfo(action=="open-log"?"notepad.exe":"explorer.exe"){UseShellExecute=true};start.ArgumentList.Add(path);Process.Start(start);data=new{path};}
             }
             else if(action=="lab-probe") {ScientificProviderRegistry.RequireAction(runtimeId,action);data=ScientificLabProbeStart(profileId,runtimeId);}
+            else if(action=="l5-worker")data=ScientificL5Start(profileId,runtimeId);
             else
             {
                 ScientificProviderRegistry.RequireAction(runtimeId,action);

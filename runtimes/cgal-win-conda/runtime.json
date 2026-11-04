@@ -5,7 +5,10 @@
   "execution": "windows-native",
   "description": "Isolated Python binding probes for the local CGAL Conda prefix. C++ SDK checks remain separate.",
   "qualificationRecipes": [
-    { "id": "compile-link", "readinessLevel": "L4", "capability": "cgal.cpp.compile-link" }
+    { "id": "compile-link", "readinessLevel": "L4", "capability": "cgal.cpp.compile-link" },
+    { "id": "l5.worker", "readinessLevel": "L5", "capability": "mesh.validate",
+      "positive": { "recipeId": "cgal.validate", "datasetId": "math3d/basic/01_tetrahedron.obj", "outputName": "l5-positive.obj" },
+      "rejection": { "recipeId": "cgal.validate", "datasetId": "math3d/problematic/18_degenerate_faces.obj", "outputName": "l5-rejected.obj", "expectedReason": "not a readable manifold polygon mesh" } }
   ],
   "recipes": [
     {

@@ -13,9 +13,9 @@ public static class ScientificProviderRegistry
     public static IReadOnlyList<ScientificProvider> Providers { get; } = new[]
     {
         new ScientificProvider("cgal-win-conda", "windows-native", "devshell-cgal", true, true,
-            new[] { "import-meshes", "test-matrix", "math3d-readiness", "environment", "terminal", "export", "test-hold", "recipe", "boolean-recipe", "cgal-recipe", "run-matrix", "real-mesh-suite", "math3d-integration", "math3d-prepare-run" }),
+            new[] { "import-meshes", "test-matrix", "math3d-readiness", "environment", "terminal", "export", "test-hold", "recipe", "boolean-recipe", "cgal-recipe", "run-matrix", "real-mesh-suite", "math3d-integration", "math3d-prepare-run", "l5-worker" }),
         new ScientificProvider("vtk-win-conda", "windows-native", "devshell-vtk", true, true,
-            new[] { "environment", "terminal", "export", "test-hold", "recipe", "vtk-rejections" }),
+            new[] { "environment", "terminal", "export", "test-hold", "recipe", "vtk-rejections", "l5-worker" }),
         new ScientificProvider("gmsh-win-conda", "windows-native", "devshell-scientific", false, true,
             Array.Empty<string>()),
         new ScientificProvider("python-win-conda", "windows-native", "devshell-scientific", false, true,

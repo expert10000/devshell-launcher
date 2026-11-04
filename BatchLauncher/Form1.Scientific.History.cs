@@ -61,8 +61,20 @@ public partial class Form1
             wsl ? ScientificSageCurrentEvidence() : null);
         view["environmentDrift"] = environmentDrift;
         if (result.TryGetProperty("qualificationSha256", out _))
-            view["qualifications"] = ScientificQualificationRecords.Assess(
+        {
+            var assessed = ScientificQualificationRecords.Assess(
                 ScientificQualificationRecords.Verify(directory, result), sourceDrift, environmentDrift);
+            if (assessed.OfType<JsonObject>().Any(item => item["level"]?.GetValue<string>() == "L5"))
+            {
+                var summary = ScientificQualificationSummary(profileId, result.GetProperty("runtimeId").GetString() ?? "");
+                var current = summary["capabilities"]?.AsArray().OfType<JsonObject>()
+                    .SelectMany(item => item["supportingRuns"]?.AsArray().OfType<JsonObject>() ?? [])
+                    .Select(item => item["recordId"]?.GetValue<string>()).OfType<string>()
+                    .ToHashSet(StringComparer.Ordinal) ?? new HashSet<string>(StringComparer.Ordinal);
+                ScientificQualificationRecords.AssessL5Dependencies(assessed, current);
+            }
+            view["qualifications"] = assessed;
+        }
         return JsonSerializer.SerializeToElement(view, ScientificJson);
     }
 
@@ -140,6 +152,12 @@ public partial class Form1
                 Debug.WriteLine($"Skipping invalid Scientific qualification run: {exception.Message}");
             }
         }
+        var lowerIds = runs.SelectMany(run => run["qualifications"]?.AsArray().OfType<JsonObject>() ?? [])
+            .Where(record => record["status"]?.GetValue<string>() == "current" && record["level"]?.GetValue<string>() is "L0" or "L1" or "L2" or "L3" or "L4")
+            .Select(record => record["recordId"]?.GetValue<string>()).OfType<string>()
+            .ToHashSet(StringComparer.Ordinal);
+        foreach (var run in runs)
+            if (run["qualifications"] is JsonArray records) ScientificQualificationRecords.AssessL5Dependencies(records, lowerIds);
         return ScientificQualificationRecords.Summarize(runtimeId, runs);
     }
 

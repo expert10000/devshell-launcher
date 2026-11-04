@@ -243,6 +243,7 @@ Reject(()=>ScientificProviderRegistry.RequireAction("sage-wsl","import-meshes"),
 foreach(var name in new[]{"tools/scientific_worker_contract.py","tools/runtime-lab/Program.cs",
     "BatchLauncher/ScientificProviderRegistry.cs","BatchLauncher/ScientificRunFingerprint.cs",
     "BatchLauncher/ScientificQualificationRecords.cs",
+    "BatchLauncher/Form1.Scientific.L5.cs",
     "tools/scientific-mesh-worker.py","tools/scientific-vtk-render-check.py",
     "BatchLauncher/Form1.Scientific.cs","BatchLauncher/Form1.Scientific.Artifacts.cs",
     "BatchLauncher/Form1.Scientific.RuntimeLab.cs",
@@ -397,6 +398,18 @@ Check(summary["capabilities"]?.AsArray().Single()?["highestLevel"]?.GetValue<str
     && summary["capabilities"]?[0]?["supportingRuns"]?.AsArray().Single()?["runId"]?.GetValue<string>()==new string('2',32)
     && summary["excludedFailedRuns"]?.GetValue<int>()==1 && summary["excludedStaleRecords"]?.GetValue<int>()==1,
     "cross-run summary uses highest current level and excludes stale and failed runs");
+var pinnedLower = new JsonArray(Enumerable.Range(0,5).Select(index => (JsonNode?)new JsonObject
+    { ["level"]="L"+index,["recordId"]="lower-"+index }).ToArray());
+var l5Assessed = new JsonArray(new JsonObject { ["level"]="L5",["status"]="current",
+    ["staleReasons"]=new JsonArray(),["lowerQualification"]=new JsonObject { ["records"]=pinnedLower } });
+ScientificQualificationRecords.AssessL5Dependencies(l5Assessed,
+    Enumerable.Range(0,5).Select(index => "lower-"+index).ToHashSet(StringComparer.Ordinal));
+Check(l5Assessed[0]?["status"]?.GetValue<string>()=="current","L5 stays current with all pinned lower records");
+ScientificQualificationRecords.AssessL5Dependencies(l5Assessed,
+    Enumerable.Range(0,4).Select(index => "lower-"+index).ToHashSet(StringComparer.Ordinal));
+Check(l5Assessed[0]?["status"]?.GetValue<string>()=="stale"
+    && l5Assessed[0]?["staleReasons"]?.ToJsonString().Contains("L0-L4",StringComparison.Ordinal)==true,
+    "L5 becomes stale when a pinned lower record is no longer current");
 var buildManifest=new JsonObject { ["schemaVersion"]=1,["id"]="vtk-win-conda",
     ["qualificationRecipes"]=new JsonArray(new JsonObject { ["id"]="compile-link",["readinessLevel"]="L4",["capability"]="vtk.cpp.compile-link" }) };
 File.WriteAllText(manifestFile,buildManifest.ToJsonString());

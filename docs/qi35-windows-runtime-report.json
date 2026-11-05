@@ -1,0 +1,88 @@
+{
+  "capabilities": {
+    "engines": {
+      "dynamiqs": {
+        "available": false,
+        "device": null,
+        "version": null
+      },
+      "native": {
+        "available": true,
+        "version": "1.17.1"
+      },
+      "quspin": {
+        "available": false,
+        "version": null
+      },
+      "qutip": {
+        "available": false,
+        "version": null
+      },
+      "scqubits": {
+        "available": false,
+        "version": null
+      }
+    },
+    "operations": [
+      "diagonalize",
+      "evolve",
+      "cavity",
+      "lindblad",
+      "sweep",
+      "many_body",
+      "circuit",
+      "topology",
+      "orbital",
+      "oscillator",
+      "oscillator_evolve",
+      "oscillator_drive",
+      "oscillator_pulse",
+      "oscillator_damped",
+      "oscillator_parametric",
+      "oscillator_anharmonic"
+    ],
+    "protocol": 1,
+    "python": {
+      "version": "3.11.7"
+    },
+    "schema": "worker-capabilities/v1",
+    "worker": {
+      "version": "0.1.0"
+    }
+  },
+  "fixture": {
+    "energies": [
+      -0.6403124237432849,
+      0.6403124237432849
+    ],
+    "energySha256": "265184744cfdb0e356ac87530e8adefe7b983b84221e76a9483c53ffa94d0a8a",
+    "engine": "native",
+    "name": "two-level.job.json",
+    "nativeMs": 68.598,
+    "passed": true
+  },
+  "host": {
+    "machine": "AMD64",
+    "system": "Windows"
+  },
+  "pythonVersion": "3.11.7",
+  "resources": {
+    "cpu": {
+      "logicalCores": 24
+    },
+    "job": {
+      "activeId": null
+    },
+    "memory": {
+      "totalBytes": 137167683584
+    },
+    "platform": {
+      "machine": "AMD64",
+      "system": "Windows"
+    },
+    "schema": "worker-resources/v1"
+  },
+  "schema": "devshell.quantum-runtime-diagnostics/v1",
+  "workerHealth": "ok",
+  "workerVersion": "0.1.0"
+}

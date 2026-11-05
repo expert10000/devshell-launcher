@@ -42,6 +42,15 @@ public partial class Form1
                     foreach (var task in new[] { repo.BuildTask, repo.RunTask, repo.BrowserBuildTask, repo.BrowserRunTask }.Where(task => task != null))
                         if (project.Tasks?.ContainsKey(task!) != true) checks.Add(new(repo.Name + " action", "error", $"Missing task: {task}", project.Id, repo.Id, Guidance: "Define this task in the profile or correct the repository action name."));
                     checks.AddRange(await RepositoryEnvironment.InspectRepository(project.Id, repo.Id, ResolveRepository(project, repo), EnvironmentTools()));
+                    var repositoryPath = Expand(project, repo.Path);
+                    if (File.Exists(Path.Combine(repositoryPath, "workers", "quantum-python", "quantum_worker", "main.py")))
+                    {
+                        var configured = repo.PythonEnvironment == null ? globals.GetValueOrDefault("jupyterPython") : Expand(project, repo.PythonEnvironment);
+                        var python = configured == null ? null : File.Exists(configured) ? configured :
+                            Path.Combine(configured, OperatingSystem.IsWindows() ? "Scripts\\python.exe" : "bin/python");
+                        checks.Add(await QuantumRuntimeDiagnostics.Inspect(project.Id, repo.Id, repositoryPath, python,
+                            Path.Combine(AppContext.BaseDirectory, "tools", "quantum_runtime_diagnostics.py")));
+                    }
                     Publish();
                 }
                 if (project.PythonEnvironment != null)

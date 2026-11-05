@@ -112,4 +112,8 @@ Check(checks.All(check => check.ProjectId == "p" && check.RepositoryId == "r"), 
 foreach (var name in new[] { "fake-package", "@scope/fake-dev" }) { var folder = Path.Combine(environmentPath, "node_modules", name); Directory.CreateDirectory(folder); File.WriteAllText(Path.Combine(folder, "package.json"), "{}"); }
 checks = await RepositoryEnvironment.Inspect("p", "r", environmentPath, Array.Empty<string>());
 Check(checks.Any(check => check.Name == "Node packages" && check.State == "ok"), "Installed Node packages were not recognized");
-Console.WriteLine("PASS: Clone, create workspace, dirty Fetch, safe fast-forward Pull, dirty/diverged/detached/origin/nonempty safeguards, Update All results/continuation/Stop, repository dependency checks");
+var workerSource = Path.Combine(environmentPath, "workers", "quantum-python", "quantum_worker");
+Directory.CreateDirectory(workerSource); File.WriteAllText(Path.Combine(workerSource, "main.py"), "# fixture");
+var workerCheck = await QuantumRuntimeDiagnostics.Inspect("p", "r", environmentPath, null, "missing-script.py");
+Check(workerCheck.State == "error" && workerCheck.Detail.Contains("Configure an existing Python"), "Missing quantum runtime was not explained");
+Console.WriteLine("PASS: Clone, create workspace, dirty Fetch, safe fast-forward Pull, dirty/diverged/detached/origin/nonempty safeguards, Update All results/continuation/Stop, repository dependency and quantum runtime checks");

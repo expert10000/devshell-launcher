@@ -11,5 +11,6 @@
     <Compile Include="../../BatchLauncher/WorkspaceConfig.cs" Link="WorkspaceConfig.cs" />
     <Compile Include="../../BatchLauncher/ProjectDefinition.cs" Link="ProjectDefinition.cs" />
     <Compile Include="../../BatchLauncher/NodeDependencies.cs" Link="NodeDependencies.cs" />
+    <Compile Include="../../BatchLauncher/QuantumRuntimeDiagnostics.cs" Link="QuantumRuntimeDiagnostics.cs" />
   </ItemGroup>
 </Project>

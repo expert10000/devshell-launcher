@@ -372,6 +372,14 @@
           "requiredTools": []
         },
         {
+          "name": "Theory Lab",
+          "id": "theory-lab",
+          "path": "G:\\master\\theory-lab-roadmap-audit-2026-11-04",
+          "url": "https://github.com/expert10000/theory-lab.git",
+          "pythonEnvironment": "${vars.jupyterPython}",
+          "pythonModules": ["numpy", "scipy", "jsonschema"]
+        },
+        {
           "name": "DevShell",
           "buildTask": "DevShell - Build",
           "runTask": "DevShell - Run",

@@ -93,7 +93,7 @@ def render(paths, sources):
             row['verdict'], row['confidence'])) + ' |')
     lines += ['', f"- Left release gate: **{clean(left['releaseVerdict'])}**; inventory **{clean(left['inventoryState'])}**; reasons: {clean('; '.join(left['releaseReasons']) or 'none')}",
               f"- Right release gate: **{clean(right['releaseVerdict'])}**; inventory **{clean(right['inventoryState'])}**; reasons: {clean('; '.join(right['releaseReasons']) or 'none')}",
-              '- A blocked release certifies no provider. Gmsh remains unqualified.',
+               '- A blocked release certifies no provider. Each qualified provider and scope is listed in its release manifest.',
               f"- Current release source commit: `{clean(right_release['sourceCommit'])}`.",
               f"- Current release inventory: **{clean(right['inventoryState'])}**; SHA-256 `{clean(right['inventorySha256'])}`.",
               f"- Current release agent: `{clean(right_release.get('agent', {}).get('kind', 'unrecorded'))}`; host fingerprint `{clean(right_release.get('agent', {}).get('hostFingerprintSha256', 'unrecorded'))}`.", '',

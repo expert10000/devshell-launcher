@@ -222,4 +222,162 @@ public static partial class ScientificQualificationRecords
             || inputs[0]?["sha256"]?.GetValue<string>() != evidence["sourceArtifactSha256"]?.GetValue<string>()) return null;
         return Digest(evidence.ToJsonString());
     }
+
+    private static string? GmshL9Hash(string directory, JsonObject result, JsonObject components)
+    {
+        if (result["recipeId"]?.GetValue<string>() != "l9.gmsh-product"
+            || result["runtimeId"]?.GetValue<string>() != "gmsh-win-conda"
+            || result["l9GmshEvidence"] is not JsonObject evidence
+            || evidence["suiteId"]?.GetValue<string>() != "l9-gmsh-product-v1"
+            || evidence["capabilityId"]?.GetValue<string>() != "mesh.generate"
+            || evidence["worker"] is not JsonObject worker
+            || evidence["conversion"] is not JsonObject conversion
+            || evidence["brokerHandoff"] is not JsonObject handoff
+            || evidence["productContract"] is not JsonObject contract
+            || evidence["regression"] is not JsonObject report
+            || evidence["roundtrip"] is not JsonObject roundtrip
+            || evidence["lowerQualification"]?["records"] is not JsonArray lower || lower.Count != 9
+            || contract["id"]?.GetValue<string>() != "math3d.mesh-product-handoff"
+            || contract["version"]?.GetValue<int>() != 1
+            || contract["workerResultSchemaVersion"]?.GetValue<int>() != 1
+            || contract["meshDocumentSchemaVersion"]?.GetValue<int>() != 1
+            || contract["inputFormat"]?.GetValue<string>() != "obj"
+            || contract["viewer"]?.GetValue<string>() != "MeshDocumentViewport"
+            || Digest(contract.ToJsonString()) != evidence["productContractSha256"]?.GetValue<string>()
+            || components["suite"]?["files"]?["tools/math3d-l9-product-handoff.mjs"]?["sha256"] is not JsonNode
+            || roundtrip["parserSourceSha256"]?.GetValue<string>() != components["suite"]?["files"]?
+                ["tools/scientific-gmsh-m3dm-roundtrip.py"]?["sha256"]?.GetValue<string>()) return null;
+        var folder = evidence["sourceL8FolderId"]?.GetValue<string>();
+        var runId = evidence["sourceL8RunId"]?.GetValue<string>();
+        var recordId = evidence["sourceL8RecordId"]?.GetValue<string>();
+        if (folder is not { Length: 32 } || !folder.All(Uri.IsHexDigit)
+            || runId is not { Length: 32 } || !runId.All(Uri.IsHexDigit)
+            || recordId is not { Length: 64 } || !recordId.All(Uri.IsHexDigit)
+            || lower[8]?["runId"]?.GetValue<string>() != runId
+            || lower[8]?["recordId"]?.GetValue<string>() != recordId
+            || lower[8]?["level"]?.GetValue<string>() != "L8") return null;
+        var supportDirectory = Path.Combine(Path.GetDirectoryName(directory)!, folder);
+        var supportPath = Path.Combine(supportDirectory, "results.json");
+        if (!File.Exists(supportPath) || new FileInfo(supportPath).Length > 1048576) return null;
+        using var document = JsonDocument.Parse(File.ReadAllText(supportPath));
+        var support = document.RootElement;
+        if (support.GetProperty("runId").GetString() != runId
+            || support.GetProperty("profileId").GetString() != result["profileId"]?.GetValue<string>()
+            || support.GetProperty("runtimeId").GetString() != "gmsh-win-conda"
+            || support.GetProperty("recipeId").GetString() != "l8.gmsh-resilience"
+            || support.GetProperty("state").GetString() != "succeeded"
+            || !Verify(supportDirectory, support).OfType<JsonObject>().Any(item =>
+                item["recordId"]?.GetValue<string>() == recordId && item["level"]?.GetValue<string>() == "L8")) return null;
+        var l8 = JsonNode.Parse(support.GetRawText())?["l8GmshEvidence"];
+        if (l8?["lowerQualification"]?["records"] is not JsonArray prior || prior.Count != 8
+            || l8["sourceConsumerContractSha256"]?.GetValue<string>() != evidence["sourceL8ContractSha256"]?.GetValue<string>()) return null;
+        for (var i = 0; i < 8; i++) if (lower[i]?.ToJsonString() != prior[i]?.ToJsonString()) return null;
+        var l7Folder = evidence["sourceL7FolderId"]?.GetValue<string>();
+        if (l7Folder is not { Length: 32 } || !l7Folder.All(Uri.IsHexDigit)) return null;
+        var l7Path = Path.Combine(Path.GetDirectoryName(directory)!, l7Folder, "results.json");
+        if (!File.Exists(l7Path) || new FileInfo(l7Path).Length > 1048576) return null;
+        var l7 = JsonNode.Parse(File.ReadAllText(l7Path));
+        if (l7?["runId"]?.GetValue<string>() != l8?["sourceL7RunId"]?.GetValue<string>()
+            || l7?["l7GmshEvidence"]?["source"]?["artifactSha256"]?.GetValue<string>() != worker["artifactSha256"]?.GetValue<string>()
+            || l7?["l7GmshEvidence"]?["artifactHashes"]?["mesh.obj"]?.GetValue<string>() != l8?["sourceArtifactSha256"]?.GetValue<string>()) return null;
+        var positive = Path.Combine(directory, "positive");
+        var requestPath = Path.Combine(positive, "request.json");
+        var resultPath = Path.Combine(positive, "results.json");
+        var mshPath = Path.Combine(positive, "l5-positive.msh");
+        var handoffDirectory = Path.Combine(directory, "handoff");
+        var objPath = Path.Combine(handoffDirectory, "mesh.obj");
+        var conversionPath = Path.Combine(handoffDirectory, "conversion.json");
+        var handoffPath = Path.Combine(handoffDirectory, "handoff.json");
+        var productDirectory = Path.Combine(directory, "product");
+        if (!new[] { requestPath, resultPath, mshPath, objPath, conversionPath, handoffPath }.All(File.Exists)
+            || Digest(File.ReadAllText(requestPath)) != worker["requestSha256"]?.GetValue<string>()
+            || Digest(File.ReadAllText(resultPath)) != worker["resultSha256"]?.GetValue<string>()
+            || Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(mshPath))).ToLowerInvariant()
+                != worker["artifactSha256"]?.GetValue<string>()
+            || worker["state"]?.GetValue<string>() != "succeeded"
+            || worker["artifactPath"]?.GetValue<string>() != "positive/l5-positive.msh"
+            || conversion["sourceMshSha256"]?.GetValue<string>() != worker["artifactSha256"]?.GetValue<string>()
+            || conversion["outputObjSha256"]?.GetValue<string>() != l8?["sourceArtifactSha256"]?.GetValue<string>()
+            || Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(objPath))).ToLowerInvariant()
+                != conversion["outputObjSha256"]?.GetValue<string>()
+            || Digest(File.ReadAllText(conversionPath)) != evidence["conversionSha256"]?.GetValue<string>()
+            || JsonNode.Parse(File.ReadAllText(conversionPath))?.ToJsonString() != conversion.ToJsonString()
+            || Digest(File.ReadAllText(handoffPath)) != evidence["brokerHandoffSha256"]?.GetValue<string>()
+            || JsonNode.Parse(File.ReadAllText(handoffPath))?.ToJsonString() != handoff.ToJsonString()
+            || handoff["runtimeId"]?.GetValue<string>() != "gmsh-win-conda"
+            || handoff["capabilityId"]?.GetValue<string>() != "mesh.generate"
+            || handoff["sourceL8RunId"]?.GetValue<string>() != runId
+            || handoff["sourceL8RecordId"]?.GetValue<string>() != recordId
+            || handoff["contract"]?.ToJsonString() != contract.ToJsonString()
+            || handoff["workerRequest"]?["sha256"]?.GetValue<string>() != worker["requestSha256"]?.GetValue<string>()
+            || handoff["workerResult"]?["sha256"]?.GetValue<string>() != worker["resultSha256"]?.GetValue<string>()
+            || handoff["workerArtifact"]?["sha256"]?.GetValue<string>() != worker["artifactSha256"]?.GetValue<string>()
+            || handoff["artifact"]?["sha256"]?.GetValue<string>() != conversion["outputObjSha256"]?.GetValue<string>()) return null;
+        using var childDocument = JsonDocument.Parse(File.ReadAllText(resultPath));
+        var child = childDocument.RootElement;
+        if (child.GetProperty("state").GetString() != "succeeded"
+            || !child.GetProperty("validatedCapabilities").EnumerateArray().Any(item => item.GetString() == "mesh.generate")
+            || !child.GetProperty("artifacts").EnumerateArray().Any(item =>
+                item.GetProperty("path").GetString() == "l5-positive.msh"
+                && item.GetProperty("sha256").GetString() == worker["artifactSha256"]?.GetValue<string>())) return null;
+        var outputs = new[] { ("mesh-document.json", "documentSha256"), ("mesh-resource.bin", "resourceSha256"),
+            ("viewer.png", "viewerSha256"), ("regression.json", "regressionSha256"),
+            ("qualified-mesh.m3dm", "m3dmSha256"), ("roundtrip.json", "roundtripSha256") };
+        if (result["artifacts"] is not JsonArray artifacts || outputs.Any(item =>
+                !File.Exists(Path.Combine(productDirectory, item.Item1))
+                || new FileInfo(Path.Combine(productDirectory, item.Item1)).Length is < 100 or > 8388608
+                || Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(productDirectory, item.Item1)))).ToLowerInvariant()
+                    != evidence[item.Item2]?.GetValue<string>()
+                || !artifacts.Any(file => file?["path"]?.GetValue<string>() == "product/" + item.Item1
+                    && file?["sha256"]?.GetValue<string>() == evidence[item.Item2]?.GetValue<string>()))
+            || !new[] { ("positive/l5-positive.msh", worker["artifactSha256"]?.GetValue<string>()),
+                    ("handoff/mesh.obj", conversion["outputObjSha256"]?.GetValue<string>()),
+                    ("handoff/conversion.json", evidence["conversionSha256"]?.GetValue<string>()),
+                    ("handoff/handoff.json", evidence["brokerHandoffSha256"]?.GetValue<string>()) }
+                .All(item => artifacts.Any(file => file?["path"]?.GetValue<string>() == item.Item1
+                    && file?["sha256"]?.GetValue<string>() == item.Item2))) return null;
+        var saved = JsonNode.Parse(File.ReadAllText(Path.Combine(productDirectory, "mesh-document.json")));
+        if (saved?["format"]?.GetValue<string>() != "math3d.mesh-document"
+            || saved["schemaVersion"]?.GetValue<int>() != 1
+            || saved["source"]?["resource"]?["checksum"]?.GetValue<string>() != "sha256:" + evidence["resourceSha256"]?.GetValue<string>()
+            || saved["identity"]?["id"]?.GetValue<string>() != report["documentId"]?.GetValue<string>()
+            || report["documentSha256"]?.GetValue<string>() != evidence["documentSha256"]?.GetValue<string>()
+            || report["resourceSha256"]?.GetValue<string>() != evidence["resourceSha256"]?.GetValue<string>()
+            || report["screenshotSha256"]?.GetValue<string>() != evidence["viewerSha256"]?.GetValue<string>()
+            || report["m3dmSha256"]?.GetValue<string>() != evidence["m3dmSha256"]?.GetValue<string>()
+            || report["sourceArtifactSha256"]?.GetValue<string>() != conversion["outputObjSha256"]?.GetValue<string>()
+            || report["workerArtifactSha256"]?.GetValue<string>() != worker["artifactSha256"]?.GetValue<string>()
+            || report["contractSha256"]?.GetValue<string>() != evidence["productContractSha256"]?.GetValue<string>()
+            || report["sourceL8RunId"]?.GetValue<string>() != runId
+            || report["sourceL8RecordId"]?.GetValue<string>() != recordId
+            || report["points"]?.GetValue<int>() != 44 || report["triangles"]?.GetValue<int>() != 66
+            || report["viewer"]?.GetValue<string>() != "MeshDocumentViewport"
+            || report["viewerState"]?.GetValue<string>() != "mounted"
+            || report["regression"]?.GetValue<string>() != "passed"
+            || report["blueMeshPixels"]?.GetValue<int>() is not > 1000
+            || report["consumerSources"] is not JsonObject sources
+            || Digest(sources.ToJsonString()) != evidence["consumerSourcesSha256"]?.GetValue<string>()
+            || JsonNode.Parse(File.ReadAllText(Path.Combine(productDirectory, "regression.json")))?.ToJsonString() != report.ToJsonString()
+            || JsonNode.Parse(File.ReadAllText(Path.Combine(productDirectory, "roundtrip.json")))?.ToJsonString() != roundtrip.ToJsonString()
+            || roundtrip["schemaVersion"]?.GetValue<int>() != 1
+            || roundtrip["format"]?.GetValue<string>() != "M3DM"
+            || roundtrip["verdict"]?.GetValue<string>() != "passed"
+            || roundtrip["geometry"]?.GetValue<string>() != "passed"
+            || roundtrip["topology"]?.GetValue<string>() != "passed"
+            || roundtrip["orientation"]?.GetValue<string>() != "passed"
+            || roundtrip["scale"]?.GetValue<string>() != "passed"
+            || roundtrip["sourceObjSha256"]?.GetValue<string>() != conversion["outputObjSha256"]?.GetValue<string>()
+            || roundtrip["m3dmSha256"]?.GetValue<string>() != evidence["m3dmSha256"]?.GetValue<string>()
+            || roundtrip["reloaded"]?["points"]?.GetValue<int>() != 44
+            || roundtrip["reloaded"]?["triangles"]?.GetValue<int>() != 66
+            || roundtrip["reloaded"]?["boundaryEdges"]?.GetValue<int>() != 20
+            || Math.Abs((roundtrip["reloaded"]?["signedAreaXY"]?.GetValue<double>() ?? double.NaN) - 1) > 1e-6
+            || result["inputArtifacts"] is not JsonArray inputs || inputs.Count != 1
+            || inputs[0]?["sha256"]?.GetValue<string>() != worker["inputSha256"]?.GetValue<string>()) return null;
+        var png = File.ReadAllBytes(Path.Combine(productDirectory, "viewer.png"));
+        var m3dm = File.ReadAllBytes(Path.Combine(productDirectory, "qualified-mesh.m3dm"));
+        return png.Length > 8 && png.AsSpan(0, 8).SequenceEqual(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 })
+            && m3dm.Length > 32 && m3dm.AsSpan(0, 4).SequenceEqual("M3DM"u8)
+            ? Digest(evidence.ToJsonString()) : null;
+    }
 }

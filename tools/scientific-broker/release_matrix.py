@@ -28,7 +28,7 @@ def rows(release, inventory, inventory_state):
     result = []
     for provider in PROVIDERS:
         consumer = provider == 'math3d'
-        evidence = certified.get('cgal-win-conda') if consumer else certified.get(provider)
+        evidence = (certified.get('cgal-win-conda') or certified.get('gmsh-win-conda')) if consumer else certified.get(provider)
         runtime = available.get(provider)
         qualified = bool(evidence and not consumer)
         contract_evidence = bool(consumer and evidence and evidence.get('productContractSha256'))
@@ -42,7 +42,7 @@ def rows(release, inventory, inventory_state):
                            else 'stale-inventory' if runtime and inventory_state != 'current'
                            else 'inventory-only' if runtime else 'no-evidence',
                        'qualifiedCapabilities': [evidence['capabilityId']] if qualified else [],
-                       'coverage': {'currentLevels': len(support), 'expectedLevels': 10 if provider == 'cgal-win-conda' else None},
+                       'coverage': {'currentLevels': len(support), 'expectedLevels': 10 if provider in ('cgal-win-conda', 'gmsh-win-conda') else None},
                        'recordId': evidence.get('recordId') if qualified or contract_evidence else None,
                        'sourceRunId': linked[-1]['runId'] if linked else None,
                        'productContractSha256': evidence.get('productContractSha256') if contract_evidence else None,

@@ -47,7 +47,9 @@ public static class ScientificRunFingerprint
             "tools/scientific-gmsh-roundtrip.py", "tools/scientific-gmsh-handoff.py",
             "tools/scientific-gmsh-vtk-consumer.py", "tools/math3d-gmsh-import-handoff.mjs",
             "BatchLauncher/Form1.Scientific.L7.cs", "BatchLauncher/Form1.Scientific.GmshGates.cs",
+            "BatchLauncher/Form1.Scientific.GmshProduct.cs", "BatchLauncher/Form1.Scientific.L9.cs",
             "BatchLauncher/ScientificQualificationRecords.Gmsh.cs", "BatchLauncher/OwnedProcessJob.cs",
+            "tools/math3d-l9-product-handoff.mjs", "tools/scientific-gmsh-m3dm-roundtrip.py",
             "scientific/fixtures/gmsh/square.geo", "scientific/fixtures/gmsh/tampered-square.geo" });
         if (runtimeId == "vtk-win-conda") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L7.cs", "tools/math3d-vtk-import-handoff.mjs" });
         if (runtimeId == "cgal-win-conda") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L7Interop.cs", "BatchLauncher/Form1.Scientific.L8.cs", "BatchLauncher/Form1.Scientific.L9.cs", "BatchLauncher/OwnedProcessJob.cs", "tools/scientific-vtk-interop.py", "tools/math3d-vtk-import-handoff.mjs", "tools/math3d-l9-product-handoff.mjs" });
@@ -156,6 +158,10 @@ public static class ScientificRunFingerprint
             "BatchLauncher/OwnedProcessJob.cs", "tools/scientific-gmsh-vtk-consumer.py" });
         if (recipeId == "l9.math3d-product") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L9.cs",
             "tools/math3d-l9-product-handoff.mjs", "tools/scientific-cgal-worker.py", "tools/runtime-lab/Program.cs" });
+        if (recipeId == "l9.gmsh-product") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.GmshProduct.cs",
+            "BatchLauncher/Form1.Scientific.L9.cs", "tools/scientific-gmsh-worker.py",
+            "tools/scientific-gmsh-handoff.py", "tools/math3d-l9-product-handoff.mjs",
+            "tools/scientific-gmsh-m3dm-roundtrip.py" });
         if (recipeId == "test-hold") names.Add("BatchLauncher/Form1.Scientific.StopTest.cs");
         var files = new JsonObject();
         foreach (var name in names.Distinct(StringComparer.Ordinal))

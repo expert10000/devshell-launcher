@@ -21,14 +21,15 @@ const sha = bytes => createHash('sha256').update(bytes).digest('hex')
 const readJson = async path => JSON.parse(await readFile(path, 'utf8'))
 const handoff = await readJson(handoffPath)
 const contract = handoff.contract
+const gmsh = handoff.runtimeId === 'gmsh-win-conda' && handoff.capabilityId === 'mesh.generate'
+const cgal = handoff.runtimeId === 'cgal-win-conda' && handoff.capabilityId === 'mesh.interop.vtk-math3d'
 if (handoff.schemaVersion !== 1 || contract?.id !== 'math3d.mesh-product-handoff'
   || contract.version !== 1 || contract.workerResultSchemaVersion !== 1
   || contract.meshDocumentSchemaVersion !== 1 || contract.inputFormat !== 'obj'
-  || contract.viewer !== 'MeshDocumentViewport' || handoff.runtimeId !== 'cgal-win-conda'
-  || handoff.capabilityId !== 'mesh.interop.vtk-math3d'
+  || contract.viewer !== 'MeshDocumentViewport' || !(gmsh || cgal)
   || !/^[0-9a-f]{32}$/.test(handoff.sourceL8RunId ?? '')
   || !/^[0-9a-f]{64}$/.test(handoff.sourceL8RecordId ?? '')) throw new Error('Unsupported broker-to-MATH3D contract.')
-for (const file of [handoff.workerRequest, handoff.workerResult, handoff.artifact]) {
+for (const file of [handoff.workerRequest, handoff.workerResult, handoff.artifact, ...(gmsh ? [handoff.workerArtifact] : [])]) {
   if (typeof file?.path !== 'string' || !/^[0-9a-f]{64}$/.test(file.sha256 ?? ''))
     throw new Error('Handoff file identity is missing.')
   if ((await stat(file.path)).size > 32 * 1024 * 1024 || sha(await readFile(file.path)) !== file.sha256)
@@ -38,8 +39,9 @@ const workerRequest = await readJson(handoff.workerRequest.path)
 const workerResult = await readJson(handoff.workerResult.path)
 if (workerRequest.schemaVersion !== 1 || workerResult.schemaVersion !== 1
   || workerResult.state !== 'succeeded'
-  || !workerResult.validatedCapabilities?.includes('mesh.validate')
-  || !workerResult.artifacts?.some(item => item.sha256 === handoff.artifact.sha256 && item.path === 'l5-positive.obj'))
+  || !workerResult.validatedCapabilities?.includes(gmsh ? 'mesh.generate' : 'mesh.validate')
+  || !workerResult.artifacts?.some(item => item.sha256 === (gmsh ? handoff.workerArtifact.sha256 : handoff.artifact.sha256)
+    && item.path === (gmsh ? 'l5-positive.msh' : 'l5-positive.obj')))
   throw new Error('The broker worker did not verify the output artifact.')
 
 await mkdir(output, { recursive: true })
@@ -51,8 +53,10 @@ try {
   const sourceBytes = await readFile(handoff.artifact.path)
   const imported = await loadSurfaceMeshFromFile([new File([sourceBytes], 'broker-output.obj', { type: 'text/plain' })],
     { mergeVertices: true, useObjWorker: false })
-  if (imported.positions.length !== 12 || imported.indices?.length !== 12)
-    throw new Error('The MATH3D scene importer did not produce the fixed tetrahedron.')
+  const expectedPoints = gmsh ? 44 : 4
+  const expectedTriangles = gmsh ? 66 : 4
+  if (imported.positions.length !== expectedPoints * 3 || imported.indices?.length !== expectedTriangles * 3)
+    throw new Error('The MATH3D scene importer did not produce the fixed qualified mesh.')
   const adapter = MeshDocumentAdapter.fromMesh(imported)
   const pkg = adapter.exportPackage()
   const documentPath = join(output, 'mesh-document.json')
@@ -63,7 +67,7 @@ try {
   const savedResource = new Uint8Array(await readFile(resourcePath))
   const restored = MeshDocumentAdapter.restore({ document: savedDocument, resourceBytes: savedResource })
   const mesh = restored.mesh()
-  if (mesh.positions.length !== 12 || mesh.indices?.length !== 12
+  if (mesh.positions.length !== expectedPoints * 3 || mesh.indices?.length !== expectedTriangles * 3
     || restored.document().identity.structuralHash !== savedDocument.identity.structuralHash)
     throw new Error('MATH3D could not reopen its saved Mesh scene artifact.')
   await server.listen()
@@ -124,6 +128,22 @@ try {
     'renderer/src/components/SurfaceViewer.tsx', 'packages/core/src/meshDocument.ts'
   ]
   const consumerSources = Object.fromEntries(await Promise.all(sourceFiles.map(async name => [name, sha(await readFile(join(checkout, name)))])))
+  let m3dmSha256
+  let codecSourceSha256
+  if (gmsh) {
+    const codecPath = join(checkout, 'src', 'main', 'python', 'nativeCgalProtocol.ts')
+    const { encodeM3DMesh, decodeM3DMesh } = await import(pathToFileURL(codecPath).href)
+    const encoded = encodeM3DMesh(new Float32Array(mesh.positions), new Uint32Array(mesh.indices))
+    const m3dmPath = join(output, 'qualified-mesh.m3dm')
+    await writeFile(m3dmPath, encoded)
+    const reloaded = decodeM3DMesh(await readFile(m3dmPath))
+    if (reloaded.vertexCount !== expectedPoints || reloaded.triCount !== expectedTriangles
+      || !Buffer.from(reloaded.positions).equals(Buffer.from(new Float32Array(mesh.positions).buffer))
+      || !Buffer.from(reloaded.indices).equals(Buffer.from(new Uint32Array(mesh.indices).buffer)))
+      throw new Error('MATH3D could not reload the saved Gmsh M3DM document.')
+    m3dmSha256 = sha(encoded)
+    codecSourceSha256 = sha(await readFile(codecPath))
+  }
   const report = { schemaVersion: 1, contractVersion: 1, contractSha256: sha(Buffer.from(JSON.stringify(contract))),
     sourceL8RunId: handoff.sourceL8RunId, sourceL8RecordId: handoff.sourceL8RecordId,
     workerRequestSha256: handoff.workerRequest.sha256, workerResultSha256: handoff.workerResult.sha256,
@@ -131,6 +151,7 @@ try {
     documentSha256: sha(await readFile(documentPath)), resourceSha256: sha(savedResource),
     screenshotSha256: sha(screenshot), documentId, structuralHash: sourceHash,
     points: mesh.positions.length / 3, triangles: mesh.indices.length / 3,
+    ...(gmsh ? { m3dmSha256, codecSourceSha256, workerArtifactSha256: handoff.workerArtifact.sha256 } : {}),
     viewer: 'MeshDocumentViewport', canvasSize, blueMeshPixels, viewerState: 'mounted',
     regression: 'passed', consumerSources }
   await writeFile(join(output, 'regression.json'), JSON.stringify(report))

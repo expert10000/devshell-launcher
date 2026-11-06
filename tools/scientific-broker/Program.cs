@@ -83,6 +83,101 @@ static class BrokerManifest
         }
         return runs;
     }
+    static JsonObject? ExportGmsh(string repo, string installed, string math3d, string profile)
+    {
+        var runs = ReadRuns(repo, installed, profile, "gmsh-win-conda");
+        var ids = CurrentIds(runs, "L0", "L1", "L2", "L3", "L4");
+        AssessDependencies(runs, ids, l6: false, l7: false, l8: false, l9: false);
+        ids.UnionWith(CurrentIds(runs, "L5"));
+        AssessDependencies(runs, ids, l7: false, l8: false, l9: false);
+        ids.UnionWith(CurrentIds(runs, "L6"));
+        var importerPath = Path.Combine(math3d, "renderer", "src", "mesh", "surfaceMesh.ts");
+        var importer = File.Exists(importerPath) ? HashFile(importerPath) : null;
+        var codecPath = Path.Combine(math3d, "src", "main", "python", "nativeCgalProtocol.ts");
+        var codec = File.Exists(codecPath) ? HashFile(codecPath) : null;
+        string? vtkEnvironment = null;
+        try
+        {
+            var captured = ScientificRunFingerprint.Capture("vtk-win-conda", profile, repo, installed,
+                Path.Combine(repo, ".scientific", "runtime-report.json"));
+            if (captured["environment"]?["condaPackageRecords"]?["state"]?.GetValue<string>() == "recorded")
+                vtkEnvironment = Digest(captured["environment"]);
+        }
+        catch (Exception) { }
+        foreach (var run in runs)
+            if (run["qualifications"] is JsonArray records)
+            {
+                ScientificQualificationRecords.AssessL5Dependencies(records, ids, includeL8: false, includeL9: false);
+                ScientificQualificationRecords.AssessL7Consumer(records, importer, vtkEnvironment);
+            }
+        ids.UnionWith(CurrentIds(runs, "L7"));
+        AssessDependencies(runs, ids, l9: false);
+        ids.UnionWith(CurrentIds(runs, "L8"));
+        var contract = ProductContract();
+        foreach (var run in runs)
+            if (run["qualifications"] is JsonArray records)
+            {
+                ScientificQualificationRecords.AssessL5Dependencies(records, ids);
+                ScientificQualificationRecords.AssessL9Consumer(records, ProductSources(math3d), Digest(contract), codec);
+            }
+        var summary = ScientificQualificationRecords.Summarize("gmsh-win-conda", runs);
+        foreach (var current in summary["currentRecords"]!.AsArray().OfType<JsonObject>()
+            .Where(item => item["level"]?.GetValue<string>() == "L9"
+                && item["capabilityId"]?.GetValue<string>() == "mesh.generate")
+            .OrderByDescending(item => item["finishedAtUtc"]?.GetValue<string>(), StringComparer.Ordinal))
+        {
+            if (!ScientificCapabilityRegistry.IsDeclared("gmsh-win-conda", "mesh.generate")) continue;
+            var run = runs.Single(item => item["runId"]?.GetValue<string>() == current["runId"]?.GetValue<string>());
+            var directory = run["directory"]!.GetValue<string>();
+            var result = JsonNode.Parse(File.ReadAllText(Path.Combine(directory, "results.json")))!;
+            var record = run["qualifications"]!.AsArray().OfType<JsonObject>()
+                .Single(item => item["recordId"]?.GetValue<string>() == current["recordId"]?.GetValue<string>());
+            var evidence = result["l9GmshEvidence"]!;
+            var consumerFiles = ProductSourceFiles(math3d);
+            if (evidence["productContractSha256"]?.GetValue<string>() != Digest(contract)
+                || consumerFiles == null || Digest(consumerFiles) != record["consumerSourceSha256"]?.GetValue<string>()
+                || codec == null || codec != record["consumerCodecSha256"]?.GetValue<string>()) continue;
+            var msh = Path.Combine(directory, "positive", "l5-positive.msh");
+            var obj = Path.Combine(directory, "handoff", "mesh.obj");
+            if (!File.Exists(msh) || !File.Exists(obj)
+                || HashFile(msh) != evidence["worker"]?["artifactSha256"]?.GetValue<string>()
+                || HashFile(obj) != evidence["conversion"]?["outputObjSha256"]?.GetValue<string>()) continue;
+            var fingerprint = JsonNode.Parse(File.ReadAllText(Path.Combine(directory, "fingerprint.json")))!;
+            var lower = record["lowerQualification"]?["records"] as JsonArray;
+            var currentIds = CurrentIds(runs, "L0", "L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9");
+            if (lower is not { Count: 9 } || lower.Where((item, index) =>
+                    item?["level"]?.GetValue<string>() != "L" + index
+                    || item?["recordId"]?.GetValue<string>() is not { } id || !currentIds.Contains(id)).Any()) continue;
+            var support = new JsonArray(lower.Select(item => item!.DeepClone()).ToArray());
+            support.Add(new JsonObject { ["level"] = "L9", ["capabilityId"] = "mesh.generate",
+                ["runId"] = current["runId"]?.DeepClone(), ["recordId"] = current["recordId"]?.DeepClone() });
+            return new JsonObject {
+                ["runtimeId"] = "gmsh-win-conda", ["capabilityId"] = "mesh.generate", ["level"] = "L9",
+                ["scope"] = "fixed public 2D unit square", ["sourceRunId"] = current["runId"]?.DeepClone(),
+                ["recordId"] = current["recordId"]?.DeepClone(),
+                ["runFingerprintSha256"] = run["fingerprintSha256"]?.DeepClone(),
+                ["suiteRevisionSha256"] = record["suiteRevisionSha256"]?.DeepClone(),
+                ["qualificationSha256"] = run["qualificationSha256"]?.DeepClone(),
+                ["workerContractSha256"] = fingerprint["components"]?["contract"]?["workerContractModule"]?["sha256"]?.DeepClone(),
+                ["runtimeManifestSha256"] = fingerprint["components"]?["contract"]?["runtimeManifest"]?["sha256"]?.DeepClone(),
+                ["adapterSha256"] = HashFile(Path.Combine(repo, "tools", "scientific-broker", "gmsh_adapter.py")),
+                ["workerBinarySha256"] = HashFile(Path.Combine(repo, "tools", "scientific-gmsh-worker.py")),
+                ["converterSha256"] = HashFile(Path.Combine(repo, "tools", "scientific-gmsh-handoff.py")),
+                ["pythonSha256"] = fingerprint["components"]?["environment"]?["pythonExecutable"]?["sha256"]?.DeepClone(),
+                ["packageRecordsSha256"] = fingerprint["components"]?["environment"]?["condaPackageRecords"]?["sha256"]?.DeepClone(),
+                ["productContract"] = contract.DeepClone(), ["productContractSha256"] = Digest(contract),
+                ["consumerSources"] = consumerFiles, ["consumerSourceSha256"] = Digest(consumerFiles),
+                ["codecSourceSha256"] = codec,
+                ["referenceInputSha256"] = evidence["worker"]?["inputSha256"]?.DeepClone(),
+                ["referenceWorkerArtifactSha256"] = evidence["worker"]?["artifactSha256"]?.DeepClone(),
+                ["referenceArtifactSha256"] = evidence["conversion"]?["outputObjSha256"]?.DeepClone(),
+                ["sourceL8RunId"] = evidence["sourceL8RunId"]?.DeepClone(),
+                ["sourceL8RecordId"] = evidence["sourceL8RecordId"]?.DeepClone(),
+                ["supportingRecords"] = support
+            };
+        }
+        return null;
+    }
     static JsonObject Export(string repo, string installed, string math3d, string profile)
     {
         var runs = ReadRuns(repo, installed, profile, "cgal-win-conda");
@@ -173,6 +268,8 @@ static class BrokerManifest
                 ["supportingRecords"] = support
             });
         }
+        var gmsh = ExportGmsh(repo, installed, math3d, profile);
+        if (gmsh != null) certified.Add(gmsh);
         return new JsonObject { ["schemaVersion"] = 1, ["kind"] = "scientific.certified-capabilities",
             ["issuedAtUtc"] = DateTimeOffset.UtcNow.ToString("O"), ["profileId"] = profile,
             ["providerRegistryVersion"] = ScientificProviderRegistry.ContractVersion,
@@ -195,9 +292,10 @@ static class BrokerManifest
         var manifest = JsonNode.Parse(bytes) as JsonObject ?? throw new InvalidDataException("Invalid certified manifest.");
         if (manifest["schemaVersion"]?.GetValue<int>() != 1 || manifest["kind"]?.GetValue<string>() != "scientific.certified-capabilities"
             || manifest["certifiedCapabilities"] is not JsonArray capabilities
-            || capabilities.Any(item => item?["runtimeId"]?.GetValue<string>() != "cgal-win-conda"
-                || item?["capabilityId"]?.GetValue<string>() != "mesh.interop.vtk-math3d"
-                || !ScientificCapabilityRegistry.IsDeclared("cgal-win-conda", "mesh.interop.vtk-math3d")
+            || capabilities.Any(item => item?["runtimeId"]?.GetValue<string>() is not ("cgal-win-conda" or "gmsh-win-conda")
+                || item?["capabilityId"]?.GetValue<string>() != (item?["runtimeId"]?.GetValue<string>() == "gmsh-win-conda" ? "mesh.generate" : "mesh.interop.vtk-math3d")
+                || !ScientificCapabilityRegistry.IsDeclared(item?["runtimeId"]?.GetValue<string>() ?? "",
+                    item?["capabilityId"]?.GetValue<string>() ?? "")
                 || item?["level"]?.GetValue<string>() != "L9"))
             throw new InvalidDataException("Unsupported certified manifest content.");
     }

@@ -60,7 +60,7 @@
       { "runtimeId": "vtk-win-conda", "backend": "windows-native", "limitations": "Scoped normal-generation recipe; open-surface auto-orient is rejected." }
     ] },
     { "id": "mesh.generate", "version": 1, "parametersSchema": "mesh-operation.v1", "resultSchema": "mesh-artifact.v1", "providers": [
-      { "runtimeId": "gmsh-win-conda", "backend": "windows-native", "limitations": "Managed L5 covers one fixed public 2D square and an expected rejection; volume meshes and release certification remain open." }
+      { "runtimeId": "gmsh-win-conda", "backend": "windows-native", "limitations": "Certified L0-L9 and broker promotion cover only the fixed public 2D square; arbitrary geometry and volume meshes remain unqualified." }
     ] },
     { "id": "mesh.generate3d", "version": 1, "parametersSchema": "mesh-operation.v1", "resultSchema": "mesh-artifact.v1", "providers": [
       { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Planned MATH3D coverage row; no registered 3D generation worker." }

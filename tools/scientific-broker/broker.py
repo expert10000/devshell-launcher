@@ -1,4 +1,4 @@
-"""Standalone, localhost Scientific Runtime Broker for certified CGAL mesh handoffs."""
+"""Standalone, localhost Scientific Runtime Broker for fixed certified mesh handoffs."""
 import argparse
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -56,8 +56,15 @@ class Broker:
         config = json.loads(Path(config_path).read_text(encoding='utf-8'))
         if config.get('schemaVersion') != 1:
             raise ValueError('Unsupported broker configuration.')
+        self.runtime_id = config.get('runtimeId', 'cgal-win-conda')
+        if self.runtime_id not in ('cgal-win-conda', 'gmsh-win-conda'):
+            raise ValueError('Unsupported broker runtime profile.')
+        self.gmsh = self.runtime_id == 'gmsh-win-conda'
+        self.capability_id = 'mesh.generate' if self.gmsh else 'mesh.interop.vtk-math3d'
         self.paths = {name: Path(config[name]).resolve(strict=True) for name in
                       ('manifest', 'runtimeManifest', 'adapter', 'workerContract', 'python', 'worker', 'prefix', 'datasetRoot')}
+        if self.gmsh:
+            self.paths['converter'] = self.paths['worker'].with_name('scientific-gmsh-handoff.py').resolve(strict=True)
         self.math3d_root = Path(config['math3dRoot']).resolve(strict=True) if config.get('math3dRoot') else None
         self.jobs_root = Path(config['jobsRoot']).resolve()
         self.jobs_root.mkdir(parents=True, exist_ok=True)
@@ -93,9 +100,12 @@ class Broker:
         if not isinstance(capabilities, list):
             raise ValueError('Certified capabilities are missing.')
         for entry in capabilities:
-            if (entry.get('runtimeId'), entry.get('capabilityId'), entry.get('level')) != (
-                    'cgal-win-conda', 'mesh.interop.vtk-math3d', 'L9'):
+            identity = (entry.get('runtimeId'), entry.get('capabilityId'), entry.get('level'))
+            if identity not in (('cgal-win-conda', 'mesh.interop.vtk-math3d', 'L9'),
+                                ('gmsh-win-conda', 'mesh.generate', 'L9')):
                 raise ValueError('Unqualified or unsupported provider in certified manifest.')
+            if entry.get('runtimeId') != self.runtime_id:
+                continue
             if entry.get('productContract') != CONTRACT:
                 raise ValueError('MATH3D product contract changed.')
             contract_hash = hashlib.sha256(json.dumps(CONTRACT, separators=(',', ':')).encode()).hexdigest()
@@ -105,6 +115,11 @@ class Broker:
                                 ('workerContract', 'workerContractSha256'), ('python', 'pythonSha256'),
                                 ('worker', 'workerBinarySha256')]:
                 require_hash(self.paths[name], entry.get(field), name)
+            if self.gmsh:
+                require_hash(self.paths['converter'], entry.get('converterSha256'), 'Gmsh converter')
+                if self.math3d_root is not None:
+                    require_hash(self.math3d_root / 'src/main/python/nativeCgalProtocol.ts',
+                                 entry.get('codecSourceSha256'), 'MATH3D M3DM codec')
             if package_hash(self.paths['prefix']) != entry.get('packageRecordsSha256'):
                 raise ValueError('Conda package inventory hash mismatch.')
             if any(not re.fullmatch('[0-9a-f]{64}', entry.get(key, '')) for key in
@@ -112,6 +127,9 @@ class Broker:
                     'referenceInputSha256', 'referenceArtifactSha256', 'sourceL8RecordId',
                     'consumerSourceSha256')):
                 raise ValueError('Qualification identity is incomplete.')
+            if self.gmsh and any(not re.fullmatch('[0-9a-f]{64}', entry.get(key, '')) for key in
+                                 ('referenceWorkerArtifactSha256', 'converterSha256', 'codecSourceSha256')):
+                raise ValueError('Gmsh 2D worker, converter or document codec identity is incomplete.')
             support = entry.get('supportingRecords')
             if not isinstance(support, list) or len(support) != 10:
                 raise ValueError('The L0-L9 qualification chain is incomplete.')
@@ -125,12 +143,12 @@ class Broker:
                 raise ValueError('L8 qualification identity differs from its support chain.')
             if not isinstance(entry.get('consumerSources'), dict) or set(entry['consumerSources']) != CONSUMER_FILES:
                 raise ValueError('MATH3D consumer source identity is missing.')
-        self.capabilities = capabilities
-        return capabilities
+        self.capabilities = [entry for entry in capabilities if entry['runtimeId'] == self.runtime_id]
+        return self.capabilities
 
     def discover(self):
         self.verify()
-        return {'schemaVersion': 1, 'providers': [{'runtimeId': 'cgal-win-conda', 'backend': 'windows-native',
+        return {'schemaVersion': 1, 'providers': [{'runtimeId': self.runtime_id, 'backend': 'windows-native',
                 'capabilities': [{'capabilityId': entry['capabilityId'], 'level': entry['level'],
                                   'recordId': entry['recordId'], 'contractVersion': CONTRACT['version']}]
                 } for entry in self.capabilities]}
@@ -141,7 +159,7 @@ class Broker:
 
     def submit(self, body):
         self.verify()
-        if body.get('schemaVersion') != 1 or body.get('runtimeId') != 'cgal-win-conda' or body.get('capabilityId') != 'mesh.interop.vtk-math3d':
+        if body.get('schemaVersion') != 1 or body.get('runtimeId') != self.runtime_id or body.get('capabilityId') != self.capability_id:
             raise ValueError('Unsupported broker job contract.')
         if not self.capabilities:
             raise ValueError('No current certified capability is available.')
@@ -152,8 +170,9 @@ class Broker:
         if not isinstance(input_info, dict) or not isinstance(input_info.get('path'), str):
             raise ValueError('Input artifact is required.')
         source = Path(input_info['path']).resolve(strict=True)
-        if source.suffix.lower() != '.obj' or not source.is_relative_to(self.paths['datasetRoot']) or source.stat().st_size > MAX_INPUT:
-            raise ValueError('Input must be a bounded registered OBJ dataset.')
+        suffix = '.geo' if self.gmsh else '.obj'
+        if source.suffix.lower() != suffix or not source.is_relative_to(self.paths['datasetRoot']) or source.stat().st_size > MAX_INPUT:
+            raise ValueError(f'Input must be a bounded registered {suffix} dataset.')
         require_hash(source, input_info.get('sha256'), 'Input artifact')
         if input_info['sha256'] != self.capabilities[0]['referenceInputSha256']:
             raise ValueError('Input is outside the fixed L9 qualification fixture.')
@@ -165,7 +184,7 @@ class Broker:
             directory = self.jobs_root / job_id
             dataset = directory / 'dataset'
             dataset.mkdir(parents=True)
-            copied = dataset / 'input.obj'
+            copied = dataset / ('input.geo' if self.gmsh else 'input.obj')
             shutil.copyfile(source, copied)
             require_hash(copied, input_info['sha256'], 'Copied input artifact')
             source_snapshot = capture_sources({'devshell': self.source_root, 'math3d': self.math3d_root})
@@ -173,15 +192,17 @@ class Broker:
             with source_path.open('x', encoding='utf-8') as stream:
                 json.dump(source_snapshot, stream, separators=(',', ':'))
             source_sha = sha(source_path)
-            request = {'schemaVersion': 1, 'runId': job_id, 'runtimeId': 'cgal-win-conda',
-                   'recipeId': 'cgal.validate', 'operation': 'cgal.validate', 'parameters': {},
+            recipe = 'gmsh.mesh2d' if self.gmsh else 'cgal.validate'
+            output_name = 'l5-positive.msh' if self.gmsh else 'l5-positive.obj'
+            request = {'schemaVersion': 1, 'runId': job_id, 'runtimeId': self.runtime_id,
+                   'recipeId': recipe, 'operation': recipe, 'parameters': {'meshSize': 0.2} if self.gmsh else {},
                    'workingDirectory': str(directory), 'datasetRoot': str(dataset),
                    'timeoutSeconds': timeout, 'inputArtifacts': [{'path': str(copied), 'sha256': input_info['sha256']}],
-                   'outputArtifacts': [{'path': 'l5-positive.obj', 'mediaType': 'model/obj'}],
+                   'outputArtifacts': [{'path': output_name, 'mediaType': 'model/vnd.gmsh.msh' if self.gmsh else 'model/obj'}],
                    'provenance': {'brokerContractVersion': 1, 'certificationRecordId': self.capabilities[0]['recordId'],
                                   'sourceSnapshotSha256': source_sha}}
             (directory / 'request.json').write_text(json.dumps(request, separators=(',', ':')), encoding='utf-8')
-            job = {'jobId': job_id, 'runtimeId': 'cgal-win-conda', 'capabilityId': 'mesh.interop.vtk-math3d',
+            job = {'jobId': job_id, 'runtimeId': self.runtime_id, 'capabilityId': self.capability_id,
                'state': 'running', 'stage': 'queued', 'progress': 0, 'contractVersion': 1,
                'certificationRecordId': self.capabilities[0]['recordId'], 'artifacts': [], 'diagnostics': [],
                'directory': str(directory), 'sourceSnapshotSha256': source_sha,
@@ -281,7 +302,8 @@ class Broker:
             if result_path.is_file() and result_path.stat().st_size > 1048576:
                 raise ValueError('Worker result exceeds 1 MiB.')
             result = json.loads(result_path.read_text(encoding='utf-8')) if result_path.is_file() else None
-            artifact = directory / 'l5-positive.obj'
+            worker_name = 'l5-positive.msh' if self.gmsh else 'l5-positive.obj'
+            artifact = directory / worker_name
             if artifact.is_file() and artifact.stat().st_size > MAX_INPUT:
                 raise ValueError('Worker artifact exceeds 32 MiB.')
             if process.returncode != 0 or result is None or result.get('state') != 'succeeded':
@@ -290,26 +312,47 @@ class Broker:
                     item.get('message', '') for item in (result or {}).get('diagnostics', [])] or ['Worker failed.'])
                 return
             artifact_hash = sha(artifact)
-            if (result.get('runId') != job['jobId'] or 'mesh.validate' not in result.get('validatedCapabilities', [])
-                    or not any(item.get('path') == 'l5-positive.obj' and item.get('sha256') == artifact_hash
+            if (result.get('runId') != job['jobId'] or ('mesh.generate' if self.gmsh else 'mesh.validate') not in result.get('validatedCapabilities', [])
+                    or not any(item.get('path') == worker_name and item.get('sha256') == artifact_hash
                                for item in result.get('artifacts', []))):
                 with self.lock: job.update(pendingState='partial', stage='finalizing', diagnostics=['Worker artifact verification failed.'])
                 return
             self.verify()
             entry = next((item for item in self.capabilities if item['recordId'] == job['certificationRecordId']), None)
-            if entry is None or artifact_hash != entry['referenceArtifactSha256']:
+            if entry is None or artifact_hash != entry['referenceWorkerArtifactSha256' if self.gmsh else 'referenceArtifactSha256']:
                 with self.lock: job.update(pendingState='partial', stage='finalizing', diagnostics=['Current qualification or reference artifact differs.'])
                 return
-            handoff = {'schemaVersion': 1, 'contract': CONTRACT, 'runtimeId': 'cgal-win-conda',
-                       'capabilityId': 'mesh.interop.vtk-math3d', 'sourceL8RunId': entry['sourceL8RunId'],
+            if self.gmsh:
+                obj = directory / 'l5-positive.obj'
+                conversion_path = directory / 'conversion.json'
+                if not obj.is_file() or not conversion_path.is_file():
+                    raise ValueError('Gmsh adapter did not produce a checked OBJ handoff.')
+                conversion = json.loads(conversion_path.read_text(encoding='utf-8'))
+                if (conversion.get('sourceMshSha256') != artifact_hash
+                        or conversion.get('outputObjSha256') != sha(obj)
+                        or conversion.get('points') != 44 or conversion.get('triangles') != 66
+                        or conversion.get('boundaryEdges') != 20 or conversion.get('nonManifoldEdges') != 0
+                        or abs(conversion.get('signedAreaXY', 0) - 1) > 1e-6):
+                    raise ValueError('Gmsh converter geometry or artifact hash changed.')
+                artifact = obj
+                artifact_hash = sha(obj)
+                if artifact_hash != entry['referenceArtifactSha256']:
+                    raise ValueError('Gmsh OBJ differs from certified reference artifact.')
+            handoff = {'schemaVersion': 1, 'contract': CONTRACT, 'runtimeId': self.runtime_id,
+                       'capabilityId': self.capability_id, 'sourceL8RunId': entry['sourceL8RunId'],
                        'sourceL8RecordId': entry['sourceL8RecordId'],
                        'workerRequest': {'path': str(directory / 'request.json'), 'sha256': sha(directory / 'request.json')},
                        'workerResult': {'path': str(result_path), 'sha256': sha(result_path)},
                        'artifact': {'path': str(artifact), 'sha256': artifact_hash}}
+            if self.gmsh:
+                handoff['workerArtifact'] = {'path': str(directory / 'l5-positive.msh'),
+                                             'sha256': sha(directory / 'l5-positive.msh')}
             handoff_path = directory / 'handoff.json'
             handoff_path.write_text(json.dumps(handoff, separators=(',', ':')), encoding='utf-8')
+            names = ('l5-positive.msh', 'l5-positive.obj', 'conversion.json', 'handoff.json') if self.gmsh else (
+                'l5-positive.obj', 'handoff.json')
             artifacts = [{'path': name, 'sha256': sha(directory / name), 'bytes': (directory / name).stat().st_size}
-                         for name in ('l5-positive.obj', 'handoff.json')]
+                         for name in names]
             with self.lock: job.update(pendingState='succeeded', stage='finalizing', progress=95, artifacts=artifacts)
         except Exception as error:
             with self.lock: job.update(pendingState='failed', stage='finalizing', diagnostics=[str(error)[:1000]])
@@ -338,7 +381,8 @@ class Broker:
                 job['diagnostics'].append('Worker process cleanup was not cleanly verified.')
             removed = []
             if pending != 'succeeded':
-                for name in ('l5-positive.obj', 'handoff.json'):
+                for name in (('l5-positive.msh', 'l5-positive.obj', 'conversion.json', 'handoff.json') if self.gmsh else
+                             ('l5-positive.obj', 'handoff.json')):
                     path = directory / name
                     if path.exists():
                         try:
@@ -430,18 +474,33 @@ class Broker:
                     source_hash = hashlib.sha256(json.dumps(entry['consumerSources'], separators=(',', ':')).encode()).hexdigest()
                     if source_hash != entry['consumerSourceSha256']:
                         reasons.append('MATH3D consumer source fingerprint changed.')
+                    if self.gmsh:
+                        try:
+                            require_hash(self.math3d_root / 'src/main/python/nativeCgalProtocol.ts',
+                                         entry['codecSourceSha256'], 'MATH3D M3DM codec')
+                        except (ValueError, OSError) as error:
+                            reasons.append(str(error))
                 try:
                     handoff = json.loads(self.artifact(job_id, 'handoff.json'))
                     output = self.artifact(job_id, 'l5-positive.obj')
                     worker_request = json.loads((Path(job['directory']) / 'request.json').read_text(encoding='utf-8'))
                     worker_result = json.loads((Path(job['directory']) / 'results.json').read_text(encoding='utf-8'))
+                    gmsh_worker_ok = True
+                    if self.gmsh:
+                        msh = self.artifact(job_id, 'l5-positive.msh')
+                        conversion = json.loads(self.artifact(job_id, 'conversion.json'))
+                        gmsh_worker_ok = (hashlib.sha256(msh).hexdigest() == entry['referenceWorkerArtifactSha256']
+                                          and handoff.get('workerArtifact', {}).get('sha256') == hashlib.sha256(msh).hexdigest()
+                                          and conversion.get('sourceMshSha256') == hashlib.sha256(msh).hexdigest()
+                                          and conversion.get('outputObjSha256') == hashlib.sha256(output).hexdigest())
                     if (handoff.get('contract') != CONTRACT or handoff.get('runtimeId') != job['runtimeId']
                             or handoff.get('capabilityId') != job['capabilityId']
                             or handoff.get('sourceL8RunId') != entry['sourceL8RunId']
                             or handoff.get('sourceL8RecordId') != entry['sourceL8RecordId']
                             or worker_request.get('runId') != job_id or worker_result.get('runId') != job_id
                             or worker_result.get('state') != 'succeeded'
-                            or 'mesh.validate' not in worker_result.get('validatedCapabilities', [])
+                            or ('mesh.generate' if self.gmsh else 'mesh.validate') not in worker_result.get('validatedCapabilities', [])
+                            or not gmsh_worker_ok
                             or handoff.get('artifact', {}).get('sha256') != hashlib.sha256(output).hexdigest()
                             or handoff.get('workerResult', {}).get('sha256') != sha(Path(job['directory']) / 'results.json')
                             or handoff.get('workerRequest', {}).get('sha256') != sha(Path(job['directory']) / 'request.json')):

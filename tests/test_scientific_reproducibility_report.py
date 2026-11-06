@@ -37,6 +37,10 @@ class ReproducibilityReportTests(unittest.TestCase):
         }
         if not all(path.is_file() for path in paths.values()):
             self.skipTest('Local scientific evidence is unavailable')
+        try:
+            report.verify_matrix(paths['matrix'])
+        except ValueError:
+            self.skipTest('Saved local release matrix predates the current generator')
         with tempfile.TemporaryDirectory() as directory:
             path, record = report.generate(paths, directory)
             self.assertEqual(record['releaseVerdict'], 'evidence-linked')
@@ -49,7 +53,7 @@ class ReproducibilityReportTests(unittest.TestCase):
             self.assertIn('Right release gate: **qualified**', body)
             self.assertIn('mesh.interop.vtk-math3d', body)
             self.assertIn('dd66f66a2d5647e5a8500c113ec75e35', body)
-            self.assertIn('Gmsh remains unqualified', body)
+            self.assertIn('Each qualified provider and scope is listed in its release manifest', body)
             self.assertIn('Current CGAL L0–L9 chain', body)
             markdown.write_text(body + '\ntampered', encoding='utf-8')
             with self.assertRaisesRegex(ValueError, 'Rendered report changed'):

@@ -40,15 +40,16 @@ def fresh_export(repo, installed_root, math3d_root, profile_id, output):
 def assess(fresh, broker):
     reasons = []
     capabilities = fresh.get('certifiedCapabilities')
-    if not isinstance(capabilities, list) or len(capabilities) != 1:
-        reasons.append('Fresh desktop export has no single current L9 CGAL mesh capability.')
+    matching = [item for item in capabilities if item.get('runtimeId') == broker.runtime_id] if isinstance(capabilities, list) else []
+    if len(matching) != 1:
+        reasons.append('Fresh desktop export has no single current L9 capability for ' + broker.runtime_id + '.')
     else:
-        current = capabilities[0]
+        current = matching[0]
         deployed = broker.capabilities[0] if broker.capabilities else None
         if deployed is None or current != deployed:
             reasons.append('Fresh desktop L0-L9 record, fingerprint or contract differs from deployed broker certification.')
-        if current.get('runtimeId') != 'cgal-win-conda' or current.get('level') != 'L9':
-            reasons.append('Release capability is not the qualified CGAL L9 path.')
+        if current.get('capabilityId') != broker.capability_id or current.get('level') != 'L9':
+            reasons.append('Release capability is outside the qualified L9 broker profile.')
         support = current.get('supportingRecords', [])
         if len(support) != 10 or any(item.get('level') != f'L{index}' for index, item in enumerate(support)):
             reasons.append('Fresh L0-L9 supporting records are incomplete.')
@@ -64,9 +65,10 @@ def inventory_state(inventory, release_time):
         return 'unknown'
 
 
-def gate_verdicts(fresh):
+def gate_verdicts(fresh, runtime_id='cgal-win-conda'):
     capabilities = fresh.get('certifiedCapabilities', [])
-    support = capabilities[0].get('supportingRecords', []) if len(capabilities) == 1 else []
+    matching = [item for item in capabilities if item.get('runtimeId') == runtime_id]
+    support = matching[0].get('supportingRecords', []) if len(matching) == 1 else []
     complete = len(support) == 10 and all(item.get('level') == f'L{index}' for index, item in enumerate(support))
     return [dict(level=f'L{index}', state='current', capabilityId=support[index]['capabilityId'],
                  runId=support[index]['runId'], recordId=support[index]['recordId']) if complete
@@ -109,17 +111,18 @@ def certify(config_path, installed_root, profile_id, release_tag, output_root, e
         source_commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repo, text=True).strip()
         report = {'schemaVersion': 1, 'kind': 'scientific.release-qualification-report',
                   'releaseId': release_id, 'releaseTag': release_tag,
+                  'runtimeId': broker.runtime_id,
                   'createdAtUtc': created_at.isoformat(),
                   'sourceCommit': source_commit,
                   'verdict': 'qualified' if not reasons else 'blocked', 'reasons': reasons,
-                  'gateVerdicts': gate_verdicts(fresh), 'agent': {'kind': 'local', 'hostFingerprintSha256': host_fingerprint()},
+                  'gateVerdicts': gate_verdicts(fresh, broker.runtime_id), 'agent': {'kind': 'local', 'hostFingerprintSha256': host_fingerprint()},
                   'inventoryPath': str(inventory_path), 'inventorySha256': sha(inventory_path),
                   'inventoryState': state, 'inventoryCapturedAtUtc': inventory['generatedAt'],
                   'freshManifestSha256': fresh_hash,
                   'deployedManifestSha256': sha(broker.paths['manifest']),
                   'capabilities': []}
         if not reasons:
-            entry = fresh['certifiedCapabilities'][0]
+            entry = next(item for item in fresh['certifiedCapabilities'] if item['runtimeId'] == broker.runtime_id)
             report['capabilities'].append({'runtimeId': entry['runtimeId'], 'capabilityId': entry['capabilityId'],
                                            'level': entry['level'], 'recordId': entry['recordId'],
                                            'suiteRevisionSha256': entry['suiteRevisionSha256'],
@@ -168,7 +171,8 @@ def verify_release(report_path, config_path=None):
         if (report.get('inventoryCapturedAtUtc') != inventory.get('generatedAt')
                 or report.get('inventoryState') != inventory_state(inventory, release_time)
                 or len(report.get('gateVerdicts', [])) != 10
-                or report['gateVerdicts'] != gate_verdicts(json.loads(fresh_path.read_text(encoding='utf-8')))):
+                or report['gateVerdicts'] != gate_verdicts(json.loads(fresh_path.read_text(encoding='utf-8')),
+                                                           report.get('runtimeId', 'cgal-win-conda'))):
             raise ValueError('Release inventory age or gate verdicts changed.')
     if (sha(fresh_path) != report['freshManifestSha256']
             or sha(fresh_path) != Path(str(fresh_path) + '.sha256').read_text(encoding='utf-8').strip()):

@@ -24,7 +24,8 @@ public static partial class ScientificQualificationRecords
     private static JsonObject Record(string runId, string runtimeId, string capabilityId, string level,
         string evidenceId, string fingerprintSha256, string suiteRevisionSha256, JsonObject contract,
         string? evidenceSha256 = null, JsonNode? lowerQualification = null, string? consumerSourceSha256 = null,
-        string? consumerContractSha256 = null, string? consumerEnvironmentSha256 = null)
+        string? consumerContractSha256 = null, string? consumerEnvironmentSha256 = null,
+        string? consumerCodecSha256 = null)
     {
         var record = new JsonObject
         {
@@ -38,6 +39,7 @@ public static partial class ScientificQualificationRecords
         if (consumerSourceSha256 != null) record["consumerSourceSha256"] = consumerSourceSha256;
         if (consumerContractSha256 != null) record["consumerContractSha256"] = consumerContractSha256;
         if (consumerEnvironmentSha256 != null) record["consumerEnvironmentSha256"] = consumerEnvironmentSha256;
+        if (consumerCodecSha256 != null) record["consumerCodecSha256"] = consumerCodecSha256;
         record["recordId"] = Digest(record.ToJsonString());
         return record;
     }
@@ -746,14 +748,16 @@ public static partial class ScientificQualificationRecords
             return null;
         var records = new List<JsonObject>();
         void Add(string capability, string level, string evidence, string? evidenceHash = null, JsonNode? lower = null,
-            string? consumerSourceSha256 = null, string? consumerContractSha256 = null, string? consumerEnvironmentSha256 = null)
+            string? consumerSourceSha256 = null, string? consumerContractSha256 = null,
+            string? consumerEnvironmentSha256 = null, string? consumerCodecSha256 = null)
         {
             if (level is "L5" or "L6" or "L7" or "L8" or "L9"
                 && !ScientificCapabilityRegistry.IsDeclared(runtimeId, capability)) return;
             if (records.Any(item => item["capabilityId"]?.GetValue<string>() == capability
                 && item["level"]?.GetValue<string>() == level)) return;
             records.Add(Record(runId, runtimeId, capability, level, evidence, fingerprintSha256, suiteRevision,
-                contract, evidenceHash, lower, consumerSourceSha256, consumerContractSha256, consumerEnvironmentSha256));
+                contract, evidenceHash, lower, consumerSourceSha256, consumerContractSha256,
+                consumerEnvironmentSha256, consumerCodecSha256));
         }
         Add("runtime.inventory", "L0", "fingerprint.environment");
         var recipeId = result["recipeId"]?.GetValue<string>();
@@ -907,6 +911,23 @@ public static partial class ScientificQualificationRecords
                     evidence?["lowerQualification"], evidence?["consumerSourcesSha256"]?.GetValue<string>(),
                     evidence?["productContractSha256"]?.GetValue<string>());
         }
+        else if (recipeId == "l9.gmsh-product" && manifest["qualificationRecipes"] is JsonArray gmshProductRecipes)
+        {
+            var declaration = gmshProductRecipes.OfType<JsonObject>().FirstOrDefault(item =>
+                item["id"]?.GetValue<string>() == "l9.gmsh-product"
+                && item["readinessLevel"]?.GetValue<string>() == "L9"
+                && item["capability"]?.GetValue<string>() == "mesh.generate"
+                && item["referenceRecipe"]?.GetValue<string>() == "l8.gmsh-resilience"
+                && item["contractVersion"]?.GetValue<int>() == 1
+                && item["viewer"]?.GetValue<string>() == "MeshDocumentViewport");
+            var hash = GmshL9Hash(directory, result, components!);
+            var evidence = result["l9GmshEvidence"];
+            if (declaration != null && hash != null)
+                Add("mesh.generate", "L9", "l9.gmsh-product", hash, evidence?["lowerQualification"],
+                    evidence?["consumerSourcesSha256"]?.GetValue<string>(),
+                    evidence?["productContractSha256"]?.GetValue<string>(), null,
+                    evidence?["regression"]?["codecSourceSha256"]?.GetValue<string>());
+        }
         var document = new JsonObject
         {
             ["schemaVersion"] = 1, ["runId"] = runId, ["runtimeId"] = runtimeId,
@@ -1053,6 +1074,19 @@ public static partial class ScientificQualificationRecords
             if (record["level"]?.GetValue<string>() == "L9")
             {
                 var sourceResult = JsonNode.Parse(result.GetRawText()) as JsonObject;
+                if (record["evidenceId"]?.GetValue<string>() == "l9.gmsh-product")
+                {
+                    var evidence = sourceResult?["l9GmshEvidence"];
+                    if (sourceResult == null
+                        || record["lowerQualification"]?.ToJsonString() != evidence?["lowerQualification"]?.ToJsonString()
+                        || record["consumerSourceSha256"]?.GetValue<string>() != evidence?["consumerSourcesSha256"]?.GetValue<string>()
+                        || record["consumerContractSha256"]?.GetValue<string>() != evidence?["productContractSha256"]?.GetValue<string>()
+                        || record["consumerCodecSha256"]?.GetValue<string>() != evidence?["regression"]?["codecSourceSha256"]?.GetValue<string>()
+                        || record["evidenceSha256"]?.GetValue<string>() != GmshL9Hash(directory, sourceResult,
+                            fingerprint!["components"]!.AsObject()))
+                        throw new InvalidDataException("Gmsh L9 product evidence has changed.");
+                    continue;
+                }
                 if (sourceResult == null || record["evidenceId"]?.GetValue<string>() != "l9.math3d-product"
                     || record["lowerQualification"]?.ToJsonString() != sourceResult["l9Evidence"]?["lowerQualification"]?.ToJsonString()
                     || record["consumerSourceSha256"]?.GetValue<string>() != sourceResult["l9Evidence"]?["consumerSourcesSha256"]?.GetValue<string>()
@@ -1136,11 +1170,18 @@ public static partial class ScientificQualificationRecords
         }
     }
 
-    public static void AssessL9Consumer(JsonArray records, string? currentSourcesSha256, string? currentContractSha256)
+    public static void AssessL9Consumer(JsonArray records, string? currentSourcesSha256, string? currentContractSha256,
+        string? currentCodecSha256 = null)
     {
         foreach (var record in records.OfType<JsonObject>().Where(item => item["level"]?.GetValue<string>() == "L9"))
         {
             var reasons = record["staleReasons"] as JsonArray ?? new JsonArray();
+            if (record["evidenceId"]?.GetValue<string>() == "l9.gmsh-product"
+                && record["consumerCodecSha256"]?.GetValue<string>() != currentCodecSha256)
+            {
+                record["status"] = currentCodecSha256 == null ? "unknown" : "stale";
+                reasons.Add(currentCodecSha256 == null ? "MATH3D M3DM codec is unavailable" : "MATH3D M3DM codec changed");
+            }
             if (currentSourcesSha256 == null || currentContractSha256 == null)
             {
                 if (record["status"]?.GetValue<string>() != "stale") record["status"] = "unknown";

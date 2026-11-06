@@ -1,4 +1,4 @@
-// Opt-in live Gmsh L0-L8 acceptance on a debug-port DevShell build.
+// Opt-in live Gmsh L0-L9 acceptance on a debug-port DevShell build.
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -57,6 +57,7 @@ try {
     { button: 'Run L6 reproduction check', recipe: 'l6.reproduce', levels: ['L0', 'L6'] },
     { button: 'Run L7 VTK → MATH3D handoff', recipe: 'l7.gmsh-interop', levels: ['L0', 'L7'] },
     { button: 'Run L8 resilience', recipe: 'l8.gmsh-resilience', levels: ['L0', 'L8'] },
+    { button: 'Run L9 MATH3D product', recipe: 'l9.gmsh-product', levels: ['L0', 'L9'] },
   ]
   const savedRuns = []
   for (const item of process.env.DEVSHELL_GMSH_HISTORY_ONLY ? [] : cases) {
@@ -95,8 +96,8 @@ try {
     assert.ok((await view.innerText()).includes('current'), `Gmsh qualification must be current in History: ${await view.innerText()}`)
   }
   const summary = history.getByRole('region', { name: 'Current qualification summary' })
-  assert.ok((await summary.innerText()).includes('L8'), 'Highest current Gmsh mesh level must be L8')
-  console.log('PASS: Gmsh L0-L8 managed qualification records saved')
+  assert.ok((await summary.innerText()).includes('L9'), 'Highest current Gmsh mesh level must be L9')
+  console.log('PASS: Gmsh L0-L9 managed qualification records saved')
 } finally {
   await browser.close()
 }

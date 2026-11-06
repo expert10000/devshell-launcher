@@ -1643,6 +1643,21 @@ Reread the qualified L7 OBJ through the VTK consumer three times under time and 
 
 **2026-11-06 delivery:** Three bounded VTK reads produced identical result hashes. The cancellation and one-second timeout stopped their owned children without output; the 128 MiB memory job rejected a 512 MiB allocation with no artifact. The managed L8 record and History's highest-current-level summary passed on a fresh debug-port desktop run. This is fixed 2D consumer resilience, not a Gmsh volume-mesh or MATH3D viewer/document gate. Gmsh remains outside broker certified manifests and promotion until L9 product evidence passes.
 
+**DS-SCI-064 — `feat(scientific): qualify Gmsh fixed-surface L9 product integration`**\
+Run a fresh fixed-square typed Gmsh worker job from the managed desktop, verify its `.msh` and converted OBJ against current L7/L8 evidence, and hand the OBJ to MATH3D under a versioned contract. Save Mesh document, resource, viewer regression and source hashes with an immutable L9 record. Grant L9 only while all L0–L8 evidence and the importer/codec contracts are current.
+
+**2026-11-06 delivery:** The managed desktop L9 action passed on a fresh debug-port run. MATH3D imported the 44-point, 66-triangle OBJ, saved a Mesh document/resource, mounted the viewer and captured its render. The L9 record pins the worker `.msh`, converter OBJ, handoff, consumer source, document, viewer and current L8 chain. History reports `mesh.generate` at current L9. The scope is the registered public fixed 2D surface; volume and arbitrary Gmsh meshes are unqualified.
+
+**DS-SCI-065 — `feat(scientific): verify Gmsh native document round trip`**\
+Save the MATH3D document as versioned `.m3dm`, reopen it independently of the MATH3D writer, and compare the saved vertices/faces to the verified OBJ. Check format, geometry, topology, XY orientation, area and scale; pin the codec, parser and document hashes in L9 evidence.
+
+**2026-11-06 delivery:** The independent Python parser reloaded the native `.m3dm` and matched 44 vertices, 66 triangles, 20 boundary edges, zero nonmanifold edges, positive unit XY area and `[0,1] × [0,1] × {0}` bounds. The L9 record and broker smoke pin the native document SHA-256, codec source and parser result. A modified saved document fails smoke verification.
+
+**DS-SCI-066 — `feat(scientific): certify and promote the fixed Gmsh broker capability`**\
+Export only a current Gmsh L9 fixed-surface capability with ten supporting records and exact worker, converter, artifact, broker and MATH3D source identities. Expose typed broker discovery, job results, progress, cancellation, timeouts and hash-verified transport. Promotion must reject stale evidence, changed input/output and contract drift. Verify a broker job through MATH3D document import and viewer, then publish a release qualification report.
+
+**2026-11-06 delivery:** The exporter published one scoped `gmsh-win-conda mesh.generate` L9 entry with ten current supporting levels. A fresh broker job reproduced the qualified `.msh` and OBJ hashes, completed cleanup, passed promotion, and saved a MATH3D Mesh document, viewer render and independently reloaded `.m3dm`. The sealed smoke verifier passed; tests rejected an invalid input hash, changed source snapshot, modified OBJ and modified native document. The fresh release report found ten current gate verdicts and qualified this fixed 2D capability. The general Gmsh geometry and volume paths remain outside the certified manifest.
+
 ---
 
 ## 28. Priority selection: what to implement first

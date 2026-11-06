@@ -81,8 +81,10 @@ public partial class Form1
             if (assessed.OfType<JsonObject>().Any(item => item["level"]?.GetValue<string>() == "L9"))
             {
                 var checkout = ScientificL7Checkout();
+                var codec = Path.Combine(checkout, "src", "main", "python", "nativeCgalProtocol.ts");
                 ScientificQualificationRecords.AssessL9Consumer(assessed,
-                    ScientificCurrentMath3DProductSources(checkout), ScientificL6Digest(ScientificL9Contract()));
+                    ScientificCurrentMath3DProductSources(checkout), ScientificL6Digest(ScientificL9Contract()),
+                    File.Exists(codec) ? ScientificHash(codec) : null);
             }
             view["qualifications"] = assessed;
         }
@@ -196,13 +198,16 @@ public partial class Form1
         lowerIds.UnionWith(runs.SelectMany(run => run["qualifications"]?.AsArray().OfType<JsonObject>() ?? [])
             .Where(record => record["status"]?.GetValue<string>() == "current" && record["level"]?.GetValue<string>() == "L8")
             .Select(record => record["recordId"]?.GetValue<string>()).OfType<string>());
-        var productSources = runtimeId == "cgal-win-conda" ? ScientificCurrentMath3DProductSources(ScientificL7Checkout()) : null;
+        var productSources = runtimeId is "cgal-win-conda" or "gmsh-win-conda"
+            ? ScientificCurrentMath3DProductSources(ScientificL7Checkout()) : null;
         var productContract = ScientificL6Digest(ScientificL9Contract());
+        var codecPath = Path.Combine(ScientificL7Checkout(), "src", "main", "python", "nativeCgalProtocol.ts");
+        var codecHash = File.Exists(codecPath) ? ScientificHash(codecPath) : null;
         foreach (var run in runs)
             if (run["qualifications"] is JsonArray records)
             {
                 ScientificQualificationRecords.AssessL5Dependencies(records, lowerIds);
-                ScientificQualificationRecords.AssessL9Consumer(records, productSources, productContract);
+                ScientificQualificationRecords.AssessL9Consumer(records, productSources, productContract, codecHash);
             }
         return ScientificQualificationRecords.Summarize(runtimeId, runs);
     }

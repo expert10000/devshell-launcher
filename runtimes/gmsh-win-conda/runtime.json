@@ -22,7 +22,10 @@
     { "id": "l7.gmsh-interop", "readinessLevel": "L7", "capability": "mesh.generate",
       "referenceRecipe": "l6.reproduce", "consumers": ["VTK vtkOBJReader", "MATH3D desktop loadSurfaceMeshFromFile"], "format": "obj" },
     { "id": "l8.gmsh-resilience", "readinessLevel": "L8", "capability": "mesh.generate",
-      "referenceRecipe": "l7.gmsh-interop", "repeatCount": 3, "memoryLimitBytes": 134217728 }
+      "referenceRecipe": "l7.gmsh-interop", "repeatCount": 3, "memoryLimitBytes": 134217728 },
+    { "id": "l9.gmsh-product", "readinessLevel": "L9", "capability": "mesh.generate",
+      "referenceRecipe": "l8.gmsh-resilience", "contractVersion": 1,
+      "viewer": "MeshDocumentViewport", "documentFormat": "M3DM", "scope": "fixed 2D square" }
   ],
   "probes": [
     {

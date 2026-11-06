@@ -331,3 +331,16 @@ python tools/scientific-broker/release_certification.py verify --config <gmsh-br
 ```
 
 The smoke runs broker job → verified native/OBJ transport → promotion → MATH3D document and viewer → independent `.m3dm` reload. `SCIENTIFIC_GMSH_BROKER_CONFIG=<gmsh-broker-config.json> python -m unittest discover -s tests -p test_scientific_gmsh_broker.py` exercises the path and rejects altered source, OBJ and native document evidence. Host-specific config, run artifacts and release reports stay under ignored `.scientific` paths.
+
+## Gmsh candidate cube volume (DS-SCI-067–069)
+
+The volume path is separate from the certified fixed 2D worker. It uses a public unit-cube fixture, a typed `gmsh.volume3d.cube` worker, two exact `.msh` repeat runs, independent Gmsh reload, and an outward boundary OBJ consumed by VTK and MATH3D's **surface** importer. Both consumers must reject a flipped boundary face. The suite saves linked, sealed local records and explicitly marks volume promotion unavailable.
+
+```powershell
+python tools/scientific-broker/gmsh_volume.py run --gmsh-python G:/master/.conda/devshell-scientific/python.exe --vtk-python G:/master/.conda/devshell-vtk/python.exe --math3d-checkout G:/master/Math3D --output-root .scientific/gmsh-volume
+python tools/scientific-broker/gmsh_volume.py verify --record <run/DS-SCI-067.json>
+python tools/scientific-broker/gmsh_volume.py verify --record <run/DS-SCI-068.json>
+python tools/scientific-broker/gmsh_volume.py verify --record <run/DS-SCI-069.json>
+```
+
+The OBJ is a boundary representation; the MATH3D importer does not preserve tetrahedral cells. These local records grant no managed L0–L9 level and do not add the cube to certified manifests or promotion.

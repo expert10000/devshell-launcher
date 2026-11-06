@@ -1658,6 +1658,21 @@ Export only a current Gmsh L9 fixed-surface capability with ten supporting recor
 
 **2026-11-06 delivery:** The exporter published one scoped `gmsh-win-conda mesh.generate` L9 entry with ten current supporting levels. A fresh broker job reproduced the qualified `.msh` and OBJ hashes, completed cleanup, passed promotion, and saved a MATH3D Mesh document, viewer render and independently reloaded `.m3dm`. The sealed smoke verifier passed; tests rejected an invalid input hash, changed source snapshot, modified OBJ and modified native document. The fresh release report found ten current gate verdicts and qualified this fixed 2D capability. The general Gmsh geometry and volume paths remain outside the certified manifest.
 
+**DS-SCI-067 — `feat(scientific): establish typed Gmsh cube-volume worker cases`**\
+Register a separate public unit-cube `.geo` fixture and candidate `gmsh.volume3d.cube` worker under the shared typed request/result contract. Bound mesh size, accept tetrahedra only, save a hash-checked `.msh`, and require changed-geometry and invalid-parameter rejections without artifacts. Keep this candidate out of managed qualification and certified manifests.
+
+**2026-11-06 local delivery:** Two owned positive worker invocations and both rejection cases passed. The candidate generated 83 nodes and 204 tetrahedra at mesh size 0.35; the typed result recorded the Gmsh version, input and output hashes, scope and validated candidate capability. Both rejected requests saved diagnostics and no `.msh`. A sealed DS-SCI-067 record links the public fixture, worker contract, requests, results and source commit. This does not grant a volume qualification level.
+
+**DS-SCI-068 — `feat(scientific): reproduce and reload Gmsh tetrahedral volume`**\
+Repeat the fixed cube worker case in a separate job, compare exact `.msh` hashes, then reopen the artifact independently with Gmsh. Verify tetrahedron connectivity, closed two-face internal incidence, outward boundary, unit volume, surface area six and unit-cube bounds. Save the parser identity, source runs and immutable candidate evidence.
+
+**2026-11-06 local delivery:** Separate runs produced identical `.msh` bytes. Independent reload found 204 tetrahedra, 156 boundary triangles, zero open or nonmanifold boundary edges, volume 1, surface area 6 and `[0,1]³` bounds. The sealed DS-SCI-068 record chains to DS-SCI-067 and checks source and artifact hashes. This is local reproduction evidence, not a managed L6 record.
+
+**DS-SCI-069 — `feat(scientific): check Gmsh volume-boundary consumers`**\
+Extract only the outward triangle boundary from the verified tetrahedral `.msh`, hand a bounded OBJ to VTK and the MATH3D surface importer, and compare point/face counts, bounds, topology, orientation, area and enclosed volume. Require both consumers to reject a deliberately flipped face. Pin each consumer's result, contract source and artifact hash without treating the surface importer as a tetrahedral document editor.
+
+**2026-11-06 local delivery:** The boundary OBJ had 80 points and 156 outward triangles. VTK 9.6.1 and MATH3D matched the unit-cube bounds, closed topology, area 6 and signed volume 1; both rejected a flipped face. The sealed DS-SCI-069 record chains to DS-SCI-068 and rejects changed OBJ evidence. MATH3D consumed the boundary surface only; tetrahedral cells, managed L7–L9, document/viewer round trips and volume certification remain open.
+
 ---
 
 ## 28. Priority selection: what to implement first

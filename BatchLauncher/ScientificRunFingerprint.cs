@@ -12,6 +12,13 @@ namespace BatchLauncher;
 // variable value is included in the portable fingerprint.
 public static class ScientificRunFingerprint
 {
+    public static string CmakePath(string prefix, string runtimeId)
+    {
+        var own = Path.Combine(prefix, "Library", "bin", "cmake.exe");
+        if (File.Exists(own) || runtimeId != "gmsh-win-conda") return own;
+        return Path.Combine(Path.GetDirectoryName(prefix)!, "devshell-cgal", "Library", "bin", "cmake.exe");
+    }
+
     private static string Hash(string file)
     {
         using var stream = File.OpenRead(file);
@@ -35,7 +42,8 @@ public static class ScientificRunFingerprint
             "BatchLauncher/ScientificProviderRegistry.cs", "BatchLauncher/ScientificRunFingerprint.cs",
             "BatchLauncher/ScientificQualificationRecords.cs",
             $"runtimes/{runtimeId}/runtime.json" };
-        if (runtimeId is "cgal-win-conda" or "vtk-win-conda") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L5.cs", "BatchLauncher/Form1.Scientific.L6.cs", "tools/scientific-artifact-roundtrip.py" });
+        if (runtimeId is "cgal-win-conda" or "vtk-win-conda" or "gmsh-win-conda") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L5.cs", "BatchLauncher/Form1.Scientific.L6.cs", "tools/scientific-artifact-roundtrip.py" });
+        if (runtimeId == "gmsh-win-conda") names.AddRange(new[] { "tools/scientific-gmsh-worker.py", "scientific/fixtures/gmsh/square.geo", "scientific/fixtures/gmsh/tampered-square.geo" });
         if (runtimeId == "vtk-win-conda") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L7.cs", "tools/math3d-vtk-import-handoff.mjs" });
         if (runtimeId == "cgal-win-conda") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L7Interop.cs", "BatchLauncher/Form1.Scientific.L8.cs", "BatchLauncher/Form1.Scientific.L9.cs", "BatchLauncher/OwnedProcessJob.cs", "tools/scientific-vtk-interop.py", "tools/math3d-vtk-import-handoff.mjs", "tools/math3d-l9-product-handoff.mjs" });
         if (runtimeId.StartsWith("cgal", StringComparison.Ordinal))
@@ -108,7 +116,8 @@ public static class ScientificRunFingerprint
         if (recipeId is "configure" or "build" or "run" or "test-all" or "compile-link")
         {
             var kind = runtimeId.StartsWith("cgal", StringComparison.Ordinal) ? "cgal" :
-                runtimeId.StartsWith("vtk", StringComparison.Ordinal) ? "vtk" : null;
+                runtimeId.StartsWith("vtk", StringComparison.Ordinal) ? "vtk" :
+                runtimeId.StartsWith("gmsh", StringComparison.Ordinal) ? "gmsh" : null;
             if (kind != null) names.AddRange(new[] { $"scientific/smoke/{kind}/main.cpp", $"scientific/smoke/{kind}/CMakeLists.txt" });
             if (kind == "vtk" && recipeId == "test-all") names.Add("tools/scientific-vtk-render-check.py");
         }
@@ -124,7 +133,7 @@ public static class ScientificRunFingerprint
             names.Add("BatchLauncher/Form1.Scientific.Sage.cs");
         if (recipeId == "lab.probe") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.RuntimeLab.cs", "tools/runtime-lab/Program.cs" });
         if (recipeId == "l5.worker") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L5.cs", "BatchLauncher/Form1.Scientific.Cgal.cs",
-            "tools/scientific-cgal-worker.py", "tools/scientific-mesh-worker.py", "tools/scientific_worker_contract.py" });
+            "tools/scientific-cgal-worker.py", "tools/scientific-mesh-worker.py", "tools/scientific-gmsh-worker.py", "tools/scientific_worker_contract.py" });
         if (recipeId == "l6.reproduce") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L5.cs", "BatchLauncher/Form1.Scientific.L6.cs", "BatchLauncher/Form1.Scientific.Cgal.cs",
             "tools/scientific-cgal-worker.py", "tools/scientific-mesh-worker.py", "tools/scientific_worker_contract.py", "tools/scientific-artifact-roundtrip.py" });
         if (recipeId == "l7.math3d-import") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L7.cs",
@@ -200,10 +209,12 @@ public static class ScientificRunFingerprint
             ["condaPackageRecords"] = PackageIdentity(prefix),
             ["systemPackageRecords"] = backend == "wsl" ? new JsonObject { ["state"] = "unavailable" } : null,
             ["pythonExecutable"] = prefix == null ? new JsonObject { ["state"] = "unavailable" } : FileIdentity(Path.Combine(prefix, "python.exe")),
+            ["gmshModule"] = runtimeId == "gmsh-win-conda" && prefix != null
+                ? FileIdentity(Path.Combine(prefix, "Lib", "site-packages", "gmsh.py")) : null,
             ["gpuDriver"] = GpuDriverIdentity(),
             ["toolchain"] = new JsonObject
             {
-                ["cmake"] = prefix == null ? new JsonObject { ["state"] = "unavailable" } : FileIdentity(Path.Combine(prefix, "Library", "bin", "cmake.exe")),
+                ["cmake"] = prefix == null ? new JsonObject { ["state"] = "unavailable" } : FileIdentity(CmakePath(prefix, runtimeId)),
                 ["ninja"] = prefix == null ? new JsonObject { ["state"] = "unavailable" } : FileIdentity(Path.Combine(prefix, "Library", "bin", "ninja.exe")),
                 ["msvcCompiler"] = compilerPath == null ? new JsonObject { ["state"] = "unavailable" } : FileIdentity(compilerPath),
                 ["runtimeLab"] = FileIdentity(Path.Combine(installedRoot, "runtime-lab", "runtime-lab.exe"))
@@ -427,8 +438,10 @@ public static class ScientificRunFingerprint
         {
             foreach (var name in new[] { "condaHistory", "condaPackageRecords", "pythonExecutable" })
                 CompareHash(saved[name], current[name], name);
+            if (runtimeId == "gmsh-win-conda") CompareHash(saved["gmshModule"], current["gmshModule"], "Gmsh Python binding");
             var toolNames = runtimeId is "cgal-win-conda" or "vtk-win-conda"
                 ? new[] { "cmake", "ninja", "msvcCompiler", "runtimeLab" }
+                : runtimeId == "gmsh-win-conda" ? new[] { "cmake", "msvcCompiler", "runtimeLab" }
                 : new[] { "runtimeLab" };
             foreach (var name in toolNames)
                 CompareHash(saved["toolchain"]?[name], current["toolchain"]?[name], "toolchain " + name);

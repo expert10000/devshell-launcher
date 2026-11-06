@@ -17,15 +17,19 @@ public partial class Form1
         "vtk-win-conda" => ("mesh.read",
             new("mesh.inspect", "math3d/basic/01_tetrahedron.obj", "l5-positive.vtp", null),
             new("mesh.inspect", "math3d/import/truncated-ascii.ply", "l5-rejected.vtp", "surface is empty")),
-        _ => throw new InvalidOperationException("L5 worker evidence is registered only for CGAL and VTK.")
+        "gmsh-win-conda" => ("mesh.generate",
+            new("gmsh.mesh2d", "gmsh/fixed-square.geo", "l5-positive.msh", null),
+            new("gmsh.mesh2d", "gmsh/tampered-square.geo", "l5-rejected.msh", "Only the registered fixed square GEO fixture is accepted")),
+        _ => throw new InvalidOperationException("L5 worker evidence is not registered for this provider.")
     };
 
     private JsonObject ScientificCurrentLowerLevels(string profileId, string runtimeId)
     {
         var summary = ScientificQualificationSummary(profileId, runtimeId);
-        var kind = runtimeId == "cgal-win-conda" ? "cgal" : "vtk";
+        var kind = runtimeId == "cgal-win-conda" ? "cgal" : runtimeId == "gmsh-win-conda" ? "gmsh" : "vtk";
         var required = new[] { ("runtime.inventory", "L0"), ("python.version", "L1"),
-            ($"{kind}.python.import", "L2"), (kind == "cgal" ? "geometry.point3" : "geometry.polydata", "L3"),
+            (kind == "gmsh" ? "gmsh.version" : $"{kind}.python.import", "L2"),
+            (kind == "cgal" ? "geometry.point3" : kind == "gmsh" ? "gmsh.surface2d" : "geometry.polydata", "L3"),
             ($"{kind}.cpp.compile-link", "L4") };
         var records = new JsonArray();
         foreach (var (capability, level) in required)
@@ -97,13 +101,17 @@ public partial class Form1
         Directory.CreateDirectory(directory);
         var child = new ScientificJob { ProfileId = suite.ProfileId, RuntimeId = suite.RuntimeId,
             RecipeId = test.RecipeId, Directory = directory, Cancellation = suite.Cancellation };
-        ScientificWriteRequest(child, JsonSerializer.SerializeToElement(new { caseId = folder }, ScientificJson), input, test.OutputName);
+        var parameters = suite.RuntimeId == "gmsh-win-conda"
+            ? JsonSerializer.SerializeToElement(new { meshSize = 0.2 }, ScientificJson)
+            : JsonSerializer.SerializeToElement(new { caseId = folder }, ScientificJson);
+        ScientificWriteRequest(child, parameters, input, test.OutputName);
         var rejected = false;
         try
         {
             if (suite.RuntimeId == "cgal-win-conda") await ScientificCgalExecuteAsync(child, prefix, suite);
             else await ScientificProcessAsync(suite, prefix, Path.Combine(prefix, "python.exe"),
-                [Path.Combine(ScientificSourceRoot, "tools", "scientific-mesh-worker.py"), "--request",
+                [Path.Combine(ScientificSourceRoot, "tools", suite.RuntimeId == "gmsh-win-conda"
+                    ? "scientific-gmsh-worker.py" : "scientific-mesh-worker.py"), "--request",
                     Path.Combine(directory, "request.json")], directory, 120);
         }
         catch (InvalidOperationException) when (test.ExpectedReason != null) { rejected = true; }
@@ -120,7 +128,8 @@ public partial class Form1
                 ?? throw new InvalidDataException("Positive L5 output artifact is missing.");
             if (result["state"]?.GetValue<string>() != "succeeded"
                 || result["validatedCapabilities"] is not JsonArray capabilities
-                || !capabilities.Any(item => item?.GetValue<string>() == (suite.RuntimeId == "cgal-win-conda" ? "mesh.validate" : "mesh.read"))
+                || !capabilities.Any(item => item?.GetValue<string>() == (suite.RuntimeId == "cgal-win-conda" ? "mesh.validate"
+                    : suite.RuntimeId == "gmsh-win-conda" ? "mesh.generate" : "mesh.read"))
                 || result["artifacts"] is not JsonArray artifacts
                 || !artifacts.Any(item => item?["path"]?.GetValue<string>() == test.OutputName
                     && item?["sha256"]?.GetValue<string>() == output["sha256"]?.GetValue<string>()))

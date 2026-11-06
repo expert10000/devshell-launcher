@@ -1613,6 +1613,21 @@ Convert the verified fixed `.msh` surface to a bounded OBJ, feed that artifact t
 
 **2026-11-06 scoped delivery:** The observed square had 44 points, 66 triangles, 20 boundary edges, zero nonmanifold edges, unit XY area and bounds `[0,1] × [0,1] × {0}` in Gmsh, VTK 9.6.1 and MATH3D. Both consumers rejected a malformed OBJ. The sealed DS-SCI-057 record links the source `.msh`, converted OBJ, consumer source fingerprints, results and expected rejections. This is a 2D surface importer check, not a viewer, document round trip, volume-mesh gate or release L7 certification. Gmsh remains outside certified manifests.
 
+**DS-SCI-058 — `feat(scientific): save managed Gmsh probe qualifications`**\
+Route the installed Gmsh Windows prefix through the provider registry and native `runtime-lab` action. Require a successful bounded probe, matching installed manifest, recorded Python/Gmsh module and package fingerprints, and immutable L0–L3 qualification records visible as current in History. Keep unrelated provider controls out of the Gmsh view.
+
+**2026-11-06 scoped delivery:** Gmsh now has a provider-scoped Commands view and native managed prefix resolution. A fresh desktop probe passed Python 3.12.15, Gmsh 4.15.2, fixed 2D meshing and expected rejection. It saved L0, L1, L2 and L3 records with a run fingerprint, and History displayed the records as current. The L3 capability is `gmsh.surface2d`, leaving semantic `mesh.generate` for the worker gate. This does not certify general Gmsh meshing.
+
+**DS-SCI-059 — `feat(scientific): qualify Gmsh C++ compile and link`**\
+Run the registered Gmsh C++ smoke target from the desktop with an owned process, compiler/CMake toolchain fingerprint, linked executable hash and immutable L4 record. Use the available sibling scientific CMake installation when this Gmsh prefix has no own CMake; record the actual executable. A changed source or binary must stale the level.
+
+**2026-11-06 scoped delivery:** The managed `compile-link` action configured and built `devshell_gmsh_smoke.exe` with the sibling CGAL prefix CMake and the Gmsh prefix header/import library. A fresh L4 record pins the two successful build steps, compiler version, executed CMake and linked binary hashes. History displayed it as current. Gmsh's package binding and CMake identities now participate in environment drift checks.
+
+**DS-SCI-060 — `feat(scientific): qualify the fixed Gmsh worker cases`**\
+Register a fixed public `.geo` positive case and a changed-geometry rejection case under the Gmsh runtime manifest. Run both through the shared typed worker contract in owned child jobs, link current L0–L4 records, save request/result/fixture/artifact hashes, and grant only `mesh.generate` L5 when both cases and lower evidence verify. Leave L6–L9 and certified manifests untouched.
+
+**2026-11-06 scoped delivery:** The desktop L5 action used separate hash-checked dataset copies, generated a 44-point/66-triangle `.msh` from the fixed square, and rejected the changed rectangle without an artifact. The managed L5 record pins the worker contract, two child results, positive artifact hash and five current lower records. History displayed L5 as current. The earlier DS-SCI-056/057 local repeat and importer evidence remains separate: managed L6 reproduction, L7 interoperability, L8 resilience and L9 viewer/document gates have not been granted. Gmsh is still excluded from release certification and promotion.
+
 ---
 
 ## 28. Priority selection: what to implement first

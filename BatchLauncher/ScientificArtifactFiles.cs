@@ -19,7 +19,8 @@ internal static class ScientificArtifactFiles
     internal static string MediaType(string path) => Path.GetExtension(path).ToLowerInvariant() switch
     {
         ".obj" => "model/obj", ".stl" => "model/stl", ".ply" => "application/ply",
-        ".vtp" => "application/vnd.vtk.vtp", ".off" => "application/off", ".png" => "image/png",
+        ".vtp" => "application/vnd.vtk.vtp", ".msh" => "application/vnd.gmsh.msh",
+        ".geo" => "application/vnd.gmsh.geo", ".off" => "application/off", ".png" => "image/png",
         ".m3dm" => "application/octet-stream", _ => "application/json"
     };
 

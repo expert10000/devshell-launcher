@@ -212,7 +212,7 @@ try {
     }
   }
   await main.locator('.scientific-runtime-item').filter({ hasText: 'Gmsh' }).first().click()
-  assert.equal(await detail.getByRole('button', { name: 'Run L5 worker check' }).count(), 0)
+  assert.equal(await detail.getByRole('button', { name: 'Run L5 worker check' }).count(), 1)
   assert.equal(await detail.getByRole('button', { name: 'Run L6 reproduction check' }).count(), 0)
   assert.equal(await detail.getByRole('button', { name: 'Run L7 MATH3D handoff' }).count(), 0)
   assert.equal(await detail.getByRole('button', { name: 'Run L7 CGAL → VTK → MATH3D' }).count(), 0)
@@ -221,8 +221,8 @@ try {
   await nav.getByRole('button', { name: 'History' }).click()
   await history.getByRole('button', { name: /Load history|Refresh history/ }).click()
   await history.locator('section[aria-label="Current qualification summary"]')
-    .getByText('No current qualifications for this provider.').waitFor()
-  console.log('PASS: CGAL L9 product gate, VTK L7 handoff, Gmsh unqualified')
+    .getByText('mesh.generate').waitFor()
+  console.log('PASS: CGAL L9 product gate, VTK L7 handoff, Gmsh L5 worker')
 } finally {
   await browser.close()
 }

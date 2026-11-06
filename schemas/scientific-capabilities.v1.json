@@ -22,12 +22,12 @@
     { "id": "mesh.read", "version": 1, "parametersSchema": "mesh-file.v1", "resultSchema": "mesh-diagnostics.v1", "providers": [
       { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Registered OBJ/STL/PLY/OFF fixtures; worker acceptance is separate from package discovery." },
       { "runtimeId": "vtk-win-conda", "backend": "windows-native", "limitations": "Registered OBJ/STL/PLY/VTP fixtures; malformed PLY rejection is scoped." },
-      { "runtimeId": "gmsh-win-conda", "backend": "windows-native", "limitations": "Candidate declaration only; Gmsh package and worker are not configured." }
+      { "runtimeId": "gmsh-win-conda", "backend": "windows-native", "limitations": "No standalone mesh.read recipe; the fixed GEO input is used by mesh.generate." }
     ] },
     { "id": "mesh.write", "version": 1, "parametersSchema": "mesh-operation.v1", "resultSchema": "mesh-artifact.v1", "providers": [
       { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "OBJ output from registered validation worker." },
       { "runtimeId": "vtk-win-conda", "backend": "windows-native", "limitations": "VTP output from registered mesh worker." },
-      { "runtimeId": "gmsh-win-conda", "backend": "windows-native", "limitations": "Candidate declaration only; no qualified output worker." }
+      { "runtimeId": "gmsh-win-conda", "backend": "windows-native", "limitations": "No standalone mesh.write recipe; the fixed 2D generator emits MSH." }
     ] },
     { "id": "mesh.validate", "version": 1, "parametersSchema": "mesh-file.v1", "resultSchema": "mesh-diagnostics.v1", "providers": [
       { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Fixed surface-mesh fixture and expected rejection; broader geometry is unqualified." }
@@ -60,7 +60,7 @@
       { "runtimeId": "vtk-win-conda", "backend": "windows-native", "limitations": "Scoped normal-generation recipe; open-surface auto-orient is rejected." }
     ] },
     { "id": "mesh.generate", "version": 1, "parametersSchema": "mesh-operation.v1", "resultSchema": "mesh-artifact.v1", "providers": [
-      { "runtimeId": "gmsh-win-conda", "backend": "windows-native", "limitations": "Candidate declaration only; no qualified volume-mesh pipeline." }
+      { "runtimeId": "gmsh-win-conda", "backend": "windows-native", "limitations": "Managed L5 covers one fixed public 2D square and an expected rejection; volume meshes and release certification remain open." }
     ] },
     { "id": "mesh.generate3d", "version": 1, "parametersSchema": "mesh-operation.v1", "resultSchema": "mesh-artifact.v1", "providers": [
       { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Planned MATH3D coverage row; no registered 3D generation worker." }

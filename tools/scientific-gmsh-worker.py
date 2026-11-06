@@ -46,7 +46,7 @@ try:
     gmsh.write(str(contract.output))
     contract.finish(before={'vertices': 4, 'faces': 1},
                     after={'vertices': len(node_tags), 'faces': triangles},
-                    capabilities=['mesh.generate2d'],
+                    capabilities=['mesh.generate'],
                     scope='Fixed public unit square, 2D triangles only; no volume-mesh or MATH3D qualification.',
                     extra={'meshSize': size, 'bounds': bounds, 'elementTypes': [int(kind) for kind in types]})
 finally:

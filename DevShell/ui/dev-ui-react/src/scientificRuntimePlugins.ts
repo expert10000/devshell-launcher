@@ -54,7 +54,7 @@ export const scientificRuntimePlugins: ScientificRuntimePlugin[] = [
     { id: 'vtk.polydata', name: 'vtkPolyData smoke test', category: 'geometry', capability: 'geometry.polydata' },
     { id: 'vtk.opengl', name: 'Rendering / OpenGL / offscreen rendering', category: 'rendering', capability: 'render.offscreen' },
   ] },
-  { kind: 'gmsh', name: 'Gmsh', environmentName: 'devshell-scientific', commandView: 'none', testView: 'candidate', artifactView: 'none', integrationView: 'unconfigured', sdk: false, configuredBackends: ['windows-native'], sections: common, checks: [{ id: 'gmsh.import', name: 'Executable / Python module probe', category: 'package' }] },
+  { kind: 'gmsh', name: 'Gmsh', environmentName: 'devshell-scientific', commandView: 'mesh', testView: 'candidate', artifactView: 'none', integrationView: 'unconfigured', sdk: false, labProbe: true, configuredBackends: ['windows-native'], sections: [...common, 'Commands'], checks: [{ id: 'gmsh.import', name: 'Executable / Python module probe', category: 'package' }] },
   { kind: 'sage', name: 'SageMath', environmentName: '', commandView: 'sage', testView: 'sage', artifactView: 'none', integrationView: 'unconfigured', sdk: false, configuredBackends: ['wsl'], sections: [...common, 'Commands', 'Catalog'], catalogTests: [
     { id: 'sage-version', name: 'SageMath installation', recipeId: 'sage.version', action: 'sage-recipe', expected: 'Sage version is recorded.' },
     { id: 'sage-factor', name: 'Exact factorization', recipeId: 'sage.factor-smoke', action: 'sage-recipe', expected: 'x² − 1 factors as (x − 1) × (x + 1).' },

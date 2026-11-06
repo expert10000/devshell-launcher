@@ -11,6 +11,13 @@
     "cppSmoke": "scientific/smoke/gmsh",
     "scope": "Fixed public 2D square only; foundation evidence does not certify the broker or MATH3D path."
   },
+  "qualificationRecipes": [
+    { "id": "compile-link", "readinessLevel": "L4", "capability": "gmsh.cpp.compile-link", "binary": "devshell_gmsh_smoke.exe" },
+    { "id": "l5.worker", "readinessLevel": "L5", "capability": "mesh.generate",
+      "positive": { "recipeId": "gmsh.mesh2d", "datasetId": "gmsh/fixed-square.geo", "outputName": "l5-positive.msh" },
+      "rejection": { "recipeId": "gmsh.mesh2d", "datasetId": "gmsh/tampered-square.geo", "outputName": "l5-rejected.msh", "expectedReason": "Only the registered fixed square GEO fixture is accepted" }
+    }
+  ],
   "probes": [
     {
       "id": "python.version",
@@ -27,7 +34,7 @@
     {
       "id": "gmsh.surface2d",
       "readinessLevel": "L3",
-      "capability": "mesh.generate",
+      "capability": "gmsh.surface2d",
       "timeoutSeconds": 30,
       "arguments": ["-I", "-c", "import gmsh\ngmsh.initialize()\ntry:\n gmsh.option.setNumber('General.Terminal', 0)\n gmsh.model.add('bounded-square')\n gmsh.model.occ.addRectangle(0, 0, 0, 1, 1)\n gmsh.model.occ.synchronize()\n gmsh.model.mesh.generate(2)\n types, elements, nodes = gmsh.model.mesh.getElements(2)\n count = sum(len(tags) for tags in elements)\n assert count > 0, 'no surface elements'\n print('surface elements:', count)\nfinally:\n gmsh.finalize()"]
     },

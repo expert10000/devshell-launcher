@@ -311,3 +311,9 @@ python tools/scientific-broker/gmsh_progression.py verify --record <DS-SCI-057.j
 ```
 
 The first record binds a successful foundation run and two fresh worker rejections. The second pins two separate fixed-square `.msh` worker runs, equal byte hashes and independent Gmsh reloads. The third exports a bounded OBJ and checks VTK and MATH3D importer geometry, triangle connectivity, boundary topology, XY orientation, unit area and scale; both consumers reject malformed OBJ. Records pin their source, runtime, importer and artifact hashes and chain to the prior stage. These are local fixed 2D checks. They do not create managed desktop L5–L7 records, inspect a MATH3D viewer/document, qualify volume meshes, or add Gmsh to certified manifests.
+
+## Managed Gmsh L0–L5 (DS-SCI-058–060)
+
+Build the React UI and Windows launcher, then open Scientific Runtimes → Gmsh → Commands with the `desktop-five` profile. Run **Probe in runtime-lab**, **Compile & link**, and **Run L5 worker check** in that order. Open each run in History and require current qualification records. The probe grants only `runtime.inventory` L0, `python.version` L1, `gmsh.version` L2 and fixed `gmsh.surface2d` L3. Compile/link grants Gmsh C++ L4. The fixed worker grants `mesh.generate` L5 only after its typed positive and rejection cases pass against current lower records. The Gmsh prefix uses the sibling `devshell-cgal` CMake when its own prefix has no CMake, and the fingerprint records the actual tool. The managed run saves a registered local `.geo` copy and a verified `.msh` artifact. `node tests/scientific-gmsh-managed-ui-checks.mjs` exercises the three actions on a debug-port desktop build.
+
+The local DS-SCI-056/057 files remain separate evidence. Run managed L6–L9 checks before attempting release export, and keep Gmsh out of certified manifests until that chain and the product contract pass.

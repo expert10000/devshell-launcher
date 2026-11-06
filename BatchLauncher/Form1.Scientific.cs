@@ -60,10 +60,17 @@ public partial class Form1
     private static string ScientificPrefix(string runtimeId)
     {
         var provider = ScientificProviderRegistry.Get(runtimeId);
-        if (!provider.NativeManaged) throw new InvalidOperationException("Only installed Windows-native CGAL/VTK adapters execute.");
+        if (!provider.NativeManaged) throw new InvalidOperationException("Only installed Windows-native scientific adapters execute.");
         var runtime=ScientificReport().GetProperty("runtimes").EnumerateArray().FirstOrDefault(item=>item.GetProperty("id").GetString()==runtimeId);
-        if(runtime.ValueKind!=JsonValueKind.Object) throw new InvalidOperationException("Runtime absent from local report.");
-        var prefix=runtime.GetProperty("environmentRoot").GetString()??"";
+        var prefix=runtime.ValueKind==JsonValueKind.Object ? runtime.GetProperty("environmentRoot").GetString()??"" : "";
+        if (runtimeId == "gmsh-win-conda" && prefix.Length == 0)
+        {
+            var cgal = ScientificReport().GetProperty("runtimes").EnumerateArray()
+                .FirstOrDefault(item => item.GetProperty("id").GetString() == "cgal-win-conda");
+            if (cgal.ValueKind != JsonValueKind.Object) throw new InvalidOperationException("Scientific runtime root is unavailable.");
+            prefix = Path.Combine(Path.GetDirectoryName(cgal.GetProperty("environmentRoot").GetString()!)!, "devshell-scientific");
+        }
+        if (prefix.Length == 0) throw new InvalidOperationException("Runtime absent from local report.");
         var expected=provider.EnvironmentName;
         if(!Path.IsPathFullyQualified(prefix)||Path.GetFileName(prefix.TrimEnd(Path.DirectorySeparatorChar))!=expected||!File.Exists(Path.Combine(prefix,"conda-meta","history"))) throw new InvalidOperationException("Invalid dedicated runtime prefix.");
         return Path.GetFullPath(prefix);
@@ -138,10 +145,11 @@ public partial class Form1
         var timer=Stopwatch.StartNew();
         try
         {
-            var kind=job.RuntimeId.StartsWith("cgal",StringComparison.Ordinal)?"cgal":"vtk";
+            var kind=job.RuntimeId.StartsWith("cgal",StringComparison.Ordinal)?"cgal":
+                job.RuntimeId.StartsWith("gmsh",StringComparison.Ordinal)?"gmsh":"vtk";
             var hash=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(job.ProfileId)))[..12];
             var build=job.RecipeId=="compile-link"?Path.Combine(job.Directory,"build")
-                :Path.Combine(ScientificDataRoot,"builds",hash,kind);var cmake=Path.Combine(prefix,"Library","bin","cmake.exe");
+                :Path.Combine(ScientificDataRoot,"builds",hash,kind);var cmake=ScientificRunFingerprint.CmakePath(prefix, job.RuntimeId);
             if(job.RecipeId=="diagnostics")await ScientificProcessAsync(job,prefix,ScientificExecutable("pwsh.exe"),new[]{"-NoProfile","-File",Path.Combine(ScientificSourceRoot,"tools","Inspect-ScientificRuntimes.ps1"),"-RuntimeRoot",Path.GetDirectoryName(prefix)!,"-OutputPath",Path.Combine(ScientificDataRoot,"runtime-report.json"),"-PublishToLauncher"},job.Directory,150);
             else if(job.RecipeId=="version")await ScientificProcessAsync(job,prefix,Path.Combine(prefix,"python.exe"),new[]{Path.Combine(ScientificSourceRoot,"tools","scientific-runtime-probe.py"),"--kind",kind},job.Directory,60);
             else if(job.RecipeId.StartsWith("mesh.",StringComparison.Ordinal))

@@ -46,7 +46,7 @@ try {
   }
   await matrix.locator('tr').filter({ hasText: 'gmsh-win-conda' }).first().getByRole('button', { name: 'State evidence' }).click()
   await main.getByRole('region', { name: /Gmsh runtime details/ }).waitFor()
-  console.log('PASS: five providers shown; Gmsh unqualified; matrix evidence opens its source view')
+  console.log('PASS: five providers shown; Gmsh scoped evidence remains below release certification; matrix evidence opens its source view')
 } finally {
   await browser.close()
 }

@@ -75,8 +75,8 @@ try {
   await main.locator('.scientific-runtime-item').filter({ hasText: 'Gmsh' }).first().click()
   await nav.getByRole('button', { name: 'History' }).click()
   await history.getByRole('button', { name: /Load history|Refresh history/ }).click()
-  await history.locator('section[aria-label="Current qualification summary"]').getByText('No current qualifications for this provider.').waitFor()
-  console.log('PASS: CGAL and VTK L4 levels link to fresh runs; Gmsh remains unqualified')
+  await history.locator('section[aria-label="Current qualification summary"]').getByText('mesh.generate').waitFor()
+  console.log('PASS: CGAL, VTK and Gmsh levels link to fresh runs')
 } finally {
   await browser.close()
 }

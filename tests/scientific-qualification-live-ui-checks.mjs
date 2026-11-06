@@ -47,7 +47,7 @@ try {
     { name: 'Python / SciPy', id: 'python-win-conda', backend: 'windows-native', section: 'Tests', button: 'Run Python / SciPy probes', levels: ['L0', 'L1', 'L2', 'L3'] },
     { name: 'SageMath', id: 'sage-wsl', backend: 'wsl', section: 'State', button: 'Check Sage installation', levels: ['L0', 'L1'] },
     { name: 'SageMath', id: 'sage-wsl', backend: 'wsl', section: 'State', button: 'Test exact factorization', levels: ['L0', 'L2', 'L3'] },
-    { name: 'Gmsh', id: 'gmsh-win-conda', backend: 'windows-native', section: 'Tests', button: 'Run Gmsh probes', levels: [] }
+    { name: 'Gmsh', id: 'gmsh-win-conda', backend: 'windows-native', section: 'Commands', button: 'Probe in runtime-lab', levels: ['L0', 'L1', 'L2', 'L3'] }
   ]
   for (const item of cases) {
     await environment.selectOption(item.backend)
@@ -90,7 +90,7 @@ try {
     assert.equal(await view.locator('tbody tr').count(), item.count)
     assert.ok((await view.innerText()).includes('current'), `${item.id} qualifications must be current immediately after the run`)
   }
-  console.log('PASS: four providers saved scoped L0-L3 qualifications; failed Gmsh did not; History verified current records')
+  console.log('PASS: five providers saved scoped L0-L3 qualifications; History verified current records')
 } finally {
   await browser.close()
 }

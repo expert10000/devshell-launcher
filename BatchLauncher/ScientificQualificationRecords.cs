@@ -56,14 +56,15 @@ public static class ScientificQualificationRecords
     private static string? CompileLinkHash(string directory, string sourceRoot, string runtimeId,
         JsonObject result, JsonObject components)
     {
-        if (runtimeId is not ("cgal-win-conda" or "vtk-win-conda")
+        if (runtimeId is not ("cgal-win-conda" or "vtk-win-conda" or "gmsh-win-conda")
             || result["steps"] is not JsonArray steps || steps.Count != 2
             || result["compileLink"] is not JsonObject buildEvidence
             || components["worker"]?["executedFiles"] is not JsonArray executed
             || components["environment"]?["toolchain"]?["cmake"]?["state"]?.GetValue<string>() != "recorded"
             || components["environment"]?["toolchain"]?["msvcCompiler"]?["state"]?.GetValue<string>() != "recorded"
             || string.IsNullOrWhiteSpace(result["versions"]?["msvc"]?.GetValue<string>())) return null;
-        var kind = runtimeId.StartsWith("cgal", StringComparison.Ordinal) ? "cgal" : "vtk";
+        var kind = runtimeId.StartsWith("cgal", StringComparison.Ordinal) ? "cgal"
+            : runtimeId.StartsWith("gmsh", StringComparison.Ordinal) ? "gmsh" : "vtk";
         var build = Path.Combine(directory, "build");
         var source = Path.Combine(sourceRoot, "scientific", "smoke", kind);
         var configure = steps[0]; var compile = steps[1];
@@ -91,11 +92,12 @@ public static class ScientificQualificationRecords
 
     private static string? L5Hash(string directory, string runtimeId, JsonObject result, JsonObject components)
     {
-        var (capability, recipe, negativeId, positiveName, negativeName, reason) = runtimeId switch
+        var (capability, recipe, positiveId, negativeId, positiveName, negativeName, reason) = runtimeId switch
         {
-            "cgal-win-conda" => ("mesh.validate", "cgal.validate", "math3d/problematic/18_degenerate_faces.obj", "l5-positive.obj", "l5-rejected.obj", "not a readable manifold polygon mesh"),
-            "vtk-win-conda" => ("mesh.read", "mesh.inspect", "math3d/import/truncated-ascii.ply", "l5-positive.vtp", "l5-rejected.vtp", "surface is empty"),
-            _ => ("", "", "", "", "", "")
+            "cgal-win-conda" => ("mesh.validate", "cgal.validate", "math3d/basic/01_tetrahedron.obj", "math3d/problematic/18_degenerate_faces.obj", "l5-positive.obj", "l5-rejected.obj", "not a readable manifold polygon mesh"),
+            "vtk-win-conda" => ("mesh.read", "mesh.inspect", "math3d/basic/01_tetrahedron.obj", "math3d/import/truncated-ascii.ply", "l5-positive.vtp", "l5-rejected.vtp", "surface is empty"),
+            "gmsh-win-conda" => ("mesh.generate", "gmsh.mesh2d", "gmsh/fixed-square.geo", "gmsh/tampered-square.geo", "l5-positive.msh", "l5-rejected.msh", "Only the registered fixed square GEO fixture is accepted"),
+            _ => ("", "", "", "", "", "", "")
         };
         if (capability.Length == 0 || result["recipeId"]?.GetValue<string>() != "l5.worker"
             || result["l5Evidence"] is not JsonObject evidence || evidence["suiteId"]?.GetValue<string>() != "l5-worker-v1"
@@ -110,7 +112,7 @@ public static class ScientificQualificationRecords
             if (lower[i]?["level"]?.GetValue<string>() != required[i]
                 || lower[i]?["runId"]?.GetValue<string>() is not { Length: 32 }
                 || lower[i]?["recordId"]?.GetValue<string>() is not { Length: 64 }) return null;
-        var cases = new[] { ("positive", "math3d/basic/01_tetrahedron.obj", positiveName, "succeeded"),
+        var cases = new[] { ("positive", positiveId, positiveName, "succeeded"),
             ("rejection", negativeId, negativeName, "failed") };
         foreach (var (folder, datasetId, outputName, state) in cases)
         {
@@ -775,7 +777,8 @@ public static class ScientificQualificationRecords
             var declaration = recipes.OfType<JsonObject>().FirstOrDefault(item => item["id"]?.GetValue<string>() == "compile-link"
                 && item["readinessLevel"]?.GetValue<string>() == "L4");
             var expectedCapability = runtimeId == "cgal-win-conda" ? "cgal.cpp.compile-link"
-                : runtimeId == "vtk-win-conda" ? "vtk.cpp.compile-link" : null;
+                : runtimeId == "vtk-win-conda" ? "vtk.cpp.compile-link"
+                : runtimeId == "gmsh-win-conda" ? "gmsh.cpp.compile-link" : null;
             var hash = CompileLinkHash(directory, sourceRoot, runtimeId, result, components!);
             if (declaration?["capability"]?.GetValue<string>() == expectedCapability && hash != null)
                 Add(expectedCapability!, "L4", "compile-link", hash);
@@ -784,7 +787,8 @@ public static class ScientificQualificationRecords
         {
             var declaration = l5Recipes.OfType<JsonObject>().FirstOrDefault(item => item["id"]?.GetValue<string>() == "l5.worker"
                 && item["readinessLevel"]?.GetValue<string>() == "L5");
-            var capability = runtimeId == "cgal-win-conda" ? "mesh.validate" : runtimeId == "vtk-win-conda" ? "mesh.read" : null;
+            var capability = runtimeId == "cgal-win-conda" ? "mesh.validate" : runtimeId == "vtk-win-conda" ? "mesh.read"
+                : runtimeId == "gmsh-win-conda" ? "mesh.generate" : null;
             var hash = L5Hash(directory, runtimeId, result, components!);
             if (capability != null && declaration?["capability"]?.GetValue<string>() == capability && hash != null)
                 Add(capability, "L5", "l5.worker", hash, result["l5Evidence"]?["lowerQualification"]);
@@ -918,7 +922,8 @@ public static class ScientificQualificationRecords
                 throw new InvalidDataException("Qualification entry does not match its run.");
             if (record["level"]?.GetValue<string>() == "L4")
             {
-                var kind = runtimeId == "cgal-win-conda" ? "cgal" : runtimeId == "vtk-win-conda" ? "vtk" : null;
+                var kind = runtimeId == "cgal-win-conda" ? "cgal" : runtimeId == "vtk-win-conda" ? "vtk"
+                    : runtimeId == "gmsh-win-conda" ? "gmsh" : null;
                 var binaryName = kind == null ? null : "devshell_" + kind + "_smoke.exe";
                 var binary = binaryName == null ? null : Path.Combine(directory, "build", "Release", binaryName);
                 if (binary == null || !File.Exists(binary)

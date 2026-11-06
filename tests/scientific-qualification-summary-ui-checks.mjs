@@ -44,8 +44,8 @@ try {
   await main.locator('.scientific-runtime-item').filter({ hasText: 'Gmsh' }).first().click()
   await nav.getByRole('button', { name: 'History' }).click()
   await history.getByRole('button', { name: /Load history|Refresh history/ }).click()
-  await history.locator('section[aria-label="Current qualification summary"]').getByText('No current qualifications for this provider.').waitFor()
-  console.log('PASS: current levels link to supporting runs; Gmsh has no current qualifications')
+  await history.locator('section[aria-label="Current qualification summary"]').getByText('mesh.generate').waitFor()
+  console.log('PASS: current levels link to supporting runs; Gmsh has scoped mesh.generate L5 evidence')
 } finally {
   await browser.close()
 }

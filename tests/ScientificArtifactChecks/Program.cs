@@ -254,7 +254,10 @@ foreach(var provider in providers)
 }
 Reject(()=>ScientificProviderRegistry.RequireAction("vtk-win-conda","boolean-recipe"),"VTK rejects CGAL Boolean action");
 Reject(()=>ScientificProviderRegistry.RequireAction("cgal-win-conda","sage-recipe"),"CGAL rejects Sage action");
-Reject(()=>ScientificProviderRegistry.RequireAction("gmsh-win-conda","recipe"),"Gmsh rejects unmanaged recipe action");
+Check(ScientificProviderRegistry.RequireAction("gmsh-win-conda","recipe").NativeManaged
+    && ScientificProviderRegistry.RequireAction("gmsh-win-conda","l5-worker").NativeManaged,
+    "Gmsh admits its managed compile and L5 worker actions");
+Reject(()=>ScientificProviderRegistry.RequireAction("gmsh-win-conda","l6-reproduce"),"Gmsh blocks unqualified L6 action");
 Reject(()=>ScientificProviderRegistry.RequireAction("sage-wsl","import-meshes"),"Sage rejects CGAL import action");
 var semanticCapabilities = ScientificCapabilityRegistry.Capabilities;
 Check(semanticCapabilities.Count >= 20 && semanticCapabilities.Select(item => item.Id).Distinct().Count() == semanticCapabilities.Count,

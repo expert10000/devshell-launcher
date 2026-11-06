@@ -43,7 +43,12 @@ public static class ScientificRunFingerprint
             "BatchLauncher/ScientificQualificationRecords.cs",
             $"runtimes/{runtimeId}/runtime.json" };
         if (runtimeId is "cgal-win-conda" or "vtk-win-conda" or "gmsh-win-conda") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L5.cs", "BatchLauncher/Form1.Scientific.L6.cs", "tools/scientific-artifact-roundtrip.py" });
-        if (runtimeId == "gmsh-win-conda") names.AddRange(new[] { "tools/scientific-gmsh-worker.py", "scientific/fixtures/gmsh/square.geo", "scientific/fixtures/gmsh/tampered-square.geo" });
+        if (runtimeId == "gmsh-win-conda") names.AddRange(new[] { "tools/scientific-gmsh-worker.py",
+            "tools/scientific-gmsh-roundtrip.py", "tools/scientific-gmsh-handoff.py",
+            "tools/scientific-gmsh-vtk-consumer.py", "tools/math3d-gmsh-import-handoff.mjs",
+            "BatchLauncher/Form1.Scientific.L7.cs", "BatchLauncher/Form1.Scientific.GmshGates.cs",
+            "BatchLauncher/ScientificQualificationRecords.Gmsh.cs", "BatchLauncher/OwnedProcessJob.cs",
+            "scientific/fixtures/gmsh/square.geo", "scientific/fixtures/gmsh/tampered-square.geo" });
         if (runtimeId == "vtk-win-conda") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L7.cs", "tools/math3d-vtk-import-handoff.mjs" });
         if (runtimeId == "cgal-win-conda") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L7Interop.cs", "BatchLauncher/Form1.Scientific.L8.cs", "BatchLauncher/Form1.Scientific.L9.cs", "BatchLauncher/OwnedProcessJob.cs", "tools/scientific-vtk-interop.py", "tools/math3d-vtk-import-handoff.mjs", "tools/math3d-l9-product-handoff.mjs" });
         if (runtimeId.StartsWith("cgal", StringComparison.Ordinal))
@@ -136,12 +141,19 @@ public static class ScientificRunFingerprint
             "tools/scientific-cgal-worker.py", "tools/scientific-mesh-worker.py", "tools/scientific-gmsh-worker.py", "tools/scientific_worker_contract.py" });
         if (recipeId == "l6.reproduce") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L5.cs", "BatchLauncher/Form1.Scientific.L6.cs", "BatchLauncher/Form1.Scientific.Cgal.cs",
             "tools/scientific-cgal-worker.py", "tools/scientific-mesh-worker.py", "tools/scientific_worker_contract.py", "tools/scientific-artifact-roundtrip.py" });
+        if (recipeId == "l6.reproduce" && runtimeId == "gmsh-win-conda") names.AddRange(new[] {
+            "tools/scientific-gmsh-worker.py", "tools/scientific-gmsh-handoff.py", "tools/scientific-gmsh-roundtrip.py" });
         if (recipeId == "l7.math3d-import") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L7.cs",
             "tools/scientific-artifact-roundtrip.py", "tools/math3d-vtk-import-handoff.mjs" });
+        if (recipeId == "l7.gmsh-interop") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.GmshGates.cs",
+            "tools/scientific-gmsh-handoff.py", "tools/scientific-gmsh-vtk-consumer.py",
+            "tools/math3d-gmsh-import-handoff.mjs" });
         if (recipeId == "l7.cgal-vtk-math3d") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L7Interop.cs",
             "tools/scientific-artifact-roundtrip.py", "tools/scientific-vtk-interop.py", "tools/math3d-vtk-import-handoff.mjs" });
         if (recipeId == "l8.resilience") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L8.cs",
             "BatchLauncher/OwnedProcessJob.cs", "tools/scientific-vtk-interop.py" });
+        if (recipeId == "l8.gmsh-resilience") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.GmshGates.cs",
+            "BatchLauncher/OwnedProcessJob.cs", "tools/scientific-gmsh-vtk-consumer.py" });
         if (recipeId == "l9.math3d-product") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L9.cs",
             "tools/math3d-l9-product-handoff.mjs", "tools/scientific-cgal-worker.py", "tools/runtime-lab/Program.cs" });
         if (recipeId == "test-hold") names.Add("BatchLauncher/Form1.Scientific.StopTest.cs");

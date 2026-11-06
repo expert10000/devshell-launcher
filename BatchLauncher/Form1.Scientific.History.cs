@@ -179,7 +179,8 @@ public partial class Form1
             .Select(record => record["recordId"]?.GetValue<string>()).OfType<string>());
         var importerPath = Path.Combine(ScientificL7Checkout(), "renderer", "src", "mesh", "surfaceMesh.ts");
         var importerHash = File.Exists(importerPath) ? ScientificHash(importerPath) : null;
-        var vtkConsumerEnvironment = runtimeId == "cgal-win-conda" ? ScientificCurrentVtkConsumerEnvironment(profileId) : null;
+        var vtkConsumerEnvironment = runtimeId is "cgal-win-conda" or "gmsh-win-conda"
+            ? ScientificCurrentVtkConsumerEnvironment(profileId) : null;
         foreach (var run in runs)
             if (run["qualifications"] is JsonArray records)
             {

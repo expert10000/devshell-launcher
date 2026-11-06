@@ -20,7 +20,8 @@ public partial class Form1
     private JsonObject ScientificCurrentL6(string profileId, string runtimeId = "vtk-win-conda")
     {
         var summary = ScientificQualificationSummary(profileId, runtimeId);
-        var capability = runtimeId == "cgal-win-conda" ? "mesh.validate" : "mesh.read";
+        var capability = runtimeId == "cgal-win-conda" ? "mesh.validate"
+            : runtimeId == "gmsh-win-conda" ? "mesh.generate" : "mesh.read";
         var support = summary["currentRecords"]?.AsArray().OfType<JsonObject>()
             .Where(item => item["capabilityId"]?.GetValue<string>() == capability
                 && item["level"]?.GetValue<string>() == "L6")
@@ -54,7 +55,7 @@ public partial class Form1
             || source["recipeId"]?.GetValue<string>() != "l6.reproduce"
             || source["state"]?.GetValue<string>() != "succeeded"
             || evidence?["verdict"]?.GetValue<string>() != "matched"
-            || evidence["roundTrip"]?["closed"]?.GetValue<bool>() != true
+            || (runtimeId != "gmsh-win-conda" && evidence["roundTrip"]?["closed"]?.GetValue<bool>() != true)
             || !ScientificQualificationRecords.Verify(directory, result).OfType<JsonObject>()
                 .Any(item => item["recordId"]?.GetValue<string>() == recordId && item["level"]?.GetValue<string>() == "L6"))
             throw new InvalidDataException("The L6 source is not a verified round-trip run.");

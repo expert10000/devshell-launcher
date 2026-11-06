@@ -16,7 +16,13 @@
     { "id": "l5.worker", "readinessLevel": "L5", "capability": "mesh.generate",
       "positive": { "recipeId": "gmsh.mesh2d", "datasetId": "gmsh/fixed-square.geo", "outputName": "l5-positive.msh" },
       "rejection": { "recipeId": "gmsh.mesh2d", "datasetId": "gmsh/tampered-square.geo", "outputName": "l5-rejected.msh", "expectedReason": "Only the registered fixed square GEO fixture is accepted" }
-    }
+    },
+    { "id": "l6.reproduce", "readinessLevel": "L6", "capability": "mesh.generate",
+      "referenceRecipe": "l5.worker", "comparison": "sha256-exact" },
+    { "id": "l7.gmsh-interop", "readinessLevel": "L7", "capability": "mesh.generate",
+      "referenceRecipe": "l6.reproduce", "consumers": ["VTK vtkOBJReader", "MATH3D desktop loadSurfaceMeshFromFile"], "format": "obj" },
+    { "id": "l8.gmsh-resilience", "readinessLevel": "L8", "capability": "mesh.generate",
+      "referenceRecipe": "l7.gmsh-interop", "repeatCount": 3, "memoryLimitBytes": 134217728 }
   ],
   "probes": [
     {

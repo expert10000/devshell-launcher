@@ -1628,6 +1628,21 @@ Register a fixed public `.geo` positive case and a changed-geometry rejection ca
 
 **2026-11-06 scoped delivery:** The desktop L5 action used separate hash-checked dataset copies, generated a 44-point/66-triangle `.msh` from the fixed square, and rejected the changed rectangle without an artifact. The managed L5 record pins the worker contract, two child results, positive artifact hash and five current lower records. History displayed L5 as current. The earlier DS-SCI-056/057 local repeat and importer evidence remains separate: managed L6 reproduction, L7 interoperability, L8 resilience and L9 viewer/document gates have not been granted. Gmsh is still excluded from release certification and promotion.
 
+**DS-SCI-061 — `feat(scientific): qualify managed Gmsh L6 reproduction and reload`**\
+Rerun the fixed positive and rejection cases through owned desktop jobs. Compare the `.msh` bytes with a current L5 run, independently reopen the saved mesh with Gmsh, and verify point/triangle counts, boundary and nonmanifold edges, XY orientation, unit area and bounds. Pin the L5 record, worker contract, environment and reload parser before granting `mesh.generate` L6.
+
+**2026-11-06 delivery:** The new desktop L6 action passed with an exact `.msh` hash match, expected rejection, and independent Gmsh reload of 44 points, 66 triangles, 20 boundary edges, zero nonmanifold edges, unit XY area and `[0,1] × [0,1] × {0}` bounds. Its current History L6 record links the prior managed L5 run. The reload parser and handoff source are included in Gmsh source drift fingerprints.
+
+**DS-SCI-062 — `feat(scientific): qualify managed Gmsh L7 consumer interoperability`**\
+Consume a current L6 `.msh` through a checked OBJ export, VTK `vtkOBJReader`, and MATH3D's desktop surface importer. Compare geometry, topology, orientation and scale at each consumer; require both to reject malformed OBJ. Pin each consumer result, source hash, VTK environment and MATH3D importer contract in a managed qualification record.
+
+**2026-11-06 delivery:** The desktop L7 action passed the fixed 2D surface in VTK and MATH3D with 44 points, 66 triangles, 20 boundary edges, positive unit XY area and matching bounds. Both rejected a malformed face. The current L7 record links the L6 artifact and all seven registered handoff files; History assesses importer source and VTK consumer environment drift.
+
+**DS-SCI-063 — `feat(scientific): qualify managed Gmsh L8 resilience`**\
+Reread the qualified L7 OBJ through the VTK consumer three times under time and memory budgets, then exercise owned process cancellation, timeout and a forced allocation limit. Save repeat hashes, peak memory, terminal states, absent partial outputs and source L7 record. Grant L8 only when all cases and current lower records verify.
+
+**2026-11-06 delivery:** Three bounded VTK reads produced identical result hashes. The cancellation and one-second timeout stopped their owned children without output; the 128 MiB memory job rejected a 512 MiB allocation with no artifact. The managed L8 record and History's highest-current-level summary passed on a fresh debug-port desktop run. This is fixed 2D consumer resilience, not a Gmsh volume-mesh or MATH3D viewer/document gate. Gmsh remains outside broker certified manifests and promotion until L9 product evidence passes.
+
 ---
 
 ## 28. Priority selection: what to implement first

@@ -17,7 +17,7 @@ public static class ScientificProviderRegistry
         new ScientificProvider("vtk-win-conda", "windows-native", "devshell-vtk", true, true,
             new[] { "environment", "terminal", "export", "test-hold", "recipe", "vtk-rejections", "l5-worker", "l6-reproduce", "l7-math3d-import" }),
         new ScientificProvider("gmsh-win-conda", "windows-native", "devshell-scientific", true, true,
-            new[] { "environment", "terminal", "recipe", "l5-worker" }),
+            new[] { "environment", "terminal", "recipe", "l5-worker", "l6-reproduce", "l7-gmsh-interop", "l8-gmsh-resilience" }),
         new ScientificProvider("python-win-conda", "windows-native", "devshell-scientific", false, true,
             Array.Empty<string>()),
         new ScientificProvider("sage-wsl", "wsl", "", false, true,

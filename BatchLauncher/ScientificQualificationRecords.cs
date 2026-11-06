@@ -7,7 +7,7 @@ namespace BatchLauncher;
 
 // Qualification records describe only named evidence that passed in this run.
 // The file is written once; History derives current status without changing it.
-public static class ScientificQualificationRecords
+public static partial class ScientificQualificationRecords
 {
     private static string Digest(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
 
@@ -183,7 +183,8 @@ public static class ScientificQualificationRecords
             || Digest(File.ReadAllText(reloadPath)) != reloadHash
             || JsonNode.Parse(File.ReadAllText(reloadPath))?.ToJsonString() != roundTrip.ToJsonString()
             || !ValidRoundTrip(roundTrip, runtimeId, candidate["positive"]?["artifactSha256"]?.GetValue<string>(),
-                components["suite"]?["files"]?["tools/scientific-artifact-roundtrip.py"]?["sha256"]?.GetValue<string>())
+                components["suite"]?["files"]?[runtimeId == "gmsh-win-conda"
+                    ? "tools/scientific-gmsh-roundtrip.py" : "tools/scientific-artifact-roundtrip.py"]?["sha256"]?.GetValue<string>())
             || result["artifacts"] is not JsonArray reloadArtifacts
             || !reloadArtifacts.Any(item => item?["path"]?.GetValue<string>() == "reload/results.json"
                 && item?["sha256"]?.GetValue<string>() == reloadHash)) return null;
@@ -220,7 +221,7 @@ public static class ScientificQualificationRecords
         var savedBaseline = JsonNode.Parse(baselineResult.GetRawText())?["l5Evidence"];
         var baselineFingerprint = JsonNode.Parse(File.ReadAllText(fingerprintPath));
         var baselineArtifact = baseline["artifactPath"]?.GetValue<string>();
-        if (baselineArtifact is not ("positive/l5-positive.obj" or "positive/l5-positive.vtp")) return null;
+        if (baselineArtifact is not ("positive/l5-positive.obj" or "positive/l5-positive.vtp" or "positive/l5-positive.msh")) return null;
         var baselineOutput = Path.Combine(baselineDirectory, baselineArtifact.Replace('/', Path.DirectorySeparatorChar));
         if (!File.Exists(baselineOutput)
             || baseline["artifactSha256"]?.GetValue<string>() != savedBaseline?["positive"]?["artifactSha256"]?.GetValue<string>()
@@ -241,7 +242,22 @@ public static class ScientificQualificationRecords
 
     public static bool ValidRoundTrip(JsonObject? reload, string runtimeId, string? artifactSha256, string? parserSha256)
     {
-        var format = runtimeId == "cgal-win-conda" ? "obj" : runtimeId == "vtk-win-conda" ? "vtp" : null;
+        var format = runtimeId == "cgal-win-conda" ? "obj" : runtimeId == "vtk-win-conda" ? "vtp"
+            : runtimeId == "gmsh-win-conda" ? "msh" : null;
+        if (format == "msh")
+        {
+            if (artifactSha256 is not { Length: 64 } || parserSha256 is not { Length: 64 }
+                || reload?["parserVersion"]?.GetValue<int>() != 1 || reload["format"]?.GetValue<string>() != "msh"
+                || reload["artifactSha256"]?.GetValue<string>() != artifactSha256
+                || reload["parserSourceSha256"]?.GetValue<string>() != parserSha256
+                || reload["points"]?.GetValue<int>() != 44 || reload["triangles"]?.GetValue<int>() != 66
+                || reload["boundaryEdges"]?.GetValue<int>() != 20 || reload["nonManifoldEdges"]?.GetValue<int>() != 0
+                || Math.Abs((reload["signedAreaXY"]?.GetValue<double>() ?? double.NaN) - 1) > 1e-9
+                || reload["bounds"] is not JsonArray square || square.Count != 6) return false;
+            var expected = new[] { 0d, 1d, 0d, 1d, 0d, 0d };
+            return Enumerable.Range(0, 6).All(index =>
+                Math.Abs((square[index]?.GetValue<double>() ?? double.NaN) - expected[index]) <= 1e-9);
+        }
         if (format == null || artifactSha256 is not { Length: 64 } || parserSha256 is not { Length: 64 }
             || reload?["parserVersion"]?.GetValue<int>() != 1 || reload["format"]?.GetValue<string>() != format
             || reload["artifactSha256"]?.GetValue<string>() != artifactSha256
@@ -799,7 +815,8 @@ public static class ScientificQualificationRecords
                 && item["readinessLevel"]?.GetValue<string>() == "L6"
                 && item["referenceRecipe"]?.GetValue<string>() == "l5.worker"
                 && item["comparison"]?.GetValue<string>() == "sha256-exact");
-            var capability = runtimeId == "cgal-win-conda" ? "mesh.validate" : runtimeId == "vtk-win-conda" ? "mesh.read" : null;
+            var capability = runtimeId == "cgal-win-conda" ? "mesh.validate" : runtimeId == "vtk-win-conda" ? "mesh.read"
+                : runtimeId == "gmsh-win-conda" ? "mesh.generate" : null;
             var hash = L6Hash(directory, runtimeId, result, components!);
             if (capability != null && declaration?["capability"]?.GetValue<string>() == capability && hash != null)
                 Add(capability, "L6", "l6.reproduce", hash, result["l6Evidence"]?["lowerQualification"]);
@@ -814,6 +831,21 @@ public static class ScientificQualificationRecords
             if (declaration != null && hash != null)
                 Add("mesh.interop.math3d", "L7", "l7.math3d-import", hash,
                     result["l7Evidence"]?["lowerQualification"], result["l7Evidence"]?["importerSourceSha256"]?.GetValue<string>());
+        }
+        else if (recipeId == "l7.gmsh-interop" && manifest["qualificationRecipes"] is JsonArray gmshInteropRecipes)
+        {
+            var declaration = gmshInteropRecipes.OfType<JsonObject>().FirstOrDefault(item =>
+                item["id"]?.GetValue<string>() == "l7.gmsh-interop"
+                && item["readinessLevel"]?.GetValue<string>() == "L7"
+                && item["capability"]?.GetValue<string>() == "mesh.generate"
+                && item["referenceRecipe"]?.GetValue<string>() == "l6.reproduce");
+            var hash = GmshL7Hash(directory, result, components!);
+            var evidence = result["l7GmshEvidence"];
+            if (declaration != null && hash != null)
+                Add("mesh.generate", "L7", "l7.gmsh-interop", hash, evidence?["lowerQualification"],
+                    evidence?["consumerContract"]?["math3dImporterSha256"]?.GetValue<string>(),
+                    evidence?["consumerContractSha256"]?.GetValue<string>(),
+                    evidence?["consumerContract"]?["vtkEnvironmentSha256"]?.GetValue<string>());
         }
         else if (recipeId == "l7.cgal-vtk-math3d" && manifest["qualificationRecipes"] is JsonArray cgalInteropRecipes)
         {
@@ -844,6 +876,20 @@ public static class ScientificQualificationRecords
             if (declaration != null && hash != null)
                 Add("mesh.interop.vtk-math3d", "L8", "l8.resilience", hash,
                     result["l8Evidence"]?["lowerQualification"]);
+        }
+        else if (recipeId == "l8.gmsh-resilience" && manifest["qualificationRecipes"] is JsonArray gmshResilienceRecipes)
+        {
+            var declaration = gmshResilienceRecipes.OfType<JsonObject>().FirstOrDefault(item =>
+                item["id"]?.GetValue<string>() == "l8.gmsh-resilience"
+                && item["readinessLevel"]?.GetValue<string>() == "L8"
+                && item["capability"]?.GetValue<string>() == "mesh.generate"
+                && item["referenceRecipe"]?.GetValue<string>() == "l7.gmsh-interop"
+                && item["repeatCount"]?.GetValue<int>() == 3
+                && item["memoryLimitBytes"]?.GetValue<long>() == 134217728);
+            var hash = GmshL8Hash(directory, result, components!);
+            if (declaration != null && hash != null)
+                Add("mesh.generate", "L8", "l8.gmsh-resilience", hash,
+                    result["l8GmshEvidence"]?["lowerQualification"]);
         }
         else if (recipeId == "l9.math3d-product" && manifest["qualificationRecipes"] is JsonArray productRecipes)
         {
@@ -955,6 +1001,18 @@ public static class ScientificQualificationRecords
             {
                 var sourceResult = JsonNode.Parse(result.GetRawText()) as JsonObject;
                 if (sourceResult == null) throw new InvalidDataException("L7 evidence is unavailable.");
+                if (record["evidenceId"]?.GetValue<string>() == "l7.gmsh-interop")
+                {
+                    var evidence = sourceResult["l7GmshEvidence"];
+                    if (record["lowerQualification"]?.ToJsonString() != evidence?["lowerQualification"]?.ToJsonString()
+                        || record["consumerSourceSha256"]?.GetValue<string>() != evidence?["consumerContract"]?["math3dImporterSha256"]?.GetValue<string>()
+                        || record["consumerContractSha256"]?.GetValue<string>() != evidence?["consumerContractSha256"]?.GetValue<string>()
+                        || record["consumerEnvironmentSha256"]?.GetValue<string>() != evidence?["consumerContract"]?["vtkEnvironmentSha256"]?.GetValue<string>()
+                        || record["evidenceSha256"]?.GetValue<string>() != GmshL7Hash(directory, sourceResult,
+                            fingerprint!["components"]!.AsObject()))
+                        throw new InvalidDataException("Gmsh L7 interoperability evidence has changed.");
+                    continue;
+                }
                 if (record["evidenceId"]?.GetValue<string>() == "l7.cgal-vtk-math3d")
                 {
                     var evidence = sourceResult["l7InteropEvidence"];
@@ -977,6 +1035,15 @@ public static class ScientificQualificationRecords
             if (record["level"]?.GetValue<string>() == "L8")
             {
                 var sourceResult = JsonNode.Parse(result.GetRawText()) as JsonObject;
+                if (record["evidenceId"]?.GetValue<string>() == "l8.gmsh-resilience")
+                {
+                    if (sourceResult == null
+                        || record["lowerQualification"]?.ToJsonString() != sourceResult["l8GmshEvidence"]?["lowerQualification"]?.ToJsonString()
+                        || record["evidenceSha256"]?.GetValue<string>() != GmshL8Hash(directory, sourceResult,
+                            fingerprint!["components"]!.AsObject()))
+                        throw new InvalidDataException("Gmsh L8 resilience evidence has changed.");
+                    continue;
+                }
                 if (sourceResult == null || record["evidenceId"]?.GetValue<string>() != "l8.resilience"
                     || record["lowerQualification"]?.ToJsonString() != sourceResult["l8Evidence"]?["lowerQualification"]?.ToJsonString()
                     || record["evidenceSha256"]?.GetValue<string>() != L8Hash(directory, sourceResult,
@@ -1059,7 +1126,7 @@ public static class ScientificQualificationRecords
             record["staleReasons"] = reasons;
         }
         foreach (var record in records.OfType<JsonObject>().Where(item => item["level"]?.GetValue<string>() == "L7"
-            && item["evidenceId"]?.GetValue<string>() == "l7.cgal-vtk-math3d"))
+            && item["evidenceId"]?.GetValue<string>() is "l7.cgal-vtk-math3d" or "l7.gmsh-interop"))
         {
             if (record["consumerEnvironmentSha256"]?.GetValue<string>() == currentVtkEnvironmentSha256) continue;
             record["status"] = currentVtkEnvironmentSha256 == null ? "unknown" : "stale";

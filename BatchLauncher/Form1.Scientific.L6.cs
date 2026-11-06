@@ -114,8 +114,10 @@ public partial class Form1
             var reloadDirectory = Path.Combine(job.Directory, "reload");
             Directory.CreateDirectory(reloadDirectory);
             var reloadResult = Path.Combine(reloadDirectory, "results.json");
+            var reloadTool = job.RuntimeId == "gmsh-win-conda"
+                ? "scientific-gmsh-roundtrip.py" : "scientific-artifact-roundtrip.py";
             await ScientificProcessAsync(job, prefix, Path.Combine(prefix, "python.exe"),
-                [Path.Combine(ScientificSourceRoot, "tools", "scientific-artifact-roundtrip.py"),
+                [Path.Combine(ScientificSourceRoot, "tools", reloadTool),
                     "--input", Path.Combine(job.Directory, "positive", positive.OutputName),
                     "--result", reloadResult], reloadDirectory, 60);
             var reloaded = JsonNode.Parse(File.ReadAllText(reloadResult)) as JsonObject
@@ -130,7 +132,7 @@ public partial class Form1
                 && contract?["workerContractModule"]?["sha256"]?.GetValue<string>() == baseline["workerContractSha256"]?.GetValue<string>()
                 && currentEnvironment == baseline["environmentSha256"]?.GetValue<string>()
                 && ScientificQualificationRecords.ValidRoundTrip(reloaded, job.RuntimeId, passed["artifactSha256"]?.GetValue<string>(),
-                    job.FingerprintComponents?["suite"]?["files"]?["tools/scientific-artifact-roundtrip.py"]?["sha256"]?.GetValue<string>());
+                    job.FingerprintComponents?["suite"]?["files"]?["tools/" + reloadTool]?["sha256"]?.GetValue<string>());
             var currentLower = ScientificCurrentLowerLevels(job.ProfileId, job.RuntimeId);
             var currentL5 = ScientificCurrentL5(job.ProfileId, job.RuntimeId, capability);
             if (currentLower.ToJsonString() != lower.ToJsonString()

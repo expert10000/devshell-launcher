@@ -65,7 +65,10 @@ class ScientificContract:
             raise ValueError('Dataset hash changed since the request was created')
         self.input_record.update(path=str(self.input), bytes=self.input.stat().st_size, sha256=actual_hash)
         self.output_name = self.request['outputArtifacts'][0]['path']
-        extension = r'obj' if runtime_id == 'cgal-win-conda' else r'vtp'
+        extension = {'cgal-win-conda': r'obj', 'vtk-win-conda': r'vtp',
+                     'gmsh-win-conda': r'msh'}.get(runtime_id)
+        if extension is None:
+            raise ValueError('Unsupported worker artifact format')
         if not isinstance(self.output_name, str) or not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_.-]{0,99}\.' + extension, self.output_name):
             raise ValueError('Output must be a safe mesh basename')
         self.output = self.directory / self.output_name
@@ -77,7 +80,8 @@ class ScientificContract:
         artifacts = []
         if state == 'succeeded' and self.output.is_file():
             artifacts.append({'path': self.output_name,
-                              'mediaType': 'model/obj' if self.output.suffix == '.obj' else 'application/vnd.vtk.vtp',
+                              'mediaType': {'obj': 'model/obj', 'vtp': 'application/vnd.vtk.vtp',
+                                            'msh': 'application/vnd.gmsh.msh'}[self.output.suffix[1:]],
                               'bytes': self.output.stat().st_size, 'sha256': fingerprint(self.output)})
         result = dict(extra or {})
         result.update(schemaVersion=1, runId=self.request.get('runId'), runtimeId=self.request.get('runtimeId'),

@@ -281,3 +281,22 @@ The generator requires all seven evidence sources and verifies each before writi
 ## Fresh release evidence (DS-SCI-051)
 
 Capture `tools/Inspect-ScientificRuntimes.ps1` into `.scientific/runtime-report.json`. In the desktop Scientific Runtimes → CGAL → Commands page, run **Probe in runtime-lab**, **Compile & link**, then the L5, L6, L7, L8 and L9 buttons in order. Each gate must succeed before starting the next. Export current qualifications with `ScientificBroker.csproj export` into a new manifest path; require exactly one CGAL L9 capability with ten supporting records. Point a new broker config at this manifest, preserving old configs for historical runs. Run `broker.py verify`, `smoke.py`, and `provenance.py build` with the new config, then `release_certification.py certify` and `verify`. The release report pins the inventory captured within 24 hours, the source commit, local agent identity and L0–L9 gate records. A stale inventory or missing chain blocks the release. Save a new release matrix snapshot and DS-SCI-050 report from the verified evidence. Matrix snapshots retain their inventory bytes so subsequent inventory captures cannot alter the historical comparison. Gmsh stays outside the certified manifest.
+
+## Shared-provider mesh comparison (DS-SCI-053)
+
+```powershell
+python tools/scientific-broker/cross_provider.py compare --cgal-release <CGAL-release/qualification-report.json> --vtk-release <VTK-release/qualification-report.json> --cgal-config <current-CGAL-broker-config.json> --vtk-config <current-VTK-broker-config.json> --cgal-result <CGAL-L6/results.json> --vtk-result <VTK-L6/results.json> --cgal-benchmark <CGAL-benchmark.json> --vtk-benchmark <VTK-benchmark.json> --output-root .scientific/cross-provider
+python tools/scientific-broker/cross_provider.py verify --record <comparison.json>
+```
+
+Use source runs that registered the same tetrahedron input hash. The report checks saved output and run fingerprint hashes and compares geometry, topology, orientation and scale at a declared tolerance. Both release reports and live broker configs must verify the exact current L9 records to pass. A missing or stale certification blocks the verdict. Performance is inconclusive until two benchmark records use current qualification IDs, the same host, fixture, tier sizes and policy. The current local pair is geometrically equivalent; VTK lacks L9 and the earlier CGAL contract hash is stale after the Gmsh worker extension.
+
+## Gmsh local foundation (DS-SCI-054)
+
+```powershell
+G:\master\.conda\devshell-scientific\python.exe -m pip install --no-deps gmsh==4.15.2
+python tools/scientific-broker/gmsh_foundation.py run --prefix G:\master\.conda\devshell-scientific --cmake G:\master\.conda\devshell-cgal\Library\bin\cmake.exe --output-root .scientific/gmsh-foundation
+python tools/scientific-broker/gmsh_foundation.py verify --record <foundation.json>
+```
+
+Run only with a matching native Gmsh package, header and import library in the prefix. The registered `gmsh.mesh2d` worker accepts the fixed public square and a bounded mesh size, saves a typed `.msh` result and rejects invalid parameters. The local suite records L0–L4 probe and compile/link evidence, source and package hashes, a positive output, expected rejection and an independent artifact reload. This local record does not enter desktop qualification History or the broker certified manifest; L5–L9 remain open.

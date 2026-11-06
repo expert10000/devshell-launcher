@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.20)
+project(devshell_gmsh_smoke LANGUAGES CXX)
+find_path(GMSH_INCLUDE_DIR gmsh.h REQUIRED)
+find_library(GMSH_LIBRARY NAMES gmsh.dll.lib gmsh REQUIRED)
+add_executable(devshell_gmsh_smoke main.cpp)
+target_compile_features(devshell_gmsh_smoke PRIVATE cxx_std_17)
+target_include_directories(devshell_gmsh_smoke PRIVATE "${GMSH_INCLUDE_DIR}")
+target_link_libraries(devshell_gmsh_smoke PRIVATE "${GMSH_LIBRARY}")

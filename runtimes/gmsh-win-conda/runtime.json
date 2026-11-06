@@ -4,6 +4,13 @@
   "kind": "gmsh",
   "execution": "windows-native",
   "description": "Opt-in Gmsh Python import, bounded surface meshing, and expected rejection.",
+  "foundation": {
+    "recipeId": "gmsh.mesh2d",
+    "worker": "tools/scientific-gmsh-worker.py",
+    "fixture": "scientific/fixtures/gmsh/square.geo",
+    "cppSmoke": "scientific/smoke/gmsh",
+    "scope": "Fixed public 2D square only; foundation evidence does not certify the broker or MATH3D path."
+  },
   "probes": [
     {
       "id": "python.version",

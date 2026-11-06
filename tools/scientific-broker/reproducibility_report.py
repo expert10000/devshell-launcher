@@ -65,17 +65,18 @@ def clean(value):
 def render(paths, sources):
     matrix, snapshots, conformance, contract, environment, recreation, provenance, differential = sources
     left, right = snapshots
+    right_release = json.loads(Path(right['releaseReportPath']).read_text(encoding='utf-8'))
     smoke_node = provenance['nodes'][-1]
     comparison = differential['comparison']
     broker = Broker(paths['config'])
     manifest_path = broker.paths['manifest']
     if sha(manifest_path) != provenance['manifestSha256']:
-        raise ValueError('Historical broker manifest changed.')
-    historical = json.loads(manifest_path.read_text(encoding='utf-8'))
-    capability = next((item['capabilityId'] for item in historical['certifiedCapabilities']
+        raise ValueError('Broker manifest changed.')
+    deployed = json.loads(manifest_path.read_text(encoding='utf-8'))
+    capability = next((item['capabilityId'] for item in deployed['certifiedCapabilities']
                        if item['recordId'] == provenance['nodes'][5]['certificationRecordId']), None)
     if not capability:
-        raise ValueError('Provenance certification is absent from the historical broker manifest.')
+        raise ValueError('Provenance certification is absent from the broker manifest.')
     lines = [
         '# Scientific reproducibility report', '',
         f"Release comparison: **{clean(matrix['leftReleaseTag'])} → {clean(matrix['rightReleaseTag'])}**.",
@@ -92,9 +93,26 @@ def render(paths, sources):
             row['verdict'], row['confidence'])) + ' |')
     lines += ['', f"- Left release gate: **{clean(left['releaseVerdict'])}**; inventory **{clean(left['inventoryState'])}**; reasons: {clean('; '.join(left['releaseReasons']) or 'none')}",
               f"- Right release gate: **{clean(right['releaseVerdict'])}**; inventory **{clean(right['inventoryState'])}**; reasons: {clean('; '.join(right['releaseReasons']) or 'none')}",
-              '- No provider is release certified by a blocked report. Gmsh remains unqualified.', '',
-              f"- Historical fixed broker capability: `{clean(capability)}` on CGAL, exercised by source job `{provenance['sourceJobId']}`. It is not current release qualification.", '',
-              '## Supporting gate verdicts', '',
+              '- A blocked release certifies no provider. Gmsh remains unqualified.',
+              f"- Current release source commit: `{clean(right_release['sourceCommit'])}`.",
+              f"- Current release inventory: **{clean(right['inventoryState'])}**; SHA-256 `{clean(right['inventorySha256'])}`.",
+              f"- Current release agent: `{clean(right_release.get('agent', {}).get('kind', 'unrecorded'))}`; host fingerprint `{clean(right_release.get('agent', {}).get('hostFingerprintSha256', 'unrecorded'))}`.", '',
+              f"- Broker capability exercised by provenance: `{clean(capability)}` on CGAL, source job `{provenance['sourceJobId']}`. Release status is determined by the gate above.", '']
+    lines += ['## Current CGAL L0–L9 chain', '']
+    if right_release.get('gateVerdicts'):
+        lines += ['| Level | State | Capability or reason | Supporting run | Qualification record |', '|---|---|---|---|---|']
+        for item in right_release['gateVerdicts']:
+            lines.append('| ' + ' | '.join(clean(value) for value in (
+                item['level'], item['state'], item.get('capabilityId') or item.get('reason', 'unavailable'),
+                item.get('runId', '—'), item.get('recordId', '—'))) + ' |')
+    elif right_release['verdict'] == 'qualified':
+        lines += ['| Level | State | Capability | Supporting run | Qualification record |', '|---|---|---|---|---|']
+        for item in right_release['capabilities'][0]['supportingRecords']:
+            lines.append('| ' + ' | '.join(clean(value) for value in (
+                item['level'], 'current', item['capabilityId'], item['runId'], item['recordId'])) + ' |')
+    else:
+        lines.append('- No current complete chain; blocked reasons: ' + clean('; '.join(right_release['reasons'])) + '.')
+    lines += ['', '## Supporting gate verdicts', '',
               f"- Contract migration: **{clean(contract['verdict'])}**, {len(contract['contracts'])} scoped contract(s).",
               f"- CGAL environment recreation: **{clean(recreation['state'])}**; sandbox removed: {clean(recreation['sandboxRemoved'])}.",
               f"- Saved mesh differential: **{clean(comparison['verdict'])}**; checks: " + ', '.join(f'{clean(k)}={clean(v)}' for k, v in comparison['checks'].items()) + '.',
@@ -112,14 +130,14 @@ def render(paths, sources):
               '## Fingerprints and tolerances', '',
               f"- Conformance host fingerprint: `{conformance['hostFingerprintSha256']}`; suite revision: `{conformance['suiteRevisionSha256']}`.",
               f"- Runtime manifest SHA-256: `{environment['sourceRuntimeManifestSha256']}`; Python SHA-256: `{environment['sourcePythonSha256']}`.",
-              f"- Broker certified manifest SHA-256 in the fixed provenance run: `{provenance['manifestSha256']}`. This historical manifest does not override the blocked release gate.",
+              f"- Broker manifest SHA-256 in the fixed provenance run: `{provenance['manifestSha256']}`. Its release status is governed by the release gate above.",
               f"- Differential run fingerprints: `{differential['left'].get('runFingerprintSha256', 'unavailable')}` and `{differential['right'].get('runFingerprintSha256', 'unavailable')}`.",
               f"- Differential contract fingerprints: `{differential['left'].get('contractFingerprintSha256', 'unavailable')}` and `{differential['right'].get('contractFingerprintSha256', 'unavailable')}`.",
               f"- Mesh tolerance: `{comparison['tolerance']}` relative/scale-aware according to the bounded surface comparator; comparator SHA-256 `{differential['comparatorSha256']}`.",
               '- Field comparison default: `1e-9` for numeric values; exact rational/polynomial results compare canonically with no numeric tolerance. No field or exact differential run is asserted here.', '',
               '## Regressions and scope', '',
               f"- Product smoke and viewer regression: **passed** in verified source job `{provenance['sourceJobId']}`; viewer regression SHA-256 `{smoke_node['viewerRegressionSha256']}`; independent `.m3dm` reload passed.",
-              '- Release comparison is inconclusive; no scientific regression is inferred from version changes or missing evidence.',
+              f"- Release comparison: **{clean(matrix['verdict'])}**. No scientific regression is inferred from qualification changes alone.",
               '- Reviewed failure replay fixtures: none supplied to this report.', '',
               '## Reproduce and verify', '',
               'Run these commands from the repository root. Paths below identify the saved local evidence; a fresh qualification requires new runs and inventory.', '',

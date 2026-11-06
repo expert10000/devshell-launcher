@@ -55,6 +55,26 @@ def assess(fresh, broker):
     return reasons
 
 
+def inventory_state(inventory, release_time):
+    try:
+        captured = datetime.fromisoformat(inventory['generatedAt'].replace('Z', '+00:00'))
+        age = (release_time - captured).total_seconds()
+        return 'current' if 0 <= age <= 24 * 3600 else 'stale'
+    except (KeyError, TypeError, ValueError):
+        return 'unknown'
+
+
+def gate_verdicts(fresh):
+    capabilities = fresh.get('certifiedCapabilities', [])
+    support = capabilities[0].get('supportingRecords', []) if len(capabilities) == 1 else []
+    complete = len(support) == 10 and all(item.get('level') == f'L{index}' for index, item in enumerate(support))
+    return [dict(level=f'L{index}', state='current', capabilityId=support[index]['capabilityId'],
+                 runId=support[index]['runId'], recordId=support[index]['recordId']) if complete
+            else dict(level=f'L{index}', state='blocked',
+                      reason='Fresh exporter supplied no complete current L0–L9 chain for this level.')
+            for index in range(10)]
+
+
 def certify(config_path, installed_root, profile_id, release_tag, output_root, exporter=fresh_export):
     if not RELEASE_TAG.fullmatch(release_tag):
         raise ValueError('Invalid release tag.')
@@ -68,17 +88,33 @@ def certify(config_path, installed_root, profile_id, release_tag, output_root, e
     release_id = uuid.uuid4().hex
     directory = output_root / release_id
     directory.mkdir()
+    inventory_source = repo / '.scientific' / 'runtime-report.json'
+    inventory_bytes = inventory_source.read_bytes()
+    if len(inventory_bytes) > 1048576:
+        raise ValueError('Runtime inventory exceeds the release budget.')
+    inventory = json.loads(inventory_bytes.decode('utf-8'))
+    if inventory.get('schemaVersion') != 1 or not isinstance(inventory.get('runtimes'), list):
+        raise ValueError('Unsupported release runtime inventory.')
+    inventory_path = directory / 'runtime-inventory.json'
+    inventory_path.write_bytes(inventory_bytes)
     with tempfile.TemporaryDirectory(prefix='scientific-release-') as scratch:
         fresh_path = Path(scratch) / 'fresh-capabilities.json'
         fresh = exporter(repo, installed_root, broker.math3d_root, profile_id, fresh_path)
         fresh_hash = sha(fresh_path)
         reasons = assess(fresh, broker)
+        created_at = datetime.now(timezone.utc)
+        state = inventory_state(inventory, created_at)
+        if state != 'current':
+            reasons.append('Runtime inventory is ' + state + '; capture it within 24 hours before certification.')
         source_commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repo, text=True).strip()
         report = {'schemaVersion': 1, 'kind': 'scientific.release-qualification-report',
                   'releaseId': release_id, 'releaseTag': release_tag,
-                  'createdAtUtc': datetime.now(timezone.utc).isoformat(),
+                  'createdAtUtc': created_at.isoformat(),
                   'sourceCommit': source_commit,
                   'verdict': 'qualified' if not reasons else 'blocked', 'reasons': reasons,
+                  'gateVerdicts': gate_verdicts(fresh), 'agent': {'kind': 'local', 'hostFingerprintSha256': host_fingerprint()},
+                  'inventoryPath': str(inventory_path), 'inventorySha256': sha(inventory_path),
+                  'inventoryState': state, 'inventoryCapturedAtUtc': inventory['generatedAt'],
                   'freshManifestSha256': fresh_hash,
                   'deployedManifestSha256': sha(broker.paths['manifest']),
                   'capabilities': []}
@@ -94,6 +130,7 @@ def certify(config_path, installed_root, profile_id, release_tag, output_root, e
             manifest = {'schemaVersion': 1, 'kind': 'scientific.release-capabilities',
                         'releaseId': release_id, 'releaseTag': release_tag, 'sourceCommit': source_commit,
                         'freshManifestSha256': fresh_hash, 'deployedManifestSha256': sha(broker.paths['manifest']),
+                        'inventorySha256': report['inventorySha256'],
                         'hostFingerprintSha256': host_fingerprint(),
                         'capabilities': report['capabilities']}
             manifest['recordId'] = digest(manifest)
@@ -121,6 +158,18 @@ def verify_release(report_path, config_path=None):
     if report.get('schemaVersion') != 1 or report.get('kind') != 'scientific.release-qualification-report':
         raise ValueError('Release report contract mismatch.')
     fresh_path = report_path.parent / 'fresh-capabilities.json'
+    if 'inventoryPath' in report:
+        inventory_path = report_path.parent / 'runtime-inventory.json'
+        if (report['inventoryPath'] != str(inventory_path)
+                or sha(inventory_path) != report.get('inventorySha256')):
+            raise ValueError('Release runtime inventory hash mismatch.')
+        inventory = json.loads(inventory_path.read_text(encoding='utf-8'))
+        release_time = datetime.fromisoformat(report['createdAtUtc'])
+        if (report.get('inventoryCapturedAtUtc') != inventory.get('generatedAt')
+                or report.get('inventoryState') != inventory_state(inventory, release_time)
+                or len(report.get('gateVerdicts', [])) != 10
+                or report['gateVerdicts'] != gate_verdicts(json.loads(fresh_path.read_text(encoding='utf-8')))):
+            raise ValueError('Release inventory age or gate verdicts changed.')
     if (sha(fresh_path) != report['freshManifestSha256']
             or sha(fresh_path) != Path(str(fresh_path) + '.sha256').read_text(encoding='utf-8').strip()):
         raise ValueError('Fresh desktop export hash mismatch.')
@@ -135,7 +184,11 @@ def verify_release(report_path, config_path=None):
         record_id = identity.pop('recordId', None)
         if (record_id != digest(identity) or record_id != report['releaseManifestRecordId']
                 or manifest['capabilities'] != report['capabilities']
-                or manifest['freshManifestSha256'] != report['freshManifestSha256']):
+                or manifest['freshManifestSha256'] != report['freshManifestSha256']
+                or manifest['sourceCommit'] != report['sourceCommit']
+                or ('inventoryPath' in report and (report['inventoryState'] != 'current'
+                    or manifest.get('inventorySha256') != report['inventorySha256']
+                    or manifest.get('hostFingerprintSha256') != report['agent']['hostFingerprintSha256']))):
             raise ValueError('Release manifest identity or current qualification mismatch.')
         if config_path and assess(json.loads(fresh_path.read_text(encoding='utf-8')), Broker(config_path)):
             raise ValueError('Release qualification no longer matches the deployed broker.')

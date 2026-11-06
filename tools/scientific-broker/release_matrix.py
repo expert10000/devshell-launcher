@@ -64,19 +64,29 @@ def save(root, name, value):
 def snapshot(release_path, inventory_path, output_root):
     release_path, inventory_path = Path(release_path).resolve(strict=True), Path(inventory_path).resolve(strict=True)
     release = verify_release(release_path)
-    inventory = json.loads(inventory_path.read_text(encoding='utf-8'))
+    inventory_bytes = inventory_path.read_bytes()
+    if len(inventory_bytes) > 1048576:
+        raise ValueError('Runtime inventory exceeds the snapshot budget.')
+    inventory = json.loads(inventory_bytes.decode('utf-8'))
     if inventory.get('schemaVersion') != 1 or not isinstance(inventory.get('runtimes'), list):
         raise ValueError('Unsupported runtime inventory.')
+    root = Path(output_root).resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    name = uuid.uuid4().hex
+    pinned_inventory = root / (name + '.inventory.json')
+    with pinned_inventory.open('xb') as stream:
+        stream.write(inventory_bytes)
     state = age_state(inventory, release)
     record = {'schemaVersion': 1, 'kind': 'scientific.release-matrix-snapshot',
               'matrixSourceSha256': sha(Path(__file__)),
               'releaseId': release['releaseId'], 'releaseTag': release['releaseTag'],
               'sourceCommit': release['sourceCommit'], 'releaseVerdict': release['verdict'],
               'releaseReasons': release['reasons'], 'releaseReportPath': str(release_path),
-              'releaseReportSha256': sha(release_path), 'inventoryPath': str(inventory_path),
-              'inventorySha256': sha(inventory_path), 'inventoryState': state,
+              'releaseReportSha256': sha(release_path), 'inventoryPath': str(pinned_inventory),
+              'inventoryCapturePath': str(inventory_path),
+              'inventorySha256': sha(pinned_inventory), 'inventoryState': state,
               'rows': rows(release, inventory, state)}
-    return save(output_root, uuid.uuid4().hex, record), record
+    return save(root, name, record), record
 
 
 def verify_snapshot(path):

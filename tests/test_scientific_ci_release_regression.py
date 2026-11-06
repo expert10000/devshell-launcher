@@ -124,7 +124,18 @@ class EvidenceIntegration(unittest.TestCase):
         report_path, report = release_certification.certify(
             self.config_path, installed, 'desktop-five', 'test-release', self.root / 'release', exporter=current_export)
         self.assertEqual('qualified', report['verdict'])
+        self.assertEqual('stale', release_certification.inventory_state(
+            {'generatedAt': '2020-01-01T00:00:00Z'}, release_certification.datetime.now(release_certification.timezone.utc)))
+        self.assertEqual('current', report['inventoryState'])
+        self.assertEqual([f'L{index}' for index in range(10)], [item['level'] for item in report['gateVerdicts']])
+        self.assertTrue(all(item['state'] == 'current' for item in report['gateVerdicts']))
         self.assertEqual('qualified', release_certification.verify_release(report_path, self.config_path)['verdict'])
+        inventory = report_path.parent / 'runtime-inventory.json'
+        original_inventory = inventory.read_bytes()
+        inventory.write_bytes(original_inventory + b' ')
+        with self.assertRaisesRegex(ValueError, 'inventory hash mismatch'):
+            release_certification.verify_release(report_path, self.config_path)
+        inventory.write_bytes(original_inventory)
         manifest = report_path.parent / 'release-capabilities.json'
         manifest.write_bytes(manifest.read_bytes() + b' ')
         with self.assertRaisesRegex(ValueError, 'hash mismatch'):
@@ -138,6 +149,7 @@ class EvidenceIntegration(unittest.TestCase):
         blocked_path, blocked = release_certification.certify(
             self.config_path, installed, 'desktop-five', 'blocked-release', self.root / 'release', exporter=empty_export)
         self.assertEqual('blocked', blocked['verdict'])
+        self.assertTrue(all(item['state'] == 'blocked' for item in blocked['gateVerdicts']))
         self.assertFalse((blocked_path.parent / 'release-capabilities.json').exists())
         self.assertEqual('blocked', release_certification.verify_release(blocked_path)['verdict'])
 

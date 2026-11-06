@@ -108,6 +108,9 @@ class ReleaseCoverage(unittest.TestCase):
             self.assertEqual('inconclusive', report['verdict'])
             self.assertEqual(6, len(release_matrix.verify_matrix(path)['rows']))
             inventory.write_bytes(inventory.read_bytes() + b' ')
+            self.assertEqual(6, len(release_matrix.verify_matrix(path)['rows']))
+            pinned = Path(release_matrix.verify_snapshot(snapshots[0])['inventoryPath'])
+            pinned.write_bytes(pinned.read_bytes() + b' ')
             with self.assertRaisesRegex(ValueError, 'source evidence changed'):
                 release_matrix.verify_matrix(path)
 

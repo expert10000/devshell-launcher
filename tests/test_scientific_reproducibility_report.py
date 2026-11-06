@@ -22,32 +22,35 @@ class ReproducibilityReportTests(unittest.TestCase):
         self.assertIn('&lt;script&gt;', rendered)
         self.assertNotIn('<script>', rendered)
 
-    def test_real_sources_are_verified_and_blocked_gate_is_preserved(self):
+    def test_real_sources_are_verified_and_current_gate_is_preserved(self):
         scientific = ROOT / '.scientific'
         paths = {
-            'matrix': scientific / 'release-matrix' / 'a22944f370044a52bd313a28c6625adf.json',
-            'conformance': scientific / 'conformance' / '65bb5c360a0e4afb885b9d1ada69ba4b' / 'conformance.json',
+            'matrix': scientific / 'release-matrix' / 'c03962f74f634be2ba081ccc65fc69d6.json',
+            'conformance': scientific / 'conformance' / 'a09d87c478414aa4b04c97b8193c6899' / 'conformance.json',
             'contract': scientific / 'contract-migrations' / 'd273581668e44c5d951c5a6444585739.json',
             'environment': scientific / 'environment-locks' / 'e19be0f9a8d24bf38f66f5b22c994d4a' / 'environment-manifest.json',
             'recreation': scientific / 'environment-recreation' / '7c16d0501ba2478394bb5b423dee8226.json',
-            'provenance': scientific / 'provenance' / 'e37b72b8d70f40b59f3de401e4094a3f' / 'provenance.json',
+            'provenance': scientific / 'provenance' / 'f04a5f59526b48dcbc94fe7fc535f872' / 'provenance.json',
             'differential': scientific / 'differentials' / 'a45bf36ae44643bfbe04d9f352e96d54.json',
-            'config': scientific / 'broker' / 'config.json',
+            'config': scientific / 'release-refresh' / '2026-11-06' / 'broker-config.json',
             'policy': report.DEFAULT_POLICY,
         }
         if not all(path.is_file() for path in paths.values()):
             self.skipTest('Local scientific evidence is unavailable')
         with tempfile.TemporaryDirectory() as directory:
             path, record = report.generate(paths, directory)
-            self.assertEqual(record['releaseVerdict'], 'inconclusive')
+            self.assertEqual(record['releaseVerdict'], 'evidence-linked')
             self.assertEqual(report.verify(path), record)
             markdown = path.with_suffix('.md')
             body = markdown.read_text(encoding='utf-8')
             for heading in ('Capabilities and release gates', 'Fixtures and artifacts',
                             'Fingerprints and tolerances', 'Regressions and scope', 'Reproduce and verify'):
                 self.assertIn(heading, body)
-            self.assertIn('Fresh desktop export has no single current L9', body)
+            self.assertIn('Right release gate: **qualified**', body)
+            self.assertIn('mesh.interop.vtk-math3d', body)
+            self.assertIn('dd66f66a2d5647e5a8500c113ec75e35', body)
             self.assertIn('Gmsh remains unqualified', body)
+            self.assertIn('Current CGAL L0–L9 chain', body)
             markdown.write_text(body + '\ntampered', encoding='utf-8')
             with self.assertRaisesRegex(ValueError, 'Rendered report changed'):
                 report.verify(path)

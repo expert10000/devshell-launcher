@@ -212,3 +212,34 @@ python tools/scientific-broker/adapter_conformance.py --verify <conformance.json
 ```
 
 The sealed report checks provider contracts, expected rejection, cancellation, progress, typed values and output hashes. It records `passed`, `failed` or `unavailable` for every dimension and computes a provider verdict. The certified CGAL path passes all six. VTK passes contract, rejection, typed result and artifact hashing, while its current adapter lacks versioned cancellation and progress acknowledgement. Python/SciPy and Sage have typed and rejection probes but no version 1 artifact worker. Gmsh remains unavailable because its package is missing. A conformance report cannot grant qualification or promote Gmsh.
+
+## Cost advice (DS-SCI-044)
+
+```powershell
+python tools/scientific-broker/advisor.py advise --config .scientific/broker/config.json --capability-id mesh.interop.vtk-math3d --tier single --manual-provider cgal-win-conda --output-root .scientific/advice
+python tools/scientific-broker/advisor.py verify --config .scientific/broker/config.json --record <advice.json>
+```
+
+The advisor reads sealed benchmark identities for the selected operation and tier. Current host, environment, certification, fixture, suite and collector identities must match, and two benchmark runs must be comparable before a cost appears. A manual provider must itself be certified. The fixed CGAL capability has two current runs comparable with each other; both are inconclusive against the older pinned baseline after broker and telemetry sources changed. One provider cannot support a backend ranking, so the current decision has no automatic recommendation. Save the advice record with the chosen run for deterministic replay.
+
+## Content-addressed artifacts (DS-SCI-045)
+
+```powershell
+python tools/scientific-broker/artifact_cache.py ingest-broker --root .scientific/artifact-cache --config .scientific/broker/config.json --job-id <job-id> --name l5-positive.obj
+python tools/scientific-broker/artifact_cache.py ingest-document --root .scientific/artifact-cache --config .scientific/broker/config.json --job-id <smoke-job-id>
+python tools/scientific-broker/artifact_cache.py get --root .scientific/artifact-cache --digest <sha256>
+python tools/scientific-broker/artifact_cache.py pin --root .scientific/artifact-cache --digest <sha256> --owner release:<id>
+python tools/scientific-broker/artifact_cache.py gc --root .scientific/artifact-cache --older-than-days 30
+python tools/scientific-broker/artifact_cache.py gc --root .scientific/artifact-cache --older-than-days 30 --apply
+```
+
+Objects are keyed by SHA-256, streamed to disk and verified on every read. Each ingestion creates a named reference; `unreference` and `unpin` need the same digest and owner. Cleanup lists candidates by default, then deletes only old objects with no references or pins when `--apply` is given. A changed object blocks cleanup. Do not treat a cache object as qualification evidence without its source job and certification record.
+
+## Exact-to-document provenance (DS-SCI-046)
+
+```powershell
+python tools/scientific-broker/provenance.py build --config .scientific/broker/config.json --output-root .scientific/provenance
+python tools/scientific-broker/provenance.py verify --config .scientific/broker/config.json --record <provenance.json>
+```
+
+The fixed public workflow derives roots `-1` and `1` in Sage WSL, represents the exact tetrahedron coordinates, generates the byte-identical certified OBJ in the registered dataset root, runs that input through the qualified CGAL broker, and exercises MATH3D scene import, viewer regression and independent `.m3dm` reload. The graph links seven typed stages to the source job and saved hashes. This is a fixed example; general Sage-derived meshes need their own typed worker and qualification.

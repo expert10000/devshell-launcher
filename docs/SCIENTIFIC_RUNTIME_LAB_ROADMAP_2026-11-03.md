@@ -1548,11 +1548,17 @@ Run contract-level tests against every provider, especially errors, cancellation
 **DS-SCI-044 — `feat(scientific): add operation-level cost and backend advisor`**\
 Offer provider suggestions only from certified comparable benchmark data, while preserving manual choice and deterministic replay.
 
+**2026-11-06 scoped delivery:** `advisor.py` checks deployed certification and exact benchmark record identities against the current host, environment, fixture, suite and collector sources. Two fresh CGAL benchmark runs match one another and provide a cost candidate for each fixed tier. Both remain inconclusive against the older pinned baseline because broker and telemetry sources changed. Advice is sealed and replay-verifiable. With only one certified backend, it returns `insufficient-comparison`, no automatic recommendation, and keeps an explicit manual CGAL choice; Gmsh cannot be selected. Backend ranking awaits another certified provider with comparable operation-level measurements.
+
 **DS-SCI-045 — `feat(scientific): add large-artifact content-addressed cache`**\
 Deduplicate artifacts by hash, track references, support retention/pinning and safe cleanup.
 
+**2026-11-06 scoped delivery:** `artifact_cache.py` stores streaming SHA-256 objects once, with transactional SQLite references and named pins. It ingests only verified successful broker artifacts or independently checked MATH3D smoke documents through the integration commands. Read and cleanup verify bytes and size; retention cleanup requires an explicit `--apply` and removes only unreferenced, unpinned objects within the cache root. Live mesh and `.m3dm` ingestion, deduplication, pinning, dry-run cleanup and tamper rejection passed.
+
 **DS-SCI-046 — `feat(scientific): add mathematical result provenance graph`**\
 Link exact Sage inputs, derivations, approximations, geometry sampling, mesh generation and final Math3D documents.
+
+**2026-11-06 scoped delivery:** `provenance.py` runs a bounded Sage rational-root derivation of `x²−1` under WSL, constructs the exact fixed tetrahedron vertices and OBJ bytes, and checks them against the certified CGAL fixture. It passes that generated dataset to a fresh broker → MATH3D smoke. A sealed seven-node graph links exact input, derivation, float representation, sampled vertices, OBJ mesh generation, CGAL validation, and the independently reloaded `.m3dm` document, with source job and artifact hashes. The current fixed public path passed; this does not qualify a general Sage mesh worker or claim arbitrary symbolic-to-mesh provenance.
 
 **DS-SCI-047 — `feat(scientific): add interactive artifact inspector`**\
 Mesh statistics, numeric diffs, preview renders and exact-math structured viewers without importing full Math3D editing UI.

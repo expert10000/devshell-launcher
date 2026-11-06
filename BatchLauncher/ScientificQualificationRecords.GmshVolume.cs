@@ -144,6 +144,7 @@ public static partial class ScientificQualificationRecords
                 || math3dReject?["state"]?.GetValue<string>() != "rejected"
                 || vtk?["inputObjSha256"]?.GetValue<string>() != boundaryHash
                 || math3d?["inputObjSha256"]?.GetValue<string>() != boundaryHash
+                || math3d?["importerSourceSha256"]?.GetValue<string>() != Hash(record["math3dImporter"]?.GetValue<string>() ?? "")
                 || vtk?["tetrahedra"] != null || math3d?["tetrahedra"] != null
                 || vtk?["points"]?.GetValue<int>() != boundary?["boundaryPoints"]?.GetValue<int>()
                 || math3d?["points"]?.GetValue<int>() != boundary?["boundaryPoints"]?.GetValue<int>()

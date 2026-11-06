@@ -856,7 +856,8 @@ public static partial class ScientificQualificationRecords
                 && item["referenceRecipe"]?.GetValue<string>() == "l6.gmsh-volume");
             var hash = GmshVolumeHash(directory, result, components!, "L7");
             if (declaration != null && hash != null)
-                Add("mesh.generate3d", "L7", "l7.gmsh-volume", hash, result["volumeEvidence"]?["lowerQualification"]);
+                Add("mesh.generate3d", "L7", "l7.gmsh-volume", hash, result["volumeEvidence"]?["lowerQualification"],
+                    result["volumeEvidence"]?["math3d"]?["importerSourceSha256"]?.GetValue<string>());
         }
         else if (recipeId == "l7.math3d-import" && manifest["qualificationRecipes"] is JsonArray l7Recipes)
         {
@@ -1093,6 +1094,7 @@ public static partial class ScientificQualificationRecords
                 {
                     if (record["capabilityId"]?.GetValue<string>() != "mesh.generate3d"
                         || record["lowerQualification"]?.ToJsonString() != sourceResult["volumeEvidence"]?["lowerQualification"]?.ToJsonString()
+                        || record["consumerSourceSha256"]?.GetValue<string>() != sourceResult["volumeEvidence"]?["math3d"]?["importerSourceSha256"]?.GetValue<string>()
                         || record["evidenceSha256"]?.GetValue<string>() != GmshVolumeHash(directory, sourceResult,
                             fingerprint!["components"]!.AsObject(), "L7"))
                         throw new InvalidDataException("Gmsh volume L7 evidence changed.");

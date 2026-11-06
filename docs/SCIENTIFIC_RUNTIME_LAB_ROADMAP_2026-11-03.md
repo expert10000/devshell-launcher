@@ -1598,6 +1598,21 @@ Install the matching Gmsh Python binding, rerun native probes, register a bounde
 
 **2026-11-06 scoped delivery:** The shared Windows scientific Conda prefix already contained Gmsh 4.15.2 native binaries, headers and import library; the missing `gmsh` Python binding was installed at matching version 4.15.2. The native `runtime-lab` probe now passes Python/version, bounded surface meshing and expected missing-file rejection. The registered fixed-square `.geo` worker accepts only a bounded mesh size, writes a typed `.msh` result, and rejects an invalid parameter with no output. A separate Gmsh C++ smoke target compiled, linked and executed; an independent Gmsh import reloaded and checked the saved 2D mesh. `gmsh_foundation.py` saves and verifies sealed local L0–L4 evidence with source, package, toolchain, fixture, request, result and artifact hashes. This foundation record is **not** a desktop L0–L4 qualification chain or a release certification; L5–L9 and MATH3D volume-mesh interoperability remain open. Gmsh remains absent from certified manifests.
 
+**DS-SCI-055 — `feat(scientific): check Gmsh typed worker conformance`**\
+Extend the fixed public square worker evidence with bounded positive output, a tampered source fixture and an unsupported parameter. Require typed terminal results, diagnostics, fixture and worker contract hashes, and no artifact for rejected cases. Link the evidence to the verified DS-SCI-054 foundation record.
+
+**2026-11-06 scoped delivery:** `gmsh_progression.py` verifies the foundation's successful typed run and executes fresh tampered-fixture and unknown-parameter rejections. Each case saves a request, result and log with hashes; both failures report diagnostics and leave no `.msh`. The sealed DS-SCI-055 record passed. This is a local worker conformance record, not a desktop L5 qualification.
+
+**DS-SCI-056 — `feat(scientific): reproduce and reload Gmsh surface artifacts`**\
+Rerun the fixed 2D worker twice in separate directories under one pinned fixture, source and package environment. Compare the output bytes and independently reload both `.msh` files to check bounded geometry. Save both run IDs and output hashes; reject drift before declaring the local repeat gate passed.
+
+**2026-11-06 scoped delivery:** Two fresh Gmsh 4.15.2 runs produced the same SHA-256 `.msh` bytes and the same independent reload result. The sealed DS-SCI-056 record links both requests/results, output files, the DS-SCI-055 record, and the DS-SCI-054 foundation. Verification repeats the reload and hash checks. This is local L6-style evidence; managed desktop L6 qualification has not been granted.
+
+**DS-SCI-057 — `feat(scientific): test Gmsh 2D mesh consumers`**\
+Convert the verified fixed `.msh` surface to a bounded OBJ, feed that artifact to an independent VTK reader and MATH3D's actual mesh importer, then compare point/triangle counts, boundary and nonmanifold topology, bounds, signed XY area and artifact hashes. Add a malformed handoff rejection for both consumers. Link each consumer source and result to the DS-SCI-056 output.
+
+**2026-11-06 scoped delivery:** The observed square had 44 points, 66 triangles, 20 boundary edges, zero nonmanifold edges, unit XY area and bounds `[0,1] × [0,1] × {0}` in Gmsh, VTK 9.6.1 and MATH3D. Both consumers rejected a malformed OBJ. The sealed DS-SCI-057 record links the source `.msh`, converted OBJ, consumer source fingerprints, results and expected rejections. This is a 2D surface importer check, not a viewer, document round trip, volume-mesh gate or release L7 certification. Gmsh remains outside certified manifests.
+
 ---
 
 ## 28. Priority selection: what to implement first

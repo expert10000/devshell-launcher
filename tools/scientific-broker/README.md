@@ -300,3 +300,14 @@ python tools/scientific-broker/gmsh_foundation.py verify --record <foundation.js
 ```
 
 Run only with a matching native Gmsh package, header and import library in the prefix. The registered `gmsh.mesh2d` worker accepts the fixed public square and a bounded mesh size, saves a typed `.msh` result and rejects invalid parameters. The local suite records L0–L4 probe and compile/link evidence, source and package hashes, a positive output, expected rejection and an independent artifact reload. This local record does not enter desktop qualification History or the broker certified manifest; L5–L9 remain open.
+
+## Gmsh local worker, repeat and consumer checks (DS-SCI-055–057)
+
+```powershell
+python tools/scientific-broker/gmsh_progression.py run --foundation <foundation.json> --vtk-python G:\master\.conda\devshell-vtk\python.exe --math3d-checkout G:\master\Math3D --output-root .scientific/gmsh-progression
+python tools/scientific-broker/gmsh_progression.py verify --record <DS-SCI-055.json>
+python tools/scientific-broker/gmsh_progression.py verify --record <DS-SCI-056.json>
+python tools/scientific-broker/gmsh_progression.py verify --record <DS-SCI-057.json>
+```
+
+The first record binds a successful foundation run and two fresh worker rejections. The second pins two separate fixed-square `.msh` worker runs, equal byte hashes and independent Gmsh reloads. The third exports a bounded OBJ and checks VTK and MATH3D importer geometry, triangle connectivity, boundary topology, XY orientation, unit area and scale; both consumers reject malformed OBJ. Records pin their source, runtime, importer and artifact hashes and chain to the prior stage. These are local fixed 2D checks. They do not create managed desktop L5–L7 records, inspect a MATH3D viewer/document, qualify volume meshes, or add Gmsh to certified manifests.

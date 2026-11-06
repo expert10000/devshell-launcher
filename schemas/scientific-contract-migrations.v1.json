@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "kind": "scientific.contract-migration-policy",
+  "contracts": [
+    {
+      "id": "devshell.scientific-capabilities",
+      "baselinePath": "schemas/compatibility/scientific-capabilities.1.0.0.json",
+      "currentPath": "schemas/scientific-capabilities.v1.json",
+      "baselineVersion": "1.0.0",
+      "currentVersion": "1.0.0",
+      "migrations": []
+    }
+  ],
+  "rules": {
+    "patch": "Metadata-only; no structural change",
+    "minor": "Add optional fields, schemas, capabilities or providers; preserve existing fields and required sets",
+    "major": "Breaking changes need a scoped migration rule with validated old and new fixtures"
+  }
+}

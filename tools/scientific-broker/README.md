@@ -243,3 +243,28 @@ python tools/scientific-broker/provenance.py verify --config .scientific/broker/
 ```
 
 The fixed public workflow derives roots `-1` and `1` in Sage WSL, represents the exact tetrahedron coordinates, generates the byte-identical certified OBJ in the registered dataset root, runs that input through the qualified CGAL broker, and exercises MATH3D scene import, viewer regression and independent `.m3dm` reload. The graph links seven typed stages to the source job and saved hashes. This is a fixed example; general Sage-derived meshes need their own typed worker and qualification.
+
+## Interactive artifact inspection (DS-SCI-047)
+
+Open a saved run in Scientific History. **Preview mesh** loads a hash-checked OBJ/STL/PLY/VTP/M3DM into the existing interactive viewer. The inspector shows full output counts and bounds, saved worker topology and the artifact SHA-256. Select two runs under **Compare saved outputs** and load both previews for numeric count and bound differences. Sage History displays verified factor coefficients and multiplicities from a saved managed probe or factor smoke. Rendered triangles may be sampled for large meshes; numeric equality is not a mesh equivalence proof.
+
+## Contract compatibility gate (DS-SCI-048)
+
+```powershell
+python tools/scientific-broker/contract_migration.py check --policy schemas/scientific-contract-migrations.v1.json --output-root .scientific/contract-migrations
+python tools/scientific-broker/contract_migration.py verify --policy schemas/scientific-contract-migrations.v1.json --record <compatibility-report.json>
+```
+
+The policy freezes the shared capability registry at 1.0.0. Update `currentVersion` when its structure changes. Optional additions need a minor bump; removals, required additions, type changes and provider removals need a major bump and explicit migration rules. A `rename-field` or `set-default` rule must include valid old and new fixtures. A blocked check exits nonzero and never silently upgrades saved runs. Other worker and product contracts require their own baselines before migration.
+
+## Release qualification matrix (DS-SCI-049)
+
+```powershell
+python tools/scientific-broker/release_matrix.py snapshot --release-report <release-A/qualification-report.json> --inventory <release-A/runtime-report.json> --output-root .scientific/release-matrix
+python tools/scientific-broker/release_matrix.py snapshot --release-report <release-B/qualification-report.json> --inventory <release-B/runtime-report.json> --output-root .scientific/release-matrix
+python tools/scientific-broker/release_matrix.py compare --left <snapshot-A.json> --right <snapshot-B.json> --output-root .scientific/release-matrix
+python tools/scientific-broker/release_matrix.py verify --record <matrix.json>
+python tools/scientific-broker/release_matrix.py render --record <matrix.json>
+```
+
+Use an inventory captured within 24 hours before each release. The six rows are CGAL, VTK, VTK-m, Sage, Gmsh and MATH3D. Each row links to its release report, qualification record and source run where available; missing or old evidence has reduced confidence. A blocked release supplies no certified capability, even when an older broker manifest exists. MATH3D's product contract is distinct from its release version. The current two-release observation is inconclusive because both release reports are blocked and the available runtime inventory is stale.

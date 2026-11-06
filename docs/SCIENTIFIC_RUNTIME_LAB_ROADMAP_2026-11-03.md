@@ -1563,11 +1563,17 @@ Link exact Sage inputs, derivations, approximations, geometry sampling, mesh gen
 **DS-SCI-047 — `feat(scientific): add interactive artifact inspector`**\
 Mesh statistics, numeric diffs, preview renders and exact-math structured viewers without importing full Math3D editing UI.
 
+**2026-11-06 scoped delivery:** Scientific History now shows a read-only artifact inspector alongside its existing interactive mesh preview. It displays full mesh point/triangle counts and bounds, worker topology when saved, recorded artifact hashes, and numeric deltas between two loaded runs. A structured Sage factor panel renders only validated saved probe or smoke evidence. Preview triangles may be sampled; counts and bounds refer to the full output. Numeric equality is not treated as a topology or surface equivalence proof. General exact-math and field viewers remain pending typed workers.
+
 **DS-SCI-048 — `feat(scientific): add compatibility policy for contract migrations`**\
 Automated checks between current and previous schema majors/minors with explicit migration rules.
 
+**2026-11-06 scoped delivery:** `contract_migration.py` checks the current capability registry against a frozen 1.0.0 snapshot and saves a hash-checked compatibility report. Additive fields require a minor bump, breaking fields require a major bump, and major migrations require scoped rename/default rules with old and new fixtures that validate under their respective schemas. Tests cover optional minor additions, blocked patch and same-major breaks, a passing fixture-backed major rename, invalid migration fixtures and report tampering. The current unchanged registry passes; other contracts need their own frozen baselines before migration.
+
 **DS-SCI-049 — `feat(scientific): add release-to-release qualification matrix`**\
 Compare CGAL, VTK, VTK-m, Sage, Gmsh and Math3D releases with confidence indicators and evidence coverage.
+
+**2026-11-06 scoped delivery:** `release_matrix.py` verifies release reports and inventory hashes, saves six-provider snapshots, and compares versions, L-level coverage, qualification record IDs and source runs with explicit confidence. A MATH3D product contract link is distinguished from a MATH3D release identity; VTK-m has no registered inventory. The observed comparison between two distinct release tags is **inconclusive**: both fresh release certifications are blocked by missing current L9 evidence and the available inventory predates them. The matrix does not label a version change as a scientific regression without qualification evidence.
 
 **DS-SCI-050 — `feat(scientific): add scientific reproducibility report generator`**\
 Human-readable Markdown/HTML report containing capabilities, gate verdicts, fixtures, fingerprints, numerical tolerances, regressions and reproducibility instructions.

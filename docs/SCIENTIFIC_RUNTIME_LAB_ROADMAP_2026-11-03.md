@@ -1578,6 +1578,14 @@ Compare CGAL, VTK, VTK-m, Sage, Gmsh and Math3D releases with confidence indicat
 **DS-SCI-050 — `feat(scientific): add scientific reproducibility report generator`**\
 Human-readable Markdown/HTML report containing capabilities, gate verdicts, fixtures, fingerprints, numerical tolerances, regressions and reproducibility instructions.
 
+**2026-11-06 scoped delivery:** `reproducibility_report.py` verifies the sealed release matrix, adapter conformance, contract migration, environment lock and recreation, provenance chain, and a saved-run mesh differential before rendering Markdown and escaped HTML. It records source hashes and seals both outputs; `verify` rechecks the source evidence and exact rendered bytes. The report names the fixed fixtures and artifact hashes, host/run/contract fingerprints, comparator tolerance, product viewer regression, and commands to replay verification. The observed release comparison remains **inconclusive** because both releases lack current L9 evidence and inventory is stale. Historical broker certification and passing conformance do not override those gates. General field/exact differential runs and reviewed failure fixtures were not supplied to this report.
+
+**DS-SCI-051 — `feat(scientific): refresh release qualification evidence`**\
+Capture a fresh runtime inventory and rebuild the qualified CGAL mesh evidence chain against one source commit and matching broker/MATH3D contracts. Re-run L0–L9 as needed, attach the actual agent and environment, and produce a release report that either certifies current evidence or gives per-gate blocked reasons. The acceptance case verifies inventory age, contract and run fingerprints, source commit, and a new end-to-end viewer result; no older L9 or historical manifest may be substituted.
+
+**DS-SCI-052 — `feat(scientific): qualify a second comparable mesh backend`**\
+Extend the VTK mesh path through current L0–L9 worker, round-trip, interoperability, resilience, and product gates under the same typed broker contract. Add matching fixed-tier performance evidence so advisor and release reports can compare two certified providers on the same host/environment policy. Acceptance requires two independently verified capability records with source runs, reproducible artifacts, and comparable measurements; Gmsh remains excluded until its package and probes pass. This ticket is planned, not yet delivered.
+
 ---
 
 ## 28. Priority selection: what to implement first

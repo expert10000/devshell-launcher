@@ -268,3 +268,12 @@ python tools/scientific-broker/release_matrix.py render --record <matrix.json>
 ```
 
 Use an inventory captured within 24 hours before each release. The six rows are CGAL, VTK, VTK-m, Sage, Gmsh and MATH3D. Each row links to its release report, qualification record and source run where available; missing or old evidence has reduced confidence. A blocked release supplies no certified capability, even when an older broker manifest exists. MATH3D's product contract is distinct from its release version. The current two-release observation is inconclusive because both release reports are blocked and the available runtime inventory is stale.
+
+## Reproducibility report (DS-SCI-050)
+
+```powershell
+python tools/scientific-broker/reproducibility_report.py generate --matrix <release-matrix.json> --conformance <conformance.json> --contract <compatibility-report.json> --environment <environment-manifest.json> --recreation <environment-recreation.json> --provenance <provenance.json> --differential <saved-mesh-differential.json> --config .scientific/broker/config.json --output-root .scientific/reproducibility
+python tools/scientific-broker/reproducibility_report.py verify --record <reproducibility-report.json>
+```
+
+The generator requires all seven evidence sources and verifies each before writing the report. It emits a sealed JSON record and hash-bound Markdown and HTML beside it. Verification checks source identities, the underlying evidence, and exact rendered bytes. A blocked release remains blocked even if a historical broker manifest and product smoke passed. The report describes only the supplied saved-run mesh differential and the fixed provenance/product regression; it does not infer a release regression or certify Gmsh. Treat local paths as traceability links and keep private inputs out of report bundles.

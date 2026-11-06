@@ -43,6 +43,11 @@ internal static class Program
             var runId = options.GetValueOrDefault("run-id") ?? Guid.NewGuid().ToString("N");
             if (runId.Length is < 1 or > 100 || runId.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not '-' and not '_'))
                 throw new ArgumentException("Invalid run-id");
+            var wslDistro = options.GetValueOrDefault("wsl-distro");
+            if (wslDistro != null && (wslDistro.Length is < 1 or > 64
+                || !char.IsAsciiLetterOrDigit(wslDistro[0])
+                || wslDistro.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not '.' and not '_' and not '-')))
+                throw new ArgumentException("Invalid WSL distribution name");
             var output = Path.GetFullPath(options.GetValueOrDefault("output") ?? Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "DevShellLauncher", "runtime-lab", "runs", runId));
@@ -52,7 +57,7 @@ internal static class Program
                     options.GetValueOrDefault("request") ?? throw new ArgumentException("run requires --request"),
                     options.GetValueOrDefault("worker") ?? throw new ArgumentException("run requires --worker"),
                     cancellation.Token);
-            return await ProbeAsync(manifest, prefix, runId, output, cancellation.Token);
+            return await ProbeAsync(manifest, prefix, runId, output, wslDistro, cancellation.Token);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
@@ -113,7 +118,7 @@ internal static class Program
     }
 
     private static async Task<int> ProbeAsync(RuntimeManifest manifest, string prefix, string runId,
-        string output, CancellationToken cancellation)
+        string output, string? wslDistro, CancellationToken cancellation)
     {
         Directory.CreateDirectory(output);
         var started = DateTimeOffset.UtcNow;
@@ -130,7 +135,7 @@ internal static class Program
             {
                 cancellation.ThrowIfCancellationRequested();
                 Console.WriteLine($"[{manifest.Id}] {definition.Id}: starting");
-                var probe = await RunProbeAsync(definition, executable, prefix, manifest.Execution, cancellation);
+                var probe = await RunProbeAsync(definition, executable, prefix, manifest.Execution, wslDistro, cancellation);
                 probes.Add(probe);
                 Console.WriteLine($"[{manifest.Id}] {definition.Id}: {probe.Status}");
                 if (!string.IsNullOrWhiteSpace(probe.Stdout)) Console.WriteLine(probe.Stdout[..Math.Min(1024, probe.Stdout.Length)].Trim());
@@ -258,7 +263,7 @@ internal static class Program
     }
 
     private static async Task<ProbeResult> RunProbeAsync(ProbeDefinition definition,
-        string executable, string prefix, string execution, CancellationToken cancellation)
+        string executable, string prefix, string execution, string? wslDistro, CancellationToken cancellation)
     {
         var start = DateTimeOffset.UtcNow;
         var watch = Stopwatch.StartNew();
@@ -270,7 +275,24 @@ internal static class Program
             CreateNoWindow = true,
             WorkingDirectory = Directory.Exists(prefix) ? prefix : Environment.CurrentDirectory
         };
-        foreach (var argument in definition.Arguments) info.ArgumentList.Add(argument);
+        if (execution == "wsl" && wslDistro != null)
+        {
+            info.ArgumentList.Add("-d");
+            info.ArgumentList.Add(wslDistro);
+        }
+        if (execution == "wsl" && definition.Arguments.Count >= 2
+            && definition.Arguments[0] == "--exec" && definition.Arguments[1] == "sage")
+        {
+            // WSL does not load the user's shell PATH for --exec. Resolve the same
+            // bounded Sage locations used by the desktop's direct Sage recipes.
+            info.ArgumentList.Add("--exec");
+            info.ArgumentList.Add("/bin/sh");
+            info.ArgumentList.Add("-c");
+            info.ArgumentList.Add("for candidate in /usr/bin/sage /usr/local/bin/sage \"$HOME/miniforge3/envs/sage/bin/sage\" \"$HOME/mambaforge/envs/sage/bin/sage\" \"$HOME/miniconda3/envs/sage/bin/sage\"; do if test -x \"$candidate\"; then exec \"$candidate\" \"$@\"; fi; done; echo 'SageMath is missing in the selected WSL distribution.' >&2; exit 127");
+            info.ArgumentList.Add("sage");
+            foreach (var argument in definition.Arguments.Skip(2)) info.ArgumentList.Add(argument);
+        }
+        else foreach (var argument in definition.Arguments) info.ArgumentList.Add(argument);
         if (execution == "windows-native")
         {
             info.Environment.Remove("PYTHONPATH");

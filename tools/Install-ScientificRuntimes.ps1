@@ -2,7 +2,7 @@
 param(
     [Parameter(Mandatory=$true)][string]$WorkspaceRoot,
     [Parameter(Mandatory=$true)][string]$CondaExecutable,
-    [ValidateSet('cgal', 'vtk', 'both')][string]$Kind = 'both',
+    [ValidateSet('cgal', 'vtk', 'gmsh', 'both', 'all')][string]$Kind = 'both',
     [switch]$PublishToLauncher
 )
 $ErrorActionPreference = 'Stop'
@@ -11,10 +11,14 @@ $CondaExecutable = [System.IO.Path]::GetFullPath($CondaExecutable)
 if (-not (Test-Path -LiteralPath $WorkspaceRoot -PathType Container)) { throw 'Workspace root must already exist.' }
 if (-not (Test-Path -LiteralPath $CondaExecutable -PathType Leaf)) { throw 'Conda executable missing.' }
 $runtimeRoot = Join-Path $WorkspaceRoot '.conda'
-$kinds = if ($Kind -eq 'both') { @('cgal', 'vtk') } else { @($Kind) }
+$kinds = if ($Kind -eq 'both') { @('cgal', 'vtk') } elseif ($Kind -eq 'all') { @('cgal', 'vtk', 'gmsh') } else { @($Kind) }
 foreach ($runtimeKind in $kinds) {
-    $prefix = Join-Path $runtimeRoot "devshell-$runtimeKind"
-    $packages = if ($runtimeKind -eq 'cgal') { @('python=3.11', 'cgal', 'cgal-cpp', 'cmake', 'ninja', 'eigen', 'numpy', 'scipy') } else { @('python=3.11', 'vtk', 'cmake', 'ninja', 'numpy', 'scipy') }
+    $prefix = Join-Path $runtimeRoot $(if ($runtimeKind -eq 'gmsh') { 'devshell-scientific' } else { "devshell-$runtimeKind" })
+    $packages = switch ($runtimeKind) {
+        'cgal' { @('python=3.11', 'cgal', 'cgal-cpp', 'cmake', 'ninja', 'eigen', 'numpy', 'scipy') }
+        'vtk' { @('python=3.11', 'vtk', 'cmake', 'ninja', 'numpy', 'scipy') }
+        'gmsh' { @('python=3.11', 'gmsh', 'python-gmsh', 'cmake', 'ninja', 'numpy', 'scipy') }
+    }
     $exists = Test-Path -LiteralPath (Join-Path $prefix 'conda-meta/history') -PathType Leaf
     if ((Test-Path -LiteralPath $prefix) -and -not $exists) { throw "Refusing to modify non-Conda directory: $prefix" }
     if ($exists) {

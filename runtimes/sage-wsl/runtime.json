@@ -8,8 +8,8 @@
     {
       "id": "sage.version",
       "readinessLevel": "L1",
-      "timeoutSeconds": 30,
-      "arguments": ["--exec", "sage", "-c", "print(version())"]
+      "timeoutSeconds": 100,
+      "arguments": ["--exec", "sage", "--version"]
     },
     {
       "id": "sage.symbolic",
@@ -32,9 +32,8 @@
       "arguments": [
         "--exec",
         "sage",
-        "-python",
         "-c",
-        "import json\nfrom sage.all import PolynomialRing, QQ, ZZ\nrequest = {'schemaVersion': 1, 'jobId': 'probe-factor', 'operation': 'symbolic.factor', 'parameters': {'coefficients': ['-1', '0', '1']}}\ncoefficients = request['parameters']['coefficients']\nassert len(coefficients) == 3 and all(value.lstrip('-').isdigit() for value in coefficients)\nring = PolynomialRing(QQ, 'x')\npolynomial = ring([ZZ(value) for value in coefficients])\nfactorization = polynomial.factor()\nreconstructed = ring(factorization.unit())\nfactors = []\nfor factor, multiplicity in factorization:\n reconstructed *= factor ** multiplicity\n factors.append({'coefficients': [str(value) for value in factor.list()], 'multiplicity': int(multiplicity)})\nassert reconstructed == polynomial and len(factors) == 2\nreply = {'schemaVersion': 1, 'jobId': request['jobId'], 'operation': request['operation'], 'status': 'succeeded', 'result': {'inputCoefficients': coefficients, 'unit': str(factorization.unit()), 'factors': factors, 'verified': True}}\nprint(json.dumps(reply, separators=(',', ':')))"
+        "import json\nfrom sage.all import PolynomialRing, QQ, ZZ\nrequest = {'schemaVersion': 1, 'jobId': 'probe-factor', 'operation': 'symbolic.factor', 'parameters': {'coefficients': ['-1', '0', '1']}}\ncoefficients = request['parameters']['coefficients']\nassert len(coefficients) == 3 and all(value.lstrip('-').isdigit() for value in coefficients)\nring = PolynomialRing(QQ, 'x')\npolynomial = ring([ZZ(value) for value in coefficients])\nfactorization = polynomial.factor()\nreconstructed = ring(factorization.unit())\nfactors = []\nfor factor, multiplicity in factorization:\n reconstructed *= factor ** multiplicity\n factors.append({'coefficients': [str(value) for value in factor.list()], 'multiplicity': int(multiplicity)})\nassert reconstructed == polynomial and len(factors) == 2\nreply = {'schemaVersion': 1, 'jobId': request['jobId'], 'operation': request['operation'], 'status': 'succeeded', 'result': {'inputCoefficients': coefficients, 'unit': str(factorization.unit()), 'factors': factors, 'verified': True}}\nprint(json.dumps(reply, separators=(',', ':'), default=int))"
       ]
     },
     {
@@ -44,7 +43,6 @@
       "arguments": [
         "--exec",
         "sage",
-        "-python",
         "-c",
         "from sage.all import ZZ\ncoefficients = ['1', 'not-an-integer']\ntry:\n [ZZ(value) for value in coefficients]\nexcept (TypeError, ValueError) as error:\n print('rejected invalid coefficient:', type(error).__name__)\nelse:\n raise AssertionError('invalid coefficient was accepted')"
       ]

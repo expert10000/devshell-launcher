@@ -8,11 +8,11 @@ $ErrorActionPreference = 'Stop'
 $RuntimeRoot = [System.IO.Path]::GetFullPath($RuntimeRoot)
 $probe = Join-Path $PSScriptRoot 'scientific-runtime-probe.py'
 $results = @()
-foreach ($kind in @('cgal', 'vtk')) {
-    $prefix = Join-Path $RuntimeRoot "devshell-$kind"
+foreach ($kind in @('cgal', 'vtk', 'gmsh')) {
+    $prefix = Join-Path $RuntimeRoot $(if ($kind -eq 'gmsh') { 'devshell-scientific' } else { "devshell-$kind" })
     $python = Join-Path $prefix 'python.exe'
     if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
-        $results += [ordered]@{ id="$kind-win-conda"; kind=$kind; name=$kind.ToUpperInvariant(); execution='windows-native'; environmentRoot=$prefix; executable=$python; version=$null; state='missing'; packages=@(); checks=@(@{id="$kind.environment"; name='Local environment'; state='missing'; detail='Not installed'; durationMs=0}); validatedCapabilities=@() }
+        $results += [ordered]@{ id="$kind-win-conda"; kind=$kind; name=$(if ($kind -eq 'gmsh') { 'Gmsh' } else { $kind.ToUpperInvariant() }); execution='windows-native'; environmentRoot=$prefix; executable=$python; version=$null; state='missing'; packages=@(); checks=@(@{id="$kind.environment"; name='Local environment'; state='missing'; detail='Not installed'; durationMs=0}); validatedCapabilities=@() }
         continue
     }
     $start = [System.Diagnostics.ProcessStartInfo]::new()

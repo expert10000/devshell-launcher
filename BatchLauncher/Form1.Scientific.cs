@@ -57,22 +57,13 @@ public partial class Form1
         if(!File.Exists(path)||new FileInfo(path).Length>1048576) throw new InvalidOperationException("Install/inspect local environments first.");
         using var document=JsonDocument.Parse(File.ReadAllText(path)); return document.RootElement.Clone();
     }
-    private static string ScientificPrefix(string runtimeId)
+    private string ScientificPrefix(string runtimeId)
     {
         var provider = ScientificProviderRegistry.Get(runtimeId);
         if (!provider.NativeManaged) throw new InvalidOperationException("Only installed Windows-native scientific adapters execute.");
-        var runtime=ScientificReport().GetProperty("runtimes").EnumerateArray().FirstOrDefault(item=>item.GetProperty("id").GetString()==runtimeId);
-        var prefix=runtime.ValueKind==JsonValueKind.Object ? runtime.GetProperty("environmentRoot").GetString()??"" : "";
-        if (runtimeId == "gmsh-win-conda" && prefix.Length == 0)
-        {
-            var cgal = ScientificReport().GetProperty("runtimes").EnumerateArray()
-                .FirstOrDefault(item => item.GetProperty("id").GetString() == "cgal-win-conda");
-            if (cgal.ValueKind != JsonValueKind.Object) throw new InvalidOperationException("Scientific runtime root is unavailable.");
-            prefix = Path.Combine(Path.GetDirectoryName(cgal.GetProperty("environmentRoot").GetString()!)!, "devshell-scientific");
-        }
-        if (prefix.Length == 0) throw new InvalidOperationException("Runtime absent from local report.");
+        var prefix = Path.Combine(ScientificRuntimeRoot(), provider.EnvironmentName);
         var expected=provider.EnvironmentName;
-        if(!Path.IsPathFullyQualified(prefix)||Path.GetFileName(prefix.TrimEnd(Path.DirectorySeparatorChar))!=expected||!File.Exists(Path.Combine(prefix,"conda-meta","history"))) throw new InvalidOperationException("Invalid dedicated runtime prefix.");
+        if(!Path.IsPathFullyQualified(prefix)||Path.GetFileName(prefix.TrimEnd(Path.DirectorySeparatorChar))!=expected||!File.Exists(Path.Combine(prefix,"conda-meta","history"))) throw new InvalidOperationException($"{expected} is not installed for this workspace. Use Install / repair in Scientific Runtimes.");
         return Path.GetFullPath(prefix);
     }
     private static Dictionary<string,string> ScientificEnvironment(string prefix)=>new()
@@ -234,6 +225,7 @@ public partial class Form1
             else if(action=="history-preview")data=await ScientificHistoryPreviewAsync(profileId,request);
             else if(action is "history-open-log" or "history-open-output" or "history-reveal-artifact" or "history-open-artifact")data=ScientificHistoryOpen(profileId,request,action);
             else if(action=="report")data=ScientificReport();
+            else if(action=="install-runtime")data=ScientificInstallStart(profileId,runtimeId);
             else if(action=="sage-recipe"){ScientificProviderRegistry.RequireAction(runtimeId,action);data=ScientificSageStart(profileId,runtimeId,request);}
             else if(action=="math3d-readiness"){ScientificProviderRegistry.RequireAction(runtimeId,action);data=ScientificMath3DReadiness(profileId);}
             else if(action=="datasets")

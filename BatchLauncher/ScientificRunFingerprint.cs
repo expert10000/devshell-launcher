@@ -117,6 +117,9 @@ public static class ScientificRunFingerprint
             "BatchLauncher/ScientificArtifactFiles.cs", "BatchLauncher/ScientificQualificationRecords.cs",
             $"runtimes/{runtimeId}/runtime.json" };
         if (recipeId == "diagnostics") names.Add("tools/Inspect-ScientificRuntimes.ps1");
+        if (recipeId == "setup.install") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.Setup.cs",
+            "tools/Install-ScientificRuntimes.ps1", "tools/Inspect-ScientificRuntimes.ps1",
+            "tools/scientific-runtime-probe.py" });
         if (recipeId == "version") names.Add("tools/scientific-runtime-probe.py");
         if (recipeId?.StartsWith("mesh.", StringComparison.Ordinal) == true)
             names.Add("tools/scientific-mesh-worker.py");

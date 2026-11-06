@@ -12,7 +12,7 @@ import time
 from urllib.parse import urlsplit, urlunsplit
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--kind', choices=['cgal', 'vtk'], required=True)
+parser.add_argument('--kind', choices=['cgal', 'vtk', 'gmsh'], required=True)
 args = parser.parse_args()
 prefix = Path(sys.prefix)
 checks = []
@@ -66,7 +66,7 @@ if args.kind == 'cgal':
     include = prefix / 'Library' / 'include' / 'CGAL' / 'version.h'
     config_candidates = [prefix / 'Library' / 'lib' / 'cmake' / 'CGAL' / 'CGALConfig.cmake']
     sdk_version = versions.get('cgal-cpp')
-else:
+elif args.kind == 'vtk':
     check('vtk.python', 'VTK Python bindings / version',
           lambda: importlib.import_module('vtkmodules.vtkCommonCore').vtkVersion.GetVTKVersion())
     check('vtk.polydata', 'vtkPolyData construction',
@@ -75,11 +75,18 @@ else:
     include = include_candidates[0] if include_candidates else prefix / 'Library' / 'include' / 'vtkVersion.h'
     config_candidates = sorted((prefix / 'Library' / 'lib' / 'cmake').glob('vtk*/vtk-config.cmake'))
     sdk_version = versions.get('vtk-base', versions.get('vtk'))
+else:
+    check('gmsh.python', 'Gmsh Python binding / version',
+          lambda: importlib.import_module('gmsh').__version__)
+    include = prefix / 'Library' / 'include' / 'gmsh.h'
+    config_candidates = []
+    sdk_version = versions.get('gmsh')
 config = next((item for item in config_candidates if item.is_file()), None)
-sdk_present = include.is_file() and config is not None
-checks.append({'id': f'{args.kind}.sdk', 'name': 'C++ SDK headers and CMake config',
+sdk_present = include.is_file() and (config is not None if args.kind != 'gmsh'
+                                      else (prefix / 'Library' / 'lib' / 'gmsh.dll.lib').is_file())
+checks.append({'id': f'{args.kind}.sdk', 'name': 'C++ SDK header and import library' if args.kind == 'gmsh' else 'C++ SDK headers and CMake config',
                'state': 'passed' if sdk_present else 'missing', 'durationMs': 0,
-               'detail': 'Installed files detected; compilation/linking NOT tested.' if sdk_present else 'SDK headers or CMake config missing.'})
+               'detail': 'Installed files detected; compilation/linking NOT tested.' if sdk_present else 'SDK header or link dependency missing.'})
 tools = {}
 for name in ('cmake', 'ninja'):
     executable = prefix / 'Library' / 'bin' / f'{name}.exe'
@@ -97,7 +104,7 @@ for name in ('cmake', 'ninja'):
     tools[name] = record
 
 print(json.dumps({
-    'id': f'{args.kind}-win-conda', 'kind': args.kind, 'name': 'CGAL' if args.kind == 'cgal' else 'VTK',
+    'id': f'{args.kind}-win-conda', 'kind': args.kind, 'name': {'cgal': 'CGAL', 'vtk': 'VTK', 'gmsh': 'Gmsh'}[args.kind],
     'execution': 'windows-native', 'environmentRoot': str(prefix), 'executable': sys.executable,
     'version': sdk_version, 'state': 'failed' if any(item['state'] == 'failed' for item in checks) else 'partial',
     'pythonVersion': platform.python_version(), 'architecture': platform.machine(),

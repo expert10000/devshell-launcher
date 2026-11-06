@@ -20,11 +20,10 @@ try {
   await page.getByRole('navigation', { name: 'Scientific runtime sections' }).getByRole('button', { name: 'Tests' }).click()
   const coverage = page.getByRole('region', { name: 'SageMath capability coverage' })
   await coverage.getByRole('button', { name: 'Run SageMath probes' }).click()
-  await page.waitForFunction(() => /sage-wsl \/ lab\.probe/.test(document.querySelector('.scientific-job-bar')?.textContent ?? '') &&
-    /RUNNING/i.test(document.querySelector('.scientific-job-bar')?.textContent ?? ''))
-  await page.waitForFunction(() => /sage-wsl \/ lab\.probe/.test(document.querySelector('.scientific-job-bar')?.textContent ?? '') &&
-    /SUCCEEDED/i.test(document.querySelector('.scientific-job-bar')?.textContent ?? ''), undefined, { timeout: 120_000 })
-  assert.match(await coverage.innerText(), /Probe evidence: 5\/5 passed/)
+  const job = page.locator('.scientific-job-summary').filter({ hasText: 'sage-wsl / lab.probe' })
+  await job.locator('.scientific-job-state').getByText('running', { exact: true }).waitFor()
+  await job.locator('.scientific-job-state').getByText('succeeded', { exact: true }).waitFor({ timeout: 120_000 })
+  await coverage.getByText('Probe evidence: 5/5 passed').waitFor()
   await coverage.getByRole('button', { name: 'Refresh saved evidence' }).click()
   await coverage.getByRole('button', { name: 'Load saved result' }).waitFor()
   await coverage.getByRole('button', { name: 'Load saved result' }).click()

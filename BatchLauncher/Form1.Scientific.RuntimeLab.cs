@@ -8,8 +8,7 @@ public partial class Form1
     {
         var provider = ScientificProviderRegistry.RequireAction(runtimeId, "lab-probe");
 
-        var runtimeRoot = Path.GetDirectoryName(ScientificPrefix("cgal-win-conda"))
-            ?? throw new InvalidOperationException("Scientific runtime root is unavailable.");
+        var runtimeRoot = ScientificRuntimeRoot();
         var prefix = provider.Backend == "wsl" ? runtimeRoot
             : provider.NativeManaged ? ScientificPrefix(runtimeId)
             : Path.Combine(runtimeRoot, provider.EnvironmentName);
@@ -52,7 +51,7 @@ public partial class Form1
         var timer = Stopwatch.StartNew();
         try
         {
-            var arguments = new[]
+            var arguments = new List<string>
             {
                 "probe", job.RuntimeId,
                 "--manifest-root", manifests,
@@ -60,7 +59,9 @@ public partial class Form1
                 "--run-id", job.Id,
                 "--output", job.Directory
             };
-            await ScientificProcessAsync(job, prefix, executable, arguments, job.Directory, 120);
+            if (job.RuntimeId == "sage-wsl")
+                arguments.AddRange(new[] { "--wsl-distro", ScientificSageDistro() });
+            await ScientificProcessAsync(job, prefix, executable, arguments.ToArray(), job.Directory, 120);
             job.State = "succeeded";
             job.Stage = "completed";
         }

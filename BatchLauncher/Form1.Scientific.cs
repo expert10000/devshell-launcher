@@ -251,6 +251,9 @@ public partial class Form1
             else if(action=="l9-gmsh-product")data=ScientificGmshL9Start(profileId,runtimeId);
             else if(action=="l5-gmsh-volume")data=ScientificGmshVolumeStart(profileId,runtimeId,"L5");
             else if(action=="l6-gmsh-volume")data=ScientificGmshVolumeStart(profileId,runtimeId,"L6");
+            else if(action=="l7-gmsh-volume")data=ScientificGmshVolumeStart(profileId,runtimeId,"L7");
+            else if(action=="l8-gmsh-volume")data=ScientificGmshVolumeL8Start(profileId,runtimeId);
+            else if(action=="gmsh-volume-product-readiness")data=ScientificGmshVolumeProductReadinessStart(profileId,runtimeId);
             else
             {
                 ScientificProviderRegistry.RequireAction(runtimeId,action);

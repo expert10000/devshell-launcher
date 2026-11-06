@@ -68,6 +68,9 @@ The UI registry now owns the five existing runtime declarations, visible section
 | DS-SCI-070 Separate Gmsh volume capability | `mesh.generate3d` is registered as a fixed-cube scope with a real tetrahedral L3 probe and distinct L5/L6 recipes. | Keep volume outside the fixed-surface certificate |
 | DS-SCI-071 Managed Gmsh volume L5 | Desktop-owned positive and rejection jobs saved typed, sealed evidence; History checks the artifact and current L0–L4 support. | Use L5 as the baseline for repeat evidence |
 | DS-SCI-072 Managed Gmsh volume L6 | A second managed run matched the L5 `.msh` bytes and independently reloaded the tetrahedral geometry and topology; History checks the linked baseline. | Add tetrahedral L7–L9 product gates before promotion |
+| DS-SCI-073 Managed Gmsh volume L7 | The cube `.msh` stays linked while VTK and MATH3D surface consumers check the outward OBJ boundary and reject a flipped face. | Preserve tetrahedral cells through a future product document |
+| DS-SCI-074 Managed Gmsh volume L8 | Three repeat boundary reads plus cancellation, timeout, memory and cleanup observations link to current L7 evidence. | Use L8 for the volume product gate |
+| DS-SCI-075 Gmsh volume product readiness | An owned check records the MATH3D tetrahedral document contract requirement and a blocked verdict while native volume import is absent. | Implement native volume document import, round trip and viewer regression before L9 certification |
 
 Do not mark an item complete from a passing package probe or a UI declaration. Each later change needs a named run, fingerprint, fixture revision, contract version and evidence link before its qualification level can advance.
 

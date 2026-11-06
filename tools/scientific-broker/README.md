@@ -346,7 +346,13 @@ python tools/scientific-broker/gmsh_volume.py verify --record <run/DS-SCI-069.js
 
 The registered `mesh.generate3d` capability has its own fixed-cube scope, separate from the certified 2D `mesh.generate` path. The Gmsh runtime probe generates tetrahedra for L3. On the desktop `desktop-five` profile, run **Probe in runtime-lab**, **Compile & link**, **Run L5 volume worker check**, and **Run L6 volume repeat check** in order. L5 owns a fresh positive job and expected rejections, pins its public fixture and typed `.msh`, and requires current L0–L4 support. L6 owns a second job, compares its `.msh` bytes with L5, independently reloads tetrahedra and links the L5 record. History verifies the sealed local suite, artifact, source and lower records before granting each level.
 
-For a debug-port acceptance run, set `DEVSHELL_CDP_URL` and `DEVSHELL_GMSH_VOLUME_ONLY=1`, then run `node tests/scientific-gmsh-managed-ui-checks.mjs`. The full script checks both fixed 2D L0–L9 and volume L0–L6. Volume L7–L9, native tetrahedral MATH3D documents and broker promotion remain open. The exporter publishes only current fixed 2D `mesh.generate` L9 evidence.
+For a debug-port acceptance run, set `DEVSHELL_CDP_URL` and `DEVSHELL_GMSH_VOLUME_ONLY=1`, then run `node tests/scientific-gmsh-managed-ui-checks.mjs`. The full script checks both fixed 2D L0–L9 and the separate volume path. Native tetrahedral MATH3D documents and volume L9/promotion remain open. The exporter publishes only current fixed 2D `mesh.generate` L9 evidence.
+
+## Managed Gmsh volume L7–L8 and product readiness (DS-SCI-073–075)
+
+Run **cube volume L7** after current L6. The managed job preserves the source `.msh`, extracts an outward OBJ boundary, checks the VTK and MATH3D surface consumers, and saves both flipped-face rejections. History verifies the sealed local DS-SCI-069 record, registered artifacts, current L6 baseline and the source and consumer hashes before granting `mesh.generate3d` L7. Run **cube volume L8** to repeat the boundary consumer three times under an owned memory limit, then check cancellation, timeout and memory failure cleanup; History checks its linked L7 support.
+
+**Check volume product readiness** saves an owned, inspectable blocked result linked to current L8 and the tetrahedral MSH. The required MATH3D contract is `scientific/volume-consumer.v1.json` declaring `mesh.tetrahedral`, `math3d.volume-document` and cell preservation. A declaration alone is insufficient: native import, independent document reload and viewer regression must be verified in a later L9 gate. The existing OBJ surface importer drops tetrahedral connectivity, so volume remains excluded from broker certification and promotion.
 ```
 
 The OBJ is a boundary representation; the MATH3D importer does not preserve tetrahedral cells. These local records grant no managed L0–L9 level and do not add the cube to certified manifests or promotion.

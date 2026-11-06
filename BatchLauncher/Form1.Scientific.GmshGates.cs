@@ -192,7 +192,7 @@ public partial class Form1
     }
 
     private async Task ScientificGmshL8RunAsync(ScientificJob job, string vtkPrefix, string artifact,
-        JsonObject support, string sourceDirectory, JsonObject l7)
+        JsonObject support, string sourceDirectory, JsonObject l7, bool volume = false)
     {
         var timer = Stopwatch.StartNew();
         try
@@ -200,7 +200,7 @@ public partial class Form1
             const long memoryLimit = 134217728;
             const long repeatMemoryLimit = 536870912;
             var python = Path.Combine(vtkPrefix, "python.exe");
-            var tool = Path.Combine(ScientificSourceRoot, "tools", "scientific-gmsh-vtk-consumer.py");
+            var tool = Path.Combine(ScientificSourceRoot, "tools", volume ? "scientific-gmsh-volume-vtk.py" : "scientific-gmsh-vtk-consumer.py");
             var folder = Path.Combine(job.Directory, "resilience"); Directory.CreateDirectory(folder);
             var repeats = new JsonArray();
             for (var index = 1; index <= 3; index++)
@@ -266,7 +266,7 @@ public partial class Form1
                     && capped.Log.ToString().Contains("memory limit observed", StringComparison.Ordinal)) { }
             }
             if (File.Exists(memoryOutput)) throw new InvalidDataException("Memory-limited child created output.");
-            if (ScientificGmshCurrentL7(job.ProfileId)["recordId"]?.GetValue<string>() != support["recordId"]?.GetValue<string>())
+            if ((volume ? ScientificGmshVolumeCurrentL7(job.ProfileId) : ScientificGmshCurrentL7(job.ProfileId))["recordId"]?.GetValue<string>() != support["recordId"]?.GetValue<string>())
                 throw new InvalidDataException("The Gmsh L7 support record is no longer current.");
             var lower = (JsonArray)l7["lowerQualification"]!["records"]!.DeepClone(); lower.Add(support.DeepClone());
             var observations = new JsonObject { ["repeatCount"] = 3, ["repeatLimitSeconds"] = 60,
@@ -281,17 +281,18 @@ public partial class Form1
                     ["childStopped"] = true } };
             var observationsFile = Path.Combine(folder, "observations.json");
             File.WriteAllText(observationsFile, observations.ToJsonString(), new UTF8Encoding(false));
-            var evidence = new JsonObject { ["suiteId"] = "l8-gmsh-resilience-v1", ["capabilityId"] = "mesh.generate",
+            var evidence = new JsonObject { ["suiteId"] = volume ? "l8-gmsh-volume-v1" : "l8-gmsh-resilience-v1", ["capabilityId"] = volume ? "mesh.generate3d" : "mesh.generate",
                 ["sourceL7RunId"] = support["runId"]?.GetValue<string>(),
                 ["sourceL7FolderId"] = Path.GetFileName(sourceDirectory),
                 ["sourceL7RecordId"] = support["recordId"]?.GetValue<string>(),
                 ["sourceArtifactSha256"] = ScientificHash(artifact),
-                ["sourceConsumerContractSha256"] = l7["consumerContractSha256"]?.GetValue<string>(),
+                ["sourceConsumerContractSha256"] = (volume ? l7["candidateRecordSha256"] : l7["consumerContractSha256"])?.GetValue<string>(),
                 ["readerSha256"] = ScientificHash(tool), ["vtkPythonSha256"] = ScientificHash(python),
                 ["observations"] = observations.DeepClone(), ["observationsSha256"] = ScientificHash(observationsFile),
                 ["lowerQualification"] = new JsonObject { ["records"] = lower } };
             File.WriteAllText(Path.Combine(job.Directory, "results.json"), new JsonObject {
-                ["l8GmshEvidence"] = evidence, ["validatedCapabilities"] = new JsonArray("mesh.generate")
+                [volume ? "l8GmshVolumeEvidence" : "l8GmshEvidence"] = evidence,
+                ["validatedCapabilities"] = new JsonArray(volume ? "mesh.generate3d" : "mesh.generate")
             }.ToJsonString(), new UTF8Encoding(false));
             job.State = "succeeded"; job.Stage = "completed";
         }

@@ -30,7 +30,13 @@
       "workerRecipe": "gmsh.volume3d.cube", "fixture": "scientific/fixtures/gmsh/cube.geo",
       "rejections": ["scientific/fixtures/gmsh/tampered-cube.geo", "meshSize=0"], "scope": "fixed public unit cube, tetrahedra only" },
     { "id": "l6.gmsh-volume", "readinessLevel": "L6", "capability": "mesh.generate3d",
-      "referenceRecipe": "l5.gmsh-volume", "comparison": "sha256-exact", "reload": "tetrahedral volume and closed boundary" }
+      "referenceRecipe": "l5.gmsh-volume", "comparison": "sha256-exact", "reload": "tetrahedral volume and closed boundary" },
+    { "id": "l7.gmsh-volume", "readinessLevel": "L7", "capability": "mesh.generate3d",
+      "referenceRecipe": "l6.gmsh-volume", "boundaryFormat": "obj", "consumers": ["VTK surface reader", "MATH3D surface importer"],
+      "scope": "outward boundary of fixed tetrahedral cube; cells remain in MSH" },
+    { "id": "l8.gmsh-volume", "readinessLevel": "L8", "capability": "mesh.generate3d",
+      "referenceRecipe": "l7.gmsh-volume", "repeatCount": 3, "memoryLimitBytes": 134217728,
+      "cases": ["repeat", "cancellation", "timeout", "memory limit"], "scope": "fixed cube boundary consumer" }
   ],
   "probes": [
     {

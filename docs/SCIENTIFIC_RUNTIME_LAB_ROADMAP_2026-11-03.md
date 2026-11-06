@@ -1688,6 +1688,15 @@ Rerun the same cube through a separate managed job, compare its exact `.msh` has
 
 **2026-11-06 delivery:** The desktop L6 job reproduced the L5 `.msh` byte hash, independently reopened the tetrahedra, and saved a linked, verified qualification. History reported current L6 for `mesh.generate3d` after checking its L5 baseline and L0–L4 support. L7–L9 and volume promotion remain open; the MATH3D surface importer is only boundary-consumer evidence.
 
+**DS-SCI-073 — `feat(scientific): qualify managed Gmsh volume L7 boundary interoperability`**\
+Start from a current managed L6 cube record. Retain the tetrahedral `.msh`, extract its outward OBJ boundary, compare geometry, topology, orientation and scale in VTK and the MATH3D surface importer, and require both to reject a flipped face. Save a sealed, linked L7 record with each consumer's source and result. This is interoperability of the boundary, not tetrahedral document import.
+
+**DS-SCI-074 — `feat(scientific): qualify managed Gmsh volume L8 resilience`**\
+Start from current L7 evidence. Run three bounded VTK boundary reads and require identical results; exercise owned cancellation, timeout, memory limit and partial-output cleanup. Save observations, process limits, source hashes and current L0–L7 support in a verified L8 record.
+
+**DS-SCI-075 — `feat(scientific): record Gmsh volume product readiness`**\
+Check the current L8 tetrahedral source against an explicit MATH3D volume-consumer contract that preserves cells and declares a native volume document. Save an inspectable blocked verdict and the exact missing product requirement. A surface Mesh document or OBJ viewer cannot grant volume L9; defer L9 certification until native tetrahedral import, document round trip and viewer regression are implemented and verified.
+
 ---
 
 ## 28. Priority selection: what to implement first

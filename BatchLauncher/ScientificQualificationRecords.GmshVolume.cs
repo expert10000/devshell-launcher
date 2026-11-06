@@ -8,7 +8,7 @@ public static partial class ScientificQualificationRecords
 {
     private static string? GmshVolumeHash(string directory, JsonObject result, JsonObject components, string level)
     {
-        var recipe = level == "L5" ? "l5.gmsh-volume" : "l6.gmsh-volume";
+        var recipe = $"{level.ToLowerInvariant()}.gmsh-volume";
         if (result["runtimeId"]?.GetValue<string>() != "gmsh-win-conda"
             || result["recipeId"]?.GetValue<string>() != recipe
             || result["volumeEvidence"] is not JsonObject evidence
@@ -21,7 +21,7 @@ public static partial class ScientificQualificationRecords
             || result["inputArtifacts"] is not JsonArray inputs || inputs.Count != 1
             || inputs[0]?["datasetId"]?.GetValue<string>() != "gmsh/fixed-cube.geo"
             || evidence["lowerQualification"]?["records"] is not JsonArray lower
-            || lower.Count != (level == "L5" ? 5 : 6)
+            || lower.Count != (level == "L5" ? 5 : level == "L6" ? 6 : 7)
             || lower[3]?["capabilityId"]?.GetValue<string>() != "gmsh.volume3d.cube"
             || lower[3]?["level"]?.GetValue<string>() != "L3"
             || components["suite"]?["files"]?["tools/scientific-broker/gmsh_volume.py"]?["sha256"] is not JsonNode)
@@ -31,7 +31,7 @@ public static partial class ScientificQualificationRecords
                 || lower[index]?["runId"]?.GetValue<string>() is not { Length: 32 }
                 || lower[index]?["recordId"]?.GetValue<string>() is not { Length: 64 }) return null;
         var folder = Path.Combine(directory, "volume");
-        var ticket = level == "L5" ? "DS-SCI-067" : "DS-SCI-068";
+        var ticket = level == "L5" ? "DS-SCI-067" : level == "L6" ? "DS-SCI-068" : "DS-SCI-069";
         var recordPath = Path.Combine(folder, ticket + ".json");
         var suitePath = Path.Combine(directory, "suite.json");
         var artifact = Path.Combine(folder, "positive-a", "cube.msh");
@@ -60,7 +60,7 @@ public static partial class ScientificQualificationRecords
             || record["volumePromotionAllowed"]?.GetValue<bool>() != false
             || record["sourceCommit"]?.GetValue<string>() != components["source"]?["gitHead"]?.GetValue<string>()
             || record["verdict"]?.GetValue<string>() != "passed"
-            || record["artifactSha256"]?.GetValue<string>() != evidence["artifactSha256"]?.GetValue<string>())
+            || (level != "L7" && record["artifactSha256"]?.GetValue<string>() != evidence["artifactSha256"]?.GetValue<string>()))
             return null;
         if (record["sources"] is not JsonObject sources || sources.Count is < 8 or > 40
             || record["files"] is not JsonObject files || files.Count < (level == "L5" ? 6 : 5)
@@ -84,9 +84,9 @@ public static partial class ScientificQualificationRecords
             || rejectedParameter["artifacts"]?.AsArray().Count != 0
             || File.Exists(Path.Combine(folder, "reject-geometry", "cube.msh"))
             || File.Exists(Path.Combine(folder, "reject-parameter", "cube.msh"))) return null;
-        if (level == "L6")
+        if (level is "L6" or "L7")
         {
-            var parent = Path.Combine(folder, "DS-SCI-067.json");
+            var parent = Path.Combine(folder, level == "L6" ? "DS-SCI-067.json" : "DS-SCI-068.json");
             var second = JsonNode.Parse(File.ReadAllText(Path.Combine(folder, "positive-b", "results.json")));
             if (JsonNode.Parse(File.ReadAllText(Path.Combine(folder, "reload.json"))) is not JsonObject reload
                 || evidence["baseline"] is not JsonObject baseline) return null;
@@ -104,10 +104,10 @@ public static partial class ScientificQualificationRecords
                 || Math.Abs((reload["volume"]?.GetValue<double>() ?? double.NaN) - 1) > 1e-6
                 || Math.Abs((reload["surfaceArea"]?.GetValue<double>() ?? double.NaN) - 6) > 1e-5
                 || baseline["artifactSha256"]?.GetValue<string>() != evidence["artifactSha256"]?.GetValue<string>()
-                || lower[5]?["runId"]?.GetValue<string>() != baseline["runId"]?.GetValue<string>()
-                || lower[5]?["recordId"]?.GetValue<string>() != baseline["recordId"]?.GetValue<string>()
-                || lower[5]?["capabilityId"]?.GetValue<string>() != "mesh.generate3d"
-                || lower[5]?["level"]?.GetValue<string>() != "L5") return null;
+                || lower[level == "L6" ? 5 : 6]?["runId"]?.GetValue<string>() != baseline["runId"]?.GetValue<string>()
+                || lower[level == "L6" ? 5 : 6]?["recordId"]?.GetValue<string>() != baseline["recordId"]?.GetValue<string>()
+                || lower[level == "L6" ? 5 : 6]?["capabilityId"]?.GetValue<string>() != "mesh.generate3d"
+                || lower[level == "L6" ? 5 : 6]?["level"]?.GetValue<string>() != (level == "L6" ? "L5" : "L6")) return null;
             var baselineFolder = baseline["folderId"]?.GetValue<string>();
             if (baselineFolder is not { Length: 32 } || !baselineFolder.All(Uri.IsHexDigit)) return null;
             var baselineDirectory = Path.Combine(Path.GetDirectoryName(directory)!, baselineFolder);
@@ -116,15 +116,145 @@ public static partial class ScientificQualificationRecords
             using var document = JsonDocument.Parse(File.ReadAllText(baselinePath));
             var baselineResult = document.RootElement;
             if (baselineResult.GetProperty("state").GetString() != "succeeded"
-                || baselineResult.GetProperty("recipeId").GetString() != "l5.gmsh-volume"
+                || baselineResult.GetProperty("recipeId").GetString() != (level == "L6" ? "l5.gmsh-volume" : "l6.gmsh-volume")
                 || baselineResult.GetProperty("runId").GetString() != baseline["runId"]?.GetValue<string>()
                 || baselineResult.GetProperty("profileId").GetString() != result["profileId"]?.GetValue<string>()
                 || !Verify(baselineDirectory, baselineResult).OfType<JsonObject>().Any(item =>
                     item["recordId"]?.GetValue<string>() == baseline["recordId"]?.GetValue<string>()
                     && item["capabilityId"]?.GetValue<string>() == "mesh.generate3d"
-                    && item["level"]?.GetValue<string>() == "L5")) return null;
+                    && item["level"]?.GetValue<string>() == (level == "L6" ? "L5" : "L6"))) return null;
         }
         else if (evidence["baseline"] != null || evidence["reloadSha256"] != null || evidence["reload"] != null) return null;
+        if (level == "L7")
+        {
+            var boundaryPath = Path.Combine(folder, "boundary.obj");
+            var boundaryHash = evidence["boundaryArtifactSha256"]?.GetValue<string>();
+            var boundary = JsonNode.Parse(File.ReadAllText(Path.Combine(folder, "boundary.json")));
+            var vtk = JsonNode.Parse(File.ReadAllText(Path.Combine(folder, "vtk.json")));
+            var math3d = JsonNode.Parse(File.ReadAllText(Path.Combine(folder, "math3d.json")));
+            var vtkReject = JsonNode.Parse(File.ReadAllText(Path.Combine(folder, "vtk-rejection.json")));
+            var math3dReject = JsonNode.Parse(File.ReadAllText(Path.Combine(folder, "math3d-rejection.json")));
+            if (Hash(boundaryPath) != boundaryHash || boundary?["outputObjSha256"]?.GetValue<string>() != boundaryHash
+                || boundary?["sourceMshSha256"]?.GetValue<string>() != evidence["artifactSha256"]?.GetValue<string>()
+                || record["boundaryObj"]?.GetValue<string>() != boundaryPath
+                || record["reloadResult"]?.GetValue<string>() != Path.Combine(folder, "boundary.json")
+                || vtk?.ToJsonString() != evidence["vtk"]?.ToJsonString()
+                || math3d?.ToJsonString() != evidence["math3d"]?.ToJsonString()
+                || vtkReject?["state"]?.GetValue<string>() != "rejected"
+                || math3dReject?["state"]?.GetValue<string>() != "rejected"
+                || vtk?["inputObjSha256"]?.GetValue<string>() != boundaryHash
+                || math3d?["inputObjSha256"]?.GetValue<string>() != boundaryHash
+                || vtk?["tetrahedra"] != null || math3d?["tetrahedra"] != null
+                || vtk?["points"]?.GetValue<int>() != boundary?["boundaryPoints"]?.GetValue<int>()
+                || math3d?["points"]?.GetValue<int>() != boundary?["boundaryPoints"]?.GetValue<int>()
+                || vtk?["triangles"]?.GetValue<int>() != boundary?["boundaryTriangles"]?.GetValue<int>()
+                || math3d?["triangles"]?.GetValue<int>() != boundary?["boundaryTriangles"]?.GetValue<int>()
+                || Math.Abs((vtk?["signedVolume"]?.GetValue<double>() ?? double.NaN) - 1) > 1e-5
+                || Math.Abs((math3d?["signedVolume"]?.GetValue<double>() ?? double.NaN) - 1) > 1e-5
+                || result["artifacts"] is not JsonArray outputs
+                || !outputs.Any(item => item?["path"]?.GetValue<string>() == "volume/boundary.obj"
+                    && item?["sha256"]?.GetValue<string>() == boundaryHash)) return null;
+        }
+        return Digest(evidence.ToJsonString());
+    }
+
+    private static string? GmshVolumeL8Hash(string directory, JsonObject result, JsonObject components)
+    {
+        if (result["runtimeId"]?.GetValue<string>() != "gmsh-win-conda"
+            || result["recipeId"]?.GetValue<string>() != "l8.gmsh-volume"
+            || result["l8GmshVolumeEvidence"] is not JsonObject evidence
+            || evidence["suiteId"]?.GetValue<string>() != "l8-gmsh-volume-v1"
+            || evidence["capabilityId"]?.GetValue<string>() != "mesh.generate3d"
+            || evidence["readerSha256"]?.GetValue<string>() != components["suite"]?["files"]?
+                ["tools/scientific-gmsh-volume-vtk.py"]?["sha256"]?.GetValue<string>()
+            || evidence["lowerQualification"]?["records"] is not JsonArray lower || lower.Count != 8
+            || evidence["observations"] is not JsonObject observations
+            || observations["repeatCount"]?.GetValue<int>() != 3
+            || observations["repeatMemoryLimitBytes"]?.GetValue<long>() != 536870912
+            || observations["memoryLimitBytes"]?.GetValue<long>() != 134217728
+            || observations["repeats"] is not JsonArray repeats || repeats.Count != 3)
+            return null;
+        var folderId = evidence["sourceL7FolderId"]?.GetValue<string>();
+        var runId = evidence["sourceL7RunId"]?.GetValue<string>();
+        var recordId = evidence["sourceL7RecordId"]?.GetValue<string>();
+        if (folderId is not { Length: 32 } || !folderId.All(Uri.IsHexDigit)
+            || runId is not { Length: 32 } || !runId.All(Uri.IsHexDigit)
+            || recordId is not { Length: 64 } || !recordId.All(Uri.IsHexDigit)
+            || lower[7]?["runId"]?.GetValue<string>() != runId
+            || lower[7]?["recordId"]?.GetValue<string>() != recordId
+            || lower[7]?["capabilityId"]?.GetValue<string>() != "mesh.generate3d"
+            || lower[7]?["level"]?.GetValue<string>() != "L7") return null;
+        var sourceDirectory = Path.Combine(Path.GetDirectoryName(directory)!, folderId);
+        var sourcePath = Path.Combine(sourceDirectory, "results.json");
+        var objPath = Path.Combine(sourceDirectory, "volume", "boundary.obj");
+        if (!File.Exists(sourcePath) || !File.Exists(objPath)
+            || new FileInfo(sourcePath).Length > 1048576 || new FileInfo(objPath).Length > 33554432
+            || Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(objPath))).ToLowerInvariant()
+                != evidence["sourceArtifactSha256"]?.GetValue<string>()) return null;
+        using var document = JsonDocument.Parse(File.ReadAllText(sourcePath));
+        var source = document.RootElement;
+        if (source.GetProperty("state").GetString() != "succeeded"
+            || source.GetProperty("recipeId").GetString() != "l7.gmsh-volume"
+            || source.GetProperty("runId").GetString() != runId
+            || source.GetProperty("profileId").GetString() != result["profileId"]?.GetValue<string>()
+            || !Verify(sourceDirectory, source).OfType<JsonObject>().Any(item =>
+                item["recordId"]?.GetValue<string>() == recordId && item["level"]?.GetValue<string>() == "L7")) return null;
+        var l7 = JsonNode.Parse(source.GetRawText())?["volumeEvidence"];
+        if (l7?["boundaryArtifactSha256"]?.GetValue<string>() != evidence["sourceArtifactSha256"]?.GetValue<string>()
+            || l7?["candidateRecordSha256"]?.GetValue<string>() != evidence["sourceConsumerContractSha256"]?.GetValue<string>()
+            || l7?["lowerQualification"]?["records"] is not JsonArray prior || prior.Count != 7) return null;
+        for (var index = 0; index < 7; index++)
+            if (lower[index]?.ToJsonString() != prior[index]?.ToJsonString()) return null;
+        var root = Path.Combine(directory, "resilience");
+        var observationPath = Path.Combine(root, "observations.json");
+        if (!File.Exists(observationPath) || new FileInfo(observationPath).Length > 262144
+            || Digest(File.ReadAllText(observationPath)) != evidence["observationsSha256"]?.GetValue<string>()
+            || JsonNode.Parse(File.ReadAllText(observationPath))?.ToJsonString() != observations.ToJsonString()
+            || result["artifacts"] is not JsonArray outputs
+            || !outputs.Any(item => item?["path"]?.GetValue<string>() == "resilience/observations.json"
+                && item?["sha256"]?.GetValue<string>() == evidence["observationsSha256"]?.GetValue<string>())) return null;
+        string? common = null;
+        for (var index = 1; index <= 3; index++)
+        {
+            var name = $"repeat-{index}.json";
+            var path = Path.Combine(root, name);
+            var repeat = repeats[index - 1];
+            var hash = repeat?["resultSha256"]?.GetValue<string>();
+            var accepted = repeat?["result"];
+            if (!File.Exists(path) || new FileInfo(path).Length > 65536
+                || hash != Digest(File.ReadAllText(path))
+                || repeat?["caseId"]?.GetValue<string>() != $"repeat-{index}"
+                || accepted?.ToJsonString() != JsonNode.Parse(File.ReadAllText(path))?.ToJsonString()
+                || accepted?["state"]?.GetValue<string>() != "accepted"
+                || accepted["inputObjSha256"]?.GetValue<string>() != evidence["sourceArtifactSha256"]?.GetValue<string>()
+                || accepted["points"]?.GetValue<int>() != 80
+                || accepted["triangles"]?.GetValue<int>() != 156
+                || accepted["boundaryEdges"]?.GetValue<int>() != 0
+                || accepted["nonManifoldEdges"]?.GetValue<int>() != 0
+                || Math.Abs((accepted["signedVolume"]?.GetValue<double>() ?? double.NaN) - 1) > 1e-5
+                || Math.Abs((accepted["surfaceArea"]?.GetValue<double>() ?? double.NaN) - 6) > 1e-5
+                || repeat["peakProcessMemoryBytes"]?.GetValue<long>() is not > 0 and <= 536870912
+                || !outputs.Any(item => item?["path"]?.GetValue<string>() == "resilience/" + name
+                    && item?["sha256"]?.GetValue<string>() == hash)
+                || common != null && hash != common) return null;
+            common = hash;
+        }
+        if (new[] { "cancelled-output.txt", "timeout-output.txt", "memory-output.txt" }
+                .Any(name => File.Exists(Path.Combine(root, name)))
+            || observations["cancellation"]?["state"]?.GetValue<string>() != "cancelled"
+            || observations["cancellation"]?["outputAbsent"]?.GetValue<bool>() != true
+            || observations["cancellation"]?["childStopped"]?.GetValue<bool>() != true
+            || observations["timeout"]?["state"]?.GetValue<string>() != "timed-out"
+            || observations["timeout"]?["limitSeconds"]?.GetValue<int>() != 1
+            || observations["timeout"]?["outputAbsent"]?.GetValue<bool>() != true
+            || observations["timeout"]?["childStopped"]?.GetValue<bool>() != true
+            || observations["memory"]?["state"]?.GetValue<string>() != "limited"
+            || observations["memory"]?["exitCode"]?.GetValue<int>() != 42
+            || observations["memory"]?["outputAbsent"]?.GetValue<bool>() != true
+            || observations["memory"]?["childStopped"]?.GetValue<bool>() != true
+            || result["inputArtifacts"] is not JsonArray inputs || inputs.Count != 1
+            || inputs[0]?["sourceRunId"]?.GetValue<string>() != runId
+            || inputs[0]?["sha256"]?.GetValue<string>() != evidence["sourceArtifactSha256"]?.GetValue<string>()) return null;
         return Digest(evidence.ToJsonString());
     }
 }

@@ -19,6 +19,11 @@ async function newRun(previous, recipe, expectedLevels) {
       const resultPath = join(folder, 'results.json')
       const fingerprintPath = join(folder, 'fingerprint.json')
       const qualificationPath = join(folder, 'qualifications.json')
+      if (existsSync(resultPath)) {
+        const terminal = JSON.parse(readFileSync(resultPath, 'utf8'))
+        if (terminal.runtimeId === prefix && terminal.recipeId === recipe && terminal.state && terminal.state !== 'succeeded')
+          throw new Error(`${recipe} ended ${terminal.state}: ${JSON.stringify(terminal.diagnostics || terminal.error)}`)
+      }
       if (![resultPath, fingerprintPath, qualificationPath].every(existsSync)) continue
       try {
         const result = JSON.parse(readFileSync(resultPath, 'utf8'))
@@ -60,15 +65,25 @@ try {
     { button: 'Run L9 MATH3D product', recipe: 'l9.gmsh-product', levels: ['L0', 'L9'] },
     { button: 'Run cube volume L5', recipe: 'l5.gmsh-volume', levels: ['L0', 'L5'] },
     { button: 'Run cube volume L6', recipe: 'l6.gmsh-volume', levels: ['L0', 'L6'] },
+    { button: 'Run cube volume L7', recipe: 'l7.gmsh-volume', levels: ['L0', 'L7'] },
+    { button: 'Run cube volume L8', recipe: 'l8.gmsh-volume', levels: ['L0', 'L8'] },
+    { button: 'Check volume product readiness', recipe: 'product-readiness.gmsh-volume', levels: ['L0'] },
   ]
-  const selectedCases = process.env.DEVSHELL_GMSH_VOLUME_ONLY
-    ? cases.filter(item => ['lab.probe', 'compile-link', 'l5.gmsh-volume', 'l6.gmsh-volume'].includes(item.recipe)) : cases
+  const selectedCases = process.env.DEVSHELL_GMSH_VOLUME_RESUME
+    ? cases.filter(item => ['l7.gmsh-volume', 'l8.gmsh-volume', 'product-readiness.gmsh-volume'].includes(item.recipe))
+    : process.env.DEVSHELL_GMSH_VOLUME_ONLY
+    ? cases.filter(item => ['lab.probe', 'compile-link', 'l5.gmsh-volume', 'l6.gmsh-volume', 'l7.gmsh-volume', 'l8.gmsh-volume', 'product-readiness.gmsh-volume'].includes(item.recipe)) : cases
   const savedRuns = []
   for (const item of process.env.DEVSHELL_GMSH_HISTORY_ONLY ? [] : selectedCases) {
     const previous = new Set(readdirSync(runs))
     await detail.getByRole('button', { name: item.button, exact: true }).click()
     const saved = await newRun(previous, item.recipe, item.levels)
     savedRuns.push(saved)
+    if (item.recipe === 'product-readiness.gmsh-volume') {
+      assert.equal(saved.result.volumeProductReadiness.status, 'blocked')
+      assert.match(saved.result.volumeProductReadiness.reason, /tetrahedral document|native tetrahedral document/)
+      assert.ok(!saved.qualifications.records.some(record => record.capabilityId === 'mesh.generate3d' && record.level === 'L9'))
+    }
     console.log(`${item.recipe}: ${saved.result.runId} / ${saved.qualifications.records.map(record => record.level).join(',')}`)
   }
   if (process.env.DEVSHELL_GMSH_HISTORY_ONLY) {
@@ -100,8 +115,8 @@ try {
     assert.ok((await view.innerText()).includes('current'), `Gmsh qualification must be current in History: ${await view.innerText()}`)
   }
   const summary = history.getByRole('region', { name: 'Current qualification summary' })
-  assert.ok((await summary.innerText()).includes(process.env.DEVSHELL_GMSH_VOLUME_ONLY ? 'L6' : 'L9'), 'Expected current Gmsh mesh level is missing')
-  console.log(process.env.DEVSHELL_GMSH_VOLUME_ONLY ? 'PASS: Gmsh cube volume L0-L6 managed qualification saved' : 'PASS: Gmsh surface L0-L9 and cube volume L0-L6 managed qualifications saved')
+  assert.ok((await summary.innerText()).includes(process.env.DEVSHELL_GMSH_VOLUME_ONLY || process.env.DEVSHELL_GMSH_VOLUME_RESUME ? 'L8' : 'L9'), 'Expected current Gmsh mesh level is missing')
+  console.log(process.env.DEVSHELL_GMSH_VOLUME_ONLY || process.env.DEVSHELL_GMSH_VOLUME_RESUME ? 'PASS: Gmsh cube volume L0-L8 managed qualification and blocked product readiness saved' : 'PASS: Gmsh surface L0-L9, cube volume L0-L8 and blocked product readiness saved')
 } finally {
   await browser.close()
 }

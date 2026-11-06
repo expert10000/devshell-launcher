@@ -70,6 +70,32 @@ public static class ScientificRunFingerprint
         }
     }
 
+    private static JsonObject GpuDriverIdentity()
+    {
+        try
+        {
+            using var process = new Process { StartInfo = new ProcessStartInfo("nvidia-smi.exe")
+            {
+                UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true,
+                RedirectStandardError = true
+            } };
+            process.StartInfo.ArgumentList.Add("--query-gpu=driver_version");
+            process.StartInfo.ArgumentList.Add("--format=csv,noheader");
+            if (!process.Start()) return new JsonObject { ["state"] = "unavailable" };
+            if (!process.WaitForExit(2500)) { process.Kill(entireProcessTree: true); return new JsonObject { ["state"] = "unavailable" }; }
+            if (process.ExitCode != 0) return new JsonObject { ["state"] = "unavailable" };
+            var versions = process.StandardOutput.ReadToEnd().Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (versions.Length == 0 || versions.Any(value => !Regex.IsMatch(value, "^[0-9]+(?:\\.[0-9]+)*$")))
+                return new JsonObject { ["state"] = "unavailable" };
+            var digest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join("\n", versions)))).ToLowerInvariant();
+            return new JsonObject { ["state"] = "recorded", ["sha256"] = digest };
+        }
+        catch (Exception error) when (error is IOException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            return new JsonObject { ["state"] = "unavailable" };
+        }
+    }
+
     private static JsonObject SuiteIdentity(string root, string runtimeId, string? recipeId)
     {
         var names = new List<string> { "BatchLauncher/Form1.Scientific.cs", "BatchLauncher/Form1.Scientific.Artifacts.cs",
@@ -174,6 +200,7 @@ public static class ScientificRunFingerprint
             ["condaPackageRecords"] = PackageIdentity(prefix),
             ["systemPackageRecords"] = backend == "wsl" ? new JsonObject { ["state"] = "unavailable" } : null,
             ["pythonExecutable"] = prefix == null ? new JsonObject { ["state"] = "unavailable" } : FileIdentity(Path.Combine(prefix, "python.exe")),
+            ["gpuDriver"] = GpuDriverIdentity(),
             ["toolchain"] = new JsonObject
             {
                 ["cmake"] = prefix == null ? new JsonObject { ["state"] = "unavailable" } : FileIdentity(Path.Combine(prefix, "Library", "bin", "cmake.exe")),
@@ -406,6 +433,8 @@ public static class ScientificRunFingerprint
             foreach (var name in toolNames)
                 CompareHash(saved["toolchain"]?[name], current["toolchain"]?[name], "toolchain " + name);
         }
+        if (saved["gpuDriver"]?["state"]?.GetValue<string>() == "recorded")
+            CompareHash(saved["gpuDriver"], current["gpuDriver"], "gpuDriver");
         return new JsonObject { ["state"] = reasons.Any(item => item?.GetValue<string>()?.EndsWith(" changed", StringComparison.Ordinal) == true)
                 ? "stale" : unavailable > 0 ? "unknown" : "current",
             ["comparedComponents"] = compared, ["unavailableComponents"] = unavailable, ["reasons"] = reasons };

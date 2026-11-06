@@ -1533,11 +1533,17 @@ These are useful extensions once P0/P1 foundations are stable:
 **DS-SCI-041 — `feat(scientific): add environment drift diagnostic wizard`**\
 Explain mismatched interpreter, PATH, WSL path mapping, driver, compiler and package conflicts; recommend specific requalification steps rather than silently altering environments.
 
+**2026-11-06 scoped delivery:** History now has a read-only drift diagnosis panel for a verified run. It explains source/suite, interpreter, Conda package, compiler/CMake/Ninja, WSL distro/path-mapping and optional GPU driver evidence, including unknown components and explicit next requalification steps. New fingerprints capture a bounded `nvidia-smi` driver-version hash when available; older runs remain inspectable without it. The panel never edits PATH, WSL, packages or qualification records.
+
 **DS-SCI-042 — `feat(scientific): add reproducible environment manifests`**\
 Generate lockable Conda/venv/container/CMake presets and record whether exact dependency builds can be recreated in disposable sandboxes.
 
+**2026-11-06 scoped delivery:** `environment_manifest.py` saves a sealed exact Conda explicit lock with package URL/build/checksum identities, a version-pinned pip inventory, a Windows container compatibility preset and a CMake preset. It states when wheel hashes, a compatible pinned container base or a matching compiler are still needed. An offline `conda create` in a disposable prefix verifies the full package-build identity, saves a hash-checked attempt log and removes the sandbox. The current CGAL prefix's 54-package lock recreated successfully; this result does not claim exact venv or container recreation.
+
 **DS-SCI-043 — `feat(scientific): add adapter conformance harness`**\
 Run contract-level tests against every provider, especially errors, cancellation, progress, typed values and artifact hash behavior.
+
+**2026-11-06 scoped delivery:** `adapter_conformance.py` records all five providers against the same contract dimensions. The fixed certified CGAL broker path passed contract, early rejection, cancellation/cleanup, progress, typed status and artifact hashes. VTK passed its worker contract, rejection, typed mesh and artifact checks; progress and cancellation acknowledgement are explicitly unavailable. Python/SciPy and Sage passed typed/rejection probes but have no version 1 artifact worker; Gmsh probes remain unavailable because the package is missing. These incomplete verdicts do not grant qualification, and Gmsh stays unqualified.
 
 **DS-SCI-044 — `feat(scientific): add operation-level cost and backend advisor`**\
 Offer provider suggestions only from certified comparable benchmark data, while preserving manual choice and deterministic replay.

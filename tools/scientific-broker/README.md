@@ -186,3 +186,29 @@ python tools/scientific-broker/regression_fixtures.py replay --config <broker-co
 ```
 
 Only failures of the currently certified fixed CGAL fixture are eligible. A draft contains the fixture ID and hash, source job, contract, qualification and resource policy; raw input, paths and logs stay local. Promotion needs a named review and explicit approval of the public fixture scope, then requires two fresh runs with the same failed terminal state and no artifacts. A mismatch saves a blocked review and no fixture. The immutable fixture links to the source run, draft, review and both replay jobs; verification can run it again. Private inputs and other providers are not exported or promoted by this pilot.
+
+## Environment drift diagnosis (DS-SCI-041)
+
+Open a verified Scientific History run and choose **Diagnose drift**. The read-only panel compares its saved source and environment fingerprint with the current checkout, then lists concrete requalification steps for interpreter, PATH, Conda packages, compiler tools, WSL mapping and GPU driver evidence. Driver collection is optional; an unavailable collector is reported as unknown, not as a passing driver match. After correcting a mismatch, rerun the affected managed probes and recipes and inspect fresh qualification records.
+
+## Reproducible environment manifests (DS-SCI-042)
+
+For a registered Windows Conda provider, use its dedicated prefix:
+
+```powershell
+python tools/scientific-broker/environment_manifest.py capture --runtime-id cgal-win-conda --prefix <cgal-prefix> --output-root .scientific/environment-locks
+python tools/scientific-broker/environment_manifest.py verify --manifest <environment-manifest.json>
+python tools/scientific-broker/environment_manifest.py recreate --manifest <environment-manifest.json> --conda-exe <conda.exe> --output-root .scientific/environment-recreation
+python tools/scientific-broker/environment_manifest.py verify-recreation --manifest <environment-manifest.json> --record <recreation-record.json>
+```
+
+Capture seals an exact Conda explicit lock, package-build identity, pip version inventory, container compatibility preset and CMake preset. Recreation runs `conda create` offline in a disposable prefix, checks every installed package identity against the lock, records the attempt and log hashes, and removes the prefix. The current CGAL 54-package lock passed this test. Pip wheel hashes and a pinned compatible Windows container base are still needed for exact venv or container recreation. Unsafe package URLs are rejected before saving a lock.
+
+## Adapter conformance matrix (DS-SCI-043)
+
+```powershell
+python tools/scientific-broker/adapter_conformance.py --config .scientific/broker/config.json --runtime-report .scientific/runtime-report.json --output-root .scientific/conformance
+python tools/scientific-broker/adapter_conformance.py --verify <conformance.json>
+```
+
+The sealed report checks provider contracts, expected rejection, cancellation, progress, typed values and output hashes. It records `passed`, `failed` or `unavailable` for every dimension and computes a provider verdict. The certified CGAL path passes all six. VTK passes contract, rejection, typed result and artifact hashing, while its current adapter lacks versioned cancellation and progress acknowledgement. Python/SciPy and Sage have typed and rejection probes but no version 1 artifact worker. Gmsh remains unavailable because its package is missing. A conformance report cannot grant qualification or promote Gmsh.

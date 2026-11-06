@@ -16,6 +16,7 @@ export interface ScientificQualificationSummary { runtimeId: string; capabilitie
 export interface Math3DReadiness { ready: boolean; canPrepare: boolean; checks: { id: string; label: string; ready: boolean; canPrepare: boolean; detail: string }[] }
 export interface ScientificMatrixCase { id: string; datasetId: string; name: string; expected: 'succeeded' | 'rejected'; reason: string }
 export interface ScientificCiImport { bundleId: string; importedAtUtc: string; applicability: string; reasons: string[]; executionLocation: 'ci'; agentId: string; hostFingerprintSha256: string; gpuAgent: boolean; gpuQualification: boolean; runtimeId: string; capabilityId: string; jobState: string; sourceJobId: string; certificationRecordId: string; suiteRevisionSha256: string; environmentFingerprintSha256: string }
+export interface ScientificDriftDiagnosis { runId: string; runtimeId: string; state: 'current' | 'stale' | 'unknown'; sourceState?: string; environmentState?: string; findings: { id: string; state: string; detail: string; nextStep: string }[] }
 
 export function useScientificRuntime(bridge: ScientificBridge | null, profileId: string | null, refreshReport: () => void) {
   const [jobs, setJobs] = useState<Record<string, ScientificJob>>({})
@@ -31,6 +32,7 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
   const [historyThumbnails, setHistoryThumbnails] = useState<Record<string, ScientificHistoryThumbnail>>({})
   const [testMatrix, setTestMatrix] = useState<ScientificMatrixCase[] | null>(null)
   const [ciMatrix, setCiMatrix] = useState<ScientificCiImport[] | null>(null)
+  const [driftDiagnosis, setDriftDiagnosis] = useState<ScientificDriftDiagnosis | null>(null)
   const [booleanDraft, setBooleanDraft] = useState<BooleanDraft | null>(null)
   const [math3dReadiness, setMath3dReadiness] = useState<Math3DReadiness | null>(null)
   const [pending, setPending] = useState(false)
@@ -60,7 +62,7 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
     bridge.postMessage({ type: 'scientific.runtime', profileId, runtimeId, requestId, action, ...extra })
   }
   useEffect(() => {
-    setJobs({}); setEnvironments({}); setPreviews({}); setDatasets(null); setHistory(null); setHistoryResult(null); setHistoryResults({}); setQualificationSummaries({}); setHistoryPreviews({}); setHistoryImages({}); setHistoryThumbnails({}); setTestMatrix(null); setCiMatrix(null); setMath3dReadiness(null); setBooleanDraft(null); setError(''); setNotice(''); setPending(false); completed.current.clear()
+    setJobs({}); setEnvironments({}); setPreviews({}); setDatasets(null); setHistory(null); setHistoryResult(null); setHistoryResults({}); setQualificationSummaries({}); setHistoryPreviews({}); setHistoryImages({}); setHistoryThumbnails({}); setTestMatrix(null); setCiMatrix(null); setDriftDiagnosis(null); setMath3dReadiness(null); setBooleanDraft(null); setError(''); setNotice(''); setPending(false); completed.current.clear()
     if (!bridge || !profileId) return
     const receive = (event: MessageEvent) => {
       let message: { type?: string; profileId?: string; runtimeId?: string; requestId?: string; action?: string; error?: string; job?: ScientificJob; data?: unknown }
@@ -93,6 +95,7 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
       else if (message.action === 'datasets' && message.data) setDatasets(message.data as { importedAt: string; note: string; entries: ScientificDataset[] })
       else if (message.action === 'test-matrix' && Array.isArray(message.data)) setTestMatrix(message.data as ScientificMatrixCase[])
       else if (message.action === 'ci-matrix' && Array.isArray(message.data)) setCiMatrix(message.data as ScientificCiImport[])
+      else if (message.action === 'history-drift-diagnose' && message.data) setDriftDiagnosis(message.data as ScientificDriftDiagnosis)
       else if ((message.action === 'run-matrix' || message.action === 'vtk-rejections' || message.action === 'real-mesh-suite') && message.data) mergeJob(message.data as ScientificJob)
       else if (message.action === 'export') { const result = message.data as { path?: string; cancelled?: boolean }; setNotice(result.cancelled ? 'Profile export cancelled.' : `Profile exported: ${result.path ?? ''}`) }
       else if (message.action === 'terminal') setNotice('External scientific PowerShell opened; not a VS developer shell.')
@@ -103,5 +106,5 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
     // Callback refs keep completed diagnostics from restarting subscriptions.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bridge, profileId])
-  return { profileId, jobs, environments, previews, datasets, history, historyResult, historyResults, qualificationSummaries, historyPreviews, historyImages, historyThumbnails, testMatrix, ciMatrix, math3dReadiness, booleanDraft, pending, error, notice, send, busy: Object.values(jobs).some(job => job.state === 'running') }
+  return { profileId, jobs, environments, previews, datasets, history, historyResult, historyResults, qualificationSummaries, historyPreviews, historyImages, historyThumbnails, testMatrix, ciMatrix, driftDiagnosis, math3dReadiness, booleanDraft, pending, error, notice, send, busy: Object.values(jobs).some(job => job.state === 'running') }
 }

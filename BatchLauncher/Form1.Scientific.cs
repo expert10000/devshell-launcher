@@ -217,6 +217,7 @@ public partial class Form1
             else if(action=="ci-matrix")data=ScientificCiMatrix();
             else if(action=="capabilities")data=new{schemaVersion=ScientificCapabilityRegistry.SchemaVersion,capabilities=ScientificCapabilityRegistry.Discover(runtimeId)};
             else if(action=="history-result")data=ScientificHistoryResult(profileId,request.GetProperty("jobId").GetString()??"");
+            else if(action=="history-drift-diagnose")data=ScientificDriftDiagnosis(profileId,runtimeId,request.GetProperty("jobId").GetString()??"");
             else if(action=="history-boolean-draft")data=ScientificBooleanDraft(profileId,request.GetProperty("jobId").GetString()??"");
             else if(action=="import-meshes"){ScientificProviderRegistry.RequireAction(runtimeId,action);data=ScientificMeshImportStart(profileId,runtimeId);}
             else if(action=="test-matrix"){ScientificProviderRegistry.RequireAction(runtimeId,action);data=ScientificMatrixCases();}

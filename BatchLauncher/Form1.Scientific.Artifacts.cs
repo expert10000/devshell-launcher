@@ -17,9 +17,12 @@ public partial class Form1
     private static JsonObject ScientificDatasetArtifact(string inputId)
     {
         var root = Path.Combine(ScientificDataRoot, "datasets");
-        if (inputId is "gmsh/fixed-square.geo" or "gmsh/tampered-square.geo")
+        if (inputId is "gmsh/fixed-square.geo" or "gmsh/tampered-square.geo"
+            or "gmsh/fixed-cube.geo" or "gmsh/tampered-cube.geo")
         {
-            var name = inputId == "gmsh/fixed-square.geo" ? "square.geo" : "tampered-square.geo";
+            var name = inputId switch { "gmsh/fixed-square.geo" => "square.geo",
+                "gmsh/tampered-square.geo" => "tampered-square.geo",
+                "gmsh/fixed-cube.geo" => "cube.geo", _ => "tampered-cube.geo" };
             var fixtureSource = Path.Combine(ScientificSourceRoot, "scientific", "fixtures", "gmsh", name);
             if (!File.Exists(fixtureSource) || new FileInfo(fixtureSource).Length is <= 0 or > 65536)
                 throw new InvalidOperationException("Registered Gmsh fixture is unavailable.");

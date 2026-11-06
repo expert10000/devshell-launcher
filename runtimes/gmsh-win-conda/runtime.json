@@ -25,7 +25,12 @@
       "referenceRecipe": "l7.gmsh-interop", "repeatCount": 3, "memoryLimitBytes": 134217728 },
     { "id": "l9.gmsh-product", "readinessLevel": "L9", "capability": "mesh.generate",
       "referenceRecipe": "l8.gmsh-resilience", "contractVersion": 1,
-      "viewer": "MeshDocumentViewport", "documentFormat": "M3DM", "scope": "fixed 2D square" }
+      "viewer": "MeshDocumentViewport", "documentFormat": "M3DM", "scope": "fixed 2D square" },
+    { "id": "l5.gmsh-volume", "readinessLevel": "L5", "capability": "mesh.generate3d",
+      "workerRecipe": "gmsh.volume3d.cube", "fixture": "scientific/fixtures/gmsh/cube.geo",
+      "rejections": ["scientific/fixtures/gmsh/tampered-cube.geo", "meshSize=0"], "scope": "fixed public unit cube, tetrahedra only" },
+    { "id": "l6.gmsh-volume", "readinessLevel": "L6", "capability": "mesh.generate3d",
+      "referenceRecipe": "l5.gmsh-volume", "comparison": "sha256-exact", "reload": "tetrahedral volume and closed boundary" }
   ],
   "probes": [
     {
@@ -46,6 +51,13 @@
       "capability": "gmsh.surface2d",
       "timeoutSeconds": 30,
       "arguments": ["-I", "-c", "import gmsh\ngmsh.initialize()\ntry:\n gmsh.option.setNumber('General.Terminal', 0)\n gmsh.model.add('bounded-square')\n gmsh.model.occ.addRectangle(0, 0, 0, 1, 1)\n gmsh.model.occ.synchronize()\n gmsh.model.mesh.generate(2)\n types, elements, nodes = gmsh.model.mesh.getElements(2)\n count = sum(len(tags) for tags in elements)\n assert count > 0, 'no surface elements'\n print('surface elements:', count)\nfinally:\n gmsh.finalize()"]
+    },
+    {
+      "id": "gmsh.volume3d.cube",
+      "readinessLevel": "L3",
+      "capability": "gmsh.volume3d.cube",
+      "timeoutSeconds": 45,
+      "arguments": ["-I", "-c", "import gmsh\ngmsh.initialize()\ntry:\n gmsh.option.setNumber('General.Terminal',0)\n gmsh.model.add('bounded-cube')\n gmsh.model.occ.addBox(0,0,0,1,1,1)\n gmsh.model.occ.synchronize()\n gmsh.model.mesh.generate(3)\n kinds,groups,_=gmsh.model.mesh.getElements(3)\n count=sum(len(group) for kind,group in zip(kinds,groups) if kind==4)\n assert count>=6,'no tetrahedra'\n print('tetrahedra:',count)\nfinally:\n gmsh.finalize()"]
     },
     {
       "id": "gmsh.surface2d.reject",

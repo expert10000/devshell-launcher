@@ -259,8 +259,10 @@ Check(ScientificProviderRegistry.RequireAction("gmsh-win-conda","recipe").Native
     && ScientificProviderRegistry.RequireAction("gmsh-win-conda","l6-reproduce").NativeManaged
     && ScientificProviderRegistry.RequireAction("gmsh-win-conda","l7-gmsh-interop").NativeManaged
     && ScientificProviderRegistry.RequireAction("gmsh-win-conda","l8-gmsh-resilience").NativeManaged
-    && ScientificProviderRegistry.RequireAction("gmsh-win-conda","l9-gmsh-product").NativeManaged,
-    "Gmsh admits its managed L5-L9 actions");
+    && ScientificProviderRegistry.RequireAction("gmsh-win-conda","l9-gmsh-product").NativeManaged
+    && ScientificProviderRegistry.RequireAction("gmsh-win-conda","l5-gmsh-volume").NativeManaged
+    && ScientificProviderRegistry.RequireAction("gmsh-win-conda","l6-gmsh-volume").NativeManaged,
+    "Gmsh admits separate managed surface and cube-volume actions");
 Reject(()=>ScientificProviderRegistry.RequireAction("gmsh-win-conda","l9-math3d-product"),"Gmsh blocks the CGAL product action");
 Reject(()=>ScientificProviderRegistry.RequireAction("sage-wsl","import-meshes"),"Sage rejects CGAL import action");
 var semanticCapabilities = ScientificCapabilityRegistry.Capabilities;

@@ -50,7 +50,7 @@ def main():
         gmsh.write(str(contract.output))
         contract.finish(before={'vertices': 8, 'tetrahedra': 0},
                         after={'vertices': len(tags), 'tetrahedra': tetrahedra},
-                        capabilities=['mesh.generate3d.cube'],
+                        capabilities=['mesh.generate3d'],
                         scope='Candidate public unit cube tetrahedra only; no volume release certification.',
                         extra={'meshSize': size, 'bounds': bounds, 'elementTypes': [int(kind) for kind in kinds]})
     finally:

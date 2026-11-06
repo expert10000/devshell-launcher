@@ -65,6 +65,9 @@ The UI registry now owns the five existing runtime declarations, visible section
 | DS-SCI-067 Gmsh cube-volume worker | A separate typed candidate worker generated bounded public unit-cube tetrahedra; changed geometry and invalid mesh size failed with diagnostics and no artifact. Sealed local evidence pins fixture, contract, worker and source. | Register managed volume capability only after scope and contract review |
 | DS-SCI-068 Gmsh volume reproduction | Two distinct runs produced equal `.msh` bytes. Independent reload verified tetrahedral connectivity, closed boundary, unit volume, area six and bounds. | Convert local checks into managed qualification evidence |
 | DS-SCI-069 Gmsh volume-boundary interoperability | A hash-checked outward OBJ boundary passed VTK and MATH3D importer geometry, topology, orientation and scale checks; both rejected a flipped face. | Add tetrahedral document semantics and managed product gates before volume certification |
+| DS-SCI-070 Separate Gmsh volume capability | `mesh.generate3d` is registered as a fixed-cube scope with a real tetrahedral L3 probe and distinct L5/L6 recipes. | Keep volume outside the fixed-surface certificate |
+| DS-SCI-071 Managed Gmsh volume L5 | Desktop-owned positive and rejection jobs saved typed, sealed evidence; History checks the artifact and current L0–L4 support. | Use L5 as the baseline for repeat evidence |
+| DS-SCI-072 Managed Gmsh volume L6 | A second managed run matched the L5 `.msh` bytes and independently reloaded the tetrahedral geometry and topology; History checks the linked baseline. | Add tetrahedral L7–L9 product gates before promotion |
 
 Do not mark an item complete from a passing package probe or a UI declaration. Each later change needs a named run, fingerprint, fixture revision, contract version and evidence link before its qualification level can advance.
 

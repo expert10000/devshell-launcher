@@ -813,6 +813,17 @@ public static partial class ScientificQualificationRecords
             if (capability != null && declaration?["capability"]?.GetValue<string>() == capability && hash != null)
                 Add(capability, "L5", "l5.worker", hash, result["l5Evidence"]?["lowerQualification"]);
         }
+        else if (recipeId == "l5.gmsh-volume" && manifest["qualificationRecipes"] is JsonArray volumeL5Recipes)
+        {
+            var declaration = volumeL5Recipes.OfType<JsonObject>().FirstOrDefault(item =>
+                item["id"]?.GetValue<string>() == "l5.gmsh-volume"
+                && item["readinessLevel"]?.GetValue<string>() == "L5"
+                && item["capability"]?.GetValue<string>() == "mesh.generate3d"
+                && item["workerRecipe"]?.GetValue<string>() == "gmsh.volume3d.cube");
+            var hash = GmshVolumeHash(directory, result, components!, "L5");
+            if (declaration != null && hash != null)
+                Add("mesh.generate3d", "L5", "l5.gmsh-volume", hash, result["volumeEvidence"]?["lowerQualification"]);
+        }
         else if (recipeId == "l6.reproduce" && manifest["qualificationRecipes"] is JsonArray l6Recipes)
         {
             var declaration = l6Recipes.OfType<JsonObject>().FirstOrDefault(item => item["id"]?.GetValue<string>() == "l6.reproduce"
@@ -824,6 +835,17 @@ public static partial class ScientificQualificationRecords
             var hash = L6Hash(directory, runtimeId, result, components!);
             if (capability != null && declaration?["capability"]?.GetValue<string>() == capability && hash != null)
                 Add(capability, "L6", "l6.reproduce", hash, result["l6Evidence"]?["lowerQualification"]);
+        }
+        else if (recipeId == "l6.gmsh-volume" && manifest["qualificationRecipes"] is JsonArray volumeL6Recipes)
+        {
+            var declaration = volumeL6Recipes.OfType<JsonObject>().FirstOrDefault(item =>
+                item["id"]?.GetValue<string>() == "l6.gmsh-volume"
+                && item["readinessLevel"]?.GetValue<string>() == "L6"
+                && item["capability"]?.GetValue<string>() == "mesh.generate3d"
+                && item["referenceRecipe"]?.GetValue<string>() == "l5.gmsh-volume");
+            var hash = GmshVolumeHash(directory, result, components!, "L6");
+            if (declaration != null && hash != null)
+                Add("mesh.generate3d", "L6", "l6.gmsh-volume", hash, result["volumeEvidence"]?["lowerQualification"]);
         }
         else if (recipeId == "l7.math3d-import" && manifest["qualificationRecipes"] is JsonArray l7Recipes)
         {
@@ -1003,6 +1025,16 @@ public static partial class ScientificQualificationRecords
             if (record["level"]?.GetValue<string>() == "L5")
             {
                 var sourceResult = JsonNode.Parse(result.GetRawText()) as JsonObject;
+                if (record["evidenceId"]?.GetValue<string>() == "l5.gmsh-volume")
+                {
+                    if (sourceResult == null
+                        || record["capabilityId"]?.GetValue<string>() != "mesh.generate3d"
+                        || record["lowerQualification"]?.ToJsonString() != sourceResult["volumeEvidence"]?["lowerQualification"]?.ToJsonString()
+                        || record["evidenceSha256"]?.GetValue<string>() != GmshVolumeHash(directory, sourceResult,
+                            fingerprint!["components"]!.AsObject(), "L5"))
+                        throw new InvalidDataException("Gmsh volume L5 evidence changed.");
+                    continue;
+                }
                 if (sourceResult == null || record["evidenceId"]?.GetValue<string>() != "l5.worker"
                     || record["lowerQualification"]?.ToJsonString() != sourceResult["l5Evidence"]?["lowerQualification"]?.ToJsonString()
                     || record["evidenceSha256"]?.GetValue<string>() != L5Hash(directory, runtimeId!, sourceResult,
@@ -1012,6 +1044,16 @@ public static partial class ScientificQualificationRecords
             if (record["level"]?.GetValue<string>() == "L6")
             {
                 var sourceResult = JsonNode.Parse(result.GetRawText()) as JsonObject;
+                if (record["evidenceId"]?.GetValue<string>() == "l6.gmsh-volume")
+                {
+                    if (sourceResult == null
+                        || record["capabilityId"]?.GetValue<string>() != "mesh.generate3d"
+                        || record["lowerQualification"]?.ToJsonString() != sourceResult["volumeEvidence"]?["lowerQualification"]?.ToJsonString()
+                        || record["evidenceSha256"]?.GetValue<string>() != GmshVolumeHash(directory, sourceResult,
+                            fingerprint!["components"]!.AsObject(), "L6"))
+                        throw new InvalidDataException("Gmsh volume L6 evidence changed.");
+                    continue;
+                }
                 if (sourceResult == null || record["evidenceId"]?.GetValue<string>() != "l6.reproduce"
                     || record["lowerQualification"]?.ToJsonString() != sourceResult["l6Evidence"]?["lowerQualification"]?.ToJsonString()
                     || record["evidenceSha256"]?.GetValue<string>() != L6Hash(directory, runtimeId!, sourceResult,

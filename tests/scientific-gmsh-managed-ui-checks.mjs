@@ -58,9 +58,13 @@ try {
     { button: 'Run L7 VTK → MATH3D handoff', recipe: 'l7.gmsh-interop', levels: ['L0', 'L7'] },
     { button: 'Run L8 resilience', recipe: 'l8.gmsh-resilience', levels: ['L0', 'L8'] },
     { button: 'Run L9 MATH3D product', recipe: 'l9.gmsh-product', levels: ['L0', 'L9'] },
+    { button: 'Run cube volume L5', recipe: 'l5.gmsh-volume', levels: ['L0', 'L5'] },
+    { button: 'Run cube volume L6', recipe: 'l6.gmsh-volume', levels: ['L0', 'L6'] },
   ]
+  const selectedCases = process.env.DEVSHELL_GMSH_VOLUME_ONLY
+    ? cases.filter(item => ['lab.probe', 'compile-link', 'l5.gmsh-volume', 'l6.gmsh-volume'].includes(item.recipe)) : cases
   const savedRuns = []
-  for (const item of process.env.DEVSHELL_GMSH_HISTORY_ONLY ? [] : cases) {
+  for (const item of process.env.DEVSHELL_GMSH_HISTORY_ONLY ? [] : selectedCases) {
     const previous = new Set(readdirSync(runs))
     await detail.getByRole('button', { name: item.button, exact: true }).click()
     const saved = await newRun(previous, item.recipe, item.levels)
@@ -68,7 +72,7 @@ try {
     console.log(`${item.recipe}: ${saved.result.runId} / ${saved.qualifications.records.map(record => record.level).join(',')}`)
   }
   if (process.env.DEVSHELL_GMSH_HISTORY_ONLY) {
-    for (const item of cases.filter(item => !process.env.DEVSHELL_GMSH_HISTORY_TARGET || item.recipe === process.env.DEVSHELL_GMSH_HISTORY_TARGET)) {
+    for (const item of selectedCases.filter(item => !process.env.DEVSHELL_GMSH_HISTORY_TARGET || item.recipe === process.env.DEVSHELL_GMSH_HISTORY_TARGET)) {
       const saved = readdirSync(runs).map(name => join(runs, name)).filter(folder => existsSync(join(folder, 'results.json')))
         .map(folder => ({ folder, result: JSON.parse(readFileSync(join(folder, 'results.json'), 'utf8')) }))
         .filter(entry => entry.result.runtimeId === prefix && entry.result.recipeId === item.recipe && entry.result.state === 'succeeded')
@@ -96,8 +100,8 @@ try {
     assert.ok((await view.innerText()).includes('current'), `Gmsh qualification must be current in History: ${await view.innerText()}`)
   }
   const summary = history.getByRole('region', { name: 'Current qualification summary' })
-  assert.ok((await summary.innerText()).includes('L9'), 'Highest current Gmsh mesh level must be L9')
-  console.log('PASS: Gmsh L0-L9 managed qualification records saved')
+  assert.ok((await summary.innerText()).includes(process.env.DEVSHELL_GMSH_VOLUME_ONLY ? 'L6' : 'L9'), 'Expected current Gmsh mesh level is missing')
+  console.log(process.env.DEVSHELL_GMSH_VOLUME_ONLY ? 'PASS: Gmsh cube volume L0-L6 managed qualification saved' : 'PASS: Gmsh surface L0-L9 and cube volume L0-L6 managed qualifications saved')
 } finally {
   await browser.close()
 }

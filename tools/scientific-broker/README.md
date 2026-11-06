@@ -341,6 +341,12 @@ python tools/scientific-broker/gmsh_volume.py run --gmsh-python G:/master/.conda
 python tools/scientific-broker/gmsh_volume.py verify --record <run/DS-SCI-067.json>
 python tools/scientific-broker/gmsh_volume.py verify --record <run/DS-SCI-068.json>
 python tools/scientific-broker/gmsh_volume.py verify --record <run/DS-SCI-069.json>
+
+## Managed Gmsh volume L3–L6 (DS-SCI-070–072)
+
+The registered `mesh.generate3d` capability has its own fixed-cube scope, separate from the certified 2D `mesh.generate` path. The Gmsh runtime probe generates tetrahedra for L3. On the desktop `desktop-five` profile, run **Probe in runtime-lab**, **Compile & link**, **Run L5 volume worker check**, and **Run L6 volume repeat check** in order. L5 owns a fresh positive job and expected rejections, pins its public fixture and typed `.msh`, and requires current L0–L4 support. L6 owns a second job, compares its `.msh` bytes with L5, independently reloads tetrahedra and links the L5 record. History verifies the sealed local suite, artifact, source and lower records before granting each level.
+
+For a debug-port acceptance run, set `DEVSHELL_CDP_URL` and `DEVSHELL_GMSH_VOLUME_ONLY=1`, then run `node tests/scientific-gmsh-managed-ui-checks.mjs`. The full script checks both fixed 2D L0–L9 and volume L0–L6. Volume L7–L9, native tetrahedral MATH3D documents and broker promotion remain open. The exporter publishes only current fixed 2D `mesh.generate` L9 evidence.
 ```
 
 The OBJ is a boundary representation; the MATH3D importer does not preserve tetrahedral cells. These local records grant no managed L0–L9 level and do not add the cube to certified manifests or promotion.

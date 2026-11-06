@@ -1673,6 +1673,21 @@ Extract only the outward triangle boundary from the verified tetrahedral `.msh`,
 
 **2026-11-06 local delivery:** The boundary OBJ had 80 points and 156 outward triangles. VTK 9.6.1 and MATH3D matched the unit-cube bounds, closed topology, area 6 and signed volume 1; both rejected a flipped face. The sealed DS-SCI-069 record chains to DS-SCI-068 and rejects changed OBJ evidence. MATH3D consumed the boundary surface only; tetrahedral cells, managed L7–L9, document/viewer round trips and volume certification remain open.
 
+**DS-SCI-070 — `feat(scientific): register a separate Gmsh volume capability`**\
+Declare semantic `mesh.generate3d` separately from the certified fixed-surface `mesh.generate` capability. Register the bounded cube worker and public fixture in the provider manifest, and add a genuine 3D probe that grants L3 only when Gmsh generates tetrahedra. Keep the new capability out of certified manifests until its full product chain qualifies.
+
+**2026-11-06 delivery:** The Gmsh manifest declares separate L5/L6 volume recipes and probes tetrahedral generation. Runtime-lab saved the `gmsh.volume3d.cube` L3 result, while the capability registry presents `mesh.generate3d` as a distinct, fixed-cube scope. The fixed 2D `mesh.generate` certificate is unchanged in scope.
+
+**DS-SCI-071 — `feat(scientific): qualify managed Gmsh volume L5 worker evidence`**\
+Run the bounded cube worker and both expected rejections from the desktop through an owned job. Register the public fixture and output, save immutable typed results and source hashes, and grant `mesh.generate3d` L5 only when current L0–L4 records and the sealed local worker evidence verify. Show the result and supporting runs in History.
+
+**2026-11-06 delivery:** The desktop L5 action saved a verified `.msh`, the DS-SCI-067 record and the rejection evidence in the managed run directory. History verified the suite, fixture, worker contract, artifact and current lower records before showing `mesh.generate3d` L5. The fixed 2D qualification path was not used as a volume shortcut.
+
+**DS-SCI-072 — `feat(scientific): qualify managed Gmsh volume L6 repeat and reload`**\
+Rerun the same cube through a separate managed job, compare its exact `.msh` hash with the current L5 run, and independently reload tetrahedral connectivity, boundary orientation, volume, area and bounds. Pin both runs, parser, suite revision and artifacts in a verified L6 qualification record. A changed or stale baseline must block L6.
+
+**2026-11-06 delivery:** The desktop L6 job reproduced the L5 `.msh` byte hash, independently reopened the tetrahedra, and saved a linked, verified qualification. History reported current L6 for `mesh.generate3d` after checking its L5 baseline and L0–L4 support. L7–L9 and volume promotion remain open; the MATH3D surface importer is only boundary-consumer evidence.
+
 ---
 
 ## 28. Priority selection: what to implement first

@@ -63,7 +63,8 @@
       { "runtimeId": "gmsh-win-conda", "backend": "windows-native", "limitations": "Certified L0-L9 and broker promotion cover only the fixed public 2D square; arbitrary geometry and volume meshes remain unqualified." }
     ] },
     { "id": "mesh.generate3d", "version": 1, "parametersSchema": "mesh-operation.v1", "resultSchema": "mesh-artifact.v1", "providers": [
-      { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Planned MATH3D coverage row; no registered 3D generation worker." }
+      { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Planned MATH3D coverage row; no registered 3D generation worker." },
+      { "runtimeId": "gmsh-win-conda", "backend": "windows-native", "limitations": "Managed candidate evidence covers only the public unit cube through L6; volume promotion and general 3D meshing remain unavailable." }
     ] },
     { "id": "pointset.process", "version": 1, "parametersSchema": "mesh-operation.v1", "resultSchema": "mesh-artifact.v1", "providers": [
       { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Planned; no registered point-set worker." }

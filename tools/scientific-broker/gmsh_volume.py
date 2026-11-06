@@ -56,7 +56,7 @@ def worker_case(root, name, python, fixture, parameters, expected):
         raise RuntimeError(f'{name} ended in the wrong state: {result.get("diagnostics")}')
     if expected == 'succeeded':
         if (len(result['artifacts']) != 1 or result['artifacts'][0]['sha256'] != sha(artifact)
-                or result['validatedCapabilities'] != ['mesh.generate3d.cube']):
+                or result['validatedCapabilities'] != ['mesh.generate3d']):
             raise RuntimeError('Typed volume artifact or capability differs.')
     elif artifact.exists() or result['artifacts'] or not result['diagnostics']:
         raise RuntimeError('Rejected volume case left an artifact or no diagnostic.')
@@ -116,7 +116,7 @@ def verify(path):
             raise ValueError('Gmsh volume parent evidence changed.')
     if ticket == 'DS-SCI-067':
         positive = read(record['positiveResult'])
-        if (positive['state'] != 'succeeded' or positive['validatedCapabilities'] != ['mesh.generate3d.cube']
+        if (positive['state'] != 'succeeded' or positive['validatedCapabilities'] != ['mesh.generate3d']
                 or positive['artifacts'][0]['sha256'] != record['artifactSha256']
                 or sha(record['artifact']) != record['artifactSha256']):
             raise ValueError('Typed candidate volume worker evidence changed.')
@@ -149,12 +149,14 @@ def verify(path):
     return record
 
 
-def run(gmsh_python, vtk_python, math3d, output_root):
+def run(gmsh_python, vtk_python, math3d, output_root, folder_id=None):
     gmsh_python, vtk_python = Path(gmsh_python).resolve(strict=True), Path(vtk_python).resolve(strict=True)
     math3d = Path(math3d).resolve(strict=True)
     importer = math3d / 'renderer/src/mesh/surfaceMesh.ts'
     importer.resolve(strict=True)
-    root = Path(output_root).resolve() / uuid.uuid4().hex
+    if folder_id is not None and (not folder_id.isascii() or not folder_id.isalnum() or len(folder_id) > 32):
+        raise ValueError('Invalid candidate evidence folder.')
+    root = Path(output_root).resolve() / (folder_id or uuid.uuid4().hex)
     root.mkdir(parents=True)
     dataset = root / 'dataset'
     dataset.mkdir()
@@ -169,7 +171,7 @@ def run(gmsh_python, vtk_python, math3d, output_root):
     invalid = worker_case(root,'reject-parameter',gmsh_python,'cube.geo',{'meshSize':0},'failed')
     first_msh = root / 'positive-a/cube.msh'
     record67 = seal(root,'DS-SCI-067',
-                    {'capabilityId':'mesh.generate3d.cube','positiveResult':str(root/'positive-a/results.json'),
+                    {'capabilityId':'mesh.generate3d','positiveResult':str(root/'positive-a/results.json'),
                      'artifact':str(first_msh),'artifactSha256':sha(first_msh),
                      'rejections':{'changedGeometry':str(root/'reject-geometry/results.json'),
                                    'invalidParameter':str(root/'reject-parameter/results.json')},
@@ -230,13 +232,18 @@ if __name__ == '__main__':
     parser.add_argument('--vtk-python')
     parser.add_argument('--math3d-checkout')
     parser.add_argument('--output-root')
+    parser.add_argument('--folder-id')
+    parser.add_argument('--result')
     parser.add_argument('--record')
     args = parser.parse_args()
     if args.command == 'run':
         if not all((args.gmsh_python,args.vtk_python,args.math3d_checkout,args.output_root)):
             parser.error('run requires both Python interpreters, MATH3D and output root')
-        paths = run(args.gmsh_python,args.vtk_python,args.math3d_checkout,args.output_root)
-        print(json.dumps({'records':[str(path) for path in paths],'verdict':'passed'}))
+        paths = run(args.gmsh_python,args.vtk_python,args.math3d_checkout,args.output_root,args.folder_id)
+        outcome = {'records':[str(path) for path in paths],'verdict':'passed'}
+        if args.result:
+            Path(args.result).write_text(json.dumps(outcome, indent=2), encoding='utf-8')
+        print(json.dumps(outcome))
     else:
         if not args.record:
             parser.error('verify requires --record')

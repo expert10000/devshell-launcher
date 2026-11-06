@@ -92,7 +92,7 @@ def run_local(report, root=ROOT):
         if suite['runner'] != 'local':
             suite['execution'] = {'state': 'requires-managed-run'}
             continue
-        if suite['id'] in ('broker.tests', 'pipeline.remote.tests') and not os.environ.get('SCIENTIFIC_BROKER_CONFIG'):
+        if suite['id'] in ('broker.tests', 'pipeline.remote.tests', 'ci.release.regression.tests') and not os.environ.get('SCIENTIFIC_BROKER_CONFIG'):
             suite['execution'] = {'state': 'requires-broker-config'}
             continue
         command = suite['command']

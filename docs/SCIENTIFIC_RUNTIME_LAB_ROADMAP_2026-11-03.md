@@ -1510,13 +1510,19 @@ Remote execution profiles, resource policies, identity and integrity checks.\
 Exchange bundles, reconcile suite revisions and expose CI matrices in DevShell.\
 **Acceptance:** imported CI verdict references its actual agent/environment; GPU evidence requires a GPU agent.
 
+**2026-11-06 scoped delivery:** `ci_evidence.py` exports a path-redacted, HMAC-authenticated bundle for a terminal certified CGAL broker job. It pins the source job, agent and host fingerprint, suite revision, environment, certification, source snapshot, telemetry and any verified fixed OBJ output. Import requires a trusted agent key and host identity, verifies every archive member, rejects GPU qualification from CPU agents, compares the suite and deployment identities, and saves an immutable local summary and bundle. The desktop Matrix displays those CI records separately from local qualification, with source job and bundle identity. A mismatched suite is inconclusive. The trusted key proves the configured agent's publication, not an independent attestation of its physical hardware; GPU qualification remains unavailable for this fixed CPU capability.
+
 **DS-SCI-039 — `feat(release): introduce scientific release certification`**\
 Lock evidence into release capability manifests and produce a release qualification report.\
 **Acceptance:** published release manifests only refer to verified, applicable current evidence.
 
+**2026-11-06 scoped delivery:** `release_certification.py` invokes the desktop exporter afresh and requires exactly one current L9 CGAL mesh capability whose complete entry matches the deployed broker certification. It saves a sealed qualification report and the fresh export; only a passing gate writes a sealed release capability manifest with the L0–L9 chain, contract, suite, environment and source commit. On this checkout the real fresh export contains no current L9 capability, so the observed report is **blocked** and no release manifest was written. Gmsh is absent.
+
 **DS-SCI-040 — `feat(regression): promote qualified failures to regression fixtures`**\
 One-click reviewed bug fixture creation with traceability from source evidence.\
 **Acceptance:** new regression tests replay deterministically and do not expose private inputs without approval.
+
+**2026-11-06 scoped delivery:** `regression_fixtures.py` accepts only a failed run of the currently certified fixed CGAL capability and stores a draft containing hashes and the registered public fixture ID, without raw input, log or local path. A named review and explicit public-fixture approval precede two fresh replays; only identical expected terminal states with no artifacts produce a sealed regression fixture. Fixture verification can run another replay. The 1 MiB resource-limit failure passed this flow. Private inputs are rejected by scope rather than exported automatically; broader reviewed data support remains future work.
 
 ---
 

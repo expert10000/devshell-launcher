@@ -150,3 +150,39 @@ python tools/scientific-broker/remote_agent.py verify --record <remote-evidence.
 ```
 
 TLS validates the server certificate and hostname; the client also pins the agent, host and manifest identity. All routes require the bearer token. The server accepts no command, path or arbitrary input bytes from the client. It runs only the certified CGAL fixture, with a bounded timeout, the broker's worker capacity and optional memory budget. Cancellation is available at `POST /v1/jobs/{id}/cancel`. Returned OBJ and handoff bytes are checked against the registered job hashes and certified reference. Saved remote transport evidence is hash sealed and explicitly marked `remote`; it cannot be substituted for local L0–L9 qualification. Protect the key and token files with OS permissions and expose the server only on an intended trusted interface.
+
+## CI evidence exchange (DS-SCI-038)
+
+Configure each CI agent with a protected random signing key and its actual `host_fingerprint()` from `telemetry.py`:
+
+```json
+{"schemaVersion":1,"agentId":"ci-agent-1","hostFingerprintSha256":"<64 hex>","gpuCapable":false,"keyFile":"<protected key file>"}
+```
+
+The import host has a trusted registry: `{"schemaVersion":1,"agents":[<agent profile>]}`. The registry points to the same secret key through a local protected path; the key is never placed in the bundle.
+
+```powershell
+python tools/scientific-broker/ci_evidence.py export --config <broker-config.json> --job-id <terminal-job-id> --agent <agent-profile.json> --output <new-bundle.zip>
+python tools/scientific-broker/ci_evidence.py import --bundle <bundle.zip> --trusted-agents <trusted.json> --config <local-broker-config.json> --output-root .scientific/ci-imports
+```
+
+The bundle includes only a redacted job summary, hashes, telemetry and, for success, the fixed public OBJ. It excludes raw requests, handoff paths, logs, source files, tokens and private input. Import verifies the HMAC signature, archive member hashes, agent and host identity, certified reference output and current suite/environment/manifest applicability. A drifted bundle remains inspectable with an `inconclusive` reason; it does not change local qualification. The desktop Scientific Runtime Matrix reads hash-checked summaries from `.scientific/ci-imports`. Reimport after local suite or environment changes to reassess applicability. The fixed CGAL CPU capability cannot claim GPU qualification, including when a GPU collector happens to run on its host.
+
+## Release certification (DS-SCI-039)
+
+```powershell
+python tools/scientific-broker/release_certification.py certify --config <broker-config.json> --installed-root <launcher-install-root> --profile-id <profile-id> --release-tag <tag> --output-root .scientific/releases
+python tools/scientific-broker/release_certification.py verify --config <broker-config.json> --report <qualification-report.json>
+```
+
+The command reruns the desktop L0–L9 exporter against saved managed runs and current source, package and MATH3D consumer state. A release manifest is written only when that fresh single CGAL L9 entry exactly matches the deployed broker certification. A blocked attempt saves the report and fresh export without a release manifest. The observed attempt on 2026-11-06 was blocked because the fresh desktop export has no current L9 CGAL record. This gate does not upgrade imported CI results or qualify Gmsh. `verify` with `--config` additionally checks that the saved release evidence still matches the deployed broker.
+
+## Reviewed regression fixtures (DS-SCI-040)
+
+```powershell
+python tools/scientific-broker/regression_fixtures.py draft --config <broker-config.json> --job-id <failed-certified-job-id> --output-root .scientific/regressions
+python tools/scientific-broker/regression_fixtures.py promote --config <broker-config.json> --draft <draft.json> --reviewed-by <reviewer-id> --approve-public-fixture --output-root .scientific/regressions
+python tools/scientific-broker/regression_fixtures.py replay --config <broker-config.json> --fixture <fixture.json>
+```
+
+Only failures of the currently certified fixed CGAL fixture are eligible. A draft contains the fixture ID and hash, source job, contract, qualification and resource policy; raw input, paths and logs stay local. Promotion needs a named review and explicit approval of the public fixture scope, then requires two fresh runs with the same failed terminal state and no artifacts. A mismatch saves a blocked review and no fixture. The immutable fixture links to the source run, draft, review and both replay jobs; verification can run it again. Private inputs and other providers are not exported or promoted by this pilot.

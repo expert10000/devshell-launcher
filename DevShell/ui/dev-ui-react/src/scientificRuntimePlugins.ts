@@ -58,6 +58,7 @@ export const scientificRuntimePlugins: ScientificRuntimePlugin[] = [
   { kind: 'sage', name: 'SageMath', environmentName: '', commandView: 'sage', testView: 'sage', artifactView: 'none', integrationView: 'unconfigured', sdk: false, configuredBackends: ['wsl'], sections: [...common, 'Commands', 'Catalog'], catalogTests: [
     { id: 'sage-version', name: 'SageMath installation', recipeId: 'sage.version', action: 'sage-recipe', expected: 'Sage version is recorded.' },
     { id: 'sage-factor', name: 'Exact factorization', recipeId: 'sage.factor-smoke', action: 'sage-recipe', expected: 'x² − 1 factors as (x − 1) × (x + 1).' },
+    { id: 'sage-exact-suite', name: 'Exact algebra and quadratic field', recipeId: 'sage.qualify-exact', action: 'sage-recipe', expected: 'Nine fixed positive and rejection cases save per-operation L3 evidence.' },
   ], checks: [{ id: 'sage.session', name: 'Sage interpreter smoke test', category: 'geometry' }] },
   { kind: 'python', name: 'Python / SciPy', environmentName: 'devshell-scientific', commandView: 'none', testView: 'candidate', artifactView: 'none', integrationView: 'unconfigured', versionArguments: ['--version'], sdk: false, configuredBackends: ['windows-native'], sections: common, checks: [{ id: 'python.scipy', name: 'Python / NumPy / SciPy imports and versions', category: 'package' }] },
 ]

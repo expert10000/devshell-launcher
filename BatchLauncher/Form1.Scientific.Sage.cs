@@ -11,7 +11,7 @@ public partial class Form1
     private const string SageMissing = "fi; done; echo 'SageMath is missing in the selected WSL distribution. Install Sage in a conda environment named sage.' >&2; exit 127";
     private const string SageSmokeCode = "from sage.all import PolynomialRing, QQ; R = PolynomialRing(QQ, \"x\"); x = R.gen(); result = (x*x - 1).factor(); assert str(result) == \"(x - 1) * (x + 1)\"; print(\"verified: \" + str(result))";
     private const string SageIdentity = "if command -v sha256sum >/dev/null 2>&1; then printf '[fingerprint] sage=' >&2; sha256sum \"$candidate\" | cut -d' ' -f1 >&2; prefix=\"${candidate%/bin/sage}\"; if test -f \"$prefix/conda-meta/history\"; then printf '[fingerprint] condaHistory=' >&2; sha256sum \"$prefix/conda-meta/history\" | cut -d' ' -f1 >&2; fi; set -- \"$prefix\"/conda-meta/*.json; if test -f \"$1\"; then printf '[fingerprint] condaPackages=' >&2; (cd \"$prefix/conda-meta\" && for record in *.json; do printf '%s\\0' \"$record\"; sha256sum \"$record\" | cut -d' ' -f1; done) | sha256sum | cut -d' ' -f1 >&2; fi; if command -v dpkg-query >/dev/null 2>&1; then printf '[fingerprint] systemPackages=' >&2; dpkg-query -W -f='${binary:Package}\\t${Version}\\n' 2>/dev/null | LC_ALL=C sort | sha256sum | cut -d' ' -f1 >&2; fi; for tool in /bin/sh /usr/bin/timeout; do if test -f \"$tool\"; then if test \"$tool\" = /bin/sh; then printf '[fingerprint] wslShell=' >&2; else printf '[fingerprint] wslTimeout=' >&2; fi; sha256sum \"$tool\" | cut -d' ' -f1 >&2; fi; done; fi; ";
-    private static string? ScientificSageCurrentEvidence()
+    private static string? ScientificSageCurrentEvidence(int timeoutMs = 30000)
     {
         try
         {
@@ -23,7 +23,7 @@ public partial class Form1
             if (!process.Start()) return null;
             var stdout = process.StandardOutput.ReadToEndAsync();
             var stderr = process.StandardError.ReadToEndAsync();
-            if (!process.WaitForExit(30000)) { process.Kill(entireProcessTree: true); return null; }
+            if (!process.WaitForExit(timeoutMs)) { process.Kill(entireProcessTree: true); return null; }
             Task.WaitAll(stdout, stderr);
             return process.ExitCode == 0 ? stderr.Result : null;
         }
@@ -43,7 +43,7 @@ public partial class Form1
     {
         if (runtimeId != "sage-wsl") throw new InvalidOperationException("Select SageMath / WSL Ubuntu.");
         var recipe = request.GetProperty("recipeId").GetString() ?? "";
-        if (recipe is not ("sage.version" or "sage.factor-smoke")) throw new InvalidOperationException("Sage recipe is not registered.");
+        if (recipe is not ("sage.version" or "sage.factor-smoke" or "sage.qualify-exact")) throw new InvalidOperationException("Sage recipe is not registered.");
         if (!_scientificGate.Wait(0)) throw new InvalidOperationException("Another Scientific job is running; stop or wait for it.");
         try
         {
@@ -51,7 +51,7 @@ public partial class Form1
             Directory.CreateDirectory(directory);
             var job = new ScientificJob { ProfileId = profileId, RuntimeId = runtimeId, RecipeId = recipe, Directory = directory };
             _scientificJobs[profileId + ":" + runtimeId] = job;
-            ScientificWriteRequest(job, null, timeoutSeconds: 120);
+            ScientificWriteRequest(job, null, timeoutSeconds: recipe == "sage.qualify-exact" ? 600 : 120);
             _ = ScientificRunSageAsync(job);
             return ScientificJobSnapshot(job);
         }
@@ -63,6 +63,12 @@ public partial class Form1
         var timer = Stopwatch.StartNew();
         try
         {
+            if (job.RecipeId == "sage.qualify-exact")
+            {
+                await ScientificExecuteSageQualificationAsync(job);
+                job.Stage = "completed"; job.State = "succeeded";
+                return;
+            }
             job.Stage = "wsl-start";
             // Sage in a WSL Conda environment can take over 30 seconds just to import.
             // Keep a bounded inner timeout, but do not treat normal startup as a failed test.

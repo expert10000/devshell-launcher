@@ -16,7 +16,7 @@ import time
 
 RUNTIME = 'sage-wsl'
 RECIPE = 'sage.exact.v1'
-OPERATIONS = ('rational.add', 'polynomial.factor', 'matrix.solve')
+OPERATIONS = ('rational.add', 'polynomial.factor', 'matrix.solve', 'number-field.quadratic.inspect')
 INTEGER = re.compile(r'-?(?:0|[1-9][0-9]{0,17})\Z')
 RUN_ID = re.compile(r'[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z')
 
@@ -54,7 +54,7 @@ def bounded_list(value, minimum, maximum, name):
 
 def compute(request):
     # Import Sage only after the transport envelope has been checked.
-    from sage.all import QQ, PolynomialRing, matrix, vector
+    from sage.all import QQ, ZZ, NumberField, PolynomialRing, matrix, vector
     from sage.version import version as sage_version
 
     operation = request['operation']
@@ -85,7 +85,7 @@ def compute(request):
             raise RuntimeError('Sage factorization failed exact reconstruction.')
         result = {'coefficients': [encoded(item) for item in coefficients],
                   'unit': encoded(factorization.unit()), 'factors': factors, 'verified': True}
-    else:
+    elif operation == 'matrix.solve':
         if set(parameters) != {'matrix', 'rhs'}:
             raise RequestError('invalid-parameters', 'matrix.solve needs matrix and rhs.')
         rows = bounded_list(parameters['matrix'], 1, 6, 'matrix')
@@ -101,6 +101,55 @@ def compute(request):
         result = {'matrix': [[encoded(item) for item in row] for row in entries],
                   'rhs': [encoded(item) for item in rhs],
                   'solution': [encoded(item) for item in solution], 'verified': True}
+    else:
+        if set(parameters) != {'radicand', 'primes'}:
+            raise RequestError('invalid-parameters', 'number-field.quadratic.inspect needs radicand and primes.')
+        d = ZZ(integer(parameters['radicand']))
+        if d <= 1 or not d.is_squarefree():
+            raise RequestError('non-squarefree-field', 'The radicand must be squarefree and greater than one.')
+        if d != 2:
+            raise RequestError('unsupported-field', 'This qualified fixture accepts only Q(sqrt(2)).')
+        prime_values = [ZZ(integer(item)) for item in bounded_list(parameters['primes'], 3, 3, 'primes')]
+        if any(not item.is_prime() for item in prime_values):
+            raise RequestError('invalid-prime', 'Each prime must be a positive prime integer.')
+        if prime_values != [2, 3, 7]:
+            raise RequestError('unsupported-primes', 'The fixed splitting fixture uses primes 2, 3, and 7.')
+        ring = PolynomialRing(QQ, 'x')
+        x = ring.gen()
+        field = NumberField(x*x - d, 'a')
+        integral_basis = [element.list() for element in field.integral_basis()]
+        if field.degree() != 2 or field.discriminant() != 8 or len(integral_basis) != 2:
+            raise RuntimeError('Quadratic field identity changed.')
+        splitting = []
+        for prime in prime_values:
+            ideal = field.ideal(prime)
+            factors = []
+            reconstructed = field.ideal(1)
+            norm_product = ZZ(1)
+            ef_sum = 0
+            for prime_ideal, exponent in ideal.factor():
+                generators = [[encoded(item) for item in generator.list()]
+                              for generator in prime_ideal.gens_reduced()]
+                if field.ideal(prime_ideal.gens_reduced()) != prime_ideal:
+                    raise RuntimeError('Prime ideal generators failed reconstruction.')
+                e, f = int(exponent), int(prime_ideal.residue_class_degree())
+                norm = int(prime_ideal.norm())
+                factors.append({'generators': generators, 'exponent': e,
+                                'residueDegree': f, 'norm': str(norm)})
+                reconstructed *= prime_ideal ** exponent
+                norm_product *= norm ** e
+                ef_sum += e * f
+            if reconstructed != ideal or norm_product != prime ** 2 or ef_sum != 2:
+                raise RuntimeError('Prime splitting failed exact ideal or norm reconstruction.')
+            splitting.append({'prime': str(prime), 'factors': factors, 'verified': True})
+        group = field.galois_group()
+        if group.order() != 2:
+            raise RuntimeError('Quadratic Galois order changed.')
+        result = {'radicand': '2', 'definingPolynomial': [encoded(QQ(-d)), encoded(QQ(0)), encoded(QQ(1))],
+                  'degree': 2, 'discriminant': '8',
+                  'integralBasis': [[encoded(item) for item in basis] for basis in integral_basis],
+                  'splitting': splitting, 'galoisOrder': 2, 'verified': True,
+                  'limitations': 'Only Q(sqrt(2)) and primes 2, 3, 7; quadratic group order only.'}
 
     return result, {'sage': sage_version}
 

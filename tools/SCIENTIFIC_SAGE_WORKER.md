@@ -1,6 +1,6 @@
 # Sage exact worker (DS-SCI-016)
 
-`scientific-sage-worker.py` implements three bounded exact operations through SageMath in WSL: `rational.add`, `polynomial.factor`, and `matrix.solve`. `scientific-sage-wsl.py` is a Windows transport that discovers the Sage Conda environment in the selected WSL distribution, maps paths with `wslpath`, and runs the worker without a DevShell process. Set `MATH3D_WSL_DISTRO` when the distribution is not `Ubuntu`.
+`scientific-sage-worker.py` implements four bounded exact operations through SageMath in WSL: `rational.add`, `polynomial.factor`, `matrix.solve`, and `number-field.quadratic.inspect`. The last operation is fixed to Q(√2) and primes 2, 3, and 7. `scientific-sage-wsl.py` is a Windows transport that discovers the Sage Conda environment in the selected WSL distribution, maps paths with `wslpath`, and runs the worker without a DevShell process. Set `MATH3D_WSL_DISTRO` when the distribution is not `Ubuntu`.
 
 ```powershell
 python tools/scientific-sage-wsl.py probe
@@ -25,4 +25,4 @@ The adapter writes `worker-request.json` with the WSL working directory. A run h
 
 The result repeats the versioned envelope and contains `state`, `exitCode`, `versions`, typed `result`, diagnostics with error codes, and no file artifacts. The adapter imposes a 120-second default timeout, kills its owned process tree on timeout or interruption, and saves a typed transport failure if WSL cannot run. The `probe` handshake reports the resolved Sage/Python executables and available operations.
 
-The three operations are **worker candidates**. Successful calls do not grant L4–L9 qualification, broker discovery, or MATH3D promotion. DS-SCI-017 must add managed positive/rejection records, fingerprints, and scientific acceptance for each capability.
+In DevShell, **Qualify exact Sage cases** runs nine fixed positive and rejection cases as one owned managed job. The saved result links each child request/result hash and source fingerprint to separate L3 records for rational addition, polynomial factorization, matrix solving, and the quadratic-field fixture. History verifies those child files and marks source or environment drift. The suite independently checks rational sums, polynomial reconstruction, matrix equations, field discriminant/basis, prime splitting and Galois order. These scoped L3 records do not grant L5–L9, broker discovery, or MATH3D promotion.

@@ -1386,6 +1386,8 @@ WSL handshake, job envelope, exact serialization, resource lifecycle and typed e
 Add factorization, number field, splitting, ring/ideal and Galois small fixtures.\
 **Acceptance:** positive and expected-rejection tests, exact checks and explicit algorithm limitations are recorded.
 
+**2026-11-07 local delivery:** The desktop Sage Tests button runs nine fixed cases through Ubuntu WSL: four positive exact operations and five expected rejections. The quadratic-field case is limited to Q(√2) and primes 2, 3 and 7; its exact checks cover defining polynomial, discriminant, integral basis, prime splitting, ideal norm and residue degree, and Galois order. Each case retains its request/result hashes and worker identity. Successful managed runs save four separate L3 qualifications with run and fingerprint provenance; History verifies them and assesses current/stale status. The capability catalog records the limits. This does not certify a general number-theory engine or broker capability.
+
 **DS-SCI-018 — `feat(cgal): expand mesh repair, remesh and query suites`**\
 Add validation, orientation, repair, remeshing, AABB and distances.\
 **Acceptance:** each has scientific invariants, expected-invalid fixtures and artifact replay.

@@ -16,7 +16,7 @@ import sys
 
 RUNTIME = 'sage-wsl'
 RECIPE = 'sage.exact.v1'
-OPERATIONS = ('rational.add', 'polynomial.factor', 'matrix.solve')
+OPERATIONS = ('rational.add', 'polynomial.factor', 'matrix.solve', 'number-field.quadratic.inspect')
 DISTRO = re.compile(r'[A-Za-z0-9][A-Za-z0-9._-]{0,63}\Z')
 DISCOVER = ('for sage in /usr/bin/sage /usr/local/bin/sage '
             '"$HOME/miniforge3/envs/sage/bin/sage" '

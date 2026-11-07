@@ -67,7 +67,10 @@ public static class ScientificRunFingerprint
             names.AddRange(new[] { "tools/scientific-cgal-worker.py", "scientific/cgal-worker/main.cpp", "scientific/cgal-worker/CMakeLists.txt", "tools/math3d-native-protocol.mjs", "tools/run-math3d-boolean.mjs" });
         if (runtimeId.StartsWith("vtk", StringComparison.Ordinal))
             names.AddRange(new[] { "tools/scientific-mesh-worker.py", "tools/scientific-vtk-render-check.py" });
-        if (runtimeId == "sage-wsl") names.Add("BatchLauncher/Form1.Scientific.Sage.cs");
+        if (runtimeId == "sage-wsl") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.Sage.cs",
+            "BatchLauncher/Form1.Scientific.SageQualification.cs", "tools/scientific-sage-worker.py",
+            "tools/scientific-sage-wsl.py", "tools/scientific-sage-qualify.py",
+            "schemas/scientific-sage-exact.v1.json", "BatchLauncher/ScientificQualificationRecords.Sage.cs" });
         foreach (var name in names)
             files[name] = FileIdentity(Path.Combine(root, name.Replace('/', Path.DirectorySeparatorChar)));
         return files;
@@ -151,6 +154,10 @@ public static class ScientificRunFingerprint
             names.AddRange(new[] { "BatchLauncher/Form1.Scientific.Math3DIntegration.cs", "tools/compare-math3d-native-worker.mjs", "tools/math3d-native-protocol.mjs" });
         if (recipeId?.StartsWith("sage.", StringComparison.Ordinal) == true)
             names.Add("BatchLauncher/Form1.Scientific.Sage.cs");
+        if (recipeId == "sage.qualify-exact") names.AddRange(new[] {
+            "BatchLauncher/Form1.Scientific.SageQualification.cs", "tools/scientific-sage-qualify.py",
+            "tools/scientific-sage-wsl.py", "tools/scientific-sage-worker.py",
+            "schemas/scientific-sage-exact.v1.json", "BatchLauncher/ScientificQualificationRecords.Sage.cs" });
         if (recipeId == "lab.probe") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.RuntimeLab.cs", "tools/runtime-lab/Program.cs" });
         if (recipeId == "l5.worker") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L5.cs", "BatchLauncher/Form1.Scientific.Cgal.cs",
             "tools/scientific-cgal-worker.py", "tools/scientific-mesh-worker.py", "tools/scientific-gmsh-worker.py", "tools/scientific_worker_contract.py" });

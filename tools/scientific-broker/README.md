@@ -1,6 +1,6 @@
 # Scientific Runtime Broker (DS-SCI-021/022)
 
-The separate DS-SCI-016 Sage exact worker and WSL adapter are documented in [SCIENTIFIC_SAGE_WORKER.md](../SCIENTIFIC_SAGE_WORKER.md). Their typed operations are candidates and are not exported as certified broker capabilities.
+The separate Sage exact worker, WSL adapter and managed L3 qualification suite are documented in [SCIENTIFIC_SAGE_WORKER.md](../SCIENTIFIC_SAGE_WORKER.md). These scoped operations are not exported as certified broker capabilities.
 
 This is a separate localhost process. It uses the existing version 1 CGAL worker request/result contract and emits the version 1 `math3d.mesh-product-handoff` consumed by `tools/math3d-l9-product-handoff.mjs`. The renderer does not load CGAL or link its SDK.
 
@@ -257,7 +257,7 @@ python tools/scientific-broker/contract_migration.py check --policy schemas/scie
 python tools/scientific-broker/contract_migration.py verify --policy schemas/scientific-contract-migrations.v1.json --record <compatibility-report.json>
 ```
 
-The policy retains a shared capability registry 1.0.0 baseline; the current registry is 1.1.0 after adding the three Sage exact candidates. Update `currentVersion` when its structure changes. Optional additions need a minor bump; removals, required additions, type changes and provider removals need a major bump and explicit migration rules. A `rename-field` or `set-default` rule must include valid old and new fixtures. A blocked check exits nonzero and never silently upgrades saved runs. Other worker and product contracts require their own baselines before migration.
+The policy retains a shared capability registry 1.0.0 baseline; the current registry is 1.2.0 after adding Sage exact and quadratic-field capabilities. Update `currentVersion` when its structure changes. Optional additions need a minor bump; removals, required additions, type changes and provider removals need a major bump and explicit migration rules. A `rename-field` or `set-default` rule must include valid old and new fixtures. A blocked check exits nonzero and never silently upgrades saved runs. Other worker and product contracts require their own baselines before migration.
 
 ## Release qualification matrix (DS-SCI-049)
 

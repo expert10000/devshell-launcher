@@ -58,7 +58,7 @@ public partial class Form1
         var wsl = result.GetProperty("runtimeId").GetString() == "sage-wsl";
         var environmentDrift = ScientificRunFingerprint.AssessEnvironmentDrift(directory, AppContext.BaseDirectory,
             ScientificReportPath(), wsl ? Environment.GetEnvironmentVariable("MATH3D_WSL_DISTRO") ?? "Ubuntu" : null,
-            wsl ? ScientificSageCurrentEvidence() : null);
+            wsl ? ScientificSageCurrentEvidence(90000) : null);
         view["environmentDrift"] = environmentDrift;
         if (result.TryGetProperty("qualificationSha256", out _))
         {
@@ -134,7 +134,7 @@ public partial class Form1
         var root = Path.Combine(ScientificDataRoot, "runs");
         if (!Directory.Exists(root)) return ScientificQualificationRecords.Summarize(runtimeId, Array.Empty<JsonObject>());
         var wsl = runtimeId == "sage-wsl";
-        var wslEvidence = wsl ? ScientificSageCurrentEvidence() : null;
+        var wslEvidence = wsl ? ScientificSageCurrentEvidence(90000) : null;
         var runs = new List<JsonObject>();
         foreach (var folder in new DirectoryInfo(root).EnumerateDirectories()
             .Where(item => Regex.IsMatch(item.Name, "^[0-9a-f]{32}$"))
@@ -166,6 +166,9 @@ public partial class Form1
                 Debug.WriteLine($"Skipping invalid Scientific qualification run: {exception.Message}");
             }
         }
+        // Sage L0/L3 records have no MATH3D consumer dependency. A portable Sage
+        // profile may therefore summarize without a configured native workspace.
+        if (wsl) return ScientificQualificationRecords.Summarize(runtimeId, runs);
         var lowerIds = runs.SelectMany(run => run["qualifications"]?.AsArray().OfType<JsonObject>() ?? [])
             .Where(record => record["status"]?.GetValue<string>() == "current" && record["level"]?.GetValue<string>() is "L0" or "L1" or "L2" or "L3" or "L4")
             .Select(record => record["recordId"]?.GetValue<string>()).OfType<string>()

@@ -10,7 +10,8 @@
     "matrix-system.v1": { "type": "object", "required": ["matrix", "rhs"], "properties": { "matrix": { "type": "array", "items": { "type": "array", "items": { "type": "number" } } }, "rhs": { "type": "array", "items": { "type": "number" } } }, "additionalProperties": false },
     "exact-rational-pair.v1": { "type": "object", "required": ["left", "right"], "properties": { "left": { "$ref": "#/$defs/exactRational" }, "right": { "$ref": "#/$defs/exactRational" } }, "additionalProperties": false, "$defs": { "exactRational": { "type": "object", "required": ["numerator", "denominator"], "properties": { "numerator": { "type": "string" }, "denominator": { "type": "string" } }, "additionalProperties": false } } },
     "exact-polynomial.v1": { "type": "object", "required": ["coefficients"], "properties": { "coefficients": { "type": "array", "minItems": 2, "maxItems": 7, "items": { "$ref": "#/$defs/exactRational" } } }, "additionalProperties": false, "$defs": { "exactRational": { "type": "object", "required": ["numerator", "denominator"], "properties": { "numerator": { "type": "string" }, "denominator": { "type": "string" } }, "additionalProperties": false } } },
-    "exact-matrix-system.v1": { "type": "object", "required": ["matrix", "rhs"], "properties": { "matrix": { "type": "array", "minItems": 1, "maxItems": 6, "items": { "type": "array", "items": { "$ref": "#/$defs/exactRational" } } }, "rhs": { "type": "array", "minItems": 1, "maxItems": 6, "items": { "$ref": "#/$defs/exactRational" } } }, "additionalProperties": false, "$defs": { "exactRational": { "type": "object", "required": ["numerator", "denominator"], "properties": { "numerator": { "type": "string" }, "denominator": { "type": "string" } }, "additionalProperties": false } } }
+    "exact-matrix-system.v1": { "type": "object", "required": ["matrix", "rhs"], "properties": { "matrix": { "type": "array", "minItems": 1, "maxItems": 6, "items": { "type": "array", "items": { "$ref": "#/$defs/exactRational" } } }, "rhs": { "type": "array", "minItems": 1, "maxItems": 6, "items": { "$ref": "#/$defs/exactRational" } } }, "additionalProperties": false, "$defs": { "exactRational": { "type": "object", "required": ["numerator", "denominator"], "properties": { "numerator": { "type": "string" }, "denominator": { "type": "string" } }, "additionalProperties": false } } },
+    "quadratic-field-fixture.v1": { "type": "object", "required": ["radicand", "primes"], "properties": { "radicand": { "const": "2" }, "primes": { "const": ["2", "3", "7"] } }, "additionalProperties": false }
   },
   "resultSchemas": {
     "mesh-artifact.v1": { "type": "object", "required": ["artifact", "sha256", "format"], "properties": { "artifact": { "type": "string" }, "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }, "format": { "type": "string" } } },
@@ -22,7 +23,8 @@
     "render-session.v1": { "type": "object", "required": ["state", "backend"], "properties": { "state": { "type": "string" }, "backend": { "type": "string" } } },
     "exact-rational-sum.v1": { "type": "object", "required": ["left", "right", "sum"], "properties": { "left": { "$ref": "#/$defs/exactRational" }, "right": { "$ref": "#/$defs/exactRational" }, "sum": { "$ref": "#/$defs/exactRational" } }, "$defs": { "exactRational": { "type": "object", "required": ["numerator", "denominator"], "properties": { "numerator": { "type": "string" }, "denominator": { "type": "string" } } } } },
     "exact-factorization.v1": { "type": "object", "required": ["coefficients", "unit", "factors", "verified"], "properties": { "coefficients": { "type": "array", "items": { "$ref": "#/$defs/exactRational" } }, "unit": { "$ref": "#/$defs/exactRational" }, "factors": { "type": "array" }, "verified": { "const": true } }, "$defs": { "exactRational": { "type": "object", "required": ["numerator", "denominator"], "properties": { "numerator": { "type": "string" }, "denominator": { "type": "string" } } } } },
-    "exact-matrix-solution.v1": { "type": "object", "required": ["matrix", "rhs", "solution", "verified"], "properties": { "matrix": { "type": "array" }, "rhs": { "type": "array" }, "solution": { "type": "array", "items": { "$ref": "#/$defs/exactRational" } }, "verified": { "const": true } }, "$defs": { "exactRational": { "type": "object", "required": ["numerator", "denominator"], "properties": { "numerator": { "type": "string" }, "denominator": { "type": "string" } } } } }
+    "exact-matrix-solution.v1": { "type": "object", "required": ["matrix", "rhs", "solution", "verified"], "properties": { "matrix": { "type": "array" }, "rhs": { "type": "array" }, "solution": { "type": "array", "items": { "$ref": "#/$defs/exactRational" } }, "verified": { "const": true } }, "$defs": { "exactRational": { "type": "object", "required": ["numerator", "denominator"], "properties": { "numerator": { "type": "string" }, "denominator": { "type": "string" } } } } },
+    "quadratic-field-evidence.v1": { "type": "object", "required": ["radicand", "degree", "discriminant", "integralBasis", "splitting", "galoisOrder", "verified", "limitations"], "properties": { "radicand": { "const": "2" }, "degree": { "const": 2 }, "discriminant": { "const": "8" }, "integralBasis": { "type": "array" }, "splitting": { "type": "array" }, "galoisOrder": { "const": 2 }, "verified": { "const": true }, "limitations": { "type": "string" } } }
   },
   "capabilities": [
     { "id": "mesh.read", "version": 1, "parametersSchema": "mesh-file.v1", "resultSchema": "mesh-diagnostics.v1", "providers": [
@@ -106,13 +108,16 @@
       { "runtimeId": "sage-wsl", "backend": "wsl", "limitations": "Exact factorization smoke; typed general symbolic protocol is pending." }
     ] },
     { "id": "math.rational.add", "version": 1, "parametersSchema": "exact-rational-pair.v1", "resultSchema": "exact-rational-sum.v1", "providers": [
-      { "runtimeId": "sage-wsl", "backend": "wsl", "limitations": "DS-SCI-016 bounded typed worker candidate; no managed qualification or MATH3D certification." }
+      { "runtimeId": "sage-wsl", "backend": "wsl", "limitations": "Managed L3 covers fixed rational addition and zero-denominator rejection; no general certification." }
     ] },
     { "id": "math.polynomial.factor", "version": 1, "parametersSchema": "exact-polynomial.v1", "resultSchema": "exact-factorization.v1", "providers": [
-      { "runtimeId": "sage-wsl", "backend": "wsl", "limitations": "DS-SCI-016 degree 1–6 rational-polynomial worker candidate; no managed qualification." }
+      { "runtimeId": "sage-wsl", "backend": "wsl", "limitations": "Managed L3 covers x²−1 and invalid coefficient only; worker accepts bounded degree 1–6 polynomials." }
     ] },
     { "id": "math.matrix.solve", "version": 1, "parametersSchema": "exact-matrix-system.v1", "resultSchema": "exact-matrix-solution.v1", "providers": [
-      { "runtimeId": "sage-wsl", "backend": "wsl", "limitations": "DS-SCI-016 square matrices up to 6×6 with a unique exact solution; no managed qualification." }
+      { "runtimeId": "sage-wsl", "backend": "wsl", "limitations": "Managed L3 covers one 2×2 solve and singular rejection; worker accepts unique square systems up to 6×6." }
+    ] },
+    { "id": "math.number-field.quadratic", "version": 1, "parametersSchema": "quadratic-field-fixture.v1", "resultSchema": "quadratic-field-evidence.v1", "providers": [
+      { "runtimeId": "sage-wsl", "backend": "wsl", "limitations": "DS-SCI-017 fixed Q(sqrt(2)) fixture and primes 2, 3, 7 only; no general number-field or MATH3D certification." }
     ] },
     { "id": "math.number-theory", "version": 1, "parametersSchema": "expression.v1", "resultSchema": "exact-value.v1", "providers": [
       { "runtimeId": "sage-wsl", "backend": "wsl", "limitations": "Candidate family; no general number-theory worker qualification." }

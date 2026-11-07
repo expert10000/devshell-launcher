@@ -212,11 +212,16 @@ public partial class Form1
             if(!_scientificCloseHook){_scientificCloseHook=true;FormClosed+=(_,_)=>{_scientificLifetime.Cancel();foreach(var job in _scientificJobs.Values)if(job.State=="running")job.Cancellation.Cancel();};}
             if(action=="status")data=_scientificJobs.Values.Where(job=>job.ProfileId==profileId).Select(ScientificJobSnapshot).ToArray();
             else if(action=="history")data=ScientificHistoryList(profileId);
-            else if(action=="qualification-summary")data=ScientificQualificationSummary(profileId,runtimeId);
+            else if(action=="qualification-summary")data=runtimeId=="sage-wsl"
+                ? await Task.Run(()=>ScientificQualificationSummary(profileId,runtimeId)) : ScientificQualificationSummary(profileId,runtimeId);
             else if(action=="ci-matrix")data=ScientificCiMatrix();
             else if(action=="capabilities")data=new{schemaVersion=ScientificCapabilityRegistry.SchemaVersion,capabilities=ScientificCapabilityRegistry.Discover(runtimeId)};
-            else if(action=="history-result")data=ScientificHistoryResult(profileId,request.GetProperty("jobId").GetString()??"");
-            else if(action=="history-drift-diagnose")data=ScientificDriftDiagnosis(profileId,runtimeId,request.GetProperty("jobId").GetString()??"");
+            else if(action=="history-result")data=runtimeId=="sage-wsl"
+                ? await Task.Run(()=>ScientificHistoryResult(profileId,request.GetProperty("jobId").GetString()??""))
+                : ScientificHistoryResult(profileId,request.GetProperty("jobId").GetString()??"");
+            else if(action=="history-drift-diagnose")data=runtimeId=="sage-wsl"
+                ? await Task.Run(()=>ScientificDriftDiagnosis(profileId,runtimeId,request.GetProperty("jobId").GetString()??""))
+                : ScientificDriftDiagnosis(profileId,runtimeId,request.GetProperty("jobId").GetString()??"");
             else if(action=="history-boolean-draft")data=ScientificBooleanDraft(profileId,request.GetProperty("jobId").GetString()??"");
             else if(action=="import-meshes"){ScientificProviderRegistry.RequireAction(runtimeId,action);data=ScientificMeshImportStart(profileId,runtimeId);}
             else if(action=="test-matrix"){ScientificProviderRegistry.RequireAction(runtimeId,action);data=ScientificMatrixCases();}

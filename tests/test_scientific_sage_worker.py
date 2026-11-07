@@ -63,7 +63,7 @@ class SageWorkerContractChecks(unittest.TestCase):
         if probe.returncode:
             self.skipTest('WSL/Sage unavailable: ' + probe.stderr.strip()[-300:])
         self.assertEqual(json.loads(probe.stdout)['operations'],
-                         ['rational.add', 'polynomial.factor', 'matrix.solve'])
+                         ['rational.add', 'polynomial.factor', 'matrix.solve', 'number-field.quadratic.inspect'])
 
         cases = [
             ('rational.add', {'left': exact(1, 3), 'right': exact(1, 6)},
@@ -73,6 +73,10 @@ class SageWorkerContractChecks(unittest.TestCase):
             ('matrix.solve', {'matrix': [[exact(2), exact(1)], [exact(1), exact(1)]],
                               'rhs': [exact(5), exact(3)]},
              lambda result: self.assertEqual(result['solution'], [exact(2), exact(1)])),
+            ('number-field.quadratic.inspect', {'radicand': '2', 'primes': ['2', '3', '7']},
+             lambda result: (self.assertEqual(result['discriminant'], '8'),
+                             self.assertEqual(result['galoisOrder'], 2),
+                             self.assertEqual([len(item['factors']) for item in result['splitting']], [1, 1, 2]))),
         ]
         for operation, parameters, check in cases:
             with self.subTest(operation=operation), tempfile.TemporaryDirectory(prefix='sage ü path ') as folder:
@@ -93,6 +97,8 @@ class SageWorkerContractChecks(unittest.TestCase):
             ('polynomial.factor', {'coefficients': [exact(1), {'numerator': 'bad', 'denominator': '1'}]}, 'invalid-exact-value'),
             ('matrix.solve', {'matrix': [[exact(1), exact(1)], [exact(2), exact(2)]],
                               'rhs': [exact(1), exact(2)]}, 'singular-matrix'),
+            ('number-field.quadratic.inspect', {'radicand': '4', 'primes': ['2', '3', '7']}, 'non-squarefree-field'),
+            ('number-field.quadratic.inspect', {'radicand': '2', 'primes': ['2', '9', '7']}, 'invalid-prime'),
         ]
         for operation, parameters, code in rejections:
             with self.subTest(code=code), tempfile.TemporaryDirectory() as folder:

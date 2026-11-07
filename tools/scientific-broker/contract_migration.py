@@ -236,7 +236,7 @@ def check(policy_path, output_root):
 
 def verify(path, policy_path):
     path = Path(path).resolve(strict=True)
-    if sha(path) != Path(str(path) + '.sha256').read_text().strip():
+    if sha(path) != Path(str(path) + '.sha256').read_text(encoding='utf-8').strip():
         raise ValueError('Compatibility report hash mismatch.')
     report = json.loads(path.read_text(encoding='utf-8'))
     if sha(policy_path) != report['policySha256'] or sha(Path(__file__)) != report.get('checkerSourceSha256'):
@@ -246,7 +246,8 @@ def verify(path, policy_path):
         raise ValueError('Compatibility contract count changed.')
     for contract, recorded in zip(policy['contracts'], report['contracts']):
         before, after = within_repo(contract['baselinePath']), within_repo(contract['currentPath'])
-        assessed = assess(json.loads(before.read_text()), json.loads(after.read_text()),
+        assessed = assess(json.loads(before.read_text(encoding='utf-8')),
+                          json.loads(after.read_text(encoding='utf-8')),
                           contract['baselineVersion'], contract['currentVersion'], contract['migrations'])
         if (recorded['id'] != contract['id'] or recorded['baselineSha256'] != sha(before)
                 or recorded['currentSha256'] != sha(after)

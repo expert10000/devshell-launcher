@@ -792,6 +792,16 @@ public static partial class ScientificQualificationRecords
             Add("sage.python.binding", "L2", "sage.factor-smoke");
             Add("math.symbolic", "L3", "sage.factor-smoke");
         }
+        else if (runtimeId == "sage-wsl" && recipeId == "sage.qualify-exact")
+        {
+            foreach (var capability in new[] { "math.rational.add", "math.polynomial.factor",
+                "math.matrix.solve", "math.number-field.quadratic" })
+            {
+                var hash = SageExactHash(directory, result, capability);
+                if (ScientificCapabilityRegistry.IsDeclared(runtimeId, capability) && hash != null)
+                    Add(capability, "L3", "sage.exact-suite", hash);
+            }
+        }
         else if (recipeId == "compile-link" && manifest["qualificationRecipes"] is JsonArray recipes)
         {
             var declaration = recipes.OfType<JsonObject>().FirstOrDefault(item => item["id"]?.GetValue<string>() == "compile-link"
@@ -1051,6 +1061,14 @@ public static partial class ScientificQualificationRecords
                 || record["contract"]?.ToJsonString() != contract?.ToJsonString()
                 || record["level"]?.GetValue<string>() is not ("L0" or "L1" or "L2" or "L3" or "L4" or "L5" or "L6" or "L7" or "L8" or "L9"))
                 throw new InvalidDataException("Qualification entry does not match its run.");
+            if (record["evidenceId"]?.GetValue<string>() == "sage.exact-suite")
+            {
+                var sourceResult = JsonNode.Parse(result.GetRawText()) as JsonObject;
+                var capability = record["capabilityId"]?.GetValue<string>() ?? "";
+                if (record["level"]?.GetValue<string>() != "L3" || sourceResult == null
+                    || record["evidenceSha256"]?.GetValue<string>() != SageExactHash(directory, sourceResult, capability))
+                    throw new InvalidDataException("Sage exact qualification evidence has changed.");
+            }
             if (record["level"]?.GetValue<string>() == "L4")
             {
                 var kind = runtimeId == "cgal-win-conda" ? "cgal" : runtimeId == "vtk-win-conda" ? "vtk"

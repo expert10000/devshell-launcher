@@ -71,6 +71,9 @@ The UI registry now owns the five existing runtime declarations, visible section
 | DS-SCI-073 Managed Gmsh volume L7 | The cube `.msh` stays linked while VTK and MATH3D surface consumers check the outward OBJ boundary and reject a flipped face. | Preserve tetrahedral cells through a future product document |
 | DS-SCI-074 Managed Gmsh volume L8 | Three repeat boundary reads plus cancellation, timeout, memory and cleanup observations link to current L7 evidence. | Use L8 for the volume product gate |
 | DS-SCI-075 Gmsh volume product readiness | An owned check records the MATH3D tetrahedral document contract requirement and a blocked verdict while native volume import is absent. | Implement native volume document import, round trip and viewer regression before L9 certification |
+| DS-SCI-076 Cell-preserving tetrahedral resource | Gmsh exports a versioned `M3DT` resource with all cube vertices and tetrahedral cells; MATH3D declares a separate importer and document format. | Verify document persistence and reload |
+| DS-SCI-077 Tetrahedral document round trip | MATH3D reopens its saved document and resource; an independent parser checks cells, boundary, orientation, unit volume and hashes, and tampering is rejected. | Run the managed viewer product gate |
+| DS-SCI-078 Gmsh volume L9 product gate | A fresh fixed-cube worker feeds the verified MATH3D tetrahedral document and derived-boundary viewer, with linked L0–L8 evidence and a regression image. | Certify and promote volume only in a separate broker-manifest ticket |
 
 Do not mark an item complete from a passing package probe or a UI declaration. Each later change needs a named run, fingerprint, fixture revision, contract version and evidence link before its qualification level can advance.
 

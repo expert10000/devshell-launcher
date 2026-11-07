@@ -19,7 +19,7 @@ def assess(msh, checkout):
     declares = isinstance(contract, dict) and all((
         contract.get('schemaVersion') == 1,
         contract.get('artifactType') == 'mesh.tetrahedral',
-        contract.get('documentFormat') == 'math3d.volume-document',
+        contract.get('documentFormat') == 'math3d.tetrahedral-mesh-document',
         contract.get('preservesCells') is True,
     ))
     return {
@@ -28,9 +28,9 @@ def assess(msh, checkout):
         'requiredConsumerContract': 'scientific/volume-consumer.v1.json',
         'consumerContractSha256': sha(path) if path.is_file() else None,
         'declaresTetrahedralDocument': declares,
-        'status': 'blocked',
-        'reason': ('A declared volume consumer exists, but native tetrahedral document import, '
-                   'independent reload and viewer regression have not been qualified.' if declares else
+        'status': 'ready-for-l9' if declares else 'blocked',
+        'reason': ('A cell-preserving MATH3D volume consumer is declared. Run the managed L9 import, '
+                   'independent reload and viewer regression before certification.' if declares else
                    'MATH3D has no declared tetrahedral document consumer; its current OBJ importer '
                    'preserves the boundary surface only.'),
     }

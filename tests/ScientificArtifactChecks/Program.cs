@@ -264,7 +264,8 @@ Check(ScientificProviderRegistry.RequireAction("gmsh-win-conda","recipe").Native
     && ScientificProviderRegistry.RequireAction("gmsh-win-conda","l6-gmsh-volume").NativeManaged
     && ScientificProviderRegistry.RequireAction("gmsh-win-conda","l7-gmsh-volume").NativeManaged
     && ScientificProviderRegistry.RequireAction("gmsh-win-conda","l8-gmsh-volume").NativeManaged
-    && ScientificProviderRegistry.RequireAction("gmsh-win-conda","gmsh-volume-product-readiness").NativeManaged,
+    && ScientificProviderRegistry.RequireAction("gmsh-win-conda","gmsh-volume-product-readiness").NativeManaged
+    && ScientificProviderRegistry.RequireAction("gmsh-win-conda","l9-gmsh-volume").NativeManaged,
     "Gmsh admits separate managed surface and cube-volume actions");
 Reject(()=>ScientificProviderRegistry.RequireAction("gmsh-win-conda","l9-math3d-product"),"Gmsh blocks the CGAL product action");
 Reject(()=>ScientificProviderRegistry.RequireAction("sage-wsl","import-meshes"),"Sage rejects CGAL import action");

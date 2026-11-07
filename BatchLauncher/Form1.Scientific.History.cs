@@ -84,7 +84,8 @@ public partial class Form1
                 var codec = Path.Combine(checkout, "src", "main", "python", "nativeCgalProtocol.ts");
                 ScientificQualificationRecords.AssessL9Consumer(assessed,
                     ScientificCurrentMath3DProductSources(checkout), ScientificL6Digest(ScientificL9Contract()),
-                    File.Exists(codec) ? ScientificHash(codec) : null);
+                    File.Exists(codec) ? ScientificHash(codec) : null,
+                    ScientificCurrentMath3DVolumeSources(checkout), ScientificL6Digest(ScientificGmshVolumeL9Contract()));
             }
             view["qualifications"] = assessed;
         }
@@ -207,7 +208,9 @@ public partial class Form1
             if (run["qualifications"] is JsonArray records)
             {
                 ScientificQualificationRecords.AssessL5Dependencies(records, lowerIds);
-                ScientificQualificationRecords.AssessL9Consumer(records, productSources, productContract, codecHash);
+                ScientificQualificationRecords.AssessL9Consumer(records, productSources, productContract, codecHash,
+                    runtimeId == "gmsh-win-conda" ? ScientificCurrentMath3DVolumeSources(ScientificL7Checkout()) : null,
+                    ScientificL6Digest(ScientificGmshVolumeL9Contract()));
             }
         return ScientificQualificationRecords.Summarize(runtimeId, runs);
     }

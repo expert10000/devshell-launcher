@@ -52,12 +52,15 @@ public static class ScientificRunFingerprint
             "tools/math3d-l9-product-handoff.mjs", "tools/scientific-gmsh-m3dm-roundtrip.py",
             "scientific/fixtures/gmsh/square.geo", "scientific/fixtures/gmsh/tampered-square.geo",
             "BatchLauncher/Form1.Scientific.GmshVolume.cs", "BatchLauncher/Form1.Scientific.GmshVolumeProduct.cs",
+            "BatchLauncher/Form1.Scientific.GmshVolumeL9.cs",
             "BatchLauncher/ScientificQualificationRecords.GmshVolume.cs",
             "tools/scientific-broker/gmsh_volume.py", "tools/scientific-gmsh-volume-worker.py",
             "tools/scientific-gmsh-volume-handoff.py", "tools/scientific-gmsh-volume-vtk.py",
             "tools/math3d-gmsh-volume-consumer.mjs", "scientific/fixtures/gmsh/cube.geo",
             "scientific/fixtures/gmsh/tampered-cube.geo",
-            "tools/scientific-gmsh-volume-product-readiness.py" });
+            "tools/scientific-gmsh-volume-product-readiness.py",
+            "tools/scientific-gmsh-tetmesh-export.py", "tools/math3d-gmsh-tetmesh-product.mjs",
+            "tools/scientific-gmsh-tetmesh-roundtrip.py" });
         if (runtimeId == "vtk-win-conda") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L7.cs", "tools/math3d-vtk-import-handoff.mjs" });
         if (runtimeId == "cgal-win-conda") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L7Interop.cs", "BatchLauncher/Form1.Scientific.L8.cs", "BatchLauncher/Form1.Scientific.L9.cs", "BatchLauncher/OwnedProcessJob.cs", "tools/scientific-vtk-interop.py", "tools/math3d-vtk-import-handoff.mjs", "tools/math3d-l9-product-handoff.mjs" });
         if (runtimeId.StartsWith("cgal", StringComparison.Ordinal))
@@ -186,6 +189,11 @@ public static class ScientificRunFingerprint
             "BatchLauncher/Form1.Scientific.GmshVolumeProduct.cs",
             "BatchLauncher/ScientificQualificationRecords.GmshVolume.cs",
             "tools/scientific-gmsh-volume-product-readiness.py" });
+        if (recipeId == "l9.gmsh-volume") names.AddRange(new[] {
+            "BatchLauncher/Form1.Scientific.GmshVolumeL9.cs",
+            "BatchLauncher/ScientificQualificationRecords.GmshVolume.cs",
+            "tools/scientific-broker/gmsh_volume.py", "tools/scientific-gmsh-tetmesh-export.py",
+            "tools/math3d-gmsh-tetmesh-product.mjs", "tools/scientific-gmsh-tetmesh-roundtrip.py" });
         if (recipeId == "test-hold") names.Add("BatchLauncher/Form1.Scientific.StopTest.cs");
         var files = new JsonObject();
         foreach (var name in names.Distinct(StringComparer.Ordinal))

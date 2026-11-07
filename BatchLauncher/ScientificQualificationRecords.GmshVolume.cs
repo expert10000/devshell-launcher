@@ -258,4 +258,135 @@ public static partial class ScientificQualificationRecords
             || inputs[0]?["sha256"]?.GetValue<string>() != evidence["sourceArtifactSha256"]?.GetValue<string>()) return null;
         return Digest(evidence.ToJsonString());
     }
+
+    private static string? GmshVolumeL9Hash(string directory, JsonObject result, JsonObject components)
+    {
+        if (result["runtimeId"]?.GetValue<string>() != "gmsh-win-conda"
+            || result["recipeId"]?.GetValue<string>() != "l9.gmsh-volume"
+            || result["l9GmshVolumeEvidence"] is not JsonObject evidence
+            || evidence["suiteId"]?.GetValue<string>() != "l9-gmsh-volume-v1"
+            || evidence["capabilityId"]?.GetValue<string>() != "mesh.generate3d"
+            || result["validatedCapabilities"] is not JsonArray capabilities
+            || !capabilities.Any(item => item?.GetValue<string>() == "mesh.generate3d")
+            || evidence["productContract"] is not JsonObject contract
+            || contract["id"]?.GetValue<string>() != "math3d.tetrahedral-product-handoff"
+            || contract["version"]?.GetValue<int>() != 1
+            || contract["documentFormat"]?.GetValue<string>() != "math3d.tetrahedral-mesh-document"
+            || contract["resourceEncoding"]?.GetValue<string>() != "math3d.tetmesh-buffers.v1"
+            || contract["viewer"]?.GetValue<string>() != "TetrahedralMeshViewport"
+            || Digest(contract.ToJsonString()) != evidence["productContractSha256"]?.GetValue<string>()
+            || evidence["lowerQualification"]?["records"] is not JsonArray lower || lower.Count != 9
+            || evidence["brokerHandoff"] is not JsonObject handoff
+            || evidence["artifactHashes"] is not JsonObject hashes
+            || evidence["exporter"] is not JsonObject exporter
+            || evidence["regression"] is not JsonObject regression
+            || evidence["roundtrip"] is not JsonObject roundtrip
+            || components["suite"]?["files"]?["tools/scientific-gmsh-tetmesh-export.py"]?["sha256"] is not JsonNode
+            || components["suite"]?["files"]?["tools/math3d-gmsh-tetmesh-product.mjs"]?["sha256"] is not JsonNode
+            || components["suite"]?["files"]?["tools/scientific-gmsh-tetmesh-roundtrip.py"]?["sha256"] is not JsonNode)
+            return null;
+        var l8Folder = evidence["sourceL8FolderId"]?.GetValue<string>();
+        var l7Folder = evidence["sourceL7FolderId"]?.GetValue<string>();
+        var l8RunId = evidence["sourceL8RunId"]?.GetValue<string>();
+        var l8RecordId = evidence["sourceL8RecordId"]?.GetValue<string>();
+        if (l8Folder is not { Length: 32 } || !l8Folder.All(Uri.IsHexDigit)
+            || l7Folder is not { Length: 32 } || !l7Folder.All(Uri.IsHexDigit)
+            || l8RunId is not { Length: 32 } || !l8RunId.All(Uri.IsHexDigit)
+            || l8RecordId is not { Length: 64 } || !l8RecordId.All(Uri.IsHexDigit)
+            || lower[8]?["runId"]?.GetValue<string>() != l8RunId
+            || lower[8]?["recordId"]?.GetValue<string>() != l8RecordId
+            || lower[8]?["capabilityId"]?.GetValue<string>() != "mesh.generate3d"
+            || lower[8]?["level"]?.GetValue<string>() != "L8") return null;
+        var runs = Path.GetDirectoryName(directory)!;
+        var l8Directory = Path.Combine(runs, l8Folder);
+        var l8Path = Path.Combine(l8Directory, "results.json");
+        var l7Path = Path.Combine(runs, l7Folder, "results.json");
+        if (!File.Exists(l8Path) || !File.Exists(l7Path)
+            || new FileInfo(l8Path).Length > 1048576 || new FileInfo(l7Path).Length > 1048576) return null;
+        using var l8Document = JsonDocument.Parse(File.ReadAllText(l8Path));
+        var l8Result = l8Document.RootElement;
+        if (l8Result.GetProperty("state").GetString() != "succeeded"
+            || l8Result.GetProperty("recipeId").GetString() != "l8.gmsh-volume"
+            || l8Result.GetProperty("runId").GetString() != l8RunId
+            || l8Result.GetProperty("profileId").GetString() != result["profileId"]?.GetValue<string>()
+            || !Verify(l8Directory, l8Result).OfType<JsonObject>().Any(item =>
+                item["recordId"]?.GetValue<string>() == l8RecordId && item["level"]?.GetValue<string>() == "L8")) return null;
+        var l8Evidence = JsonNode.Parse(l8Result.GetRawText())?["l8GmshVolumeEvidence"];
+        var l7Result = JsonNode.Parse(File.ReadAllText(l7Path));
+        if (l8Evidence?["sourceL7FolderId"]?.GetValue<string>() != l7Folder
+            || l7Result?["runId"]?.GetValue<string>() != l8Evidence["sourceL7RunId"]?.GetValue<string>()
+            || l7Result?["volumeEvidence"]?["artifactSha256"]?.GetValue<string>() != evidence["sourceMshSha256"]?.GetValue<string>()
+            || l8Evidence["lowerQualification"]?["records"] is not JsonArray prior || prior.Count != 8) return null;
+        for (var index = 0; index < 8; index++)
+            if (lower[index]?.ToJsonString() != prior[index]?.ToJsonString()) return null;
+        string? Hash(string path)
+        {
+            if (!File.Exists(path) || new FileInfo(path).Length is <= 0 or > 33554432) return null;
+            return Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))).ToLowerInvariant();
+        }
+        var msh = Path.Combine(directory, "volume", "positive-a", "cube.msh");
+        var product = Path.Combine(directory, "product");
+        var mshHash = evidence["sourceMshSha256"]?.GetValue<string>();
+        if (Hash(msh) != mshHash || Hash(Path.Combine(runs, l7Folder, "volume", "positive-a", "cube.msh")) != mshHash
+            || Hash(Path.Combine(directory, "volume", "DS-SCI-067.json")) != evidence["freshWorkerRecordSha256"]?.GetValue<string>()
+            || JsonNode.Parse(File.ReadAllText(Path.Combine(directory, "suite.json")))?["verdict"]?.GetValue<string>() != "passed"
+            || result["inputArtifacts"] is not JsonArray inputs || inputs.Count != 1
+            || inputs[0]?["datasetId"]?.GetValue<string>() != "gmsh/fixed-cube.geo"
+            || result["artifacts"] is not JsonArray outputs) return null;
+        foreach (var name in new[] { "volume.m3dt", "exporter.json", "handoff.json", "tetra-document.json",
+            "tetra-resource.m3dt", "viewer.png", "regression.json", "roundtrip.json" })
+        {
+            var hash = hashes[name]?.GetValue<string>();
+            if (hash is not { Length: 64 } || Hash(Path.Combine(product, name)) != hash
+                || !outputs.Any(item => item?["path"]?.GetValue<string>() == "product/" + name
+                    && item?["sha256"]?.GetValue<string>() == hash)) return null;
+        }
+        if (!outputs.Any(item => item?["path"]?.GetValue<string>() == "volume/positive-a/cube.msh"
+                && item?["sha256"]?.GetValue<string>() == mshHash)
+            || JsonNode.Parse(File.ReadAllText(Path.Combine(product, "handoff.json")))?.ToJsonString() != handoff.ToJsonString()
+            || JsonNode.Parse(File.ReadAllText(Path.Combine(product, "exporter.json")))?.ToJsonString() != exporter.ToJsonString()
+            || JsonNode.Parse(File.ReadAllText(Path.Combine(product, "regression.json")))?.ToJsonString() != regression.ToJsonString()
+            || JsonNode.Parse(File.ReadAllText(Path.Combine(product, "roundtrip.json")))?.ToJsonString() != roundtrip.ToJsonString()
+            || handoff["contract"]?.ToJsonString() != contract.ToJsonString()
+            || handoff["sourceL8RunId"]?.GetValue<string>() != l8RunId
+            || handoff["sourceL8RecordId"]?.GetValue<string>() != l8RecordId
+            || handoff["sourceMsh"]?["path"]?.GetValue<string>() != msh
+            || handoff["sourceMsh"]?["sha256"]?.GetValue<string>() != mshHash
+            || handoff["resource"]?["sha256"]?.GetValue<string>() != hashes["volume.m3dt"]?.GetValue<string>()
+            || handoff["exporterReport"]?["sha256"]?.GetValue<string>() != hashes["exporter.json"]?.GetValue<string>()
+            || exporter["sourceMshSha256"]?.GetValue<string>() != mshHash
+            || exporter["resourceSha256"]?.GetValue<string>() != hashes["volume.m3dt"]?.GetValue<string>()
+            || exporter["tetrahedra"]?.GetValue<int>() != 204
+            || exporter["exporterSha256"]?.GetValue<string>() != components["suite"]?["files"]?
+                ["tools/scientific-gmsh-tetmesh-export.py"]?["sha256"]?.GetValue<string>()
+            || regression["regression"]?.GetValue<string>() != "passed"
+            || regression["viewerState"]?.GetValue<string>() != "mounted"
+            || regression["viewer"]?.GetValue<string>() != "TetrahedralMeshViewport"
+            || regression["blueMeshPixels"]?.GetValue<int>() is not > 1000
+            || regression["tamperRejected"]?.GetValue<bool>() != true
+            || regression["points"]?.GetValue<int>() != 83
+            || regression["tetrahedra"]?.GetValue<int>() != 204
+            || regression["boundaryTriangles"]?.GetValue<int>() != 156
+            || regression["sourceMshSha256"]?.GetValue<string>() != mshHash
+            || regression["documentSha256"]?.GetValue<string>() != hashes["tetra-document.json"]?.GetValue<string>()
+            || regression["resourceSha256"]?.GetValue<string>() != hashes["tetra-resource.m3dt"]?.GetValue<string>()
+            || regression["viewerSha256"]?.GetValue<string>() != hashes["viewer.png"]?.GetValue<string>()
+            || regression["contractSha256"]?.GetValue<string>() != evidence["productContractSha256"]?.GetValue<string>()
+            || regression["consumerSources"] is not JsonObject sources
+            || Digest(sources.ToJsonString()) != evidence["consumerSourcesSha256"]?.GetValue<string>()
+            || regression["consumerSourcesSha256"]?.GetValue<string>() != evidence["consumerSourcesSha256"]?.GetValue<string>()
+            || roundtrip["verdict"]?.GetValue<string>() != "passed"
+            || roundtrip["format"]?.GetValue<string>() != "M3DT"
+            || roundtrip["tetrahedra"]?.GetValue<int>() != 204
+            || roundtrip["boundaryTriangles"]?.GetValue<int>() != 156
+            || roundtrip["boundaryEdges"]?.GetValue<int>() != 0
+            || roundtrip["nonManifoldEdges"]?.GetValue<int>() != 0
+            || Math.Abs((roundtrip["volume"]?.GetValue<double>() ?? double.NaN) - 1) > 1e-6
+            || roundtrip["sourceMshSha256"]?.GetValue<string>() != mshHash
+            || roundtrip["documentSha256"]?.GetValue<string>() != hashes["tetra-document.json"]?.GetValue<string>()
+            || roundtrip["resourceSha256"]?.GetValue<string>() != hashes["tetra-resource.m3dt"]?.GetValue<string>()
+            || roundtrip["parserSourceSha256"]?.GetValue<string>() != components["suite"]?["files"]?
+                ["tools/scientific-gmsh-tetmesh-roundtrip.py"]?["sha256"]?.GetValue<string>()) return null;
+        return Digest(evidence.ToJsonString());
+    }
 }

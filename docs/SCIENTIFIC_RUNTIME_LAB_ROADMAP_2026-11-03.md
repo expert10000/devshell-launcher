@@ -1697,6 +1697,15 @@ Start from current L7 evidence. Run three bounded VTK boundary reads and require
 **DS-SCI-075 — `feat(scientific): record Gmsh volume product readiness`**\
 Check the current L8 tetrahedral source against an explicit MATH3D volume-consumer contract that preserves cells and declares a native volume document. Save an inspectable blocked verdict and the exact missing product requirement. A surface Mesh document or OBJ viewer cannot grant volume L9; defer L9 certification until native tetrahedral import, document round trip and viewer regression are implemented and verified.
 
+**DS-SCI-076 — `feat(scientific): define a cell-preserving Gmsh-to-MATH3D resource`**\
+Export a bounded, versioned `M3DT` resource with all vertex coordinates and tetrahedral indices from the fixed public cube. Require positive cells, exact byte length and SHA-256 transport. Declare a separate MATH3D tetrahedral document contract and importer; derive the outward boundary from saved cells rather than replacing the volume with an OBJ shell.
+
+**DS-SCI-077 — `feat(scientific): independently reload the tetrahedral document`**\
+Save the MATH3D document and binary resource, reopen them through its adapter, reject a changed resource, and independently parse the saved bytes in a separate implementation. Compare 83 vertices, 204 tetrahedra, 156 closed boundary triangles, orientation, unit volume and bounds with the source worker artifact. Pin the exporter, parser and consumer source hashes.
+
+**DS-SCI-078 — `feat(scientific): qualify Gmsh volume L9 product integration`**\
+Start from current L0–L8 volume evidence and a fresh fixed-cube worker run. Verify the versioned handoff, import the cell-preserving document in MATH3D, reopen it, mount the tetrahedral boundary viewer and capture a regression image. Grant L9 only when the document, resource, independent reload, viewer and consumer contract all verify. Keep volume outside broker certification until a separate manifest/promotion ticket proves transport from this L9 record.
+
 ---
 
 ## 28. Priority selection: what to implement first

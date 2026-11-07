@@ -42,7 +42,11 @@ public partial class Form1
                 || declaration["boundaryFormat"]?.GetValue<string>() != "obj"))
             || (level == "L8" && (declaration["referenceRecipe"]?.GetValue<string>() != "l7.gmsh-volume"
                 || declaration["repeatCount"]?.GetValue<int>() != 3
-                || declaration["memoryLimitBytes"]?.GetValue<long>() != 134217728)))
+                || declaration["memoryLimitBytes"]?.GetValue<long>() != 134217728))
+            || (level == "L9" && (declaration["referenceRecipe"]?.GetValue<string>() != "l8.gmsh-volume"
+                || declaration["contractVersion"]?.GetValue<int>() != 1
+                || declaration["documentFormat"]?.GetValue<string>() != "math3d.tetrahedral-mesh-document"
+                || declaration["viewer"]?.GetValue<string>() != "TetrahedralMeshViewport")))
             throw new InvalidOperationException("Gmsh volume recipe differs from its registered contract.");
     }
 

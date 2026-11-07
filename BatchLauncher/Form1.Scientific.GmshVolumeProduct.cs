@@ -70,7 +70,7 @@ public partial class Form1
             var report = JsonNode.Parse(File.ReadAllText(reportPath))?.AsObject()
                 ?? throw new InvalidDataException("Volume product readiness report is missing.");
             if (report["sourceMshSha256"]?.GetValue<string>() != ScientificHash(msh)
-                || report["status"]?.GetValue<string>() != "blocked")
+                || report["status"]?.GetValue<string>() is not ("blocked" or "ready-for-l9"))
                 throw new InvalidDataException("Volume product readiness source or status changed.");
             report["sourceL8RunId"] = support["runId"]?.GetValue<string>();
             report["sourceL8RecordId"] = support["recordId"]?.GetValue<string>();
@@ -80,7 +80,8 @@ public partial class Form1
             File.WriteAllText(Path.Combine(job.Directory, "results.json"), new JsonObject {
                 ["volumeProductReadiness"] = report.DeepClone(), ["validatedCapabilities"] = new JsonArray()
             }.ToJsonString(), new UTF8Encoding(false));
-            job.State = "succeeded"; job.Stage = "blocked-volume-product";
+            job.State = "succeeded"; job.Stage = report["status"]?.GetValue<string>() == "ready-for-l9"
+                ? "ready-for-l9-check" : "blocked-volume-product";
         }
         catch (Exception error) { job.State = "failed"; job.Error = error.Message; }
         finally

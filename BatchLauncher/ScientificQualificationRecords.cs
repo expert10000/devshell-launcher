@@ -976,6 +976,22 @@ public static partial class ScientificQualificationRecords
                     evidence?["productContractSha256"]?.GetValue<string>(), null,
                     evidence?["regression"]?["codecSourceSha256"]?.GetValue<string>());
         }
+        else if (recipeId == "l9.gmsh-volume" && manifest["qualificationRecipes"] is JsonArray gmshVolumeProductRecipes)
+        {
+            var declaration = gmshVolumeProductRecipes.OfType<JsonObject>().FirstOrDefault(item =>
+                item["id"]?.GetValue<string>() == "l9.gmsh-volume"
+                && item["readinessLevel"]?.GetValue<string>() == "L9"
+                && item["capability"]?.GetValue<string>() == "mesh.generate3d"
+                && item["referenceRecipe"]?.GetValue<string>() == "l8.gmsh-volume"
+                && item["contractVersion"]?.GetValue<int>() == 1
+                && item["viewer"]?.GetValue<string>() == "TetrahedralMeshViewport");
+            var hash = GmshVolumeL9Hash(directory, result, components!);
+            var evidence = result["l9GmshVolumeEvidence"];
+            if (declaration != null && hash != null)
+                Add("mesh.generate3d", "L9", "l9.gmsh-volume", hash, evidence?["lowerQualification"],
+                    evidence?["consumerSourcesSha256"]?.GetValue<string>(),
+                    evidence?["productContractSha256"]?.GetValue<string>());
+        }
         var document = new JsonObject
         {
             ["schemaVersion"] = 1, ["runId"] = runId, ["runtimeId"] = runtimeId,
@@ -1161,6 +1177,18 @@ public static partial class ScientificQualificationRecords
             if (record["level"]?.GetValue<string>() == "L9")
             {
                 var sourceResult = JsonNode.Parse(result.GetRawText()) as JsonObject;
+                if (record["evidenceId"]?.GetValue<string>() == "l9.gmsh-volume")
+                {
+                    var evidence = sourceResult?["l9GmshVolumeEvidence"];
+                    if (sourceResult == null || record["capabilityId"]?.GetValue<string>() != "mesh.generate3d"
+                        || record["lowerQualification"]?.ToJsonString() != evidence?["lowerQualification"]?.ToJsonString()
+                        || record["consumerSourceSha256"]?.GetValue<string>() != evidence?["consumerSourcesSha256"]?.GetValue<string>()
+                        || record["consumerContractSha256"]?.GetValue<string>() != evidence?["productContractSha256"]?.GetValue<string>()
+                        || record["evidenceSha256"]?.GetValue<string>() != GmshVolumeL9Hash(directory, sourceResult,
+                            fingerprint!["components"]!.AsObject()))
+                        throw new InvalidDataException("Gmsh volume L9 product evidence changed.");
+                    continue;
+                }
                 if (record["evidenceId"]?.GetValue<string>() == "l9.gmsh-product")
                 {
                     var evidence = sourceResult?["l9GmshEvidence"];
@@ -1258,30 +1286,33 @@ public static partial class ScientificQualificationRecords
     }
 
     public static void AssessL9Consumer(JsonArray records, string? currentSourcesSha256, string? currentContractSha256,
-        string? currentCodecSha256 = null)
+        string? currentCodecSha256 = null, string? volumeSourcesSha256 = null, string? volumeContractSha256 = null)
     {
         foreach (var record in records.OfType<JsonObject>().Where(item => item["level"]?.GetValue<string>() == "L9"))
         {
             var reasons = record["staleReasons"] as JsonArray ?? new JsonArray();
+            var volume = record["evidenceId"]?.GetValue<string>() == "l9.gmsh-volume";
+            var sourcesSha256 = volume ? volumeSourcesSha256 : currentSourcesSha256;
+            var contractSha256 = volume ? volumeContractSha256 : currentContractSha256;
             if (record["evidenceId"]?.GetValue<string>() == "l9.gmsh-product"
                 && record["consumerCodecSha256"]?.GetValue<string>() != currentCodecSha256)
             {
                 record["status"] = currentCodecSha256 == null ? "unknown" : "stale";
                 reasons.Add(currentCodecSha256 == null ? "MATH3D M3DM codec is unavailable" : "MATH3D M3DM codec changed");
             }
-            if (currentSourcesSha256 == null || currentContractSha256 == null)
+            if (sourcesSha256 == null || contractSha256 == null)
             {
                 if (record["status"]?.GetValue<string>() != "stale") record["status"] = "unknown";
                 reasons.Add("MATH3D product consumer or contract is unavailable");
             }
             else
             {
-                if (record["consumerSourceSha256"]?.GetValue<string>() != currentSourcesSha256)
+                if (record["consumerSourceSha256"]?.GetValue<string>() != sourcesSha256)
                 {
                     record["status"] = "stale";
                     reasons.Add("MATH3D product consumer source changed");
                 }
-                if (record["consumerContractSha256"]?.GetValue<string>() != currentContractSha256)
+                if (record["consumerContractSha256"]?.GetValue<string>() != contractSha256)
                 {
                     record["status"] = "stale";
                     reasons.Add("MATH3D product handoff contract changed");

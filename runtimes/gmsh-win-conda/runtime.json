@@ -36,7 +36,11 @@
       "scope": "outward boundary of fixed tetrahedral cube; cells remain in MSH" },
     { "id": "l8.gmsh-volume", "readinessLevel": "L8", "capability": "mesh.generate3d",
       "referenceRecipe": "l7.gmsh-volume", "repeatCount": 3, "memoryLimitBytes": 134217728,
-      "cases": ["repeat", "cancellation", "timeout", "memory limit"], "scope": "fixed cube boundary consumer" }
+      "cases": ["repeat", "cancellation", "timeout", "memory limit"], "scope": "fixed cube boundary consumer" },
+    { "id": "l9.gmsh-volume", "readinessLevel": "L9", "capability": "mesh.generate3d",
+      "referenceRecipe": "l8.gmsh-volume", "contractVersion": 1,
+      "documentFormat": "math3d.tetrahedral-mesh-document", "viewer": "TetrahedralMeshViewport",
+      "scope": "fixed public unit-cube tetrahedral resource and derived boundary viewer" }
   ],
   "probes": [
     {

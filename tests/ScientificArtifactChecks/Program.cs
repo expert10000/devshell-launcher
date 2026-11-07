@@ -284,6 +284,11 @@ Check(ScientificCapabilityRegistry.Discover("vtk-win-conda").Count > 0
     && ScientificCapabilityRegistry.IsDeclared("sage-wsl", "math.symbolic")
     && !ScientificCapabilityRegistry.IsDeclared("sage-wsl", "mesh.validate"),
     "provider-scoped capability discovery excludes unrelated operations");
+Check(new[] { "math.rational.add", "math.polynomial.factor", "math.matrix.solve" }
+        .All(id => ScientificCapabilityRegistry.IsDeclared("sage-wsl", id)
+            && ScientificCapabilityRegistry.Get(id).ParametersSchema.TryGetProperty("$defs", out _)
+            && ScientificCapabilityRegistry.Get(id).ResultSchema.TryGetProperty("$defs", out _)),
+    "Sage exact candidate operations expose self-contained typed schemas");
 Reject(() => ScientificCapabilityRegistry.Get("mesh.unknown"), "unknown semantic capability is rejected");
 foreach(var name in new[]{"tools/scientific_worker_contract.py","tools/runtime-lab/Program.cs",
     "BatchLauncher/ScientificProviderRegistry.cs","BatchLauncher/ScientificRunFingerprint.cs",

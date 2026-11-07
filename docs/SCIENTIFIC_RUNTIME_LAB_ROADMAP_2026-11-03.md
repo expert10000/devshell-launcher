@@ -1380,6 +1380,8 @@ Test `.geo`, CAD inputs where supported, `.msh` exports, physical groups and qua
 WSL handshake, job envelope, exact serialization, resource lifecycle and typed errors.\
 **Acceptance:** rational, polynomial and matrix round trips preserve mathematical structure.
 
+**2026-11-07 local delivery:** A standalone Windows-to-WSL adapter discovers Sage without a fixed machine path, reports a versioned handshake and maps run paths through `wslpath`. A bounded exact worker accepts rational addition, polynomial factorization and square matrix solve, returning canonical rational pairs, factor multiplicities or a verified exact solution in version 1 JSON. Real Sage 10.9 round trips and invalid-coefficient/singular-matrix rejections passed on Ubuntu WSL. The worker has no managed qualification record or certified broker capability; see `tools/SCIENTIFIC_SAGE_WORKER.md`.
+
 **DS-SCI-017 — `feat(sage): qualify exact algebra and number-theory operations`**\
 Add factorization, number field, splitting, ring/ideal and Galois small fixtures.\
 **Acceptance:** positive and expected-rejection tests, exact checks and explicit algorithm limitations are recorded.

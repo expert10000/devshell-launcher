@@ -7,7 +7,7 @@
       "baselinePath": "schemas/compatibility/scientific-capabilities.1.0.0.json",
       "currentPath": "schemas/scientific-capabilities.v1.json",
       "baselineVersion": "1.0.0",
-      "currentVersion": "1.0.0",
+      "currentVersion": "1.1.0",
       "migrations": []
     }
   ],

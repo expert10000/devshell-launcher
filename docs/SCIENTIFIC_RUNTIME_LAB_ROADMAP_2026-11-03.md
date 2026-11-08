@@ -1392,6 +1392,8 @@ Add factorization, number field, splitting, ring/ideal and Galois small fixtures
 Add validation, orientation, repair, remeshing, AABB and distances.\
 **Acceptance:** each has scientific invariants, expected-invalid fixtures and artifact replay.
 
+**2026-11-08 scoped delivery:** A separate CGAL 6.0.1 AABB executable answered bounded point-to-triangle-mesh queries without changing the existing certified worker contract. A sealed local suite checked five known squared distances/closest points and rejected degenerate geometry, nonmanifold geometry, non-finite coordinates and out-of-budget coordinates. Eight seeded affine queries preserved the expected squared-distance scaling. A separate Python triangle-distance oracle verified all thirteen positive native results and that their closest points lie on the source surface. This is unsigned surface distance only; repair, orientation, managed qualification and broker certification remain open.
+
 **DS-SCI-019 — `feat(fixtures): create pathology and regression corpus`**\
 Canonical/pathological/generated/real-world fixture layout, metadata and rights checks.\
 **Acceptance:** fixture version/seed/hash appears in every relevant run; defects can be promoted into regression cases.

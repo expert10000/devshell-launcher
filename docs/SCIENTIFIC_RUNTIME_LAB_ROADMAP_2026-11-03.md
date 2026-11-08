@@ -1736,6 +1736,17 @@ Record the release capability ID and recompute its own L0–L9 gate verdicts dur
 
 **2026-11-08 scoped delivery:** Unit checks passed for ordered resume evidence, CDP URL rejection, manifest publication/rollback and two-capability release verification. Live managed requalification remains pending a prepared `desktop-five` session; the previous fixed-cube certificate is still stale after shared source changes.
 
+**DS-SCI-086–087 — `feat(scientific): capture run-scoped release inventory`**\
+Allow release certification to read an explicit inventory path. Capture the volume runner's fresh runtime report inside its output directory, pin its hash in execution evidence and use that exact capture for release qualification.
+
+**DS-SCI-088 — `feat(scientific): bind volume product smoke to release`**\
+Require a verified broker/MATH3D smoke record for new volume releases. Pin its file hash, source job and certification record in the qualification report and release manifest; reject drift during release verification.
+
+**DS-SCI-089 — `feat(scientific): verify volume requalification result`**\
+Verify a saved execution report against its sealed plan, ordered gates, linked evidence and release. With a broker config, require a passed result to match the current deployed manifest. Permit offline verification of an honestly failed run.
+
+**2026-11-08 scoped delivery:** The new inventory path was exercised against the installed scientific environments. Unit checks covered inventory selection, product-smoke linkage and tamper detection, and failed-result verification. A passed volume release still awaits a prepared `desktop-five` session and a fresh managed L0–L9 chain.
+
 ---
 
 ## 28. Priority selection: what to implement first

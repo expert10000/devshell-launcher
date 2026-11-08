@@ -8,7 +8,7 @@ The [Scientific Runtime Lab architecture and implementation roadmap](docs/SCIENT
 
 The UI registry now owns the five existing runtime declarations, visible sections, probes, fixed Catalog tests and artifact routes. CGAL Boolean and MATH3D native integration stay with CGAL; Catalog and History show only the selected provider's entries. VTK has its own mesh artifacts and fixed tests. Gmsh, Python/SciPy and Sage show their own probes or an explicit **Not configured** state on unsupported backends. The native registry rejects actions from the wrong provider and checks its versioned runtime manifests. These declarations do not certify a runtime or establish a standalone broker.
 
-The delivery table is chronological. Earlier rows retain their acceptance targets at the time of delivery; DS-SCI-081–085 describe the current fixed-cube volume requalification status. Certification remains scoped to each named fixture, capability and recorded environment.
+The delivery table is chronological. Earlier rows retain their acceptance targets at the time of delivery; DS-SCI-081–089 describe the current fixed-cube volume requalification status. Certification remains scoped to each named fixture, capability and recorded environment.
 
 | Roadmap item | Current state | Next acceptance target |
 |---|---|---|
@@ -84,6 +84,9 @@ The delivery table is chronological. Earlier rows retain their acceptance target
 | DS-SCI-082–083 Requalification preflight | Resume now requires ordered L0–L8 support. The runner checks a loopback CDP URL with a real DevShell app page and pins the broker config to this source checkout. Unit checks reject misordered support and misleading URLs. | Run the managed chain on a prepared desktop session |
 | DS-SCI-084 Staged volume deployment | Export, broker smoke and release certification use a candidate manifest. Only a qualified release can replace the deployed manifest; a changed deployment or failed final verification blocks publication and restores prior bytes. | Verify a fresh qualified release and deployed manifest on the prepared desktop session |
 | DS-SCI-085 Capability-scoped release verification | New release reports name the exact capability. Verification recomputes L0–L9 gates for that capability, including when Gmsh surface and volume entries coexist; a synthetic two-capability check passed. | Re-run against a live dual-capability export when both chains are current |
+| DS-SCI-086–087 Scoped runtime inventory | Release certification accepts an explicit inventory path. The volume runner now captures inventory under its own output directory and pins its hash in the result, leaving the shared inventory file untouched. A real local inventory capture and parser check passed. | Capture inventory during a live desktop requalification run |
+| DS-SCI-088 Volume product smoke release link | New volume releases require a verified broker/MATH3D smoke record. The report and qualified manifest pin its hash, source job and certification record; release verification detects changed smoke evidence. | Run the bound smoke and release chain after managed requalification |
+| DS-SCI-089 Requalification result verifier | A separate verifier checks the sealed plan, selected recipe chain, ordered gates and linked hashes. It verifies a saved failure without a desktop session and can check a passed result against the current deployed manifest and release. | Verify the first live passed requalification result |
 
 Do not mark an item complete from a passing package probe or a UI declaration. Each later change needs a named run, fingerprint, fixture revision, contract version and evidence link before its qualification level can advance.
 

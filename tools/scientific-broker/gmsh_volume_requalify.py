@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 from urllib.request import urlopen
 
 from broker import sha
+from release_certification import verify_release
 
 ROOT = Path(__file__).resolve().parents[2]
 PROJECT = ROOT / 'tools/scientific-broker/ScientificBroker.csproj'
@@ -96,6 +97,64 @@ def publish_manifest(candidate, deployed, expected_sha, verify=None):
     finally:
         temporary.unlink(missing_ok=True)
         temporary_sidecar.unlink(missing_ok=True)
+
+
+def verified_file(path, expected):
+    target = Path(path).resolve(strict=True)
+    if sha(target) != expected:
+        raise ValueError('Requalification evidence hash mismatch: ' + str(target))
+    return target
+
+
+def verify_result(path, config_path=None):
+    path = Path(path).resolve(strict=True)
+    verified_file(path, Path(str(path) + '.sha256').read_text(encoding='utf-8').strip())
+    result = json.loads(path.read_text(encoding='utf-8'))
+    if result.get('schemaVersion') != 1 or result.get('kind') != 'scientific.gmsh-volume-requalification-run':
+        raise ValueError('Unsupported volume requalification result.')
+    plan_path = verified_file(result['planPath'], result['planSha256'])
+    verified_file(plan_path, Path(str(plan_path) + '.sha256').read_text(encoding='utf-8').strip())
+    plan = json.loads(plan_path.read_text(encoding='utf-8'))
+    if (plan.get('schemaVersion') != 1 or plan.get('kind') != 'scientific.gmsh-volume-requalification-plan'
+            or plan.get('profileId') != result.get('profileId')
+            or (plan.get('mode'), tuple(plan.get('recipes', []))) != mode_for(plan.get('before', {}))):
+        raise ValueError('Volume requalification plan identity is invalid.')
+    expected = (['managed-qualification'] if plan['recipes'] else []) + [
+        'broker-export', 'product-smoke', 'runtime-inventory', 'release', 'deployed-manifest']
+    steps = result.get('steps', [])
+    if not isinstance(steps, list) or any(not isinstance(step, dict) for step in steps):
+        raise ValueError('Volume requalification steps or verdict are invalid.')
+    ids = [step.get('id') for step in steps]
+    if (ids != expected[:len(ids)]
+            or result.get('verdict') not in ('passed', 'failed')
+            or (result['verdict'] == 'passed' and (ids != expected or not result.get('after', {}).get('eligible')))
+            or (result['verdict'] == 'failed' and not result.get('reason'))):
+        raise ValueError('Volume requalification steps or verdict are invalid.')
+    evidence = {'managed-qualification': ('logPath', 'logSha256'),
+                'broker-export': ('manifestPath', 'manifestSha256'),
+                'product-smoke': ('recordPath', 'recordSha256'),
+                'runtime-inventory': ('inventoryPath', 'inventorySha256'),
+                'release': ('reportPath', 'reportSha256')}
+    for step in steps:
+        if step.get('state') not in ('passed', 'qualified'):
+            raise ValueError('A recorded requalification step did not pass.')
+        if step['id'] in evidence:
+            path_key, hash_key = evidence[step['id']]
+            verified_file(step[path_key], step[hash_key])
+    release = next((step for step in steps if step['id'] == 'release'), None)
+    if release:
+        report = verify_release(release['reportPath'], config_path if result['verdict'] == 'passed' else None)
+        smoke = next(step for step in steps if step['id'] == 'product-smoke')
+        if (report.get('verdict') != 'qualified' or report.get('productSmoke', {}).get('recordSha256')
+                != smoke['recordSha256']):
+            raise ValueError('Volume release is not linked to its product smoke.')
+    if result['verdict'] == 'passed' and config_path:
+        deployed = next(step for step in steps if step['id'] == 'deployed-manifest')
+        configured = json.loads(Path(config_path).read_text(encoding='utf-8'))
+        if Path(configured['manifest']).resolve() != Path(deployed['manifestPath']).resolve():
+            raise ValueError('Volume deployment path changed after requalification.')
+        verified_file(deployed['manifestPath'], deployed['manifestSha256'])
+    return result
 
 
 def run(args):
@@ -193,16 +252,25 @@ def run(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=('plan', 'run'))
-    parser.add_argument('--config', required=True)
-    parser.add_argument('--installed-root', required=True)
-    parser.add_argument('--math3d-root', required=True)
+    parser.add_argument('command', choices=('plan', 'run', 'verify'))
+    parser.add_argument('--config')
+    parser.add_argument('--installed-root')
+    parser.add_argument('--math3d-root')
     parser.add_argument('--profile-id', default='desktop-five')
-    parser.add_argument('--output-root', required=True)
+    parser.add_argument('--output-root')
     parser.add_argument('--cdp-url')
     parser.add_argument('--release-tag', default='gmsh-fixed-cube-volume-v1')
+    parser.add_argument('--record')
     options = parser.parse_args()
-    value = run(options)
+    if options.command == 'verify':
+        if not options.record:
+            parser.error('verify requires --record')
+        verified = verify_result(options.record, options.config)
+        value = {'result': str(Path(options.record).resolve()), 'verdict': verified['verdict']}
+    else:
+        if not all((options.config, options.installed_root, options.math3d_root, options.output_root)):
+            parser.error('plan/run require config, installed-root, math3d-root and output-root')
+        value = run(options)
     print(json.dumps(value, separators=(',', ':')))
-    if value.get('verdict') == 'failed':
+    if options.command != 'verify' and value.get('verdict') == 'failed':
         raise SystemExit(1)

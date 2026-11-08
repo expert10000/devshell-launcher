@@ -381,4 +381,7 @@ Use `gmsh_volume_requalify.py plan` with the volume broker config, installed lau
 ```powershell
 python tools/scientific-broker/gmsh_volume_requalify.py plan --config <volume-config.json> --installed-root <launcher-install-root> --math3d-root <tetrahedral-math3d-checkout> --output-root .scientific/gmsh-requalification
 python tools/scientific-broker/gmsh_volume_requalify.py run --config <volume-config.json> --installed-root <launcher-install-root> --math3d-root <tetrahedral-math3d-checkout> --cdp-url http://127.0.0.1:9244 --output-root .scientific/gmsh-requalification
+python tools/scientific-broker/gmsh_volume_requalify.py verify --record <run-result.json> --config <volume-config.json>
 ```
+
+The result verifier checks the sealed plan, ordered gates and linked artifact hashes. With `--config`, a passed run must still match the deployed manifest and qualified release. A failed run can be verified as saved evidence without a desktop session.

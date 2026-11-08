@@ -160,12 +160,16 @@ def run(args):
         execution['steps'].append({'id': 'product-smoke', 'state': smoke['verdict'],
                                    'recordPath': smoke['record'], 'recordSha256': sha(smoke['record'])})
         prefix_root = Path(config['prefix']).resolve().parent
+        inventory = output / (uuid.uuid4().hex + '-runtime-inventory.json')
         command(['pwsh', '-NoProfile', '-File', str(ROOT / 'tools/Inspect-ScientificRuntimes.ps1'),
-                 '-RuntimeRoot', str(prefix_root), '-OutputPath', str(ROOT / '.scientific/runtime-report.json')],
+                 '-RuntimeRoot', str(prefix_root), '-OutputPath', str(inventory)],
                 timeout=180)
+        execution['steps'].append({'id': 'runtime-inventory', 'state': 'passed',
+                                   'inventoryPath': str(inventory), 'inventorySha256': sha(inventory)})
         release = json.loads(command([sys.executable, str(ROOT / 'tools/scientific-broker/release_certification.py'),
                                       'certify', '--config', str(candidate_config), '--installed-root', str(installed),
                                       '--profile-id', args.profile_id, '--release-tag', args.release_tag,
+                                      '--inventory', str(inventory),
                                       '--output-root', str(output / 'releases')], timeout=300).splitlines()[-1])
         if release['verdict'] != 'qualified':
             raise ValueError('Volume release certification was blocked: ' + str(release.get('reasons')))

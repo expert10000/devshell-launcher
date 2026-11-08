@@ -1396,6 +1396,8 @@ Add validation, orientation, repair, remeshing, AABB and distances.\
 
 **2026-11-08 orientation delivery:** A separate versioned inward tetrahedron is the exact face reversal of the authored outward fixture, with equal-magnitude negative signed volume. The native CGAL orientation tool inspects open meshes as undetermined and restricts repair to one closed connected nondegenerate volume. Eight fixed cases checked outward/inward inspection, inward-to-outward repair, outward no-op and open/degenerate/nonmanifold refusals. Four seeded affine inward tetrahedra were repaired and reopened with independent signed-volume and topology checks. These are local laboratory records; managed qualification, hole filling and general mesh repair remain open.
 
+**2026-11-08 remesh delivery:** A separate independent OBJ analyzer measures components, boundary loops, Euler characteristic, edge lengths, area, signed volume and bounds. The existing native CGAL remesh worker passed a sealed seven-case local suite: closed tetrahedron and protected unit square positives, plus degenerate, nonmanifold, budget, invalid-iteration and non-finite-target rejections. A linked boundary record confirmed that the 16 output rim edges cover each original square side without gaps, overlaps or excursions. Four seeded affine tetrahedra preserved closed topology and scale covariance of area, edge lengths and signed volume against a baseline. These local checks do not extend the fixed broker certification.
+
 **DS-SCI-019 — `feat(fixtures): create pathology and regression corpus`**\
 Canonical/pathological/generated/real-world fixture layout, metadata and rights checks.\
 **Acceptance:** fixture version/seed/hash appears in every relevant run; defects can be promoted into regression cases.

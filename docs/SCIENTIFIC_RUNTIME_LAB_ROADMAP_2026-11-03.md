@@ -1720,6 +1720,11 @@ Expose a read-only exporter audit for `mesh.generate3d`. Show each recent manage
 
 **2026-11-08 scoped delivery:** The audit reports the previous fixed-cube L9 evidence as stale after the upstream Sage integration changed shared fingerprint, qualification and runtime source files. The current export correctly contains no certified volume entry. A fresh managed Gmsh chain is needed before republishing the volume profile.
 
+**DS-SCI-081 — `feat(scientific): run gated Gmsh volume requalification`**\
+Use the read-only export audit to choose either the full managed volume L0–L9 chain or its L7–L9 suffix. Require a prepared `desktop-five` DevShell CDP session for the existing managed UI check. Afterward, re-audit before exporting, verify the broker, run a fresh cell-preserving MATH3D smoke, capture a current runtime inventory and qualify a release. Save a sealed plan and an execution report; stop on any failed gate.
+
+**2026-11-08 scoped delivery:** Planning selected the full chain for the stale volume evidence and the planner checks passed. A run without a desktop CDP endpoint saved a failed result before changing the broker manifest. Live managed requalification and the refreshed release certificate remain pending.
+
 ---
 
 ## 28. Priority selection: what to implement first

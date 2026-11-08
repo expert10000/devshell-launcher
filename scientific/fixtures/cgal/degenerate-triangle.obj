@@ -1,0 +1,5 @@
+# Project-authored zero-area triangle.
+v 0 0 0
+v 1 0 0
+v 2 0 0
+f 1 2 3

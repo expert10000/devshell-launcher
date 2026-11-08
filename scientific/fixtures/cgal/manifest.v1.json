@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "kind": "scientific.cgal-fixture-corpus",
+  "license": "CC0-1.0",
+  "source": "Project-authored geometry; no external mesh files",
+  "fixtures": [
+    {
+      "id": "closed-tetra",
+      "path": "closed-tetra.obj",
+      "sha256": "21b1325a5d9f7ef43f04b923c7b469e6a8c73cc41eef436924801d37ac29113d",
+      "version": 1,
+      "class": "canonical",
+      "expected": {"vertices": 4, "faces": 4, "boundaryEdges": 0, "maximumEdgeIncidence": 2, "signedVolume": 0.16666666666666666}
+    },
+    {
+      "id": "open-square",
+      "path": "open-square.obj",
+      "sha256": "4f597c42980410d32acc3ed609278030c26fff2e8155b3802756222df2d714cd",
+      "version": 1,
+      "class": "pathological",
+      "expected": {"vertices": 4, "faces": 2, "boundaryEdges": 4, "maximumEdgeIncidence": 2, "signedVolume": 0.0}
+    },
+    {
+      "id": "degenerate-triangle",
+      "path": "degenerate-triangle.obj",
+      "sha256": "422613a31164b447d6a7d796e74cc3c8a34e2b4689d6846a55d8912267126cf8",
+      "version": 1,
+      "class": "pathological",
+      "expected": {"vertices": 3, "faces": 1, "boundaryEdges": 3, "maximumEdgeIncidence": 1, "signedVolume": 0.0, "degenerateFaces": 1}
+    },
+    {
+      "id": "nonmanifold-edge",
+      "path": "nonmanifold-edge.obj",
+      "sha256": "becb55a2ad02dc0e3e1da288e730688f02969adc6b4c5a1d710fa3ae6bae24cb",
+      "version": 1,
+      "class": "pathological",
+      "expected": {"vertices": 5, "faces": 3, "boundaryEdges": 6, "maximumEdgeIncidence": 3, "signedVolume": 0.0}
+    }
+  ]
+}

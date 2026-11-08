@@ -43,7 +43,8 @@ def mode_for(audited):
     if not candidates:
         return 'full', FULL
     support = candidates[0].get('support') or []
-    if len(support) != 9:
+    if len(support) != 9 or any(item.get('level') != f'L{index}'
+                                for index, item in enumerate(support)):
         return 'full', FULL
     earliest = next((index for index, item in enumerate(support)
                      if item.get('status') != 'current'), 9)

@@ -8,6 +8,8 @@ The [Scientific Runtime Lab architecture and implementation roadmap](docs/SCIENT
 
 The UI registry now owns the five existing runtime declarations, visible sections, probes, fixed Catalog tests and artifact routes. CGAL Boolean and MATH3D native integration stay with CGAL; Catalog and History show only the selected provider's entries. VTK has its own mesh artifacts and fixed tests. Gmsh, Python/SciPy and Sage show their own probes or an explicit **Not configured** state on unsupported backends. The native registry rejects actions from the wrong provider and checks its versioned runtime manifests. These declarations do not certify a runtime or establish a standalone broker.
 
+The delivery table is chronological. Earlier rows retain their acceptance targets at the time of delivery; DS-SCI-079 is the current fixed-cube volume broker status. Certification remains scoped to each named fixture, capability and recorded environment.
+
 | Roadmap item | Current state | Next acceptance target |
 |---|---|---|
 | DS-SCI-001 runtime plugin contract | UI registry owns five providers' sections, probes, fixed catalog tests, recipe views and artifact routes; versioned native registry scopes managed actions and checks each runtime manifest; desktop provider switching checked | Shared generated UI/backend contract remains follow-up hardening |
@@ -76,6 +78,7 @@ The UI registry now owns the five existing runtime declarations, visible section
 | DS-SCI-076 Cell-preserving tetrahedral resource | Gmsh exports a versioned `M3DT` resource with all cube vertices and tetrahedral cells; MATH3D declares a separate importer and document format. | Verify document persistence and reload |
 | DS-SCI-077 Tetrahedral document round trip | MATH3D reopens its saved document and resource; an independent parser checks cells, boundary, orientation, unit volume and hashes, and tampering is rejected. | Run the managed viewer product gate |
 | DS-SCI-078 Gmsh volume L9 product gate | A fresh fixed-cube worker feeds the verified MATH3D tetrahedral document and derived-boundary viewer, with linked L0–L8 evidence and a regression image. | Certify and promote volume only in a separate broker-manifest ticket |
+| DS-SCI-079 Gmsh volume broker certification and promotion | The exporter selects a current, separate fixed-cube `mesh.generate3d` L0–L9 chain and pins the Gmsh worker, adapter, M3DT exporter, fixture, package inventory and MATH3D tetrahedral consumer. A fresh broker job reproduced the qualified `.msh` and M3DT hashes, served the resource, allowed promotion, reopened the cell-preserving MATH3D document and passed viewer/independent reload checks. A fresh inventory and release report qualified the volume profile; input, source-snapshot and output tamper checks passed. | Re-export after any source, package or consumer drift; qualify each additional volume fixture and backend separately |
 
 Do not mark an item complete from a passing package probe or a UI declaration. Each later change needs a named run, fingerprint, fixture revision, contract version and evidence link before its qualification level can advance.
 

@@ -40,7 +40,8 @@ def fresh_export(repo, installed_root, math3d_root, profile_id, output):
 def assess(fresh, broker):
     reasons = []
     capabilities = fresh.get('certifiedCapabilities')
-    matching = [item for item in capabilities if item.get('runtimeId') == broker.runtime_id] if isinstance(capabilities, list) else []
+    matching = [item for item in capabilities if item.get('runtimeId') == broker.runtime_id
+                and item.get('capabilityId') == broker.capability_id] if isinstance(capabilities, list) else []
     if len(matching) != 1:
         reasons.append('Fresh desktop export has no single current L9 capability for ' + broker.runtime_id + '.')
     else:
@@ -65,9 +66,10 @@ def inventory_state(inventory, release_time):
         return 'unknown'
 
 
-def gate_verdicts(fresh, runtime_id='cgal-win-conda'):
+def gate_verdicts(fresh, runtime_id='cgal-win-conda', capability_id=None):
     capabilities = fresh.get('certifiedCapabilities', [])
-    matching = [item for item in capabilities if item.get('runtimeId') == runtime_id]
+    matching = [item for item in capabilities if item.get('runtimeId') == runtime_id
+                and (capability_id is None or item.get('capabilityId') == capability_id)]
     support = matching[0].get('supportingRecords', []) if len(matching) == 1 else []
     complete = len(support) == 10 and all(item.get('level') == f'L{index}' for index, item in enumerate(support))
     return [dict(level=f'L{index}', state='current', capabilityId=support[index]['capabilityId'],
@@ -115,14 +117,15 @@ def certify(config_path, installed_root, profile_id, release_tag, output_root, e
                   'createdAtUtc': created_at.isoformat(),
                   'sourceCommit': source_commit,
                   'verdict': 'qualified' if not reasons else 'blocked', 'reasons': reasons,
-                  'gateVerdicts': gate_verdicts(fresh, broker.runtime_id), 'agent': {'kind': 'local', 'hostFingerprintSha256': host_fingerprint()},
+                  'gateVerdicts': gate_verdicts(fresh, broker.runtime_id, broker.capability_id), 'agent': {'kind': 'local', 'hostFingerprintSha256': host_fingerprint()},
                   'inventoryPath': str(inventory_path), 'inventorySha256': sha(inventory_path),
                   'inventoryState': state, 'inventoryCapturedAtUtc': inventory['generatedAt'],
                   'freshManifestSha256': fresh_hash,
                   'deployedManifestSha256': sha(broker.paths['manifest']),
                   'capabilities': []}
         if not reasons:
-            entry = next(item for item in fresh['certifiedCapabilities'] if item['runtimeId'] == broker.runtime_id)
+            entry = next(item for item in fresh['certifiedCapabilities'] if item['runtimeId'] == broker.runtime_id
+                         and item['capabilityId'] == broker.capability_id)
             report['capabilities'].append({'runtimeId': entry['runtimeId'], 'capabilityId': entry['capabilityId'],
                                            'level': entry['level'], 'recordId': entry['recordId'],
                                            'suiteRevisionSha256': entry['suiteRevisionSha256'],

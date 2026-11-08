@@ -24,6 +24,25 @@ static class BrokerManifest
         return files;
     }
     static string? ProductSources(string root) => ProductSourceFiles(root) is { } files ? Digest(files) : null;
+    static JsonObject? VolumeSourceFiles(string root)
+    {
+        var files = new JsonObject();
+        foreach (var name in new[] { "scientific/volume-consumer.v1.json", "packages/core/src/tetrahedralMeshDocument.ts",
+            "renderer/src/volume/tetrahedralMeshDocumentAdapter.ts", "renderer/src/volume/TetrahedralMeshViewport.tsx",
+            "renderer/src/workspace/MeshDocumentViewport.tsx", "renderer/src/components/SurfaceViewer.tsx" })
+        {
+            var path = Path.Combine(root, name.Replace('/', Path.DirectorySeparatorChar));
+            if (!File.Exists(path)) return null;
+            files[name] = HashFile(path);
+        }
+        return files;
+    }
+    static JsonObject VolumeContract() => new()
+    {
+        ["id"] = "math3d.tetrahedral-product-handoff", ["version"] = 1,
+        ["documentFormat"] = "math3d.tetrahedral-mesh-document",
+        ["resourceEncoding"] = "math3d.tetmesh-buffers.v1", ["viewer"] = "TetrahedralMeshViewport"
+    };
     static JsonObject ProductContract() => new()
     {
         ["id"] = "math3d.mesh-product-handoff", ["version"] = 1,
@@ -118,7 +137,9 @@ static class BrokerManifest
             if (run["qualifications"] is JsonArray records)
             {
                 ScientificQualificationRecords.AssessL5Dependencies(records, ids);
-                ScientificQualificationRecords.AssessL9Consumer(records, ProductSources(math3d), Digest(contract), codec);
+                var volumeFiles = VolumeSourceFiles(math3d);
+                ScientificQualificationRecords.AssessL9Consumer(records, ProductSources(math3d), Digest(contract), codec,
+                    volumeFiles is null ? null : Digest(volumeFiles), Digest(VolumeContract()));
             }
         var summary = ScientificQualificationRecords.Summarize("gmsh-win-conda", runs);
         foreach (var current in summary["currentRecords"]!.AsArray().OfType<JsonObject>()
@@ -178,8 +199,94 @@ static class BrokerManifest
         }
         return null;
     }
+    static JsonObject? ExportGmshVolume(string repo, string installed, string math3d, string profile)
+    {
+        var runs = ReadRuns(repo, installed, profile, "gmsh-win-conda");
+        var ids = CurrentIds(runs, "L0", "L1", "L2", "L3", "L4");
+        AssessDependencies(runs, ids, l6: false, l7: false, l8: false, l9: false);
+        ids.UnionWith(CurrentIds(runs, "L5"));
+        AssessDependencies(runs, ids, l7: false, l8: false, l9: false);
+        ids.UnionWith(CurrentIds(runs, "L6"));
+        AssessDependencies(runs, ids, l8: false, l9: false);
+        ids.UnionWith(CurrentIds(runs, "L7"));
+        AssessDependencies(runs, ids, l9: false);
+        ids.UnionWith(CurrentIds(runs, "L8"));
+        var volumeFiles = VolumeSourceFiles(math3d);
+        var volumeContract = VolumeContract();
+        var surfaceContract = ProductContract();
+        var codecPath = Path.Combine(math3d, "src", "main", "python", "nativeCgalProtocol.ts");
+        var codec = File.Exists(codecPath) ? HashFile(codecPath) : null;
+        foreach (var run in runs)
+            if (run["qualifications"] is JsonArray records)
+            {
+                ScientificQualificationRecords.AssessL5Dependencies(records, ids);
+                ScientificQualificationRecords.AssessL9Consumer(records, ProductSources(math3d),
+                    Digest(surfaceContract), codec, volumeFiles is null ? null : Digest(volumeFiles),
+                    Digest(volumeContract));
+            }
+        if (volumeFiles is null || !ScientificCapabilityRegistry.IsDeclared("gmsh-win-conda", "mesh.generate3d"))
+            return null;
+        var summary = ScientificQualificationRecords.Summarize("gmsh-win-conda", runs);
+        foreach (var current in summary["currentRecords"]!.AsArray().OfType<JsonObject>()
+            .Where(item => item["level"]?.GetValue<string>() == "L9"
+                && item["capabilityId"]?.GetValue<string>() == "mesh.generate3d")
+            .OrderByDescending(item => item["finishedAtUtc"]?.GetValue<string>(), StringComparer.Ordinal))
+        {
+            var run = runs.Single(item => item["runId"]?.GetValue<string>() == current["runId"]?.GetValue<string>());
+            var directory = run["directory"]!.GetValue<string>();
+            var result = JsonNode.Parse(File.ReadAllText(Path.Combine(directory, "results.json")))!;
+            var record = run["qualifications"]!.AsArray().OfType<JsonObject>()
+                .Single(item => item["recordId"]?.GetValue<string>() == current["recordId"]?.GetValue<string>());
+            var evidence = result["l9GmshVolumeEvidence"];
+            var msh = Path.Combine(directory, "volume", "positive-a", "cube.msh");
+            var resource = Path.Combine(directory, "product", "volume.m3dt");
+            if (evidence?["productContractSha256"]?.GetValue<string>() != Digest(volumeContract)
+                || record["consumerSourceSha256"]?.GetValue<string>() != Digest(volumeFiles)
+                || record["consumerContractSha256"]?.GetValue<string>() != Digest(volumeContract)
+                || !File.Exists(msh) || !File.Exists(resource)
+                || HashFile(msh) != evidence["sourceMshSha256"]?.GetValue<string>()
+                || HashFile(resource) != evidence["artifactHashes"]?["volume.m3dt"]?.GetValue<string>()) continue;
+            var lower = record["lowerQualification"]?["records"] as JsonArray;
+            var currentIds = CurrentIds(runs, "L0", "L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9");
+            if (lower is not { Count: 9 } || lower.Where((item, index) =>
+                    item?["level"]?.GetValue<string>() != "L" + index
+                    || item?["recordId"]?.GetValue<string>() is not { } id || !currentIds.Contains(id)).Any()) continue;
+            var fingerprint = JsonNode.Parse(File.ReadAllText(Path.Combine(directory, "fingerprint.json")))!;
+            var support = new JsonArray(lower.Select(item => item!.DeepClone()).ToArray());
+            support.Add(new JsonObject { ["level"] = "L9", ["capabilityId"] = "mesh.generate3d",
+                ["runId"] = current["runId"]?.DeepClone(), ["recordId"] = current["recordId"]?.DeepClone() });
+            return new JsonObject {
+                ["runtimeId"] = "gmsh-win-conda", ["capabilityId"] = "mesh.generate3d", ["level"] = "L9",
+                ["scope"] = "fixed public unit-cube tetrahedra", ["sourceRunId"] = current["runId"]?.DeepClone(),
+                ["recordId"] = current["recordId"]?.DeepClone(),
+                ["runFingerprintSha256"] = run["fingerprintSha256"]?.DeepClone(),
+                ["suiteRevisionSha256"] = record["suiteRevisionSha256"]?.DeepClone(),
+                ["qualificationSha256"] = run["qualificationSha256"]?.DeepClone(),
+                ["workerContractSha256"] = fingerprint["components"]?["contract"]?["workerContractModule"]?["sha256"]?.DeepClone(),
+                ["runtimeManifestSha256"] = fingerprint["components"]?["contract"]?["runtimeManifest"]?["sha256"]?.DeepClone(),
+                ["adapterSha256"] = HashFile(Path.Combine(repo, "tools", "scientific-broker", "gmsh_volume_adapter.py")),
+                ["brokerSha256"] = HashFile(Path.Combine(repo, "tools", "scientific-broker", "broker.py")),
+                ["workerBinarySha256"] = HashFile(Path.Combine(repo, "tools", "scientific-gmsh-volume-worker.py")),
+                ["exporterSha256"] = HashFile(Path.Combine(repo, "tools", "scientific-gmsh-tetmesh-export.py")),
+                ["pythonSha256"] = fingerprint["components"]?["environment"]?["pythonExecutable"]?["sha256"]?.DeepClone(),
+                ["packageRecordsSha256"] = fingerprint["components"]?["environment"]?["condaPackageRecords"]?["sha256"]?.DeepClone(),
+                ["productContract"] = volumeContract.DeepClone(), ["productContractSha256"] = Digest(volumeContract),
+                ["consumerSources"] = volumeFiles, ["consumerSourceSha256"] = Digest(volumeFiles),
+                ["referenceInputSha256"] = result["inputArtifacts"]?[0]?["sha256"]?.DeepClone(),
+                ["referenceWorkerArtifactSha256"] = evidence["sourceMshSha256"]?.DeepClone(),
+                ["referenceArtifactSha256"] = evidence["artifactHashes"]?["volume.m3dt"]?.DeepClone(),
+                ["sourceL8RunId"] = evidence["sourceL8RunId"]?.DeepClone(),
+                ["sourceL8RecordId"] = evidence["sourceL8RecordId"]?.DeepClone(),
+                ["supportingRecords"] = support
+            };
+        }
+        return null;
+    }
     static JsonObject Export(string repo, string installed, string math3d, string profile)
     {
+        repo = Path.GetFullPath(repo);
+        installed = Path.GetFullPath(installed);
+        math3d = Path.GetFullPath(math3d);
         var runs = ReadRuns(repo, installed, profile, "cgal-win-conda");
         var ids = CurrentIds(runs, "L0", "L1", "L2", "L3", "L4");
         AssessDependencies(runs, ids, l6: false, l7: false, l8: false, l9: false);
@@ -270,6 +377,8 @@ static class BrokerManifest
         }
         var gmsh = ExportGmsh(repo, installed, math3d, profile);
         if (gmsh != null) certified.Add(gmsh);
+        var gmshVolume = ExportGmshVolume(repo, installed, math3d, profile);
+        if (gmshVolume != null) certified.Add(gmshVolume);
         return new JsonObject { ["schemaVersion"] = 1, ["kind"] = "scientific.certified-capabilities",
             ["issuedAtUtc"] = DateTimeOffset.UtcNow.ToString("O"), ["profileId"] = profile,
             ["providerRegistryVersion"] = ScientificProviderRegistry.ContractVersion,
@@ -293,7 +402,9 @@ static class BrokerManifest
         if (manifest["schemaVersion"]?.GetValue<int>() != 1 || manifest["kind"]?.GetValue<string>() != "scientific.certified-capabilities"
             || manifest["certifiedCapabilities"] is not JsonArray capabilities
             || capabilities.Any(item => item?["runtimeId"]?.GetValue<string>() is not ("cgal-win-conda" or "gmsh-win-conda")
-                || item?["capabilityId"]?.GetValue<string>() != (item?["runtimeId"]?.GetValue<string>() == "gmsh-win-conda" ? "mesh.generate" : "mesh.interop.vtk-math3d")
+                || item?["capabilityId"]?.GetValue<string>() is not ("mesh.interop.vtk-math3d" or "mesh.generate" or "mesh.generate3d")
+                || (item?["runtimeId"]?.GetValue<string>() == "cgal-win-conda"
+                    && item?["capabilityId"]?.GetValue<string>() != "mesh.interop.vtk-math3d")
                 || !ScientificCapabilityRegistry.IsDeclared(item?["runtimeId"]?.GetValue<string>() ?? "",
                     item?["capabilityId"]?.GetValue<string>() ?? "")
                 || item?["level"]?.GetValue<string>() != "L9"))

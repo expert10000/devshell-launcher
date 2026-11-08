@@ -12,7 +12,7 @@ Build and run the exporter with five explicit paths:
 dotnet run --project tools/scientific-broker/ScientificBroker.csproj -- export <devshell-repo> <installed-launcher-root> <math3d-checkout> <profile-id> <manifest.json>
 ```
 
-The exporter rereads successful runs, verifies fingerprints and immutable qualification files, assesses source, environment, dependency, and MATH3D consumer drift, then exports the newest current L9 CGAL mesh record. If no current L9 record remains, `certifiedCapabilities` is empty. Gmsh and all other unqualified capabilities are excluded. The manifest and its `.sha256` sidecar are a deployment snapshot; export again after qualification or environment changes. The hash detects mismatches, but is not an authenticity signature.
+The exporter rereads successful runs, verifies fingerprints and immutable qualification files, assesses source, environment, dependency, and MATH3D consumer drift, then exports current scoped L9 CGAL and Gmsh capabilities. Gmsh's fixed 2D `mesh.generate` and fixed-cube tetrahedral `mesh.generate3d` entries are independent. A stale or unavailable chain is omitted. The manifest and its `.sha256` sidecar are a deployment snapshot; export again after qualification or environment changes. The hash detects mismatches, but is not an authenticity signature.
 
 ## Configure and run
 
@@ -47,15 +47,15 @@ python tools/scientific-broker/broker.py serve --config <config.json> --port 876
 ## Version 1 API
 
 - `GET /v1/providers`: certified provider and capability discovery.
-- `POST /v1/jobs`: accept `schemaVersion`, `runtimeId`, `capabilityId`, `input: {path, sha256}`, and optional `timeoutSeconds` (1–120). The input must be a bounded OBJ inside `datasetRoot` with the exact hash of the qualified L9 fixture.
+- `POST /v1/jobs`: accept `schemaVersion`, `runtimeId`, `capabilityId`, `input: {path, sha256}`, and optional `timeoutSeconds` (1–120). The input must be a bounded registered dataset with the exact hash of the selected L9 fixture: OBJ for CGAL or `.geo` for Gmsh.
 - `GET /v1/jobs/{id}`: state (`running`, `succeeded`, `partial`, `failed`, `cancelled`, `timed-out`, `resource-exhausted`), stage, progress, diagnostics, and verified artifact metadata.
 - `GET /v1/jobs/{id}/telemetry`: hash-verified CPU, RAM, GPU and VRAM measurements after finalization. Every metric includes a collector, unit, scope, availability and sample count.
 - `GET /v1/jobs/{id}/source`: hash-verified Git commit, tree, branch, worktree and dirty-content identities captured at submission. Non-Git deployments record an explicit unavailable reason.
 - `POST /v1/jobs/{id}/cancel`: terminate the owned worker process tree.
 - `POST /v1/jobs/{id}/promote`: save an immutable allow/block decision with reasons. It requires a successful job, a current matching L0–L9 certification chain, unchanged worker/package and MATH3D consumer identities, and a verified version 1 handoff. `math3dRoot` is required for an allowed decision.
-- `GET /v1/jobs/{id}/artifacts/{name}`: serve only a registered artifact from a successful job after rechecking its hash. Current names are `l5-positive.obj` and `handoff.json`.
+- `GET /v1/jobs/{id}/artifacts/{name}`: serve only a registered artifact from a successful job after rechecking its hash. Names depend on the certified profile; the volume profile serves `cube.msh`, `volume.m3dt`, `exporter.json` and `handoff.json`.
 
-Completed job results survive broker restarts. MATH3D can consume `handoff.json` after an allowed promotion; the handoff pins the worker request, result, output, L8 record, and contract. The broker requires the worker output hash to match the fixed L9 reference artifact. The current implementation covers the qualified CGAL mesh path only.
+Completed job results survive broker restarts. MATH3D can consume `handoff.json` after an allowed promotion; the handoff pins the worker request, result, output, L8 record, and contract. The broker requires the worker output hash to match the fixed L9 reference artifact. Each broker configuration selects one certified capability profile.
 
 ## Promoted document and smoke evidence (DS-SCI-023–025)
 
@@ -360,7 +360,19 @@ Run **cube volume L7** after current L6. The managed job preserves the source `.
 
 The fixed-cube worker now exports `M3DT` v1: a 16-byte header, three little-endian float64 coordinates per vertex and four little-endian uint32 indices per positively oriented tetrahedron. MATH3D's separate `math3d.tetrahedral-mesh-document` stores an identity and SHA-256 resource reference. Its adapter validates the saved cells and derives the closed outward boundary for `TetrahedralMeshViewport`; the boundary viewer never replaces the cell resource. A separate Python parser reloads the saved document and resource without using MATH3D's writer and checks topology, orientation, unit volume, bounds and exact hashes. The MATH3D adapter also rejects a modified resource.
 
-Run **cube volume L9 product** after current L0–L8 evidence. The managed job reruns the public cube worker, requires the qualified `.msh` hash, exports `M3DT`, checks a version 1 broker-to-MATH3D handoff, saves and reopens the tetrahedral document, mounts the real boundary viewer in headless Edge and pins the screenshot and independent reload. History grants `mesh.generate3d` L9 only when the current lower chain and every product artifact verify. This gate covers the fixed public cube. The broker certified manifest continues to export the separately qualified fixed 2D `mesh.generate` path; volume broker certification and promotion require a later ticket.
+Run **cube volume L9 product** after current L0–L8 evidence. The managed job reruns the public cube worker, requires the qualified `.msh` hash, exports `M3DT`, checks a version 1 broker-to-MATH3D handoff, saves and reopens the tetrahedral document, mounts the real boundary viewer in headless Edge and pins the screenshot and independent reload. History grants `mesh.generate3d` L9 only when the current lower chain and every product artifact verify. This gate covers the fixed public cube.
+
+## Fixed-cube volume broker certification (DS-SCI-079)
+
+Export with the MATH3D checkout that owns the tetrahedral consumer. Configure a separate broker profile with `runtimeId: gmsh-win-conda`, `capabilityId: mesh.generate3d`, the exported manifest, `gmsh_volume_adapter.py`, `scientific-gmsh-volume-worker.py`, the matching Gmsh Python environment and `datasetRoot` containing `gmsh/fixed-cube.geo`. The volume entry also pins the broker source hash. The adapter runs only `gmsh.volume3d.cube` at mesh size 0.35 and exports the fixed cube to M3DT. The broker checks exact `.msh` and M3DT reference hashes. `GET /v1/jobs/{id}/artifacts/volume.m3dt` serves the hash-verified cell-preserving resource; `cube.msh`, `exporter.json` and `handoff.json` are also registered.
+
+```powershell
+python tools/scientific-broker/broker.py verify --config <volume-config.json>
+python tools/scientific-broker/gmsh_volume_smoke.py run --config <volume-config.json>
+python tools/scientific-broker/release_certification.py certify --config <volume-config.json> --installed-root <launcher-install-root> --profile-id desktop-five --release-tag <tag> --output-root .scientific/releases
+```
+
+The smoke saves and verifies a broker job, promotion, MATH3D tetrahedral document, viewer image and independent round trip. A fresh runtime inventory within 24 hours is required for a qualified release. Run `test_scientific_gmsh_volume_broker.py` with `SCIENTIFIC_GMSH_VOLUME_BROKER_CONFIG` and optionally `SCIENTIFIC_GMSH_VOLUME_RELEASE_REPORT` to check the HTTP resource transport and tamper gates. Re-export after source, package, runtime-manifest, worker or MATH3D consumer changes. The certificate is limited to the registered public unit cube; it does not authorize arbitrary volume meshes.
 ```
 
 The OBJ is a boundary representation; the MATH3D importer does not preserve tetrahedral cells. These local records grant no managed L0–L9 level and do not add the cube to certified manifests or promotion.

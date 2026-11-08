@@ -1710,6 +1710,11 @@ Save the MATH3D document and binary resource, reopen them through its adapter, r
 **DS-SCI-078 — `feat(scientific): qualify Gmsh volume L9 product integration`**\
 Start from current L0–L8 volume evidence and a fresh fixed-cube worker run. Verify the versioned handoff, import the cell-preserving document in MATH3D, reopen it, mount the tetrahedral boundary viewer and capture a regression image. Grant L9 only when the document, resource, independent reload, viewer and consumer contract all verify. Keep volume outside broker certification until a separate manifest/promotion ticket proves transport from this L9 record.
 
+**DS-SCI-079 — `feat(scientific): certify and promote fixed-cube Gmsh volume through broker`**\
+Export `mesh.generate3d` only from a current managed L0–L9 chain for the public fixed cube. Keep its tetrahedral product contract, M3DT resource and broker profile separate from the certified 2D surface recipe. Pin the worker, adapter, exporter, Python and package inventory, input, MATH3D consumer sources, L8/L9 records and exact reference output hashes. The broker must verify the typed request/result, transport `.msh` and M3DT artifacts, reject changed inputs or source evidence, and allow promotion only after checking the cell-preserving handoff and current consumer identities. Finish with native MATH3D document save/reopen, independent tetrahedral reload, viewer regression and a fresh release qualification report.
+
+**2026-11-07 scoped delivery:** A current fixed-cube L9 chain exported one `mesh.generate3d` entry. A fresh broker job reproduced the qualified 83-vertex, 204-tetrahedron `.msh` and M3DT hashes, served the resource with hash verification, and passed MATH3D promotion, document reload, viewer and independent parser checks. The saved product smoke and a fresh runtime inventory passed release qualification. Input hash, wrong capability, outside-dataset, source-snapshot and artifact tamper checks were exercised. This certificate covers only the public unit cube at mesh size 0.35 on the recorded Windows Gmsh and MATH3D consumer identities; it does not certify arbitrary tetrahedral meshes or VTK as a second broker backend.
+
 ---
 
 ## 28. Priority selection: what to implement first

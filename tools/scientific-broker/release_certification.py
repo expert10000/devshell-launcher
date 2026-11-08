@@ -66,6 +66,17 @@ def inventory_state(inventory, release_time):
         return 'unknown'
 
 
+def load_inventory(repo, source=None):
+    path = Path(source).resolve(strict=True) if source is not None else repo / '.scientific/runtime-report.json'
+    content = path.read_bytes()
+    if len(content) > 1048576:
+        raise ValueError('Runtime inventory exceeds the release budget.')
+    inventory = json.loads(content.decode('utf-8'))
+    if inventory.get('schemaVersion') != 1 or not isinstance(inventory.get('runtimes'), list):
+        raise ValueError('Unsupported release runtime inventory.')
+    return content, inventory
+
+
 def gate_verdicts(fresh, runtime_id='cgal-win-conda', capability_id=None):
     capabilities = fresh.get('certifiedCapabilities', [])
     matching = [item for item in capabilities if item.get('runtimeId') == runtime_id
@@ -79,7 +90,8 @@ def gate_verdicts(fresh, runtime_id='cgal-win-conda', capability_id=None):
             for index in range(10)]
 
 
-def certify(config_path, installed_root, profile_id, release_tag, output_root, exporter=fresh_export):
+def certify(config_path, installed_root, profile_id, release_tag, output_root,
+            exporter=fresh_export, inventory_source=None):
     if not RELEASE_TAG.fullmatch(release_tag):
         raise ValueError('Invalid release tag.')
     broker = Broker(config_path)
@@ -92,13 +104,7 @@ def certify(config_path, installed_root, profile_id, release_tag, output_root, e
     release_id = uuid.uuid4().hex
     directory = output_root / release_id
     directory.mkdir()
-    inventory_source = repo / '.scientific' / 'runtime-report.json'
-    inventory_bytes = inventory_source.read_bytes()
-    if len(inventory_bytes) > 1048576:
-        raise ValueError('Runtime inventory exceeds the release budget.')
-    inventory = json.loads(inventory_bytes.decode('utf-8'))
-    if inventory.get('schemaVersion') != 1 or not isinstance(inventory.get('runtimes'), list):
-        raise ValueError('Unsupported release runtime inventory.')
+    inventory_bytes, inventory = load_inventory(repo, inventory_source)
     inventory_path = directory / 'runtime-inventory.json'
     inventory_path.write_bytes(inventory_bytes)
     with tempfile.TemporaryDirectory(prefix='scientific-release-') as scratch:
@@ -215,12 +221,14 @@ def main():
     parser.add_argument('--profile-id')
     parser.add_argument('--release-tag')
     parser.add_argument('--output-root')
+    parser.add_argument('--inventory')
     parser.add_argument('--report')
     args = parser.parse_args()
     if args.command == 'certify':
         if not all((args.config, args.installed_root, args.profile_id, args.release_tag, args.output_root)):
             parser.error('certify requires config, installed-root, profile-id, release-tag and output-root.')
-        path, report = certify(args.config, args.installed_root, args.profile_id, args.release_tag, args.output_root)
+        path, report = certify(args.config, args.installed_root, args.profile_id, args.release_tag,
+                               args.output_root, inventory_source=args.inventory)
     else:
         if not args.report:
             parser.error('verify requires --report.')

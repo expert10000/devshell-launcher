@@ -21,6 +21,19 @@ from telemetry import host_fingerprint
 
 
 class CapabilityScopedReleaseChecks(unittest.TestCase):
+    def test_release_can_select_a_scoped_runtime_inventory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            local = root / 'inventory.json'
+            local.write_text(json.dumps({'schemaVersion': 1, 'runtimes': [],
+                                         'generatedAt': '2026-11-08T00:00:00Z'}), encoding='utf-8')
+            content, inventory = release_certification.load_inventory(root, local)
+            self.assertEqual(content, local.read_bytes())
+            self.assertEqual(inventory['runtimes'], [])
+            with self.assertRaisesRegex(ValueError, 'Unsupported release runtime inventory'):
+                local.write_text('{}', encoding='utf-8')
+                release_certification.load_inventory(root, local)
+
     def test_verify_keeps_surface_and_volume_gate_chains_separate(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -72,6 +72,32 @@ def save(path, value):
     Path(str(path) + '.sha256').write_text(sha(path), encoding='utf-8')
 
 
+def publish_manifest(candidate, deployed, expected_sha, verify=None):
+    sidecar = Path(str(deployed) + '.sha256')
+    if sha(deployed) != expected_sha or sidecar.read_text(encoding='utf-8').strip() != expected_sha:
+        raise ValueError('The deployed broker manifest changed during requalification.')
+    previous = deployed.read_bytes(), sidecar.read_bytes()
+    replacement = candidate.read_bytes(), Path(str(candidate) + '.sha256').read_bytes()
+    if sha(candidate) != replacement[1].decode('utf-8').strip():
+        raise ValueError('The staged broker manifest hash changed.')
+    temporary = deployed.with_name(deployed.name + '.' + uuid.uuid4().hex + '.next')
+    temporary_sidecar = Path(str(temporary) + '.sha256')
+    try:
+        temporary.write_bytes(replacement[0])
+        temporary_sidecar.write_bytes(replacement[1])
+        os.replace(temporary, deployed)
+        os.replace(temporary_sidecar, sidecar)
+        if verify is not None:
+            verify()
+    except Exception:
+        deployed.write_bytes(previous[0])
+        sidecar.write_bytes(previous[1])
+        raise
+    finally:
+        temporary.unlink(missing_ok=True)
+        temporary_sidecar.unlink(missing_ok=True)
+
+
 def run(args):
     config_path = Path(args.config).resolve(strict=True)
     config = json.loads(config_path.read_text(encoding='utf-8'))
@@ -86,6 +112,8 @@ def run(args):
         raise ValueError('Broker config does not match the fixed-cube volume deployment paths.')
     output = Path(args.output_root).resolve()
     output.mkdir(parents=True, exist_ok=True)
+    deployed = Path(config['manifest']).resolve(strict=True)
+    deployed_sha = sha(deployed)
     started = datetime.now(timezone.utc).isoformat()
     before = audit(installed, math3d, args.profile_id)
     mode, recipes = mode_for(before)
@@ -118,15 +146,17 @@ def run(args):
         if not after.get('eligible'):
             raise ValueError('The managed volume L0-L9 chain is still not current: '
                              + str(after.get('exportReason')))
-        manifest = Path(config['manifest']).resolve()
+        manifest = output / (uuid.uuid4().hex + '-candidate.json')
         command(['dotnet', str(DLL), 'export', str(ROOT), str(installed), str(math3d),
                  args.profile_id, str(manifest)], timeout=120)
+        candidate_config = output / (uuid.uuid4().hex + '-candidate-config.json')
+        save(candidate_config, {**config, 'manifest': str(manifest)})
         command([sys.executable, str(ROOT / 'tools/scientific-broker/broker.py'),
-                 'verify', '--config', str(config_path)], timeout=30)
+                 'verify', '--config', str(candidate_config)], timeout=30)
         execution['steps'].append({'id': 'broker-export', 'state': 'passed',
                                    'manifestPath': str(manifest), 'manifestSha256': sha(manifest)})
         smoke = json.loads(command([sys.executable, str(ROOT / 'tools/scientific-broker/gmsh_volume_smoke.py'),
-                                    'run', '--config', str(config_path)], timeout=300).splitlines()[-1])
+                                    'run', '--config', str(candidate_config)], timeout=300).splitlines()[-1])
         execution['steps'].append({'id': 'product-smoke', 'state': smoke['verdict'],
                                    'recordPath': smoke['record'], 'recordSha256': sha(smoke['record'])})
         prefix_root = Path(config['prefix']).resolve().parent
@@ -134,11 +164,18 @@ def run(args):
                  '-RuntimeRoot', str(prefix_root), '-OutputPath', str(ROOT / '.scientific/runtime-report.json')],
                 timeout=180)
         release = json.loads(command([sys.executable, str(ROOT / 'tools/scientific-broker/release_certification.py'),
-                                      'certify', '--config', str(config_path), '--installed-root', str(installed),
+                                      'certify', '--config', str(candidate_config), '--installed-root', str(installed),
                                       '--profile-id', args.profile_id, '--release-tag', args.release_tag,
                                       '--output-root', str(output / 'releases')], timeout=300).splitlines()[-1])
+        if release['verdict'] != 'qualified':
+            raise ValueError('Volume release certification was blocked: ' + str(release.get('reasons')))
         execution['steps'].append({'id': 'release', 'state': release['verdict'],
                                    'reportPath': release['report'], 'reportSha256': sha(release['report'])})
+        publish_manifest(manifest, deployed, deployed_sha, lambda: command([
+            sys.executable, str(ROOT / 'tools/scientific-broker/release_certification.py'),
+            'verify', '--config', str(config_path), '--report', release['report']], timeout=120))
+        execution['steps'].append({'id': 'deployed-manifest', 'state': 'passed',
+                                   'manifestPath': str(deployed), 'manifestSha256': sha(deployed)})
         execution['verdict'] = 'passed'
     except Exception as error:
         execution['verdict'] = 'failed'

@@ -1,12 +1,14 @@
 """Requalification planning must retain stale lower-level dependencies."""
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/scientific-broker'))
-from gmsh_volume_requalify import FULL, RESUME, mode_for, require_desktop
+from broker import sha
+from gmsh_volume_requalify import FULL, RESUME, mode_for, publish_manifest, require_desktop
 
 
 class VolumeRequalificationPlanChecks(unittest.TestCase):
@@ -55,6 +57,31 @@ class VolumeRequalificationPlanChecks(unittest.TestCase):
         with patch('gmsh_volume_requalify.urlopen', return_value=Response()):
             with self.assertRaisesRegex(ValueError, 'no DevShell app page'):
                 require_desktop('http://127.0.0.1:9244')
+
+    def test_manifest_publication_waits_for_verification(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            deployed, candidate = root / 'deployed.json', root / 'candidate.json'
+            deployed.write_text('old', encoding='utf-8')
+            candidate.write_text('new', encoding='utf-8')
+            Path(str(deployed) + '.sha256').write_text(sha(deployed), encoding='utf-8')
+            Path(str(candidate) + '.sha256').write_text(sha(candidate), encoding='utf-8')
+            original = sha(deployed)
+
+            def reject():
+                raise ValueError('verification failed')
+
+            with self.assertRaisesRegex(ValueError, 'verification failed'):
+                publish_manifest(candidate, deployed, original, reject)
+            self.assertEqual(deployed.read_text(encoding='utf-8'), 'old')
+            self.assertEqual(Path(str(deployed) + '.sha256').read_text(encoding='utf-8'), original)
+            deployed.write_text('concurrent', encoding='utf-8')
+            with self.assertRaisesRegex(ValueError, 'changed during'):
+                publish_manifest(candidate, deployed, original)
+            deployed.write_text('old', encoding='utf-8')
+            publish_manifest(candidate, deployed, original)
+            self.assertEqual(deployed.read_text(encoding='utf-8'), 'new')
+            self.assertEqual(Path(str(deployed) + '.sha256').read_text(encoding='utf-8'), sha(deployed))
 
 
 if __name__ == '__main__':

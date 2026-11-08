@@ -1725,6 +1725,17 @@ Use the read-only export audit to choose either the full managed volume L0–L9 
 
 **2026-11-08 scoped delivery:** Planning selected the full chain for the stale volume evidence and the planner checks passed. A run without a desktop CDP endpoint saved a failed result before changing the broker manifest. Live managed requalification and the refreshed release certificate remain pending.
 
+**DS-SCI-082–083 — `fix(scientific): tighten volume requalification preflight`**\
+Require an ordered L0–L8 supporting chain before choosing the short L7–L9 rerun. Accept only a loopback CDP URL with an actual DevShell app page, and require the broker config to name this source checkout. Malformed evidence or mismatched paths must stop before publication.
+
+**DS-SCI-084 — `fix(scientific): stage volume manifest until release qualifies`**\
+Export to a candidate manifest and use it for broker verification, MATH3D smoke and release certification. Keep the deployed manifest intact until every gate passes. Detect a concurrent manifest change and restore prior bytes if final verification fails.
+
+**DS-SCI-085 — `fix(scientific): verify release gates by capability`**\
+Record the release capability ID and recompute its own L0–L9 gate verdicts during verification, so a current Gmsh surface entry cannot obscure the separately qualified volume chain. Keep historical single-capability release reports verifiable.
+
+**2026-11-08 scoped delivery:** Unit checks passed for ordered resume evidence, CDP URL rejection, manifest publication/rollback and two-capability release verification. Live managed requalification remains pending a prepared `desktop-five` session; the previous fixed-cube certificate is still stale after shared source changes.
+
 ---
 
 ## 28. Priority selection: what to implement first

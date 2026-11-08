@@ -113,7 +113,7 @@ def certify(config_path, installed_root, profile_id, release_tag, output_root, e
         source_commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repo, text=True).strip()
         report = {'schemaVersion': 1, 'kind': 'scientific.release-qualification-report',
                   'releaseId': release_id, 'releaseTag': release_tag,
-                  'runtimeId': broker.runtime_id,
+                  'runtimeId': broker.runtime_id, 'capabilityId': broker.capability_id,
                   'createdAtUtc': created_at.isoformat(),
                   'sourceCommit': source_commit,
                   'verdict': 'qualified' if not reasons else 'blocked', 'reasons': reasons,
@@ -175,7 +175,10 @@ def verify_release(report_path, config_path=None):
                 or report.get('inventoryState') != inventory_state(inventory, release_time)
                 or len(report.get('gateVerdicts', [])) != 10
                 or report['gateVerdicts'] != gate_verdicts(json.loads(fresh_path.read_text(encoding='utf-8')),
-                                                           report.get('runtimeId', 'cgal-win-conda'))):
+                                                           report.get('runtimeId', 'cgal-win-conda'),
+                                                           report.get('capabilityId') or next(
+                                                               (item.get('capabilityId') for item in report.get('capabilities', [])),
+                                                               None))):
             raise ValueError('Release inventory age or gate verdicts changed.')
     if (sha(fresh_path) != report['freshManifestSha256']
             or sha(fresh_path) != Path(str(fresh_path) + '.sha256').read_text(encoding='utf-8').strip()):

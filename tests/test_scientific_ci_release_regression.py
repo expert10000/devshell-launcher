@@ -20,6 +20,38 @@ from broker import Broker, sha
 from telemetry import host_fingerprint
 
 
+class CapabilityScopedReleaseChecks(unittest.TestCase):
+    def test_verify_keeps_surface_and_volume_gate_chains_separate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            support = [{'level': f'L{index}', 'capabilityId': 'mesh.generate3d',
+                        'runId': f'volume-{index}', 'recordId': f'record-{index}'}
+                       for index in range(10)]
+            fresh = {'certifiedCapabilities': [
+                {'runtimeId': 'gmsh-win-conda', 'capabilityId': 'mesh.generate', 'supportingRecords': support},
+                {'runtimeId': 'gmsh-win-conda', 'capabilityId': 'mesh.generate3d', 'supportingRecords': support}]}
+            fresh_path = root / 'fresh-capabilities.json'
+            fresh_path.write_text(json.dumps(fresh), encoding='utf-8')
+            Path(str(fresh_path) + '.sha256').write_text(sha(fresh_path), encoding='utf-8')
+            now = release_certification.datetime.now(release_certification.timezone.utc)
+            inventory = {'generatedAt': now.isoformat()}
+            inventory_path = root / 'runtime-inventory.json'
+            inventory_path.write_text(json.dumps(inventory), encoding='utf-8')
+            report = {'schemaVersion': 1, 'kind': 'scientific.release-qualification-report',
+                      'runtimeId': 'gmsh-win-conda', 'capabilityId': 'mesh.generate3d',
+                      'createdAtUtc': now.isoformat(), 'inventoryPath': str(inventory_path),
+                      'inventorySha256': sha(inventory_path), 'inventoryCapturedAtUtc': now.isoformat(),
+                      'inventoryState': 'current', 'freshManifestSha256': sha(fresh_path),
+                      'gateVerdicts': release_certification.gate_verdicts(
+                          fresh, 'gmsh-win-conda', 'mesh.generate3d'),
+                      'verdict': 'blocked', 'reasons': ['test-only blocked release']}
+            report_path = root / 'qualification-report.json'
+            report_path.write_text(json.dumps(report), encoding='utf-8')
+            Path(str(report_path) + '.sha256').write_text(sha(report_path), encoding='utf-8')
+            self.assertEqual(release_certification.verify_release(report_path)['gateVerdicts'],
+                             report['gateVerdicts'])
+
+
 @unittest.skipUnless(os.environ.get('SCIENTIFIC_BROKER_CONFIG'), 'Local qualified broker config required')
 class EvidenceIntegration(unittest.TestCase):
     def setUp(self):

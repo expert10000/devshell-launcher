@@ -1396,9 +1396,13 @@ Add validation, orientation, repair, remeshing, AABB and distances.\
 Canonical/pathological/generated/real-world fixture layout, metadata and rights checks.\
 **Acceptance:** fixture version/seed/hash appears in every relevant run; defects can be promoted into regression cases.
 
+**2026-11-08 scoped delivery:** Four project-authored CC0 OBJ fixtures cover a closed tetrahedron, open square, zero-area triangle and nonmanifold edge. A versioned manifest pins bytes and independent geometric expectations. A local verifier checks rights, file hashes, edge incidence, degeneracy and signed volume. Native CGAL replay saved worker and fixture hashes, accepted two valid meshes, rejected two invalid meshes and detected output tampering. This corpus is standalone; managed run linkage and real-world rights review remain open.
+
 **DS-SCI-020 — `feat(testing): add property-based and metamorphic tests`**\
 Geometry invariants, numerical tolerance policy and shrinking.\
 **Acceptance:** seeded generated failures reproduce and save minimized fixtures.
+
+**2026-11-08 scoped delivery:** A deterministic seed produces four scaled, translated and axis-permuted authored tetrahedra. Local CGAL validation preserved vertex/face counts, closed topology and signed-volume scaling. The runner seals generated inputs and worker results, records failures and tries neutral scale, translation and axis reductions to save a simpler reproducer. Seed repeatability, shrink ordering and input-tamper rejection passed. Broader properties and an observed failing seed remain open.
 
 ### P1 — MATH3D integration
 

@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import sys
 import uuid
+from urllib.parse import urlsplit
 from urllib.request import urlopen
 
 from broker import sha
@@ -52,11 +53,16 @@ def mode_for(audited):
 
 
 def require_desktop(url):
-    if not url or not url.startswith('http://127.0.0.1:'):
+    parsed = urlsplit(url or '')
+    if (parsed.scheme != 'http' or parsed.hostname != '127.0.0.1'
+            or parsed.username or parsed.password or parsed.path not in ('', '/')
+            or parsed.query or parsed.fragment or parsed.port is None):
         raise ValueError('A localhost DevShell CDP URL is required for managed runs.')
     with urlopen(url.rstrip('/') + '/json/list', timeout=3) as response:
         targets = json.load(response)
-    if not any('app.local' in item.get('url', '') for item in targets):
+    if not isinstance(targets, list) or not any(
+            urlsplit(item.get('url', '')).hostname == 'app.local'
+            for item in targets if isinstance(item, dict)):
         raise ValueError('The CDP endpoint has no DevShell app page.')
 
 
@@ -74,6 +80,7 @@ def run(args):
     if (config.get('runtimeId') != 'gmsh-win-conda'
             or config.get('capabilityId') != 'mesh.generate3d'
             or Path(config.get('math3dRoot', '')).resolve() != math3d
+            or Path(config.get('sourceRoot', str(ROOT))).resolve() != ROOT
             or Path(config.get('runtimeManifest', '')).resolve()
                != (installed / 'runtimes/gmsh-win-conda/runtime.json').resolve()):
         raise ValueError('Broker config does not match the fixed-cube volume deployment paths.')

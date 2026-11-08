@@ -373,6 +373,8 @@ python tools/scientific-broker/release_certification.py certify --config <volume
 ```
 
 The smoke saves and verifies a broker job, promotion, MATH3D tetrahedral document, viewer image and independent round trip. A fresh runtime inventory within 24 hours is required for a qualified release. Run `test_scientific_gmsh_volume_broker.py` with `SCIENTIFIC_GMSH_VOLUME_BROKER_CONFIG` and optionally `SCIENTIFIC_GMSH_VOLUME_RELEASE_REPORT` to check the HTTP resource transport and tamper gates. Re-export after source, package, runtime-manifest, worker or MATH3D consumer changes. The certificate is limited to the registered public unit cube; it does not authorize arbitrary volume meshes.
+
+To inspect a missing volume certificate without replacing the deployed manifest, run `dotnet run --project tools/scientific-broker/ScientificBroker.csproj -- audit-volume <repo> <installed-root> <math3d-root> <profile-id>`. The JSON report lists recent L9 candidates, their current/stale/unknown state, supporting L0–L8 record states and rejected L9 evidence. It reports the reason an otherwise current candidate failed the final artifact or consumer check. An audit does not requalify a run or publish a capability.
 ```
 
 The OBJ is a boundary representation; the MATH3D importer does not preserve tetrahedral cells. These local records grant no managed L0–L9 level and do not add the cube to certified manifests or promotion.

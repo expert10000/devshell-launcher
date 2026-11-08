@@ -1715,6 +1715,11 @@ Export `mesh.generate3d` only from a current managed L0–L9 chain for the publi
 
 **2026-11-07 scoped delivery:** A current fixed-cube L9 chain exported one `mesh.generate3d` entry. A fresh broker job reproduced the qualified 83-vertex, 204-tetrahedron `.msh` and M3DT hashes, served the resource with hash verification, and passed MATH3D promotion, document reload, viewer and independent parser checks. The saved product smoke and a fresh runtime inventory passed release qualification. Input hash, wrong capability, outside-dataset, source-snapshot and artifact tamper checks were exercised. This certificate covers only the public unit cube at mesh size 0.35 on the recorded Windows Gmsh and MATH3D consumer identities; it does not certify arbitrary tetrahedral meshes or VTK as a second broker backend.
 
+**DS-SCI-080 — `feat(scientific): explain volume certification drift`**\
+Expose a read-only exporter audit for `mesh.generate3d`. Show each recent managed L9 candidate's state and reasons, the L0–L8 supporting record states, rejected evidence and final product/consumer eligibility. Return no certificate when shared source, suite, runtime or consumer identities change. Do not rewrite immutable runs or treat an audit as requalification.
+
+**2026-11-08 scoped delivery:** The audit reports the previous fixed-cube L9 evidence as stale after the upstream Sage integration changed shared fingerprint, qualification and runtime source files. The current export correctly contains no certified volume entry. A fresh managed Gmsh chain is needed before republishing the volume profile.
+
 ---
 
 ## 28. Priority selection: what to implement first

@@ -63,7 +63,8 @@ static class BrokerManifest
             if (run["qualifications"] is JsonArray records)
                 ScientificQualificationRecords.AssessL5Dependencies(records, ids, l6, l7, l8, l9);
     }
-    static List<JsonObject> ReadRuns(string repo, string installed, string profile, string runtime)
+    static List<JsonObject> ReadRuns(string repo, string installed, string profile, string runtime,
+        List<JsonObject>? rejected = null)
     {
         var root = Path.Combine(repo, ".scientific", "runs");
         var runs = new List<JsonObject>();
@@ -72,6 +73,7 @@ static class BrokerManifest
         foreach (var directory in Directory.EnumerateDirectories(root))
         {
             if (!Regex.IsMatch(Path.GetFileName(directory), "^[0-9a-f]{32}$")) continue;
+            string? recipeId = null;
             try
             {
                 var path = Path.Combine(directory, "results.json");
@@ -80,8 +82,9 @@ static class BrokerManifest
                 var result = document.RootElement;
                 if (result.GetProperty("runtimeId").GetString() != runtime
                     || result.GetProperty("profileId").GetString() != profile) continue;
+                recipeId = result.GetProperty("recipeId").GetString();
                 var run = new JsonObject { ["runId"] = result.GetProperty("runId").GetString(),
-                    ["runtimeId"] = runtime, ["recipeId"] = result.GetProperty("recipeId").GetString(),
+                    ["runtimeId"] = runtime, ["recipeId"] = recipeId,
                     ["state"] = result.GetProperty("state").GetString(),
                     ["finishedAtUtc"] = File.GetLastWriteTimeUtc(path).ToString("O"), ["directory"] = directory };
                 if (run["state"]?.GetValue<string>() == "succeeded"
@@ -98,7 +101,12 @@ static class BrokerManifest
                 runs.Add(run);
             }
             catch (Exception error) when (error is IOException or JsonException or InvalidDataException
-                or InvalidOperationException or UnauthorizedAccessException or KeyNotFoundException) { }
+                or InvalidOperationException or UnauthorizedAccessException or KeyNotFoundException)
+            {
+                if (rejected != null && recipeId == "l9.gmsh-volume")
+                    rejected.Add(new JsonObject { ["folderId"] = Path.GetFileName(directory),
+                        ["reason"] = error.Message });
+            }
         }
         return runs;
     }
@@ -199,9 +207,11 @@ static class BrokerManifest
         }
         return null;
     }
-    static JsonObject? ExportGmshVolume(string repo, string installed, string math3d, string profile)
+    static JsonObject? ExportGmshVolume(string repo, string installed, string math3d, string profile,
+        JsonObject? audit = null)
     {
-        var runs = ReadRuns(repo, installed, profile, "gmsh-win-conda");
+        var rejected = audit is null ? null : new List<JsonObject>();
+        var runs = ReadRuns(repo, installed, profile, "gmsh-win-conda", rejected);
         var ids = CurrentIds(runs, "L0", "L1", "L2", "L3", "L4");
         AssessDependencies(runs, ids, l6: false, l7: false, l8: false, l9: false);
         ids.UnionWith(CurrentIds(runs, "L5"));
@@ -224,9 +234,50 @@ static class BrokerManifest
                     Digest(surfaceContract), codec, volumeFiles is null ? null : Digest(volumeFiles),
                     Digest(volumeContract));
             }
-        if (volumeFiles is null || !ScientificCapabilityRegistry.IsDeclared("gmsh-win-conda", "mesh.generate3d"))
-            return null;
         var summary = ScientificQualificationRecords.Summarize("gmsh-win-conda", runs);
+        if (audit is not null)
+        {
+            audit["runtimeId"] = "gmsh-win-conda";
+            audit["capabilityId"] = "mesh.generate3d";
+            audit["profileId"] = profile;
+            audit["verifiedRunCount"] = runs.Count;
+            audit["consumerFilesAvailable"] = volumeFiles is not null;
+            audit["capabilityDeclared"] = ScientificCapabilityRegistry.IsDeclared("gmsh-win-conda", "mesh.generate3d");
+            audit["rejectedL9Runs"] = new JsonArray((rejected ?? []).Select(item => item.DeepClone()).ToArray());
+            var candidates = new JsonArray();
+            var byId = Records(runs).Where(item => item["recordId"]?.GetValue<string>() is not null)
+                .GroupBy(item => item["recordId"]!.GetValue<string>(), StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+            foreach (var run in runs.OrderByDescending(item => item["finishedAtUtc"]?.GetValue<string>(), StringComparer.Ordinal)
+                .Take(20))
+                foreach (var record in run["qualifications"]?.AsArray().OfType<JsonObject>() ?? [])
+                {
+                    if (record["level"]?.GetValue<string>() != "L9"
+                        || record["capabilityId"]?.GetValue<string>() != "mesh.generate3d") continue;
+                    var support = new JsonArray();
+                    foreach (var item in record["lowerQualification"]?["records"]?.AsArray() ?? [])
+                    {
+                        var id = item?["recordId"]?.GetValue<string>();
+                        var supporting = id is not null && byId.TryGetValue(id, out var found) ? found : null;
+                        support.Add(new JsonObject { ["level"] = item?["level"]?.DeepClone(),
+                            ["recordId"] = id, ["status"] = supporting?["status"]?.DeepClone(),
+                            ["reasons"] = supporting?["staleReasons"]?.DeepClone() });
+                    }
+                    candidates.Add(new JsonObject { ["runId"] = run["runId"]?.DeepClone(),
+                        ["recordId"] = record["recordId"]?.DeepClone(),
+                        ["status"] = record["status"]?.DeepClone(),
+                        ["reasons"] = record["staleReasons"]?.DeepClone(), ["support"] = support });
+                    if (candidates.Count >= 20) break;
+                }
+            audit["candidates"] = candidates;
+            audit["eligible"] = false;
+        }
+        if (volumeFiles is null || !ScientificCapabilityRegistry.IsDeclared("gmsh-win-conda", "mesh.generate3d"))
+        {
+            if (audit is not null) audit["exportReason"] = volumeFiles is null
+                ? "MATH3D tetrahedral consumer files are unavailable" : "Volume capability is not declared";
+            return null;
+        }
         foreach (var current in summary["currentRecords"]!.AsArray().OfType<JsonObject>()
             .Where(item => item["level"]?.GetValue<string>() == "L9"
                 && item["capabilityId"]?.GetValue<string>() == "mesh.generate3d")
@@ -255,6 +306,7 @@ static class BrokerManifest
             var support = new JsonArray(lower.Select(item => item!.DeepClone()).ToArray());
             support.Add(new JsonObject { ["level"] = "L9", ["capabilityId"] = "mesh.generate3d",
                 ["runId"] = current["runId"]?.DeepClone(), ["recordId"] = current["recordId"]?.DeepClone() });
+            if (audit is not null) audit["eligible"] = true;
             return new JsonObject {
                 ["runtimeId"] = "gmsh-win-conda", ["capabilityId"] = "mesh.generate3d", ["level"] = "L9",
                 ["scope"] = "fixed public unit-cube tetrahedra", ["sourceRunId"] = current["runId"]?.DeepClone(),
@@ -280,6 +332,11 @@ static class BrokerManifest
                 ["supportingRecords"] = support
             };
         }
+        if (audit is not null) audit["exportReason"] = summary["currentRecords"]!.AsArray().OfType<JsonObject>()
+            .Any(item => item["level"]?.GetValue<string>() == "L9"
+                && item["capabilityId"]?.GetValue<string>() == "mesh.generate3d")
+            ? "Current L9 candidate failed product artifact or support checks"
+            : "No current L9 volume qualification chain";
         return null;
     }
     static JsonObject Export(string repo, string installed, string math3d, string profile)
@@ -422,8 +479,16 @@ static class BrokerManifest
                 Console.WriteLine($"Exported {manifest["certifiedCapabilities"]!.AsArray().Count} certified capabilities: {args[5]}");
                 return 0;
             }
+            if (args.Length == 5 && args[0] == "audit-volume")
+            {
+                var audit = new JsonObject { ["schemaVersion"] = 1, ["kind"] = "scientific.gmsh-volume-export-audit" };
+                ExportGmshVolume(Path.GetFullPath(args[1]), Path.GetFullPath(args[2]),
+                    Path.GetFullPath(args[3]), args[4], audit);
+                Console.WriteLine(audit.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+                return 0;
+            }
             if (args.Length == 2 && args[0] == "verify") { Verify(args[1]); Console.WriteLine("Certified manifest verified."); return 0; }
-            Console.Error.WriteLine("Usage: export <repo> <installed-root> <math3d-root> <profile> <manifest.json> | verify <manifest.json>");
+            Console.Error.WriteLine("Usage: export <repo> <installed-root> <math3d-root> <profile> <manifest.json> | audit-volume <repo> <installed-root> <math3d-root> <profile> | verify <manifest.json>");
             return 2;
         }
         catch (Exception error) { Console.Error.WriteLine(error.Message); return 1; }

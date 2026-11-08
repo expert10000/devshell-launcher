@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "kind": "scientific.cgal-orientation-fixture",
+  "license": "CC0-1.0",
+  "source": "Project-authored face reversal of closed-tetra.obj",
+  "sourceFixtureId": "closed-tetra",
+  "sourceSha256": "21b1325a5d9f7ef43f04b923c7b469e6a8c73cc41eef436924801d37ac29113d",
+  "fixtureId": "inward-tetra",
+  "fixtureVersion": 1,
+  "path": "inward-tetra.obj",
+  "sha256": "d5b87797f298bb0e230bd51832a0162ebc8a59cb16f33dd917487b5057faa857",
+  "expectedSignedVolume": -0.16666666666666666
+}

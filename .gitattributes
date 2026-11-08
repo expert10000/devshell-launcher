@@ -1,1 +1,2 @@
 scientific/fixtures/cgal/*.obj text eol=lf
+scientific/fixtures/cgal/orientation/*.obj text eol=lf

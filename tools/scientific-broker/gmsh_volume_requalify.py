@@ -170,6 +170,7 @@ def run(args):
                                       'certify', '--config', str(candidate_config), '--installed-root', str(installed),
                                       '--profile-id', args.profile_id, '--release-tag', args.release_tag,
                                       '--inventory', str(inventory),
+                                      '--smoke-record', smoke['record'],
                                       '--output-root', str(output / 'releases')], timeout=300).splitlines()[-1])
         if release['verdict'] != 'qualified':
             raise ValueError('Volume release certification was blocked: ' + str(release.get('reasons')))

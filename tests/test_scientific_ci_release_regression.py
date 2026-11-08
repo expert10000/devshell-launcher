@@ -9,6 +9,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,6 +22,19 @@ from telemetry import host_fingerprint
 
 
 class CapabilityScopedReleaseChecks(unittest.TestCase):
+    def test_volume_release_requires_a_verified_product_smoke(self):
+        with self.assertRaisesRegex(ValueError, 'smoke record is required'):
+            release_certification.volume_smoke_link('config.json', None)
+        with tempfile.TemporaryDirectory() as directory:
+            record_path = Path(directory) / 'smoke.json'
+            record_path.write_text('{}', encoding='utf-8')
+            identity = {'sourceJobId': 'job', 'certificationRecordId': 'record'}
+            with patch.object(release_certification, 'verify_volume_smoke', return_value=identity) as verified:
+                link = release_certification.volume_smoke_link('config.json', record_path)
+            verified.assert_called_once_with(record_path, 'config.json')
+            self.assertEqual(link['recordSha256'], sha(record_path))
+            self.assertEqual(link['sourceJobId'], 'job')
+
     def test_release_can_select_a_scoped_runtime_inventory(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -46,6 +60,10 @@ class CapabilityScopedReleaseChecks(unittest.TestCase):
             fresh_path = root / 'fresh-capabilities.json'
             fresh_path.write_text(json.dumps(fresh), encoding='utf-8')
             Path(str(fresh_path) + '.sha256').write_text(sha(fresh_path), encoding='utf-8')
+            smoke_path = root / 'smoke.json'
+            smoke_identity = {'sourceJobId': 'smoke-job', 'certificationRecordId': 'smoke-record'}
+            smoke_path.write_text(json.dumps(smoke_identity), encoding='utf-8')
+            Path(str(smoke_path) + '.sha256').write_text(sha(smoke_path), encoding='utf-8')
             now = release_certification.datetime.now(release_certification.timezone.utc)
             inventory = {'generatedAt': now.isoformat()}
             inventory_path = root / 'runtime-inventory.json'
@@ -57,12 +75,17 @@ class CapabilityScopedReleaseChecks(unittest.TestCase):
                       'inventoryState': 'current', 'freshManifestSha256': sha(fresh_path),
                       'gateVerdicts': release_certification.gate_verdicts(
                           fresh, 'gmsh-win-conda', 'mesh.generate3d'),
+                      'productSmoke': {'recordPath': str(smoke_path), 'recordSha256': sha(smoke_path),
+                                       **smoke_identity},
                       'verdict': 'blocked', 'reasons': ['test-only blocked release']}
             report_path = root / 'qualification-report.json'
             report_path.write_text(json.dumps(report), encoding='utf-8')
             Path(str(report_path) + '.sha256').write_text(sha(report_path), encoding='utf-8')
             self.assertEqual(release_certification.verify_release(report_path)['gateVerdicts'],
                              report['gateVerdicts'])
+            smoke_path.write_text('{}', encoding='utf-8')
+            with self.assertRaisesRegex(ValueError, 'smoke record hash mismatch'):
+                release_certification.verify_release(report_path)
 
 
 @unittest.skipUnless(os.environ.get('SCIENTIFIC_BROKER_CONFIG'), 'Local qualified broker config required')

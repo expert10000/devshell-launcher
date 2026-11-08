@@ -13,6 +13,7 @@ import uuid
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from benchmark import environment_fingerprint
 from broker import Broker, sha
+from gmsh_volume_smoke import verify as verify_volume_smoke
 from telemetry import host_fingerprint
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -77,6 +78,16 @@ def load_inventory(repo, source=None):
     return content, inventory
 
 
+def volume_smoke_link(config_path, record_path):
+    if record_path is None:
+        raise ValueError('A verified broker/MATH3D smoke record is required for volume release.')
+    path = Path(record_path).resolve(strict=True)
+    record = verify_volume_smoke(path, config_path)
+    return {'recordPath': str(path), 'recordSha256': sha(path),
+            'sourceJobId': record['sourceJobId'],
+            'certificationRecordId': record['certificationRecordId']}
+
+
 def gate_verdicts(fresh, runtime_id='cgal-win-conda', capability_id=None):
     capabilities = fresh.get('certifiedCapabilities', [])
     matching = [item for item in capabilities if item.get('runtimeId') == runtime_id
@@ -91,12 +102,13 @@ def gate_verdicts(fresh, runtime_id='cgal-win-conda', capability_id=None):
 
 
 def certify(config_path, installed_root, profile_id, release_tag, output_root,
-            exporter=fresh_export, inventory_source=None):
+            exporter=fresh_export, inventory_source=None, smoke_record=None):
     if not RELEASE_TAG.fullmatch(release_tag):
         raise ValueError('Invalid release tag.')
     broker = Broker(config_path)
     if broker.math3d_root is None:
         raise ValueError('MATH3D consumer checkout is required.')
+    smoke = volume_smoke_link(config_path, smoke_record) if broker.volume else None
     repo = broker.source_root
     installed_root = Path(installed_root).resolve(strict=True)
     output_root = Path(output_root).resolve()
@@ -129,6 +141,8 @@ def certify(config_path, installed_root, profile_id, release_tag, output_root,
                   'freshManifestSha256': fresh_hash,
                   'deployedManifestSha256': sha(broker.paths['manifest']),
                   'capabilities': []}
+        if smoke is not None:
+            report['productSmoke'] = smoke
         if not reasons:
             entry = next(item for item in fresh['certifiedCapabilities'] if item['runtimeId'] == broker.runtime_id
                          and item['capabilityId'] == broker.capability_id)
@@ -145,6 +159,8 @@ def certify(config_path, installed_root, profile_id, release_tag, output_root,
                         'inventorySha256': report['inventorySha256'],
                         'hostFingerprintSha256': host_fingerprint(),
                         'capabilities': report['capabilities']}
+            if smoke is not None:
+                manifest['productSmoke'] = smoke
             manifest['recordId'] = digest(manifest)
             manifest_path = directory / 'release-capabilities.json'
             with manifest_path.open('x', encoding='utf-8') as stream:
@@ -169,6 +185,18 @@ def verify_release(report_path, config_path=None):
     report = json.loads(report_path.read_text(encoding='utf-8'))
     if report.get('schemaVersion') != 1 or report.get('kind') != 'scientific.release-qualification-report':
         raise ValueError('Release report contract mismatch.')
+    smoke = report.get('productSmoke')
+    if smoke is not None:
+        path = Path(smoke['recordPath']).resolve(strict=True)
+        if (sha(path) != smoke.get('recordSha256')
+                or Path(str(path) + '.sha256').read_text(encoding='utf-8').strip() != smoke['recordSha256']):
+            raise ValueError('Volume product smoke record hash mismatch.')
+        record = json.loads(path.read_text(encoding='utf-8'))
+        if (record.get('sourceJobId') != smoke.get('sourceJobId')
+                or record.get('certificationRecordId') != smoke.get('certificationRecordId')):
+            raise ValueError('Volume product smoke identity mismatch.')
+        if config_path:
+            verify_volume_smoke(path, config_path)
     fresh_path = report_path.parent / 'fresh-capabilities.json'
     if 'inventoryPath' in report:
         inventory_path = report_path.parent / 'runtime-inventory.json'
@@ -200,6 +228,7 @@ def verify_release(report_path, config_path=None):
         record_id = identity.pop('recordId', None)
         if (record_id != digest(identity) or record_id != report['releaseManifestRecordId']
                 or manifest['capabilities'] != report['capabilities']
+                or manifest.get('productSmoke') != smoke
                 or manifest['freshManifestSha256'] != report['freshManifestSha256']
                 or manifest['sourceCommit'] != report['sourceCommit']
                 or ('inventoryPath' in report and (report['inventoryState'] != 'current'
@@ -222,13 +251,14 @@ def main():
     parser.add_argument('--release-tag')
     parser.add_argument('--output-root')
     parser.add_argument('--inventory')
+    parser.add_argument('--smoke-record')
     parser.add_argument('--report')
     args = parser.parse_args()
     if args.command == 'certify':
         if not all((args.config, args.installed_root, args.profile_id, args.release_tag, args.output_root)):
             parser.error('certify requires config, installed-root, profile-id, release-tag and output-root.')
         path, report = certify(args.config, args.installed_root, args.profile_id, args.release_tag,
-                               args.output_root, inventory_source=args.inventory)
+                               args.output_root, inventory_source=args.inventory, smoke_record=args.smoke_record)
     else:
         if not args.report:
             parser.error('verify requires --report.')

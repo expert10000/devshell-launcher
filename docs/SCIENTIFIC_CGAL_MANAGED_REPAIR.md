@@ -38,9 +38,11 @@ A separate broker profile can use that manifest with `capabilityId: mesh.repair`
 
 Promotion rechecks the saved worker result, patch audit, exact case output, L9 manifest reference, MATH3D consumer sources, and process cleanup. `python tools/scientific-broker/repair_smoke.py run --config <repair-config.json>` runs all four broker cases, promotes each, then saves and reopens each in MATH3D, independently reloads M3DM, and mounts the Mesh viewer. The resulting `repair-smoke.json` has a hash sidecar and can be checked with the script's `verify` command.
 
-For end-to-end release verification, start an isolated `desktop-five` DevShell session with a WebView2 debug port and set `DEVSHELL_CDP_URL`. Run `node tests/scientific-cgal-repair-managed-ui-checks.mjs` to produce the managed L0–L9 repair chain. Re-run `audit-repair`, export a candidate manifest, configure a separate repair broker against that manifest, and run `repair_smoke.py`. The release gate requires that verified four-case smoke record:
+For end-to-end release verification, start an isolated `desktop-five` DevShell session with a WebView2 debug port and set `DEVSHELL_CDP_URL`. Run `node tests/scientific-cgal-repair-managed-ui-checks.mjs` to produce the managed L0–L9 repair chain. Re-run `audit-repair`, export a candidate manifest, configure a separate repair broker against that manifest, and run `repair_smoke.py`.
 
 `tools/Run-CgalRepair-Acceptance.ps1 -Math3DCheckout <path>` builds and starts a short-path isolated Git worktree and drives that managed chain. It retains the worktree and saved runs for inspection. Use `-ExistingWorktree <path> -SkipBuild -ResumeFrom L6` (or L7–L9) only when its earlier records are still current. Rebuilding the desktop executable changes the pinned runtime-lab identity, so a code change requires a new full run. `audit-repair` now lists each level's current, stale, unknown, or missing state and the earliest level to rerun.
+
+After the managed chain passes, `tools/Invoke-CgalRepair-Release.ps1 -Worktree <path> -Math3DCheckout <path> -ReleaseTag <tag>` refreshes inventory, audits and exports the current chain, creates a separate verified broker profile, runs all four broker/MATH3D cases, then certifies and verifies a release report. The release gate requires that verified four-case smoke record. The command retains the config, smoke, and report paths for inspection.
 
 ```powershell
 python tools/scientific-broker/release_certification.py certify `

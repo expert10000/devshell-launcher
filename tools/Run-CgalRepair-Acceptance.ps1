@@ -2,6 +2,7 @@ param(
     [int]$CdpPort = 9244,
     [string]$Math3DCheckout = $env:MATH3D_CHECKOUT,
     [string]$ExistingWorktree,
+    [ValidateSet('L0', 'L5', 'L6', 'L7', 'L8', 'L9')][string]$ResumeFrom = 'L0',
     [switch]$UseRunningApp,
     [switch]$SkipBuild,
     [switch]$BootOnly
@@ -13,12 +14,16 @@ $previousArgs = [Environment]::GetEnvironmentVariable('WEBVIEW2_ADDITIONAL_BROWS
 $previousUrl = [Environment]::GetEnvironmentVariable('DEVSHELL_CDP_URL', 'Process')
 $previousCheckout = [Environment]::GetEnvironmentVariable('MATH3D_CHECKOUT', 'Process')
 $previousRuns = [Environment]::GetEnvironmentVariable('DEVSHELL_SCIENTIFIC_RUNS_ROOT', 'Process')
+$previousResume = [Environment]::GetEnvironmentVariable('DEVSHELL_REPAIR_RESUME_FROM', 'Process')
 $ownedApp = $null
 $worktree = $root
 $cdpUrl = "http://127.0.0.1:$CdpPort"
 
 try {
     if ($UseRunningApp -and !$SkipBuild) { throw 'UseRunningApp requires SkipBuild.' }
+    if ($ExistingWorktree -and !$SkipBuild) {
+        throw 'ExistingWorktree requires SkipBuild; rebuilding changes runtime-lab identity and stales saved support.'
+    }
     if ([string]::IsNullOrWhiteSpace($Math3DCheckout) -or
         !(Test-Path -LiteralPath (Join-Path $Math3DCheckout 'renderer\src\mesh\surfaceMesh.ts'))) {
         throw 'Pass -Math3DCheckout with a MATH3D checkout that has the Mesh importer.'
@@ -74,6 +79,7 @@ try {
     [Environment]::SetEnvironmentVariable('MATH3D_CHECKOUT', $Math3DCheckout, 'Process')
     [Environment]::SetEnvironmentVariable('DEVSHELL_SCIENTIFIC_RUNS_ROOT',
         (Join-Path $worktree '.scientific\runs'), 'Process')
+    [Environment]::SetEnvironmentVariable('DEVSHELL_REPAIR_RESUME_FROM', $ResumeFrom, 'Process')
     $ready = $false
     for ($attempt = 0; $attempt -lt 60; $attempt++) {
         if ($ownedApp -and $ownedApp.HasExited) { throw 'Isolated DevShell exited before WebView2 was ready.' }
@@ -98,6 +104,7 @@ finally {
     [Environment]::SetEnvironmentVariable('DEVSHELL_CDP_URL', $previousUrl, 'Process')
     [Environment]::SetEnvironmentVariable('MATH3D_CHECKOUT', $previousCheckout, 'Process')
     [Environment]::SetEnvironmentVariable('DEVSHELL_SCIENTIFIC_RUNS_ROOT', $previousRuns, 'Process')
+    [Environment]::SetEnvironmentVariable('DEVSHELL_REPAIR_RESUME_FROM', $previousResume, 'Process')
     if ($ownedApp -and !$ownedApp.HasExited) {
         $null = $ownedApp.CloseMainWindow()
         if (!$ownedApp.WaitForExit(10000)) { Stop-Process -Id $ownedApp.Id -Force }

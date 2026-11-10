@@ -8,6 +8,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 const require = createRequire(import.meta.url)
 const { chromium } = require(join(import.meta.dirname, '..', 'DevShell', 'ui', 'dev-ui-react', 'node_modules', 'playwright-core'))
 const runs = process.env.DEVSHELL_SCIENTIFIC_RUNS_ROOT || join(import.meta.dirname, '..', '.scientific', 'runs')
+const resumeFrom = process.env.DEVSHELL_REPAIR_RESUME_FROM || 'L0'
 mkdirSync(runs, { recursive: true })
 
 async function newRun(previous, recipe, level, capability = 'mesh.repair', page, priorAlerts = []) {
@@ -57,32 +58,35 @@ try {
   const nav = main.getByRole('navigation', { name: 'Scientific runtime sections' })
   await nav.getByRole('button', { name: 'Commands', exact: true }).click()
   const detail = main.getByRole('region', { name: /runtime details/ })
-  for (const [button, recipe] of [['Probe in runtime-lab', 'lab.probe'], ['Compile & link', 'compile-link']]) {
+  for (const [button, recipe] of resumeFrom === 'L0'
+    ? [['Probe in runtime-lab', 'lab.probe'], ['Compile & link', 'compile-link']] : []) {
     const previous = new Set(readdirSync(runs))
     const priorAlerts = await page.getByRole('alert').allTextContents()
     await detail.getByRole('button', { name: button, exact: true }).click()
     await newRun(previous, recipe, 'L0', 'runtime.inventory', page, priorAlerts)
   }
   await detail.getByRole('button', { name: 'Repair holes', exact: true }).click()
-  const beforeFixtureAlerts = await page.getByRole('alert').allTextContents()
-  await detail.getByRole('button', { name: 'Load repair fixtures', exact: true }).click()
-  const registryPath = join(dirname(runs), 'datasets', 'manifest.json')
-  const fixtureDeadline = Date.now() + 60_000
-  let fixturesReady = false
-  while (Date.now() < fixtureDeadline) {
-    if (existsSync(registryPath)) {
-      const registry = JSON.parse(readFileSync(registryPath, 'utf8'))
-      if (registry.entries?.filter(item => item.id?.startsWith('imported/')).length >= 5) {
-        fixturesReady = true
-        break
+  if (resumeFrom === 'L0' || resumeFrom === 'L5') {
+    const beforeFixtureAlerts = await page.getByRole('alert').allTextContents()
+    await detail.getByRole('button', { name: 'Load repair fixtures', exact: true }).click()
+    const registryPath = join(dirname(runs), 'datasets', 'manifest.json')
+    const fixtureDeadline = Date.now() + 60_000
+    let fixturesReady = false
+    while (Date.now() < fixtureDeadline) {
+      if (existsSync(registryPath)) {
+        const registry = JSON.parse(readFileSync(registryPath, 'utf8'))
+        if (registry.entries?.filter(item => item.id?.startsWith('imported/')).length >= 5) {
+          fixturesReady = true
+          break
+        }
       }
+      const alerts = await page.getByRole('alert').allTextContents()
+      const fresh = alerts.find(message => message && !beforeFixtureAlerts.includes(message))
+      if (fresh) throw new Error(`Repair fixture load failed: ${fresh}`)
+      await delay(500)
     }
-    const alerts = await page.getByRole('alert').allTextContents()
-    const fresh = alerts.find(message => message && !beforeFixtureAlerts.includes(message))
-    if (fresh) throw new Error(`Repair fixture load failed: ${fresh}`)
-    await delay(500)
+    assert.ok(fixturesReady, 'Repair fixture registration did not complete')
   }
-  assert.ok(fixturesReady, 'Repair fixture registration did not complete')
   const cases = [
     ['Run repair L5 qualification', 'l5.cgal-repair', 'L5'],
     ['Reproduce repair L6', 'l6.cgal-repair', 'L6'],
@@ -90,7 +94,9 @@ try {
     ['Test repair L8 resilience', 'l8.cgal-repair', 'L8'],
     ['Run repair L9 products', 'l9.cgal-repair', 'L9']
   ]
-  for (const [button, recipe, level] of cases) {
+  const first = resumeFrom === 'L0' ? 0 : cases.findIndex(item => item[2] === resumeFrom)
+  assert.ok(first >= 0, `Unsupported repair resume level: ${resumeFrom}`)
+  for (const [button, recipe, level] of cases.slice(first)) {
     const previous = new Set(readdirSync(runs))
     const priorAlerts = await page.getByRole('alert').allTextContents()
     await detail.getByRole('button', { name: button, exact: true }).click()

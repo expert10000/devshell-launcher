@@ -95,13 +95,30 @@ static partial class BrokerManifest
             }
             if (candidates.Count >= 20) break;
         }
-        var earliest = 0;
-        if (candidates.FirstOrDefault()?["support"] is JsonArray chain && chain.Count == 9)
-            earliest = Enumerable.Range(0, 9).FirstOrDefault(index =>
-                chain[index]?["level"]?.GetValue<string>() != "L" + index
-                || chain[index]?["status"]?.GetValue<string>() != "current", 9);
+        var required = new[] { "runtime.inventory", "python.version", "cgal.python.import",
+            "geometry.point3", "cgal.cpp.compile-link", "mesh.repair", "mesh.repair",
+            "mesh.repair", "mesh.repair", "mesh.repair" };
+        var levels = new JsonArray();
+        for (var index = 0; index < required.Length; index++)
+        {
+            var level = "L" + index;
+            var selected = runs.SelectMany(run => (run["qualifications"]?.AsArray().OfType<JsonObject>() ?? [])
+                    .Where(record => record["level"]?.GetValue<string>() == level
+                        && record["capabilityId"]?.GetValue<string>() == required[index])
+                    .Select(record => (Run: run, Record: record)))
+                .OrderByDescending(item => item.Record["status"]?.GetValue<string>() == "current")
+                .ThenByDescending(item => item.Run["finishedAtUtc"]?.GetValue<string>(), StringComparer.Ordinal)
+                .FirstOrDefault();
+            levels.Add(new JsonObject { ["level"] = level, ["capabilityId"] = required[index],
+                ["status"] = selected.Record?["status"]?.GetValue<string>() ?? "missing",
+                ["runId"] = selected.Run?["runId"]?.DeepClone(),
+                ["recordId"] = selected.Record?["recordId"]?.DeepClone(),
+                ["reasons"] = selected.Record?["staleReasons"]?.DeepClone() ?? new JsonArray() });
+        }
+        var earliest = Enumerable.Range(0, 10).FirstOrDefault(index =>
+            levels[index]?["status"]?.GetValue<string>() != "current", 10);
         var recipes = current.Length > 0 ? Array.Empty<string>() : earliest <= 4 ? RepairRecipes
-            : RepairRecipes.Skip(earliest - 3).ToArray();
+            : RepairRecipes.Skip(Math.Min(earliest - 3, RepairRecipes.Length)).ToArray();
         return new JsonObject { ["schemaVersion"] = 1, ["kind"] = "scientific.cgal-repair-export-audit",
             ["runtimeId"] = "cgal-win-conda", ["capabilityId"] = "mesh.repair", ["profileId"] = profile,
             ["verifiedRunCount"] = runs.Count, ["consumerFilesAvailable"] = RepairSourceFiles(math3d) != null,
@@ -109,8 +126,10 @@ static partial class BrokerManifest
             ["eligible"] = current.Length > 0, ["currentRunId"] = current.FirstOrDefault()?["runId"]?.DeepClone(),
             ["currentRecordId"] = current.FirstOrDefault()?["recordId"]?.DeepClone(),
             ["mode"] = current.Length > 0 ? "current" : earliest <= 4 ? "full" : "resume",
+            ["earliestRequiredLevel"] = current.Length > 0 ? null : "L" + earliest,
+            ["levels"] = levels,
             ["recipes"] = new JsonArray(recipes.Select(item => (JsonNode?)JsonValue.Create(item)).ToArray()),
-            ["exportReason"] = current.Length > 0 ? null : "No current four-case repair L9 qualification chain",
+            ["exportReason"] = current.Length > 0 ? null : "No current repair qualification at L" + earliest,
             ["candidates"] = candidates,
             ["rejectedL9Runs"] = new JsonArray(rejected.Select(item => (JsonNode?)item).ToArray()) };
     }

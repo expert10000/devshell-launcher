@@ -40,6 +40,8 @@ Promotion rechecks the saved worker result, patch audit, exact case output, L9 m
 
 For end-to-end release verification, start an isolated `desktop-five` DevShell session with a WebView2 debug port and set `DEVSHELL_CDP_URL`. Run `node tests/scientific-cgal-repair-managed-ui-checks.mjs` to produce the managed L0–L9 repair chain. Re-run `audit-repair`, export a candidate manifest, configure a separate repair broker against that manifest, and run `repair_smoke.py`. The release gate requires that verified four-case smoke record:
 
+`tools/Run-CgalRepair-Acceptance.ps1 -Math3DCheckout <path>` builds and starts a short-path isolated Git worktree and drives that managed chain. It retains the worktree and saved runs for inspection. Use `-ExistingWorktree <path> -SkipBuild -ResumeFrom L6` (or L7–L9) only when its earlier records are still current. Rebuilding the desktop executable changes the pinned runtime-lab identity, so a code change requires a new full run. `audit-repair` now lists each level's current, stale, unknown, or missing state and the earliest level to rerun.
+
 ```powershell
 python tools/scientific-broker/release_certification.py certify `
   --config <repair-config.json> --installed-root <launcher-install-root> `

@@ -63,6 +63,8 @@ export interface ScientificRunResult {
   operation?: string
   repairAudit?: { retainedFaces: number; addedFaces: number; boundaryEdgesCovered: number; patchSha256: string }
   repairEvidence?: { boundaryLoopsBefore: number; boundaryEdgesBefore: number; boundaryLoopEdgeCounts: number[]; holesFilled: number; patchFaces: number; outputClosed: boolean; outwardVolume: number }
+  sourceRunId?: string
+  handoff?: { verdict: string; outputSha256: string; importerSourceSha256: string; consumer: { points: number; triangles: number; boundaryEdges: number; signedVolume: number } }
   testCaseId?: string
   environmentFingerprint?: string
   environmentFingerprintScope?: string

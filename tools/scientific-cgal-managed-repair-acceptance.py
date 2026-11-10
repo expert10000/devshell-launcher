@@ -24,7 +24,7 @@ def sha(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
-def replay(python, worker, prefix, output_root):
+def replay(python, worker, prefix, output_root, math3d_checkout=None, node='node'):
     python, worker, prefix = (Path(path).resolve(strict=True) for path in (python, worker, prefix))
     if worker.name.lower() != 'devshell_cgal_hole_repair.exe':
         raise ValueError('Expected the registered CGAL hole-repair executable')
@@ -59,9 +59,20 @@ def replay(python, worker, prefix, output_root):
                 or result['repairAudit']['boundaryEdgesCovered'] != result['before']['boundaryEdges']
                 or not result['repairEvidence']['outputClosed']):
             raise ValueError(f'{operation}: managed repair evidence failed')
+        consumer_hash = None
+        if math3d_checkout:
+            handoff_path = case_dir / 'handoff.json'
+            handoff = subprocess.run([sys.executable, str(ROOT / 'tools/scientific-cgal-repair-math3d-handoff.py'),
+                                      '--run-directory', str(case_dir), '--checkout', str(math3d_checkout),
+                                      '--node', str(node), '--report', str(handoff_path)],
+                                     cwd=ROOT, capture_output=True, text=True, timeout=150)
+            if handoff.returncode != 0 or json.loads(handoff_path.read_text(encoding='utf-8'))['verdict'] != 'passed':
+                raise ValueError(f'{operation}: MATH3D importer handoff failed: {handoff.stderr[-1000:]}')
+            consumer_hash = sha(handoff_path)
         cases.append({'recipeId': recipe, 'requestSha256': sha(case_dir / 'request.json'),
                       'resultSha256': sha(case_dir / 'results.json'), 'outputSha256': sha(output),
-                      'before': result['before'], 'after': result['after'], 'repairAudit': result['repairAudit']})
+                      'before': result['before'], 'after': result['after'], 'repairAudit': result['repairAudit'],
+                      'math3dHandoffSha256': consumer_hash})
 
     # A valid dataset copy with the wrong selected operation must fail without an artifact.
     negative = root / 'wrong-operation'
@@ -108,5 +119,7 @@ if __name__ == '__main__':
     parser.add_argument('--worker', required=True)
     parser.add_argument('--prefix', required=True)
     parser.add_argument('--output-root', required=True)
+    parser.add_argument('--math3d-checkout')
+    parser.add_argument('--node', default='node')
     args = parser.parse_args()
-    replay(args.python, args.worker, args.prefix, args.output_root)
+    replay(args.python, args.worker, args.prefix, args.output_root, args.math3d_checkout, args.node)

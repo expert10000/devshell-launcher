@@ -219,6 +219,7 @@ public partial class Form1
             else if(action=="history-result")data=runtimeId=="sage-wsl"
                 ? await Task.Run(()=>ScientificHistoryResult(profileId,request.GetProperty("jobId").GetString()??""))
                 : ScientificHistoryResult(profileId,request.GetProperty("jobId").GetString()??"");
+            else if(action=="history-repair-math3d-handoff")data=ScientificCgalRepairHandoffStart(profileId,runtimeId,request.GetProperty("jobId").GetString()??"");
             else if(action=="history-drift-diagnose")data=runtimeId=="sage-wsl"
                 ? await Task.Run(()=>ScientificDriftDiagnosis(profileId,runtimeId,request.GetProperty("jobId").GetString()??""))
                 : ScientificDriftDiagnosis(profileId,runtimeId,request.GetProperty("jobId").GetString()??"");

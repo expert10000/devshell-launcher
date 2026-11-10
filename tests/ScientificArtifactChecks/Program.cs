@@ -530,6 +530,14 @@ Check(!ScientificQualificationRecords.ValidRepairInteropSemantics(repairReload,r
 repairVtk["bounds"]![1]=1.0;rejectedHandoff["state"]="succeeded";
 Check(!ScientificQualificationRecords.ValidRepairInteropSemantics(repairReload,repairVtk,repairMath3D,rejectedHandoff,
     artifactHash,parserHash,parserHash),"repair interop requires malformed input rejection");
+var repeatBaseline=(JsonObject)repairVtk.DeepClone();
+Check(ScientificQualificationRecords.ValidRepairRepeat(repeatBaseline,(JsonObject)repeatBaseline.DeepClone(),
+    artifactHash,parserHash),"repair L8 accepts the exact VTK baseline result");
+var changedRepeat=(JsonObject)repeatBaseline.DeepClone();changedRepeat["triangles"]=11;
+Check(!ScientificQualificationRecords.ValidRepairRepeat(repeatBaseline,changedRepeat,
+    artifactHash,parserHash),"repair L8 rejects topology drift in a repeated read");
+Check(!ScientificQualificationRecords.ValidRepairRepeat(repeatBaseline,(JsonObject)repeatBaseline.DeepClone(),
+    new string('c',64),parserHash),"repair L8 rejects a repeat from another input");
 var l8Lower=new JsonArray(Enumerable.Range(0,8).Select(index=>(JsonNode?)new JsonObject
     { ["level"]="L"+index,["recordId"]="resilience-"+index }).ToArray());
 var l8Assessed=new JsonArray(new JsonObject { ["level"]="L8",["status"]="current",

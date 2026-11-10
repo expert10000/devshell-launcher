@@ -971,6 +971,21 @@ public static partial class ScientificQualificationRecords
                 Add("mesh.interop.vtk-math3d", "L8", "l8.resilience", hash,
                     result["l8Evidence"]?["lowerQualification"]);
         }
+        else if (recipeId == "l8.cgal-repair" && runtimeId == "cgal-win-conda"
+            && manifest["qualificationRecipes"] is JsonArray repairResilienceRecipes)
+        {
+            var declaration = repairResilienceRecipes.OfType<JsonObject>().FirstOrDefault(item =>
+                item["id"]?.GetValue<string>() == "l8.cgal-repair"
+                && item["readinessLevel"]?.GetValue<string>() == "L8"
+                && item["capability"]?.GetValue<string>() == "mesh.repair"
+                && item["referenceRecipe"]?.GetValue<string>() == "l7.cgal-repair"
+                && item["repeatCount"]?.GetValue<int>() == 3
+                && item["memoryLimitBytes"]?.GetValue<long>() == 134217728);
+            var hash = RepairL8Hash(directory, result, components!);
+            if (declaration != null && hash != null)
+                Add("mesh.repair", "L8", "l8.cgal-repair", hash,
+                    result["repairResilienceEvidence"]?["lowerQualification"]);
+        }
         else if (recipeId == "l8.gmsh-resilience" && manifest["qualificationRecipes"] is JsonArray gmshResilienceRecipes)
         {
             var declaration = gmshResilienceRecipes.OfType<JsonObject>().FirstOrDefault(item =>
@@ -1247,6 +1262,15 @@ public static partial class ScientificQualificationRecords
             if (record["level"]?.GetValue<string>() == "L8")
             {
                 var sourceResult = JsonNode.Parse(result.GetRawText()) as JsonObject;
+                if (record["evidenceId"]?.GetValue<string>() == "l8.cgal-repair")
+                {
+                    if (sourceResult == null || record["capabilityId"]?.GetValue<string>() != "mesh.repair"
+                        || record["lowerQualification"]?.ToJsonString() != sourceResult["repairResilienceEvidence"]?["lowerQualification"]?.ToJsonString()
+                        || record["evidenceSha256"]?.GetValue<string>() != RepairL8Hash(directory, sourceResult,
+                            fingerprint!["components"]!.AsObject()))
+                        throw new InvalidDataException("CGAL repair L8 resilience evidence changed.");
+                    continue;
+                }
                 if (record["evidenceId"]?.GetValue<string>() == "l8.gmsh-volume")
                 {
                     if (sourceResult == null || record["capabilityId"]?.GetValue<string>() != "mesh.generate3d"

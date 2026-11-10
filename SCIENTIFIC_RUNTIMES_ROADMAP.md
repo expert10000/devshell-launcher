@@ -179,3 +179,5 @@ Source implemented; this revision has NOT been rebuilt, executed, tested, or pus
 ## CGAL repair qualification path (2026-11-10)
 
 The scoped managed hole-repair path now has pinned, locally registered fixtures and distinct `mesh.repair` L5/L6 recipes. L5 runs four positive repairs and two no-output rejections with saved request/result and artifact hashes. L6 replays the six cases against a current L5 reference and requires exact output and patch hashes. Record issuance verifies the saved evidence and current L0–L4 support. A live target-machine run is still required to establish current L5/L6 records; the path does not grant validation, interop, or product levels.
+
+Repair L7 now checks all four reproduced outputs against an independent OBJ reload, VTK reader and MATH3D desktop importer with a malformed-input rejection. Repair L8 repeats the four VTK reads three times and tests owned cancellation, timeout and memory limits. Each level has a saved-evidence verifier tied to the preceding repair record. These recipes require live current support; this source delivery does not assert that L7 or L8 was executed or issued on the target machine.

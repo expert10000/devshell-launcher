@@ -66,6 +66,7 @@ export interface ScientificRunResult {
     repairQualificationEvidence?: { suiteId: string; capabilityId: string; cases: { caseId: string; state: string; artifactSha256?: string; outputAbsent?: boolean }[] }
     repairReproductionEvidence?: { suiteId: string; verdict: string; comparison: string; baseline: { runId: string; recordId: string }; cases: { caseId: string; state: string; artifactSha256?: string; outputAbsent?: boolean }[] }
     repairInteropEvidence?: { suiteId: string; source: { runId: string; recordId: string }; consumerContractSha256: string; cases: { caseId: string; artifactSha256: string; sourceReload: { points: number; triangles: number; signedVolume: number }; vtkConsumer: { points: number; triangles: number }; math3dConsumer: { points: number; triangles: number } }[] }
+    repairResilienceEvidence?: { suiteId: string; sourceL7RunId: string; observations: { repeats: { caseId: string; repeat: number; durationMs: number; peakProcessMemoryBytes: number }[]; cancellation: { state: string }; timeout: { state: string }; memory: { state: string } } }
   sourceRunId?: string
   handoff?: { verdict: string; outputSha256: string; importerSourceSha256: string; consumer: { points: number; triangles: number; boundaryEdges: number; signedVolume: number } }
   repairProduct?: { verdict: string; documentSha256: string; resourceSha256: string; m3dmSha256: string; documentId: string; structuralHash: string; points: number; triangles: number }

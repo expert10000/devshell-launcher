@@ -14,7 +14,7 @@ public partial class Form1
         if(runtimeId!="cgal-win-conda")throw new InvalidOperationException("Select the installed Windows Native CGAL profile.");
         var prefix=ScientificPrefix(runtimeId);
         var recipe=request.GetProperty("recipeId").GetString();
-        if(recipe is not ("cgal.validate" or "cgal.remesh" or "cgal.fill-one-hole" or "cgal.fill-quad-hole" or "cgal.fill-two-quad-holes" or "cgal.fill-bounded-holes"))throw new InvalidOperationException("CGAL recipe is not registered.");
+        if(recipe is not ("cgal.validate" or "cgal.remesh" or "cgal.repair-orientation" or "cgal.fill-one-hole" or "cgal.fill-quad-hole" or "cgal.fill-two-quad-holes" or "cgal.fill-bounded-holes"))throw new InvalidOperationException("CGAL recipe is not registered.");
         var repair=recipe is "cgal.fill-one-hole" or "cgal.fill-quad-hole" or "cgal.fill-two-quad-holes" or "cgal.fill-bounded-holes";
         var parameters=request.GetProperty("parameters");
         if(parameters.TryGetProperty("testCaseId",out var testCase))
@@ -28,15 +28,19 @@ public partial class Form1
         }
         var inputId=parameters.GetProperty("inputId").GetString()??"";
         var datasets=Path.Combine(ScientificDataRoot,"datasets");
-        using(var manifest=JsonDocument.Parse(File.ReadAllText(Path.Combine(datasets,"manifest.json"))))
-        {
-            if(!manifest.RootElement.GetProperty("entries").EnumerateArray().Any(entry=>entry.GetProperty("id").GetString()==inputId))
-                throw new InvalidOperationException("Select a registered duplicated dataset.");
-        }
-        var input=ScientificScopedFile(datasets,inputId);
+        if (inputId is not ("cgal/inward-tetra.obj" or "cgal/open-square.obj"))
+            using(var manifest=JsonDocument.Parse(File.ReadAllText(Path.Combine(datasets,"manifest.json"))))
+            {
+                if(!manifest.RootElement.GetProperty("entries").EnumerateArray().Any(entry=>entry.GetProperty("id").GetString()==inputId))
+                    throw new InvalidOperationException("Select a registered duplicated dataset.");
+            }
+        var inputArtifact=ScientificDatasetArtifact(inputId);
+        var input=inputArtifact["path"]?.GetValue<string>() ?? "";
         if(!File.Exists(input)||new FileInfo(input).Length>32*1024*1024||!new[]{".obj",".stl",".ply",".off"}.Contains(Path.GetExtension(input).ToLowerInvariant()))
             throw new InvalidOperationException("CGAL input must be an OBJ/STL/PLY/OFF fixture up to 32 MiB.");
         if((repair||recipe=="cgal.remesh")&&Path.GetExtension(input).ToLowerInvariant()!=".obj")throw new InvalidOperationException("CGAL repair and guarded remesh require a registered OBJ mesh.");
+        if(recipe=="cgal.repair-orientation" && Path.GetExtension(input).ToLowerInvariant()!=".obj")
+            throw new InvalidOperationException("Orientation repair accepts only registered OBJ copies.");
         var output=parameters.GetProperty("outputName").GetString()??"";
         if(!Regex.IsMatch(output,@"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,99}\.obj$"))throw new InvalidOperationException("Output must be a safe OBJ filename.");
         var edge=recipe=="cgal.remesh"?parameters.GetProperty("targetEdge").GetDouble():0.1;
@@ -48,7 +52,7 @@ public partial class Form1
         {
             var directory=Path.Combine(ScientificDataRoot,"runs",Guid.NewGuid().ToString("N"));Directory.CreateDirectory(directory);
             var job=new ScientificJob{ProfileId=profileId,RuntimeId=runtimeId,RecipeId=recipe,Directory=directory};
-            ScientificWriteRequest(job,parameters,ScientificDatasetArtifact(inputId),output);
+            ScientificWriteRequest(job,parameters,inputArtifact,output);
             _scientificJobs[profileId+":"+runtimeId]=job;
             ScientificSend(new{type="scientific.runtime.job",profileId,job=ScientificJobSnapshot(job)});
             _=ScientificCgalRunAsync(job,prefix,input,output,edge,iterations,boundary);
@@ -86,21 +90,22 @@ public partial class Form1
         var cmake=Path.Combine(prefix,"Library","bin","cmake.exe");
         await ScientificProcessAsync(processJob,prefix,cmake,new[]{"-S",Path.Combine(ScientificSourceRoot,"scientific","cgal-worker"),"-B",build,"-G","Visual Studio 17 2022","-A","x64","-DCMAKE_PREFIX_PATH="+Path.Combine(prefix,"Library")},job.Directory,180);
         var repair=job.RecipeId is "cgal.fill-one-hole" or "cgal.fill-quad-hole" or "cgal.fill-two-quad-holes" or "cgal.fill-bounded-holes";
-        await ScientificProcessAsync(processJob,prefix,cmake,repair
-            ? new[]{"--build",build,"--config","Release","--target","devshell_cgal_hole_repair","--parallel","1"}
-            : new[]{"--build",build,"--config","Release","--target","devshell_cgal_worker","--parallel","1"},job.Directory,180);
-        var worker=Path.Combine(build,"Release",repair?"devshell_cgal_hole_repair.exe":"devshell_cgal_worker.exe");
+        var workerTarget = repair ? "devshell_cgal_hole_repair" : job.RecipeId == "cgal.repair-orientation"
+            ? "devshell_cgal_orientation" : "devshell_cgal_worker";
+        await ScientificProcessAsync(processJob,prefix,cmake,
+            new[]{"--build",build,"--config","Release","--target",workerTarget,"--parallel","1"},job.Directory,180);
+        var worker=Path.Combine(build,"Release",workerTarget+".exe");
         var adapter=Path.Combine(ScientificSourceRoot,"tools",repair?"scientific-cgal-hole-repair-worker.py":"scientific-cgal-worker.py");
         var condaHistory=Path.Combine(prefix,"conda-meta","history");
-        job.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(worker, repair?"cgal-hole-repair-worker":"cgal-worker"));
-        job.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(adapter, repair?"cgal-hole-repair-adapter":"cgal-adapter"));
+        processJob.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(worker, repair?"cgal-hole-repair-worker":"cgal-worker"));
+        processJob.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(adapter, repair?"cgal-hole-repair-adapter":"cgal-adapter"));
         if(job.RecipeId=="cgal.remesh")
         {
             foreach(var name in new[]{"scientific_cgal_remesh_guard.py","scientific_cgal_mesh_metrics.py",
                 "scientific_cgal_surface_samples.py","scientific_cgal_triangle_quality.py"})
-                job.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(
+                processJob.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(
                     Path.Combine(ScientificSourceRoot,"tools",name),"cgal-remesh-guard"));
-            job.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(
+            processJob.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(
                 Path.Combine(ScientificSourceRoot,"schemas","scientific-remesh-guard.v2.json"),"cgal-remesh-policy"));
         }
         job.EnvironmentFingerprint=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(

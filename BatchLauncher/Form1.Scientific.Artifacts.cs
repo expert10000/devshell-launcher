@@ -17,6 +17,23 @@ public partial class Form1
     private static JsonObject ScientificDatasetArtifact(string inputId)
     {
         var root = Path.Combine(ScientificDataRoot, "datasets");
+        if (inputId is "cgal/inward-tetra.obj" or "cgal/open-square.obj")
+        {
+            var fixtureSource = inputId == "cgal/inward-tetra.obj"
+                ? Path.Combine(ScientificSourceRoot, "scientific", "fixtures", "cgal", "orientation", "inward-tetra.obj")
+                : Path.Combine(ScientificSourceRoot, "scientific", "fixtures", "cgal", "open-square.obj");
+            if (!File.Exists(fixtureSource) || new FileInfo(fixtureSource).Length is <= 0 or > 65536)
+                throw new InvalidOperationException("Registered CGAL repair fixture is unavailable.");
+            var destination = ScientificScopedFile(root, inputId);
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            if (!File.Exists(destination)) File.Copy(fixtureSource, destination);
+            var fixtureHash = ScientificHash(fixtureSource);
+            if (ScientificHash(destination) != fixtureHash)
+                throw new InvalidOperationException("CGAL repair fixture copy changed; restore it before running.");
+            return new JsonObject { ["path"] = destination, ["mediaType"] = ScientificMediaType(destination),
+                ["bytes"] = new FileInfo(destination).Length, ["sha256"] = fixtureHash, ["datasetId"] = inputId,
+                ["sourcePath"] = Path.GetFileName(fixtureSource), ["sourceRoot"] = Path.GetDirectoryName(fixtureSource) };
+        }
         if (inputId is "gmsh/fixed-square.geo" or "gmsh/tampered-square.geo"
             or "gmsh/fixed-cube.geo" or "gmsh/tampered-cube.geo")
         {

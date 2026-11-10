@@ -29,13 +29,17 @@ export function ArtifactOverview({ profileId, projectId, repositoryId, bridge, j
       clearTimeout(timeout.current); requestId.current = ''; setPending(false)
       if (message.error) setError(message.error); else if (message.artifacts) setOverview(message.artifacts)
     }
-    bridge.addEventListener('message', receive); refresh()
-    return () => { clearTimeout(timeout.current); requestId.current = ''; bridge.removeEventListener('message', receive) }
+    bridge.addEventListener('message', receive)
+    const frame = requestAnimationFrame(refresh)
+    return () => { cancelAnimationFrame(frame); clearTimeout(timeout.current); requestId.current = ''; bridge.removeEventListener('message', receive) }
   }, [bridge, profileId, projectId, repositoryId])
   useEffect(() => {
     if (pending || !job?.lastBuildFinishedAt || job.lastBuildFinishedAt === lastBuild.current) return
     lastBuild.current = job.lastBuildFinishedAt
-    if (job.lastBuildState === 'succeeded') refresh()
+    if (job.lastBuildState === 'succeeded') {
+      const frame = requestAnimationFrame(refresh)
+      return () => cancelAnimationFrame(frame)
+    }
   }, [job?.lastBuildFinishedAt, job?.lastBuildState, pending])
   const entries = overview?.entries ?? []
   const visible = entries.filter(entry => (filter === 'all' || entry.kind === filter) && entry.path.toLowerCase().includes(query.toLowerCase()))

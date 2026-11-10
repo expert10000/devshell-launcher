@@ -2,25 +2,28 @@ import { useEffect, useRef, useState } from 'react'
 import type { RuntimeProfile } from './scientificRuntimeProfiles'
 import type { useScientificRuntime } from './useScientificRuntime'
 
-export function ScientificBooleanPanel({ runtime, native, edited, onArtifacts, onHistory, onPrepare, onCompare }: {
+type Props = {
   runtime: RuntimeProfile; native: ReturnType<typeof useScientificRuntime>; edited: boolean
   onArtifacts: () => void; onHistory: () => void; onPrepare: () => void; onCompare: (original: string, rerun: string) => void
-}) {
+}
+export function ScientificBooleanPanel(props: Props) {
+  return <ScientificBooleanPanelContent key={`${props.native.profileId}:${props.runtime.id}:${props.native.booleanDraft?.draftId ?? ''}`} {...props} />
+}
+function ScientificBooleanPanelContent({ runtime, native, edited, onArtifacts, onHistory, onPrepare, onCompare }: Props) {
   const panel = useRef<HTMLElement>(null)
   const refreshedImport = useRef('')
   const draft = native.booleanDraft
-  const [rerunOf, setRerunOf] = useState<string | undefined>()
-  const [a, setA] = useState('')
-  const [b, setB] = useState('')
-  const [operation, setOperation] = useState('union')
-  const [scale, setScale] = useState('1')
-  const [translation, setTranslation] = useState(['0', '0', '0'])
-  const [output, setOutput] = useState('boolean-result.m3dm')
-  useEffect(() => { setA(''); setB(''); native.send(runtime.id, 'datasets'); native.send(runtime.id, 'math3d-readiness') }, [native.profileId, runtime.id])
+  const initial = runtime.id === 'cgal-win-conda' ? draft?.parameters : undefined
+  const [rerunOf, setRerunOf] = useState<string | undefined>(initial ? draft?.sourceJobId : undefined)
+  const [a, setA] = useState(initial?.inputAId ?? '')
+  const [b, setB] = useState(initial?.inputBId ?? '')
+  const [operation, setOperation] = useState(initial?.operation ?? 'union')
+  const [scale, setScale] = useState(initial ? String(initial.scaleB) : '1')
+  const [translation, setTranslation] = useState(initial ? initial.translateB.map(String) : ['0', '0', '0'])
+  const [output, setOutput] = useState(initial?.outputName ?? 'boolean-result.m3dm')
+  useEffect(() => { native.send(runtime.id, 'datasets'); native.send(runtime.id, 'math3d-readiness') }, [native.profileId, runtime.id])
   useEffect(() => {
     if (!draft || runtime.id !== 'cgal-win-conda') return
-    const p = draft.parameters
-    setA(p.inputAId); setB(p.inputBId); setOperation(p.operation); setScale(String(p.scaleB)); setTranslation(p.translateB.map(String)); setOutput(p.outputName); setRerunOf(draft.sourceJobId)
     panel.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
   }, [draft?.draftId, runtime.id])
   const importJob = native.jobs[runtime.id]?.recipeId === 'datasets.import' ? native.jobs[runtime.id] : undefined

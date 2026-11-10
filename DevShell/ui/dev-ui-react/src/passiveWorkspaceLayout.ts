@@ -1,7 +1,7 @@
 import type { WorkspaceTabInput, WorkspaceViewTab } from './useWorkspaceTabs'
 
 const allowed = new Set(['logs', 'diff', 'files', 'pdf', 'browser', 'jupyter'])
-function relative(value?: string) { return value === undefined || value.length <= 2048 && !/^[\/]|[\\:\0]/.test(value) && !value.split('/').some(part => part === '.' || part === '..' || part.toLowerCase() === '.git') }
+function relative(value?: string) { return value === undefined || value.length <= 2048 && !/^[/]|[\\:\0]/.test(value) && !value.split('/').some(part => part === '.' || part === '..' || part.toLowerCase() === '.git') }
 function cleanUrl(value?: string) {
   try { const url = new URL(value ?? ''); if (!['http:', 'https:'].includes(url.protocol)) return undefined; url.username = ''; url.password = ''; url.search = ''; url.hash = ''; return url.href } catch { return undefined }
 }

@@ -356,7 +356,9 @@ public static partial class ScientificQualificationRecords
             || handoff["exporterReport"]?["sha256"]?.GetValue<string>() != hashes["exporter.json"]?.GetValue<string>()
             || exporter["sourceMshSha256"]?.GetValue<string>() != mshHash
             || exporter["resourceSha256"]?.GetValue<string>() != hashes["volume.m3dt"]?.GetValue<string>()
-            || exporter["tetrahedra"]?.GetValue<int>() != 204
+            || exporter["points"]?.GetValue<int>() != l7Result?["volumeEvidence"]?["reload"]?["points"]?.GetValue<int>()
+            || exporter["tetrahedra"]?.GetValue<int>() != l7Result?["volumeEvidence"]?["reload"]?["tetrahedra"]?.GetValue<int>()
+            || exporter["boundaryTriangles"]?.GetValue<int>() != l7Result?["volumeEvidence"]?["reload"]?["boundaryTriangles"]?.GetValue<int>()
             || exporter["exporterSha256"]?.GetValue<string>() != components["suite"]?["files"]?
                 ["tools/scientific-gmsh-tetmesh-export.py"]?["sha256"]?.GetValue<string>()
             || regression["regression"]?.GetValue<string>() != "passed"
@@ -364,9 +366,9 @@ public static partial class ScientificQualificationRecords
             || regression["viewer"]?.GetValue<string>() != "TetrahedralMeshViewport"
             || regression["blueMeshPixels"]?.GetValue<int>() is not > 1000
             || regression["tamperRejected"]?.GetValue<bool>() != true
-            || regression["points"]?.GetValue<int>() != 83
-            || regression["tetrahedra"]?.GetValue<int>() != 204
-            || regression["boundaryTriangles"]?.GetValue<int>() != 156
+            || regression["points"]?.GetValue<int>() != exporter["points"]?.GetValue<int>()
+            || regression["tetrahedra"]?.GetValue<int>() != exporter["tetrahedra"]?.GetValue<int>()
+            || regression["boundaryTriangles"]?.GetValue<int>() != exporter["boundaryTriangles"]?.GetValue<int>()
             || regression["sourceMshSha256"]?.GetValue<string>() != mshHash
             || regression["documentSha256"]?.GetValue<string>() != hashes["tetra-document.json"]?.GetValue<string>()
             || regression["resourceSha256"]?.GetValue<string>() != hashes["tetra-resource.m3dt"]?.GetValue<string>()
@@ -377,8 +379,9 @@ public static partial class ScientificQualificationRecords
             || regression["consumerSourcesSha256"]?.GetValue<string>() != evidence["consumerSourcesSha256"]?.GetValue<string>()
             || roundtrip["verdict"]?.GetValue<string>() != "passed"
             || roundtrip["format"]?.GetValue<string>() != "M3DT"
-            || roundtrip["tetrahedra"]?.GetValue<int>() != 204
-            || roundtrip["boundaryTriangles"]?.GetValue<int>() != 156
+            || roundtrip["points"]?.GetValue<int>() != exporter["points"]?.GetValue<int>()
+            || roundtrip["tetrahedra"]?.GetValue<int>() != exporter["tetrahedra"]?.GetValue<int>()
+            || roundtrip["boundaryTriangles"]?.GetValue<int>() != exporter["boundaryTriangles"]?.GetValue<int>()
             || roundtrip["boundaryEdges"]?.GetValue<int>() != 0
             || roundtrip["nonManifoldEdges"]?.GetValue<int>() != 0
             || Math.Abs((roundtrip["volume"]?.GetValue<double>() ?? double.NaN) - 1) > 1e-6

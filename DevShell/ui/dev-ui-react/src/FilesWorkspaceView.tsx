@@ -32,7 +32,8 @@ export function FilesWorkspaceView({ tab, profileId, bridge, repos, active, onFo
   const requestedHistoryIndex = useRef<number | undefined>(undefined)
   const handledActivation = useRef(tab.activationId)
   const current = useRef(''); const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const latest = useRef({ onFolder }); latest.current = { onFolder }
+  const latest = useRef({ onFolder })
+  useEffect(() => { latest.current = { onFolder } }, [onFolder])
   function request(action: 'list' | 'preview' | 'image' | 'locate', target: string, historyIndex?: number, targetLine?: number) {
     if (!bridge) { setError('Files require the DevShell desktop app.'); return }
     if (action === 'list' || action === 'locate') setOverview(false)
@@ -42,6 +43,18 @@ export function FilesWorkspaceView({ tab, profileId, bridge, repos, active, onFo
     clearTimeout(timer.current); current.current = crypto.randomUUID(); setPending(true); setError(''); setPreview(undefined); setImage(undefined); setShowSource(false)
     timer.current = setTimeout(() => { current.current = ''; setPending(false); setError('File request timed out. Refresh to retry.') }, 30000)
     bridge.postMessage({ type: 'workspace.files', profileId, projectId: tab.projectId, repositoryId: tab.repositoryId, requestId: current.current, action, path: target })
+  }
+  function open(entry: Entry, targetLine?: number) {
+    setSourceLine(targetLine)
+    setSelectedPath(entry.path)
+    setPreviewKind(entry.kind)
+    if (entry.kind === 'folder') { request('list', entry.path); return }
+    if (entry.kind === 'text' || entry.kind === 'code') { request('preview', entry.path); return }
+    if (entry.kind === 'image') { request('image', entry.path); return }
+    if (entry.kind === 'pdf') {
+      window.dispatchEvent(new CustomEvent('devshell.workspace.open', { detail: { profileId, kind: 'pdf', projectId: tab.projectId, repositoryId: tab.repositoryId, filePath: entry.path, page: 1 } }))
+      bridge?.postMessage({ type: 'workspace.pdf', profileId, projectId: tab.projectId, repositoryId: tab.repositoryId, action: 'open', filePath: entry.path, page: 1 })
+    }
   }
   useEffect(() => {
     if (!bridge) return
@@ -68,33 +81,27 @@ export function FilesWorkspaceView({ tab, profileId, bridge, repos, active, onFo
       if (message.entry) open(message.entry, requestedSourceLine.current)
     }
     bridge.addEventListener('message', receive)
-    if (!tab.restored) request(tab.revealPath ? 'locate' : 'list', tab.revealPath ?? tab.filePath ?? '', undefined, tab.sourceLine)
-    return () => { clearTimeout(timer.current); current.current = ''; bridge.removeEventListener('message', receive) }
+    const frame = !tab.restored ? requestAnimationFrame(() => request(tab.revealPath ? 'locate' : 'list', tab.revealPath ?? tab.filePath ?? '', undefined, tab.sourceLine)) : 0
+    return () => { cancelAnimationFrame(frame); clearTimeout(timer.current); current.current = ''; bridge.removeEventListener('message', receive) }
   }, [bridge, profileId, tab.id])
   useEffect(() => {
-    if (tab.revealPath && handledActivation.current !== tab.activationId) return
-    if (active && !pending && (tab.filePath ?? '') !== (listing?.path ?? path)) request('list', tab.filePath ?? '')
+    if (!listing || tab.revealPath && handledActivation.current !== tab.activationId) return
+    if (active && !pending && (tab.filePath ?? '') !== (listing?.path ?? path)) {
+      const frame = requestAnimationFrame(() => request('list', tab.filePath ?? ''))
+      return () => cancelAnimationFrame(frame)
+    }
   }, [tab.filePath, active, pending])
   useEffect(() => {
     if (!active || pending || !tab.activationId || handledActivation.current === tab.activationId) return
-    handledActivation.current = tab.activationId
     // Explicit selection may load a restored location, but restoration itself
     // never creates an activation token. Keep loaded lists and PDF-return filters.
-    if (tab.revealPath) request('locate', tab.revealPath, undefined, tab.sourceLine)
-    else if (!listing && !overview) request('list', tab.filePath ?? '')
+    const frame = requestAnimationFrame(() => {
+      handledActivation.current = tab.activationId
+      if (tab.revealPath) request('locate', tab.revealPath, undefined, tab.sourceLine)
+      else if (!listing && !overview) request('list', tab.filePath ?? '')
+    })
+    return () => cancelAnimationFrame(frame)
   }, [active, pending, tab.activationId, tab.revealPath, overview])
-  function open(entry: Entry, targetLine?: number) {
-    setSourceLine(targetLine)
-    setSelectedPath(entry.path)
-    setPreviewKind(entry.kind)
-    if (entry.kind === 'folder') { request('list', entry.path); return }
-    if (entry.kind === 'text' || entry.kind === 'code') { request('preview', entry.path); return }
-    if (entry.kind === 'image') { request('image', entry.path); return }
-    if (entry.kind === 'pdf') {
-      window.dispatchEvent(new CustomEvent('devshell.workspace.open', { detail: { profileId, kind: 'pdf', projectId: tab.projectId, repositoryId: tab.repositoryId, filePath: entry.path, page: 1 } }))
-      bridge?.postMessage({ type: 'workspace.pdf', profileId, projectId: tab.projectId, repositoryId: tab.repositoryId, action: 'open', filePath: entry.path, page: 1 })
-    }
-  }
   const entries = listing?.entries.filter(entry => (!artifacts || entry.kind === 'folder' || entry.artifact) && entry.name.toLowerCase().includes(query.toLowerCase())) ?? []
   const folder = listing?.path ?? tab.filePath ?? ''
   const segments = folder.split('/').filter(Boolean)

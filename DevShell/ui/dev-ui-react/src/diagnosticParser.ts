@@ -3,7 +3,7 @@ export type BuildDiagnostic = { file: string; line: number; column: number; seve
 export type DiagnosticScan = { items: BuildDiagnostic[]; truncated: boolean }
 
 export function parseBuildDiagnostics(log: string): DiagnosticScan {
-  const bounded = log.slice(-256000).replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '')
+  const bounded = log.slice(-256000).replace(new RegExp(`${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`, 'g'), '')
   const all = bounded.split(/\r?\n/); const lines = all.slice(-6000)
   const items: BuildDiagnostic[] = []; const seen = new Set<string>()
   let truncated = bounded.length < log.length || all.length > lines.length

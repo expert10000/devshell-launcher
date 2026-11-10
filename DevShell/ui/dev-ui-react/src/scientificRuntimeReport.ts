@@ -31,7 +31,7 @@ export async function loadScientificRuntimeReport(bridge: ScientificBridge | nul
   if (bridge && profileId) {
     const requestId = crypto.randomUUID()
     report = await new Promise<ScientificRuntimeReport>((resolve, reject) => {
-      let timer: ReturnType<typeof setTimeout>
+      const timer: ReturnType<typeof setTimeout> = setTimeout(() => { cleanup(); reject(new Error('Native report loading timed out.')) }, 10000)
       const cleanup = () => { clearTimeout(timer); bridge.removeEventListener('message', receive) }
       const receive = (event: MessageEvent) => {
         let message: { type?: string; profileId?: string; requestId?: string; action?: string; error?: string; data?: ScientificRuntimeReport }
@@ -42,7 +42,6 @@ export async function loadScientificRuntimeReport(bridge: ScientificBridge | nul
         else if (!message.data) reject(new Error('The native report response was empty.'))
         else resolve(message.data)
       }
-      timer = setTimeout(() => { cleanup(); reject(new Error('Native report loading timed out.')) }, 10000)
       bridge.addEventListener('message', receive)
       try { bridge.postMessage({ type: 'scientific.runtime', profileId, runtimeId: '', requestId, action: 'report' }) }
       catch (error) { cleanup(); reject(error) }

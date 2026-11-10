@@ -46,14 +46,14 @@ public partial class Form1
     }
 
     private static void ScientificCheckL5Declaration(string runtimeId, string capability,
-        ScientificL5Case positive, ScientificL5Case rejection)
+        ScientificL5Case positive, ScientificL5Case rejection, string declarationId = "l5.worker")
     {
         var path = Path.Combine(AppContext.BaseDirectory, "runtimes", runtimeId, "runtime.json");
         if (!File.Exists(path) || new FileInfo(path).Length > 65536)
             throw new InvalidOperationException("L5 runtime manifest is unavailable.");
         var manifest = JsonNode.Parse(File.ReadAllText(path));
         var declaration = manifest?["qualificationRecipes"]?.AsArray().OfType<JsonObject>()
-            .FirstOrDefault(item => item["id"]?.GetValue<string>() == "l5.worker");
+            .FirstOrDefault(item => item["id"]?.GetValue<string>() == declarationId);
         bool Matches(JsonNode? node, ScientificL5Case test) => node?["recipeId"]?.GetValue<string>() == test.RecipeId
             && node["datasetId"]?.GetValue<string>() == test.DatasetId
             && node["outputName"]?.GetValue<string>() == test.OutputName;
@@ -68,7 +68,22 @@ public partial class Form1
     {
         ScientificProviderRegistry.RequireAction(runtimeId, "l5-worker");
         var (capability, positive, rejection) = ScientificL5Cases(runtimeId);
-        ScientificCheckL5Declaration(runtimeId, capability, positive, rejection);
+        return ScientificL5StartCore(profileId, runtimeId, "l5.worker", capability, positive, rejection);
+    }
+
+    private object ScientificL5OrientationStart(string profileId, string runtimeId)
+    {
+        ScientificProviderRegistry.RequireAction(runtimeId, "l5-cgal-orientation");
+        if (runtimeId != "cgal-win-conda") throw new InvalidOperationException("CGAL is required for orientation repair.");
+        return ScientificL5StartCore(profileId, runtimeId, "l5.cgal-orientation", "mesh.repair",
+            new("cgal.repair-orientation", "cgal/inward-tetra.obj", "l5-repaired.obj", null),
+            new("cgal.repair-orientation", "cgal/open-square.obj", "l5-rejected.obj", "requires a closed mesh"));
+    }
+
+    private object ScientificL5StartCore(string profileId, string runtimeId, string recipeId,
+        string capability, ScientificL5Case positive, ScientificL5Case rejection)
+    {
+        ScientificCheckL5Declaration(runtimeId, capability, positive, rejection, recipeId);
         var lower = ScientificCurrentLowerLevels(profileId, runtimeId);
         var positiveInput = ScientificDatasetArtifact(positive.DatasetId);
         var rejectionInput = ScientificDatasetArtifact(rejection.DatasetId);
@@ -79,8 +94,8 @@ public partial class Form1
             var directory = Path.Combine(ScientificDataRoot, "runs", Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(directory);
             var job = new ScientificJob { ProfileId = profileId, RuntimeId = runtimeId,
-                RecipeId = "l5.worker", Directory = directory };
-            var parameters = JsonSerializer.SerializeToElement(new { suiteId = "l5-worker-v1",
+                RecipeId = recipeId, Directory = directory };
+            var parameters = JsonSerializer.SerializeToElement(new { suiteId = recipeId == "l5.cgal-orientation" ? "l5-cgal-orientation-v1" : "l5-worker-v1",
                 positiveCase = positive.DatasetId, rejectionCase = rejection.DatasetId,
                 lowerRecords = lower["records"]?.DeepClone() }, ScientificJson);
             ScientificWriteRequest(job, parameters, positiveInput, additionalInputs: new JsonArray(rejectionInput.DeepClone()),
@@ -95,8 +110,10 @@ public partial class Form1
     }
 
     private async Task<JsonObject> ScientificL5CaseAsync(ScientificJob suite, string prefix,
-        string folder, ScientificL5Case test, JsonObject input)
+        string folder, ScientificL5Case test, JsonObject input, string? capability = null)
     {
+        capability ??= suite.RuntimeId == "cgal-win-conda" ? "mesh.validate"
+            : suite.RuntimeId == "gmsh-win-conda" ? "mesh.generate" : "mesh.read";
         var directory = Path.Combine(suite.Directory, folder);
         Directory.CreateDirectory(directory);
         var child = new ScientificJob { ProfileId = suite.ProfileId, RuntimeId = suite.RuntimeId,
@@ -128,8 +145,11 @@ public partial class Form1
                 ?? throw new InvalidDataException("Positive L5 output artifact is missing.");
             if (result["state"]?.GetValue<string>() != "succeeded"
                 || result["validatedCapabilities"] is not JsonArray capabilities
-                || !capabilities.Any(item => item?.GetValue<string>() == (suite.RuntimeId == "cgal-win-conda" ? "mesh.validate"
-                    : suite.RuntimeId == "gmsh-win-conda" ? "mesh.generate" : "mesh.read"))
+                || !capabilities.Any(item => item?.GetValue<string>() == capability)
+                || (capability == "mesh.repair" && (!ScientificQualificationRecords.CgalRepairOutputValid(Path.Combine(directory, test.OutputName))
+                    || result["engineDetails"]?["beforeOrientation"]?.GetValue<string>() != "inward"
+                    || result["engineDetails"]?["afterOrientation"]?.GetValue<string>() != "outward"
+                    || result["engineDetails"]?["orientationChanged"]?.GetValue<bool>() != true))
                 || result["artifacts"] is not JsonArray artifacts
                 || !artifacts.Any(item => item?["path"]?.GetValue<string>() == test.OutputName
                     && item?["sha256"]?.GetValue<string>() == output["sha256"]?.GetValue<string>()))
@@ -161,17 +181,19 @@ public partial class Form1
         try
         {
             job.Stage = "positive";
-            var passed = await ScientificL5CaseAsync(job, prefix, "positive", positive, positiveInput);
+            var passed = await ScientificL5CaseAsync(job, prefix, "positive", positive, positiveInput, capability);
             job.Stage = "rejection";
-            var rejected = await ScientificL5CaseAsync(job, prefix, "rejection", rejection, rejectionInput);
+            var rejected = await ScientificL5CaseAsync(job, prefix, "rejection", rejection, rejectionInput, capability);
             var currentLower = ScientificCurrentLowerLevels(job.ProfileId, job.RuntimeId);
             if (currentLower.ToJsonString() != lower.ToJsonString())
                 throw new InvalidOperationException("The pinned L0-L4 evidence is no longer current.");
             var contract = job.FingerprintComponents?["contract"];
-            var evidence = new JsonObject { ["suiteId"] = "l5-worker-v1", ["capabilityId"] = capability,
+            var evidence = new JsonObject { ["suiteId"] = job.RecipeId == "l5.cgal-orientation" ? "l5-cgal-orientation-v1" : "l5-worker-v1", ["capabilityId"] = capability,
                 ["workerContractVersion"] = contract?["requestSchemaVersion"]?.GetValue<int>(),
                 ["workerContractSha256"] = contract?["workerContractModule"]?["sha256"]?.GetValue<string>(),
-                ["fixtureManifestSha256"] = ScientificHash(Path.Combine(ScientificDataRoot, "datasets", "manifest.json")),
+                ["fixtureManifestSha256"] = ScientificHash(job.RecipeId == "l5.cgal-orientation"
+                    ? Path.Combine(ScientificSourceRoot, "scientific", "fixtures", "cgal", "orientation", "manifest.v1.json")
+                    : Path.Combine(ScientificDataRoot, "datasets", "manifest.json")),
                 ["lowerQualification"] = lower.DeepClone(), ["positive"] = passed,
                 ["rejection"] = rejected };
             File.WriteAllText(Path.Combine(job.Directory, "results.json"), new JsonObject

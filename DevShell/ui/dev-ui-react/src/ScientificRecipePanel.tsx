@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { RuntimeProfile } from './scientificRuntimeProfiles'
 import type { useScientificRuntime } from './useScientificRuntime'
 import { ScientificCgalRecipes } from './ScientificCgalRecipes'
@@ -9,13 +9,16 @@ const meshRecipes = [
   { id: 'mesh.normals', name: 'Compute normals', fields: [{ id: 'featureAngle', name: 'Feature angle (degrees)', type: 'number', min: 0, max: 180, step: 1, value: 30 }, { id: 'autoOrient', name: 'Auto orient (closed manifold only)', type: 'boolean', value: false }] },
 ] as const
 
-export function ScientificRecipePanel({ runtime, native, edited, onArtifacts }: { runtime: RuntimeProfile; native: ReturnType<typeof useScientificRuntime>; edited: boolean; onArtifacts: () => void }) {
+type Props = { runtime: RuntimeProfile; native: ReturnType<typeof useScientificRuntime>; edited: boolean; onArtifacts: () => void }
+export function ScientificRecipePanel(props: Props) {
+  return <ScientificRecipePanelContent key={props.runtime.id} {...props} />
+}
+function ScientificRecipePanelContent({ runtime, native, edited, onArtifacts }: Props) {
   const [recipeId, setRecipeId] = useState('mesh.inspect')
   const [inputId, setInputId] = useState('')
   const [outputName, setOutputName] = useState('mesh-output.vtp')
   const [values, setValues] = useState<Record<string, number | boolean | string>>({ targetReduction: 0.5, preserveTopology: true, preserveBoundary: true, featureAngle: 30, autoOrient: false })
   const [copyStatus, setCopyStatus] = useState('')
-  useEffect(() => { setRecipeId('mesh.inspect'); setInputId(''); setOutputName('mesh-output.vtp'); setCopyStatus('') }, [runtime.id])
   const executable = runtime.execution === 'windows-native' && ['cgal', 'vtk', 'gmsh'].includes(runtime.kind) && !edited
   const recipe = meshRecipes.find(item => item.id === recipeId) ?? meshRecipes[0]
   const parameters = Object.fromEntries(recipe.fields.map(field => [field.id, values[field.id] ?? field.value]))
@@ -30,6 +33,8 @@ export function ScientificRecipePanel({ runtime, native, edited, onArtifacts }: 
     <h3>Quick commands / registered recipes</h3>
     <div className="scientific-inspector-actions">{[['version', 'Version'], ['configure', 'Configure'], ['build', 'Build'], ['compile-link', 'Compile & link'], ['run', 'Run'], ['test-all', 'Test all']].map(([id, name]) => <button key={id} disabled={!executable || native.busy || native.pending} onClick={() => native.send(runtime.id, 'recipe', { recipeId: id })}>{name}</button>)}</div>
     {(runtime.kind === 'cgal' || runtime.kind === 'vtk' || runtime.kind === 'gmsh') && <div className="scientific-inspector-actions"><button disabled={!executable || native.busy || native.pending} onClick={() => native.send(runtime.id, 'l5-worker')}>Run L5 worker check</button><span>Fixed positive mesh and expected rejection; requires current L0–L4 evidence.</span></div>}
+    {runtime.kind === 'cgal' && <div className="scientific-inspector-actions"><button disabled={!executable || native.busy || native.pending} onClick={() => native.send(runtime.id, 'l5-cgal-orientation')}>Run L5 orientation repair check</button><span>Repairs the authored inward tetrahedron, rejects an open square, and verifies the outward output independently. Requires current L0–L4 evidence.</span></div>}
+    {runtime.kind === 'cgal' && <div className="scientific-inspector-actions"><button disabled={!executable || native.busy || native.pending} onClick={() => native.send(runtime.id, 'l6-cgal-orientation')}>Replay L6 orientation repair</button><span>Replays both fixed cases, requires an exact match to current orientation L5, and independently reloads the positive OBJ.</span></div>}
     {(runtime.kind === 'cgal' || runtime.kind === 'vtk' || runtime.kind === 'gmsh') && <div className="scientific-inspector-actions"><button disabled={!executable || native.busy || native.pending} onClick={() => native.send(runtime.id, 'l6-reproduce')}>Run L6 reproduction check</button><span>Reruns the fixed cases, compares the output SHA-256 with a current L5 run, and reloads the artifact.</span></div>}
     {runtime.kind === 'vtk' && <div className="scientific-inspector-actions"><button disabled={!executable || native.busy || native.pending} onClick={() => native.send(runtime.id, 'l7-math3d-import')}>Run L7 MATH3D handoff</button><span>Converts a current VTK L6 artifact to OBJ and verifies it with MATH3D’s desktop importer.</span></div>}
     {runtime.kind === 'gmsh' && <div className="scientific-inspector-actions"><button disabled={!executable || native.busy || native.pending} onClick={() => native.send(runtime.id, 'l7-gmsh-interop')}>Run L7 VTK → MATH3D handoff</button><span>Checks a current Gmsh surface in both consumers and rejects malformed OBJ.</span></div>}

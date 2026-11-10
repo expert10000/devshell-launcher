@@ -24,10 +24,13 @@ export function useWorkspaceTabs(profileId: string | null, bridge: Bridge | null
   const [state, setState] = useState<State>({ profileId: null, ready: false, tabs: [], activeId: null, error: '' })
   const current = useRef(state)
   const returnTargets = useRef(new Map<string, string>())
+  const [backTarget, setBackTarget] = useState<{ profileId: string | null; tab?: WorkspaceViewTab }>({ profileId: null })
   const activation = useRef(onActivate)
-  activation.current = onActivate
+  useEffect(() => { activation.current = onActivate }, [onActivate])
   function commit(next: State) {
     current.current = next; setState(next)
+    const targetId = next.activeId ? returnTargets.current.get(next.activeId) : undefined
+    setBackTarget({ profileId: next.profileId, tab: next.tabs.find(tab => tab.id === targetId) })
     if (next.ready && next.profileId === profileId) bridge?.postMessage({ type: 'workspace.tabs', action: 'save', profileId,
       state: { version: 1, activeId: next.activeId, tabs: next.tabs.map(tab => ({ id: tab.id, kind: tab.kind, projectId: tab.projectId, repositoryId: tab.repositoryId,
         filePath: tab.filePath, side: tab.side, url: cleanUrl(tab.url), servicePath: tab.servicePath, page: tab.page })) } })
@@ -53,13 +56,20 @@ export function useWorkspaceTabs(profileId: string | null, bridge: Bridge | null
     activation.current(tab)
   }
   const opener = useRef(open)
-  opener.current = open
+  useEffect(() => { opener.current = open })
+  function select(id: string) {
+    if (current.current.profileId !== profileId) return
+    const tab = current.current.tabs.find(item => item.id === id); if (!tab) return
+    const selected = tab.kind === 'files' ? { ...tab, restored: false, activationId: crypto.randomUUID(), revealPath: undefined, sourceLine: undefined } : tab
+    commit({ ...current.current, activeId: id, tabs: current.current.tabs.map(item => item.id === id ? selected : item) }); activation.current(selected)
+  }
 
   useEffect(() => {
     returnTargets.current.clear()
     const empty: State = { profileId, ready: false, tabs: [], activeId: null, error: '' }
-    current.current = empty; setState(empty)
-    if (!bridge || !profileId) return
+    current.current = empty
+    const frame = requestAnimationFrame(() => { if (current.current === empty) setState(empty) })
+    if (!bridge || !profileId) return () => cancelAnimationFrame(frame)
     const requestId = crypto.randomUUID()
     let loaded = false
     const queued: WorkspaceTabInput[] = []
@@ -114,15 +124,9 @@ export function useWorkspaceTabs(profileId: string | null, bridge: Bridge | null
     }
     bridge.addEventListener('message', receive); window.addEventListener('devshell.workspace.open', externalOpen); window.addEventListener('devshell.workspace.select', externalSelect); window.addEventListener('devshell.workspace.layout-restore', restoreLayout)
     bridge.postMessage({ type: 'workspace.tabs', profileId, requestId, action: 'load' })
-    return () => { bridge.removeEventListener('message', receive); window.removeEventListener('devshell.workspace.open', externalOpen); window.removeEventListener('devshell.workspace.select', externalSelect); window.removeEventListener('devshell.workspace.layout-restore', restoreLayout) }
+    return () => { cancelAnimationFrame(frame); bridge.removeEventListener('message', receive); window.removeEventListener('devshell.workspace.open', externalOpen); window.removeEventListener('devshell.workspace.select', externalSelect); window.removeEventListener('devshell.workspace.layout-restore', restoreLayout) }
   }, [profileId, bridge])
 
-  function select(id: string) {
-    if (current.current.profileId !== profileId) return
-    const tab = current.current.tabs.find(item => item.id === id); if (!tab) return
-    const selected = tab.kind === 'files' ? { ...tab, restored: false, activationId: crypto.randomUUID(), revealPath: undefined, sourceLine: undefined } : tab
-    commit({ ...current.current, activeId: id, tabs: current.current.tabs.map(item => item.id === id ? selected : item) }); activation.current(selected)
-  }
   function clearActive() {
     if (current.current.profileId === profileId && current.current.activeId) commit({ ...current.current, activeId: null })
   }
@@ -135,12 +139,10 @@ export function useWorkspaceTabs(profileId: string | null, bridge: Bridge | null
   function update(id: string, changes: Pick<WorkspaceViewTab, 'filePath' | 'side' | 'page'>) {
     if (current.current.profileId === profileId) commit({ ...current.current, tabs: current.current.tabs.map(tab => tab.id === id ? { ...tab, ...changes } : tab) })
   }
-  const backTargetId = state.activeId ? returnTargets.current.get(state.activeId) : undefined
-  const backTarget = state.profileId === profileId ? state.tabs.find(tab => tab.id === backTargetId) : undefined
   function back() {
     const targetId = current.current.activeId ? returnTargets.current.get(current.current.activeId) : undefined
     if (targetId) select(targetId)
   }
   return { tabs: state.profileId === profileId ? state.tabs : [], activeId: state.profileId === profileId ? state.activeId : null,
-    ready: state.profileId === profileId && state.ready, error: state.profileId === profileId ? state.error : '', open, select, clearActive, close, update, back, backTarget }
+    ready: state.profileId === profileId && state.ready, error: state.profileId === profileId ? state.error : '', open, select, clearActive, close, update, back, backTarget: backTarget.profileId === profileId && state.ready ? backTarget.tab : undefined }
 }

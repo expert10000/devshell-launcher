@@ -8,13 +8,16 @@ import { ImageFilePreview } from './ImageFilePreview'
 type Bridge = { postMessage: (message: unknown) => void; addEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void; removeEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void }
 type Side = { file?: FileReference; text?: string; truncated?: boolean; image?: { path: string; mimeType: string; dataUrl: string; size: number }; error?: string; pending?: boolean }
 const empty = { left: {} as Side, right: {} as Side }
-export function ArtifactComparison({ profileId, bridge }: { profileId: string; bridge: Bridge | null }) {
+type Props = { profileId: string; bridge: Bridge | null }
+export function ArtifactComparison(props: Props) {
+  return <ArtifactComparisonContent key={props.profileId} {...props} />
+}
+function ArtifactComparisonContent({ profileId, bridge }: Props) {
   const [pair, setPair] = useState<ComparisonPair>(() => comparisonPair(profileId)); const [open, setOpen] = useState(false)
   const [sides, setSides] = useState(empty); const current = useRef(new Map<string, 'left' | 'right'>())
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const pending = !!sides.left.pending || !!sides.right.pending
   useEffect(() => {
-    setPair(comparisonPair(profileId)); setOpen(false); setSides(empty)
     const selected = (event: Event) => {
       if ((event as CustomEvent<{ profileId: string }>).detail?.profileId !== profileId) return
       clearTimeout(timer.current); current.current.clear(); setPair(comparisonPair(profileId)); setSides(empty); setOpen(true)

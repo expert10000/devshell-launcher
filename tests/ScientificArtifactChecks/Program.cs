@@ -51,6 +51,16 @@ var request = new JsonObject {
 };
 void SaveRequest() => File.WriteAllText(Path.Combine(directory, "request.json"), request.ToJsonString());
 SaveRequest();
+Check(ScientificQualificationRecords.CgalRepairOutputValid(Path.Combine("scientific", "fixtures", "cgal", "closed-tetra.obj")),
+    "fixed outward CGAL repair geometry is accepted");
+Check(!ScientificQualificationRecords.CgalRepairOutputValid(Path.Combine("scientific", "fixtures", "cgal", "orientation", "inward-tetra.obj"))
+    && !ScientificQualificationRecords.CgalRepairOutputValid(Path.Combine("scientific", "fixtures", "cgal", "open-square.obj")),
+    "inward and open CGAL repair outputs are rejected");
+var wrongWinding = Path.Combine(directory, "wrong-winding.obj");
+File.WriteAllText(wrongWinding, File.ReadAllText(Path.Combine("scientific", "fixtures", "cgal", "closed-tetra.obj"))
+    .Replace("f 1 3 2", "f 1 2 3", StringComparison.Ordinal));
+Check(!ScientificQualificationRecords.CgalRepairOutputValid(wrongWinding),
+    "repair output with one reversed zero-volume face is rejected");
 Check(ScientificArtifactFiles.SmokeOutputs("vtk-win-conda", "test-all").SequenceEqual(new[] { "sphere.vtp", "render/vtk-offscreen.png" }), "VTK test-all declares mesh and PNG");
 Check(ScientificArtifactFiles.SmokeOutputs("vtk-win-conda", "run").SequenceEqual(new[] { "sphere.vtp" }), "VTK run declares only its mesh");
 Check(ScientificArtifactFiles.SmokeOutputs("vtk-win-conda", "configure").Length == 0 && ScientificArtifactFiles.SmokeOutputs("cgal-win-conda", "test-all").Length == 0, "other recipes do not acquire VTK outputs");
@@ -496,6 +506,15 @@ Check(ScientificQualificationRecords.ValidRoundTrip(reloadedTetra,"vtk-win-conda
 var changedReload=(JsonObject)reloadedTetra.DeepClone();changedReload["boundaryEdges"]=1;
 Check(!ScientificQualificationRecords.ValidRoundTrip(changedReload,"vtk-win-conda",artifactHash,parserHash),
     "L6 rejects changed reloaded topology");
+var orientationReload=new JsonObject { ["parserVersion"]=1,["format"]="obj",["artifactSha256"]=artifactHash,
+    ["parserSourceSha256"]=parserHash,["points"]=4,["triangles"]=4,
+    ["bounds"]=new JsonArray(0.0,1.0,0.0,1.0,0.0,1.0),["boundaryEdges"]=0,
+    ["nonManifoldEdges"]=0,["closed"]=true,["signedVolume"]=1.0/6.0,["absoluteVolume"]=1.0/6.0 };
+Check(ScientificQualificationRecords.ValidOrientationRoundTrip(orientationReload,artifactHash,parserHash),
+    "orientation L6 accepts independent outward unit tetrahedron reload");
+orientationReload["signedVolume"]=-1.0/6.0;
+Check(!ScientificQualificationRecords.ValidOrientationRoundTrip(orientationReload,artifactHash,parserHash),
+    "orientation L6 rejects inward reload despite matching topology");
 var importedTetra=new JsonObject { ["consumer"]="MATH3D desktop loadSurfaceMeshFromFile",["consumerVersion"]=1,
     ["format"]="obj",["indicesInRange"]=true,["points"]=4,["triangles"]=4,
     ["bounds"]=new JsonArray(-1.0,1.0,-1.0,1.0,-1.0,1.0),["boundaryEdges"]=0,["nonManifoldEdges"]=0,["closed"]=true };

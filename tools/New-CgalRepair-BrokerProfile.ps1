@@ -2,7 +2,8 @@ param(
     [Parameter(Mandatory=$true)][string]$Worktree,
     [Parameter(Mandatory=$true)][string]$Math3DCheckout,
     [string]$Manifest,
-    [string]$Output
+    [string]$Output,
+    [string]$BrokerPython = (Get-Command python -ErrorAction Stop).Source
 )
 
 $ErrorActionPreference = 'Stop'
@@ -48,7 +49,11 @@ $config = [ordered]@{
 $outputPath = [System.IO.Path]::GetFullPath($Output)
 New-Item -ItemType Directory -Path (Split-Path -Parent $outputPath) -Force | Out-Null
 if (Test-Path -LiteralPath $outputPath) { throw "Broker profile already exists: $outputPath" }
+$brokerExecutable = (Resolve-Path -LiteralPath $BrokerPython).Path
+& $brokerExecutable -c 'import psutil'
+if ($LASTEXITCODE -ne 0) { throw 'The broker Python needs psutil to verify worker process cleanup.' }
 $config | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $outputPath -Encoding utf8NoBOM
-& (Join-Path $prefix 'python.exe') (Join-Path $repo 'tools\scientific-broker\broker.py') verify --config $outputPath
+& $brokerExecutable (Join-Path $repo 'tools\scientific-broker\broker.py') verify --config $outputPath
 if ($LASTEXITCODE -ne 0) { throw 'Repair broker profile verification failed.' }
 Write-Host "CONFIG=$outputPath"
+Write-Host "BROKER_PYTHON=$brokerExecutable"

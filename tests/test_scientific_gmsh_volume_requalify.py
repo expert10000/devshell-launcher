@@ -31,6 +31,15 @@ class VolumeRequalificationPlanChecks(unittest.TestCase):
     def test_missing_evidence_requires_the_full_chain(self):
         self.assertEqual(mode_for({'eligible': False, 'candidates': []}), ('full', FULL))
 
+    def test_level_audit_plans_from_records_without_an_l9_candidate(self):
+        levels = [{'level': f'L{index}', 'status': 'current'} for index in range(10)]
+        levels[7]['status'] = 'stale'
+        self.assertEqual(mode_for({'eligible': False, 'levels': levels, 'candidates': []}),
+                         ('resume', RESUME))
+        levels[5]['status'] = 'missing'
+        self.assertEqual(mode_for({'eligible': False, 'levels': levels, 'candidates': []}),
+                         ('full', FULL))
+
     def test_misordered_support_cannot_authorize_a_shortened_chain(self):
         support = [{'level': f'L{index}', 'status': 'current'} for index in range(9)]
         support[0], support[8] = support[8], support[0]

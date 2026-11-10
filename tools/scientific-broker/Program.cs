@@ -271,6 +271,29 @@ static partial class BrokerManifest
                 }
             audit["candidates"] = candidates;
             audit["eligible"] = false;
+            var required = new[] { "runtime.inventory", "python.version", "gmsh.version",
+                "gmsh.volume3d.cube", "gmsh.cpp.compile-link", "mesh.generate3d",
+                "mesh.generate3d", "mesh.generate3d", "mesh.generate3d", "mesh.generate3d" };
+            var levels = new JsonArray();
+            for (var index = 0; index < required.Length; index++)
+            {
+                var level = "L" + index;
+                var selected = runs.SelectMany(run => (run["qualifications"]?.AsArray().OfType<JsonObject>() ?? [])
+                        .Where(record => record["level"]?.GetValue<string>() == level
+                            && record["capabilityId"]?.GetValue<string>() == required[index])
+                        .Select(record => (Run: run, Record: record)))
+                    .OrderByDescending(item => item.Record["status"]?.GetValue<string>() == "current")
+                    .ThenByDescending(item => item.Run["finishedAtUtc"]?.GetValue<string>(), StringComparer.Ordinal)
+                    .FirstOrDefault();
+                levels.Add(new JsonObject { ["level"] = level, ["capabilityId"] = required[index],
+                    ["status"] = selected.Record?["status"]?.GetValue<string>() ?? "missing",
+                    ["runId"] = selected.Run?["runId"]?.DeepClone(),
+                    ["recordId"] = selected.Record?["recordId"]?.DeepClone(),
+                    ["reasons"] = selected.Record?["staleReasons"]?.DeepClone() ?? new JsonArray() });
+            }
+            audit["levels"] = levels;
+            audit["earliestRequiredLevel"] = "L" + Enumerable.Range(0, 10).FirstOrDefault(index =>
+                levels[index]?["status"]?.GetValue<string>() != "current", 9);
         }
         if (volumeFiles is null || !ScientificCapabilityRegistry.IsDeclared("gmsh-win-conda", "mesh.generate3d"))
         {
@@ -306,7 +329,13 @@ static partial class BrokerManifest
             var support = new JsonArray(lower.Select(item => item!.DeepClone()).ToArray());
             support.Add(new JsonObject { ["level"] = "L9", ["capabilityId"] = "mesh.generate3d",
                 ["runId"] = current["runId"]?.DeepClone(), ["recordId"] = current["recordId"]?.DeepClone() });
-            if (audit is not null) audit["eligible"] = true;
+            if (audit is not null)
+            {
+                audit["eligible"] = true;
+                audit["earliestRequiredLevel"] = null;
+                audit["currentRunId"] = current["runId"]?.DeepClone();
+                audit["currentRecordId"] = current["recordId"]?.DeepClone();
+            }
             return new JsonObject {
                 ["runtimeId"] = "gmsh-win-conda", ["capabilityId"] = "mesh.generate3d", ["level"] = "L9",
                 ["scope"] = "fixed public unit-cube tetrahedra", ["sourceRunId"] = current["runId"]?.DeepClone(),

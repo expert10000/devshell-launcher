@@ -41,6 +41,13 @@ def audit(installed, math3d, profile):
 def mode_for(audited):
     if audited.get('eligible'):
         return 'current', ()
+    levels = audited.get('levels')
+    if isinstance(levels, list) and len(levels) == 10:
+        if all(isinstance(item, dict) and item.get('level') == f'L{index}'
+               for index, item in enumerate(levels)):
+            earliest = next((index for index, item in enumerate(levels)
+                             if item.get('status') != 'current'), 9)
+            return ('full', FULL) if earliest <= 6 else ('resume', RESUME)
     candidates = audited.get('candidates') or []
     if not candidates:
         return 'full', FULL

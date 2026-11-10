@@ -7,6 +7,8 @@ using BatchLauncher;
 
 static partial class BrokerManifest
 {
+    static readonly string[] VolumeProductFiles = ["volume.m3dt", "exporter.json", "handoff.json",
+        "tetra-document.json", "tetra-resource.m3dt", "viewer.png", "regression.json", "roundtrip.json"];
     static string Hash(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
     static string HashFile(string path) => Hash(File.ReadAllBytes(path));
     static string Digest(JsonNode? node) => Hash(Encoding.UTF8.GetBytes(node?.ToJsonString() ?? "null"));
@@ -314,12 +316,27 @@ static partial class BrokerManifest
             var evidence = result["l9GmshVolumeEvidence"];
             var msh = Path.Combine(directory, "volume", "positive-a", "cube.msh");
             var resource = Path.Combine(directory, "product", "volume.m3dt");
+            var hashes = evidence?["artifactHashes"] as JsonObject;
+            var productRoot = Path.Combine(directory, "product");
             if (evidence?["productContractSha256"]?.GetValue<string>() != Digest(volumeContract)
                 || record["consumerSourceSha256"]?.GetValue<string>() != Digest(volumeFiles)
                 || record["consumerContractSha256"]?.GetValue<string>() != Digest(volumeContract)
                 || !File.Exists(msh) || !File.Exists(resource)
                 || HashFile(msh) != evidence["sourceMshSha256"]?.GetValue<string>()
-                || HashFile(resource) != evidence["artifactHashes"]?["volume.m3dt"]?.GetValue<string>()) continue;
+                || hashes?.Count != VolumeProductFiles.Length
+                || VolumeProductFiles.Any(name => !File.Exists(Path.Combine(productRoot, name))
+                    || HashFile(Path.Combine(productRoot, name)) != hashes[name]?.GetValue<string>())
+                || HashFile(resource) != hashes["tetra-resource.m3dt"]?.GetValue<string>()
+                || evidence["exporter"]?["sourceMshSha256"]?.GetValue<string>() != evidence["sourceMshSha256"]?.GetValue<string>()
+                || evidence["exporter"]?["resourceSha256"]?.GetValue<string>() != hashes["volume.m3dt"]?.GetValue<string>()
+                || evidence["regression"]?["regression"]?.GetValue<string>() != "passed"
+                || evidence["regression"]?["tamperRejected"]?.GetValue<bool>() != true
+                || evidence["regression"]?["documentSha256"]?.GetValue<string>() != hashes["tetra-document.json"]?.GetValue<string>()
+                || evidence["regression"]?["viewerSha256"]?.GetValue<string>() != hashes["viewer.png"]?.GetValue<string>()
+                || evidence["roundtrip"]?["verdict"]?.GetValue<string>() != "passed"
+                || evidence["roundtrip"]?["resourceSha256"]?.GetValue<string>() != hashes["volume.m3dt"]?.GetValue<string>()
+                || evidence["regression"]?["viewerState"]?.GetValue<string>() != "mounted"
+                || evidence["regression"]?["blueMeshPixels"]?.GetValue<int>() <= 1000) continue;
             var lower = record["lowerQualification"]?["records"] as JsonArray;
             var currentIds = CurrentIds(runs, "L0", "L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9");
             if (lower is not { Count: 9 } || lower.Where((item, index) =>

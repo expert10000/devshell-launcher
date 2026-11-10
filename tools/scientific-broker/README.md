@@ -50,6 +50,10 @@ python tools/scientific-broker/broker.py serve --config <config.json> --port 876
 
 For `mesh.remesh`, `POST /v1/jobs` also requires `caseId` and `timeoutSeconds`. The case fixes the edge target, iteration count, input hash, and expected guard decision. Accepted jobs transport `remeshed.obj`, `guarded.json`, and `handoff.json`; volume-loss cases end `rejected` with no published mesh. Promotion checks current certification, saved guard and handoff, output hash, and MATH3D source identity. Run the opt-in live check with `DEVSHELL_REMESH_BROKER_CONFIG=<config.json> python tests/test_scientific_remesh_broker.py`.
 
+## Three-capability release
+
+`three_capability_release.py run --math3d-root <checkout>` creates one short, isolated Git worktree at the current commit. It builds DevShell, requalifies remesh, repair and fixed-cube volume through the managed desktop actions, exports their current L9 records, runs each broker/MATH3D smoke, and writes a hash-sealed coexistence record under that worktree's `.scientific/three-capability-release`. The worktree and evidence remain for later verification. Run `three_capability_release.py verify --record <coexistence.json>` to re-export from the same checkout and refuse source, environment, lower-support, broker, product, or artifact drift.
+
 - `GET /v1/providers`: certified provider and capability discovery.
 - `POST /v1/jobs`: accept `schemaVersion`, `runtimeId`, `capabilityId`, `input: {path, sha256}`, and optional `timeoutSeconds` (1–120). The input must be a bounded registered dataset with the exact hash of the selected L9 fixture: OBJ for CGAL or `.geo` for Gmsh.
 - `GET /v1/jobs/{id}`: state (`running`, `succeeded`, `partial`, `failed`, `cancelled`, `timed-out`, `resource-exhausted`), stage, progress, diagnostics, and verified artifact metadata.

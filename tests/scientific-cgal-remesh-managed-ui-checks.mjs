@@ -87,7 +87,8 @@ try {
     console.log(`mesh.remesh@L${level}: ${result.runId}`)
   }
   await main.getByRole('navigation', { name: 'Scientific runtime sections' }).getByRole('button', { name: 'History', exact: true }).click()
-  assert.ok(await main.getByText('mesh.remesh', { exact: true }).count(), 'Remesh missing from qualification History')
+  await main.getByRole('region', { name: 'Scientific run history' }).getByRole('button', { name: /Load history|Refresh history/ }).click()
+  await main.getByText('mesh.remesh', { exact: true }).first().waitFor()
 } finally {
   await browser.close()
 }

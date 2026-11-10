@@ -8,6 +8,7 @@ export function ScientificCgalRecipes({ runtime, native, edited }: {
   runtime: RuntimeProfile; native: ReturnType<typeof useScientificRuntime>; edited: boolean
 }) {
   const [operation, setOperation] = useState('validate')
+  const repair = operation.startsWith('fill-')
   const [inputId, setInputId] = useState('')
   const [targetEdge, setTargetEdge] = useState('0.1')
   const [iterations, setIterations] = useState('3')
@@ -15,7 +16,7 @@ export function ScientificCgalRecipes({ runtime, native, edited }: {
   const [outputName, setOutputName] = useState('mesh-result.obj')
   const [notice, setNotice] = useState('')
   useEffect(() => { setInputId(''); setNotice('') }, [runtime.id])
-  const inputs = (native.datasets?.entries ?? []).filter(item => /\.(obj|stl|ply|off)$/i.test(item.path))
+  const inputs = (native.datasets?.entries ?? []).filter(item => repair ? /\.obj$/i.test(item.path) : /\.(obj|stl|ply|off)$/i.test(item.path))
   const presetInput = inputs.find(item => !item.expectedProblem)
   const selected = inputs.find(item => item.id === inputId)
   const edge = Number(targetEdge), count = Number(iterations)
@@ -23,17 +24,19 @@ export function ScientificCgalRecipes({ runtime, native, edited }: {
   const valid = !!selected && /^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,99}\.obj$/.test(outputName) &&
     (operation !== 'remesh' || (targetEdge.trim() !== '' && iterations.trim() !== '' && Number.isFinite(edge) && edge > 0 && edge <= 1000000 && Number.isInteger(count) && count >= 1 && count <= 10))
   const executable = runtime.execution === 'windows-native' && runtime.id === 'cgal-win-conda' && !edited
-  const argv = [operation, selected?.path ?? '<input fixture>', `<new-run-folder>/${outputName}`, operation === 'remesh' ? targetEdge : '0.1', operation === 'remesh' ? iterations : '1', operation === 'remesh' && preserveBoundary ? '1' : '0']
+  const argv = [operation, selected?.path ?? '<input fixture>', `<new-run-folder>/${outputName}`,
+    ...(repair ? [] : [operation === 'remesh' ? targetEdge : '0.1', operation === 'remesh' ? iterations : '1', operation === 'remesh' && preserveBoundary ? '1' : '0'])]
   const command = operation === 'validate'
     ? "& 'runtime-lab.exe' run 'cgal-win-conda' --manifest-root '<registered-manifests>' --prefix '<CGAL-prefix>' --source-root '<shipped-source>' --request '<new-run-folder>/request.json' --worker '<profile-build-cache>/Release/devshell_cgal_worker.exe' --run-id '<assigned-run-id>' --output '<new-run-folder>'"
-    : `& 'devshell_cgal_worker.exe' ${argv.map(shellQuote).join(' ')}`
+    : `& '${repair ? 'devshell_cgal_hole_repair.exe' : 'devshell_cgal_worker.exe'}' ${argv.map(shellQuote).join(' ')}`
   const recipe = {
     schemaVersion: 1, id: `cgal.${operation}`, runtime: runtime.id,
     steps: [{ executable: 'cmake', argv: ['-S', '<shipped cgal-worker>', '-B', '<profile build cache>', '-G', 'Visual Studio 17 2022', '-A', 'x64', '-DCMAKE_PREFIX_PATH=<installed CGAL prefix>/Library'] },
       { executable: 'cmake', argv: ['--build', '<profile build cache>', '--config', 'Release', '--parallel', '1'] },
       operation === 'validate'
         ? { executable: 'runtime-lab.exe', argv: ['run', 'cgal-win-conda', '--manifest-root', '<registered-manifests>', '--prefix', '<CGAL-prefix>', '--source-root', '<shipped-source>', '--request', '<new-run-folder>/request.json', '--worker', '<profile build cache>/Release/devshell_cgal_worker.exe', '--run-id', '<assigned-run-id>', '--output', '<new-run-folder>'] }
-        : { executable: '<profile build cache>/Release/devshell_cgal_worker.exe', argv }],
+        : { executable: `<profile build cache>/Release/${repair ? 'devshell_cgal_hole_repair.exe' : 'devshell_cgal_worker.exe'}`, argv,
+            adapter: repair ? 'tools/scientific-cgal-hole-repair-worker.py' : 'tools/scientific-cgal-worker.py' }],
     parameters, artifacts: [outputName, 'results.json', 'invocation.json', 'full.log'],
     timeoutSecondsPerStep: [180, 180, 120], execution: 'owned argv-based processes; paths resolved by the native runner',
   }
@@ -53,10 +56,16 @@ export function ScientificCgalRecipes({ runtime, native, edited }: {
     <div className="scientific-inspector-actions">
       <button aria-pressed={operation === 'validate'} onClick={() => setOperation('validate')}>Validate</button>
       <button aria-pressed={operation === 'remesh'} onClick={() => setOperation('remesh')}>Isotropic Remesh</button>
-      {['Repair', 'Boolean', 'Simplify', 'AABB', 'Distance', 'Intersection'].map(name => <button key={name} disabled title="This CGAL worker operation is not implemented">{name}</button>)}
+      <button aria-pressed={repair} onClick={() => setOperation('fill-one-hole')}>Repair holes</button>
+      {['Boolean', 'Simplify', 'AABB', 'Distance', 'Intersection'].map(name => <button key={name} disabled title="This CGAL worker operation is not implemented">{name}</button>)}
     </div>
     <div className="scientific-runtime-fields">
       <label>Input dataset<select aria-label="CGAL input dataset" value={inputId} onChange={event => setInputId(event.target.value)}><option value="">Load and select a duplicated mesh...</option>{inputs.map(item => <option key={item.id} value={item.id}>{item.category} / {item.name}{item.expectedProblem ? ' / expected problem' : ''}</option>)}</select></label>
+      {repair && <label>Boundary loops<select aria-label="CGAL hole repair scope" value={operation} onChange={event => setOperation(event.target.value)}>
+        <option value="fill-one-hole">One three-edge loop</option>
+        <option value="fill-quad-hole">One four-edge loop</option>
+        <option value="fill-two-quad-holes">Two four-edge loops</option>
+      </select></label>}
       {operation === 'remesh' && <>
         <label>Target edge length (mesh units)<input aria-label="CGAL target edge length" type="number" min="0.000001" max="1000000" step="any" value={targetEdge} onChange={event => setTargetEdge(event.target.value)} /></label>
         <label>Iterations<input aria-label="CGAL iterations" type="number" min="1" max="10" step="1" value={iterations} onChange={event => setIterations(event.target.value)} /></label>
@@ -65,7 +74,7 @@ export function ScientificCgalRecipes({ runtime, native, edited }: {
       <label>Output filename<input aria-label="CGAL output filename" value={outputName} onChange={event => setOutputName(event.target.value)} spellCheck={false} /></label>
     </div>
     <div className="scientific-inspector-actions">
-      <button disabled={!executable || !valid || native.busy || native.pending} onClick={() => native.send(runtime.id, 'cgal-recipe', { recipeId: `cgal.${operation}`, parameters })}>Run {operation === 'remesh' ? 'remesh' : 'validation'} recipe</button>
+      <button disabled={!executable || !valid || native.busy || native.pending} onClick={() => native.send(runtime.id, 'cgal-recipe', { recipeId: `cgal.${operation}`, parameters })}>Run {repair ? 'hole repair' : operation === 'remesh' ? 'remesh' : 'validation'} recipe</button>
       <button onClick={() => copy(JSON.stringify(request, null, 2))}>Copy invocation</button>
     </div>
     {selected && <details><summary>Dataset provenance</summary><p><code>{selected.sourceRoot} / {selected.sourcePath}</code></p><p>SHA-256 <code>{selected.sha256}</code></p></details>}
@@ -76,7 +85,7 @@ export function ScientificCgalRecipes({ runtime, native, edited }: {
       <button onClick={() => copy(command)}>Copy command template</button>
       <button onClick={() => copy(JSON.stringify(recipe, null, 2))}>Copy recipe</button>
     </div>
-    <p className="scientific-runtime-note">Validation rejects unreadable/non-manifold inputs, degenerate triangles, and self-intersections. Polygon faces are triangulated explicitly. Open surfaces are allowed; no implicit soup repair is performed. Protected boundaries can gain vertices from edge splitting. Inputs are limited to 100,000 faces and 32 MiB; very small edge targets are rejected by a conservative geometry budget. Local validation/remesh acceptance cases have passed; each new run records its own evidence rather than claiming every CGAL capability is ready.</p>
+    <p className="scientific-runtime-note">Hole repair accepts registered OBJ triangle manifolds with exactly the selected boundary loops: one three-edge, one four-edge, or two four-edge loops. It requires one connected component and checks the saved output is closed with outward positive volume. It does not provide general soup repair. Validation/remesh keep their existing limits; all inputs are capped at 32 MiB.</p>
     {notice && <p role="status">{notice}</p>}
   </section>
 }

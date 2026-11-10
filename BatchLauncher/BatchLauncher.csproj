@@ -80,6 +80,7 @@
     <Content Include="..\scientific\fixtures\cgal-repair-bounded\*.obj" Link="scientific\fixtures\cgal-repair-bounded\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\scientific\fixtures\cgal\closed-tetra.obj" Link="scientific\fixtures\cgal\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\scientific\fixtures\cgal-repair-qualification\manifest.json" Link="scientific\fixtures\cgal-repair-qualification\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\scientific\fixtures\cgal-repair-qualification\product-contract.v1.json" Link="scientific\fixtures\cgal-repair-qualification\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\tools\runtime-lab\RuntimeLab.csproj" ReferenceOutputAssembly="false" />

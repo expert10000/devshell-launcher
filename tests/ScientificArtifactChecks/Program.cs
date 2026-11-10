@@ -31,6 +31,16 @@ void Reject(Action action, string label)
     throw new Exception(label);
 }
 JsonElement Element(JsonNode node) => JsonSerializer.SerializeToElement(node);
+var contractRoot=Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,"../../../../.."));
+var repairProductContract=ScientificRepairProductContract.Load(contractRoot);
+Check(repairProductContract["cases"]?.AsArray().Count==4 && repairProductContract["artifacts"]?.AsArray().Count==9,
+    "repair product contract pins four cases and nine artifacts");
+var changedProductCase=(JsonObject)repairProductContract.DeepClone();changedProductCase["cases"]![1]!["recipeId"]="cgal.fill-one-hole";
+Reject(()=>ScientificRepairProductContract.Validate(changedProductCase),"repair product contract rejects a changed case recipe");
+var changedProductArtifact=(JsonObject)repairProductContract.DeepClone();changedProductArtifact["artifacts"]![4]="product/unverified.m3dm";
+Reject(()=>ScientificRepairProductContract.Validate(changedProductArtifact),"repair product contract rejects a changed M3DM artifact");
+var changedProductConsumer=(JsonObject)repairProductContract.DeepClone();changedProductConsumer["consumerSources"]![5]="renderer/src/unknown.tsx";
+Reject(()=>ScientificRepairProductContract.Validate(changedProductConsumer),"repair product contract rejects a changed viewer source");
 var legacy = new JsonObject {
     ["runId"] = new string('a', 32), ["profileId"] = "test-profile", ["runtimeId"] = "vtk-win-conda", ["recipeId"] = "test-all",
     ["state"] = "succeeded", ["artifact"] = "sphere.vtp", ["artifacts"] = new JsonArray(),

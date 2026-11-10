@@ -3,6 +3,7 @@
   <ItemGroup>
     <Compile Include="../../BatchLauncher/ScientificMeshImports.cs" Link="ScientificMeshImports.cs" />
     <Compile Include="../../BatchLauncher/ScientificRepairFixtures.cs" Link="ScientificRepairFixtures.cs" />
+    <Compile Include="../../BatchLauncher/ScientificRepairProductContract.cs" Link="ScientificRepairProductContract.cs" />
     <Compile Include="../../BatchLauncher/ScientificBooleanReplay.cs" Link="ScientificBooleanReplay.cs" />
     <Compile Include="../../BatchLauncher/ScientificBooleanParameters.cs" Link="ScientificBooleanParameters.cs" />
     <Compile Include="../../BatchLauncher/ScientificMath3DPreparation.cs" Link="ScientificMath3DPreparation.cs" />

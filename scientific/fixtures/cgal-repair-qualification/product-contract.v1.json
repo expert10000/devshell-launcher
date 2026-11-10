@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "cgal-repair-math3d-product-v1",
+  "capabilityId": "mesh.repair",
+  "level": "L9",
+  "referenceRecipe": "l8.cgal-repair",
+  "fixtureManifest": "scientific/fixtures/cgal-repair-qualification/manifest.json",
+  "fixtureManifestSha256": "0d2e519f1ac035ff1c269bfc4e410ad7d6813e416d6acd796b60caaed6534d5a",
+  "cases": [
+    { "caseId": "triangle", "recipeId": "cgal.fill-one-hole", "output": "repaired.obj" },
+    { "caseId": "square", "recipeId": "cgal.fill-quad-hole", "output": "repaired.obj" },
+    { "caseId": "two-squares", "recipeId": "cgal.fill-two-quad-holes", "output": "repaired.obj" },
+    { "caseId": "pentagon", "recipeId": "cgal.fill-bounded-holes", "output": "repaired.obj" }
+  ],
+  "artifacts": [
+    "handoff.json", "math3d-consumed.json", "product/repair-mesh-document.json",
+    "product/repair-mesh-resource.bin", "product/repaired.m3dm", "product/product.json",
+    "product/roundtrip.json", "product/viewer.png", "product/viewer.json"
+  ],
+  "consumerSources": [
+    "renderer/src/mesh/surfaceMesh.ts", "renderer/src/mesh/meshDocumentAdapter.ts",
+    "renderer/src/mesh/meshResourceStore.ts", "packages/core/src/meshDocument.ts",
+    "src/main/python/nativeCgalProtocol.ts", "renderer/src/workspace/MeshDocumentViewport.tsx"
+  ],
+  "verification": {
+    "geometry": "oriented-faces-bounds-area-volume",
+    "viewer": "MeshDocumentViewport",
+    "negative": "changed-m3dm-rejected",
+    "comparisonTolerance": 0.00001
+  }
+}

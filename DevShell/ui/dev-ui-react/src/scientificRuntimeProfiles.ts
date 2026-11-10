@@ -63,6 +63,8 @@ export interface ScientificRunResult {
   operation?: string
   repairAudit?: { retainedFaces: number; addedFaces: number; boundaryEdgesCovered: number; patchSha256: string }
   repairEvidence?: { boundaryLoopsBefore: number; boundaryEdgesBefore: number; boundaryLoopEdgeCounts: number[]; holesFilled: number; patchFaces: number; outputClosed: boolean; outwardVolume: number }
+    repairQualificationEvidence?: { suiteId: string; capabilityId: string; cases: { caseId: string; state: string; artifactSha256?: string; outputAbsent?: boolean }[] }
+    repairReproductionEvidence?: { suiteId: string; verdict: string; comparison: string; baseline: { runId: string; recordId: string }; cases: { caseId: string; state: string; artifactSha256?: string; outputAbsent?: boolean }[] }
   sourceRunId?: string
   handoff?: { verdict: string; outputSha256: string; importerSourceSha256: string; consumer: { points: number; triangles: number; boundaryEdges: number; signedVolume: number } }
   repairProduct?: { verdict: string; documentSha256: string; resourceSha256: string; m3dmSha256: string; documentId: string; structuralHash: string; points: number; triangles: number }

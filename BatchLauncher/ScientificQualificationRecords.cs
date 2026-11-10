@@ -861,6 +861,20 @@ public static partial class ScientificQualificationRecords
             if (capability != null && declaration?["capability"]?.GetValue<string>() == capability && hash != null)
                 Add(capability, "L6", "l6.reproduce", hash, result["l6Evidence"]?["lowerQualification"]);
         }
+        else if (recipeId == "l6.cgal-repair" && runtimeId == "cgal-win-conda"
+            && manifest["qualificationRecipes"] is JsonArray repairL6Recipes)
+        {
+            var declaration = repairL6Recipes.OfType<JsonObject>().FirstOrDefault(item =>
+                item["id"]?.GetValue<string>() == "l6.cgal-repair"
+                && item["readinessLevel"]?.GetValue<string>() == "L6"
+                && item["capability"]?.GetValue<string>() == "mesh.repair"
+                && item["referenceRecipe"]?.GetValue<string>() == "l5.cgal-repair"
+                && item["comparison"]?.GetValue<string>() == "sha256-exact");
+            var hash = RepairL6Hash(directory, result, components!);
+            if (declaration != null && hash != null)
+                Add("mesh.repair", "L6", "l6.cgal-repair", hash,
+                    result["repairReproductionEvidence"]?["lowerQualification"]);
+        }
         else if (recipeId == "l6.gmsh-volume" && manifest["qualificationRecipes"] is JsonArray volumeL6Recipes)
         {
             var declaration = volumeL6Recipes.OfType<JsonObject>().FirstOrDefault(item =>
@@ -1129,6 +1143,16 @@ public static partial class ScientificQualificationRecords
             if (record["level"]?.GetValue<string>() == "L6")
             {
                 var sourceResult = JsonNode.Parse(result.GetRawText()) as JsonObject;
+                if (record["evidenceId"]?.GetValue<string>() == "l6.cgal-repair")
+                {
+                    if (sourceResult == null
+                        || record["capabilityId"]?.GetValue<string>() != "mesh.repair"
+                        || record["lowerQualification"]?.ToJsonString() != sourceResult["repairReproductionEvidence"]?["lowerQualification"]?.ToJsonString()
+                        || record["evidenceSha256"]?.GetValue<string>() != RepairL6Hash(directory, sourceResult,
+                            fingerprint!["components"]!.AsObject()))
+                        throw new InvalidDataException("CGAL repair L6 evidence changed.");
+                    continue;
+                }
                 if (record["evidenceId"]?.GetValue<string>() == "l6.gmsh-volume")
                 {
                     if (sourceResult == null

@@ -175,3 +175,7 @@ Source implemented; this revision has NOT been rebuilt, executed, tested, or pus
 - Native Load comparison passed hash/scoped-file checks and displayed OBJ input plus VTP output. Both WebGL views rendered; wireframe toggled both, and a keyboard orbit in the input canvas rotated both cameras. Full statistics showed 4 points/4 triangles before and after, with zero boundary/non-manifold edges.
 - Switching to CGAL correctly displayed no managed run rather than showing VTK artifacts. Returning to the cached VTK view was not completed because the target window bounds/overlap changed; no input was sent to the overlapping Codex window.
 - Remaining validation: managed CGAL UI pipeline with the JSON wrapper, drag/zoom/reset, profile switching, mobile/no-WebGL fallback, native timeout/cancellation result finalization, modified-artifact UI rejection, and compiler/render evidence UI loading. Standalone suites passed 22/22 before the report-only fix, as recorded above. No push.
+
+## CGAL repair qualification path (2026-11-10)
+
+The scoped managed hole-repair path now has pinned, locally registered fixtures and distinct `mesh.repair` L5/L6 recipes. L5 runs four positive repairs and two no-output rejections with saved request/result and artifact hashes. L6 replays the six cases against a current L5 reference and requires exact output and patch hashes. Record issuance verifies the saved evidence and current L0–L4 support. A live target-machine run is still required to establish current L5/L6 records; the path does not grant validation, interop, or product levels.

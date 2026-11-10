@@ -13,6 +13,12 @@ Import an OBJ dataset through Scientific, select the installed Windows Native CG
 
 The input must be a connected triangle manifold with the selected boundary loops. The worker rejects degenerate faces and self-intersections. The adapter measures the saved OBJ independently and requires the expected face count, closed boundary, one component, positive volume, and agreement with the native evidence before reporting `mesh.repair`. It also verifies that every original oriented triangle remains and the patch covers exactly the original rim. The bounded recipe does not handle arbitrary polygon soup or imply L5–L9 qualification.
 
+## Repair L5 and L6 qualification path
+
+The **Load repair fixtures** action registers the pinned CC0 fixture pack under `scientific/fixtures/cgal-repair-qualification/`. The manifest and five OBJ hashes are checked before registration. **Run repair L5 qualification** requires current CGAL L0–L4 records and registered copies, then runs the four repairs above plus closed-mesh and wrong-operation rejections through the managed adapter. It saves each child request, result, artifact hash and audit, along with the fixture manifest and linked lower-level records. A `mesh.repair@L5` record is issued only when the saved six-case evidence verifies.
+
+**Reproduce repair L6** requires a current repair L5 record and the same current L0–L4 support. It replays all six cases, compares the four output and patch hashes byte-for-byte and checks that both rejections still have no output. The saved verifier reopens the L5 reference and candidate evidence before issuing a `mesh.repair@L6` record. These levels apply only to `mesh.repair`; validation, interoperability and product records are separate. Source changes can make earlier support stale, so the new path must be run on the target machine before claiming a current qualification.
+
 For a successful repair in History, **Save and verify MATH3D document** starts a separate managed job. It rechecks the saved source and result hashes, reruns the patch audit, loads the repaired OBJ through MATH3D's actual desktop mesh importer, and compares topology, bounds, area, and volume. It saves a Mesh document, binary resource and `.m3dm`, reopens them with MATH3D, independently parses the M3DM with Python, and mounts the reopened document in the real Mesh viewport. The new run keeps the document, resource, M3DM, JSON evidence and viewer screenshot; the source run remains read-only. This product check is separate from repair L5–L9 qualification and broker certification.
 
 To replay the managed adapter acceptance on a machine with the CGAL prefix and built worker:
@@ -29,7 +35,7 @@ python tools/scientific-cgal-managed-repair-acceptance.py `
   --math3d-checkout $Math3D
 ```
 
-The replay uses copied authored fixtures for all four positive recipes and checks MATH3D import for each. It also checks that a wrong operation and a changed dataset hash produce failed managed results without an output artifact. Omit `--math3d-checkout` to test only the managed repair adapter. The report and its run directories remain under the selected output root.
+The replay uses copied authored fixtures for all four positive recipes and checks MATH3D import for each. It also checks that a closed mesh, wrong operation and changed dataset hash produce failed managed results without an output artifact. Omit `--math3d-checkout` to test only the managed repair adapter. The report and its run directories remain under the selected output root.
 
 To verify saved MATH3D documents, independent M3DM reload and viewer regression for all four cases, pass that replay's `acceptance.json` to:
 

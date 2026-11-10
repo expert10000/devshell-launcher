@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Text.Json;
 
 namespace BatchLauncher;
 
@@ -124,6 +125,88 @@ public static partial class ScientificQualificationRecords
         }
         catch (Exception error) when (error is IOException or InvalidOperationException or ArgumentException
             or System.Text.Json.JsonException or UnauthorizedAccessException or KeyNotFoundException)
+        {
+            return null;
+        }
+    }
+
+    private static string? RepairL6Hash(string directory, JsonObject result, JsonObject components)
+    {
+        try
+        {
+            if (result["runtimeId"]?.GetValue<string>() != "cgal-win-conda"
+                || result["recipeId"]?.GetValue<string>() != "l6.cgal-repair"
+                || result["state"]?.GetValue<string>() != "succeeded"
+                || result["repairReproductionEvidence"] is not JsonObject evidence
+                || result["repairQualificationEvidence"] is not JsonObject candidate
+                || evidence["suiteId"]?.GetValue<string>() != "cgal-repair-reproduce-v1"
+                || evidence["capabilityId"]?.GetValue<string>() != "mesh.repair"
+                || evidence["comparison"]?.GetValue<string>() != "sha256-exact"
+                || evidence["verdict"]?.GetValue<string>() != "matched"
+                || evidence["cases"]?.ToJsonString() != candidate["cases"]?.ToJsonString()
+                || evidence["lowerQualification"]?["records"] is not JsonArray lower || lower.Count != 6
+                || candidate["lowerQualification"]?["records"] is not JsonArray candidateLower || candidateLower.Count != 5)
+                return null;
+            for (var i = 0; i < 5; i++)
+                if (lower[i]?.ToJsonString() != candidateLower[i]?.ToJsonString()) return null;
+            var candidateAsL5 = (JsonObject)result.DeepClone();
+            candidateAsL5["recipeId"] = "l5.cgal-repair";
+            var candidateHash = RepairL5Hash(directory, candidateAsL5, components);
+            if (candidateHash == null || candidateHash != evidence["candidateL5EvidenceSha256"]?.GetValue<string>())
+                return null;
+            var evidencePath = Path.Combine(directory, "repair-l6-evidence.json");
+            if (!File.Exists(evidencePath) || new FileInfo(evidencePath).Length > 262144
+                || JsonNode.Parse(File.ReadAllText(evidencePath))?.ToJsonString() != evidence.ToJsonString()
+                || result["artifacts"] is not JsonArray artifacts
+                || !artifacts.Any(item => item?["path"]?.GetValue<string>() == "repair-l6-evidence.json"
+                    && item?["sha256"]?.GetValue<string>() == ScientificArtifactFiles.Hash(evidencePath))) return null;
+            if (evidence["baseline"] is not JsonObject baseline) return null;
+            var folder = baseline["folderId"]?.GetValue<string>();
+            var runId = baseline["runId"]?.GetValue<string>();
+            var recordId = baseline["recordId"]?.GetValue<string>();
+            if (folder is not { Length: 32 } || !folder.All(Uri.IsHexDigit)
+                || runId is not { Length: 32 } || !runId.All(Uri.IsHexDigit)
+                || recordId is not { Length: 64 } || !recordId.All(Uri.IsHexDigit)
+                || lower[5]?["runId"]?.GetValue<string>() != runId
+                || lower[5]?["recordId"]?.GetValue<string>() != recordId
+                || lower[5]?["capabilityId"]?.GetValue<string>() != "mesh.repair"
+                || lower[5]?["level"]?.GetValue<string>() != "L5") return null;
+            var baselineDirectory = Path.Combine(Path.GetDirectoryName(directory)!, folder);
+            var baselinePath = Path.Combine(baselineDirectory, "results.json");
+            if (!File.Exists(baselinePath) || new FileInfo(baselinePath).Length > 1048576) return null;
+            using var baselineDocument = JsonDocument.Parse(File.ReadAllText(baselinePath));
+            var saved = baselineDocument.RootElement;
+            if (saved.GetProperty("runId").GetString() != runId
+                || saved.GetProperty("profileId").GetString() != result["profileId"]?.GetValue<string>()
+                || saved.GetProperty("runtimeId").GetString() != "cgal-win-conda"
+                || saved.GetProperty("recipeId").GetString() != "l5.cgal-repair"
+                || saved.GetProperty("state").GetString() != "succeeded"
+                || saved.GetProperty("runFingerprintSha256").GetString() != baseline["runFingerprintSha256"]?.GetValue<string>()
+                || !Verify(baselineDirectory, saved).OfType<JsonObject>().Any(item =>
+                    item["recordId"]?.GetValue<string>() == recordId
+                    && item["capabilityId"]?.GetValue<string>() == "mesh.repair"
+                    && item["level"]?.GetValue<string>() == "L5")) return null;
+            var reference = JsonNode.Parse(saved.GetRawText())?["repairQualificationEvidence"];
+            if (reference is not JsonObject
+                || reference["fixtureManifestSha256"]?.GetValue<string>() != candidate["fixtureManifestSha256"]?.GetValue<string>()
+                || reference["cases"] is not JsonArray baselineCases || baselineCases.Count != 6
+                || evidence["cases"] is not JsonArray candidateCases || candidateCases.Count != 6
+                || Digest(baselineCases.ToJsonString()) != baseline["casesSha256"]?.GetValue<string>()) return null;
+            for (var i = 0; i < 6; i++)
+            {
+                var first = baselineCases[i]; var second = candidateCases[i];
+                if (first?["caseId"]?.GetValue<string>() != second?["caseId"]?.GetValue<string>()
+                    || first?["recipeId"]?.GetValue<string>() != second?["recipeId"]?.GetValue<string>()
+                    || first?["inputSha256"]?.GetValue<string>() != second?["inputSha256"]?.GetValue<string>()
+                    || first?["state"]?.GetValue<string>() != second?["state"]?.GetValue<string>()
+                    || first?["artifactSha256"]?.GetValue<string>() != second?["artifactSha256"]?.GetValue<string>()
+                    || first?["patchSha256"]?.GetValue<string>() != second?["patchSha256"]?.GetValue<string>()
+                    || first?["outputAbsent"]?.ToJsonString() != second?["outputAbsent"]?.ToJsonString()) return null;
+            }
+            return Digest(evidence.ToJsonString());
+        }
+        catch (Exception error) when (error is IOException or InvalidOperationException or ArgumentException
+            or JsonException or UnauthorizedAccessException or KeyNotFoundException)
         {
             return null;
         }

@@ -19,8 +19,10 @@ class DiagnosticChecks(unittest.TestCase):
             self.assertEqual(len(report['cases']), 6)
             self.assertEqual(verify(target)['verdict'], 'measured')
             self.assertFalse(report['cases'][-1]['volumeEligible'])
+            self.assertLess(report['cases'][-1]['surfaceSamples']
+                            ['targetVerticesToSource']['maximumDistance'], 1e-8)
             self.assertGreater(report['cases'][-1]['surfaceSamples']
-                               ['targetVerticesToSource']['maximumDistance'], 0)
+                               ['targetFacetSamplesToSource']['maximumDistance'], 0.01)
             output = Path(os.environ['SCIENTIFIC_CGAL_FIDELITY_REPORT']).parent / \
                 report['cases'][-1]['name'] / 'output.obj'
             original = output.read_bytes()

@@ -17,7 +17,7 @@ class SurfaceSampleChecks(unittest.TestCase):
             target.write_text('v 0 0 1\nv 1 0 1\nv 0 1 1\nf 1 2 3\n', encoding='utf-8')
             result = surface_samples(source, target)
             for direction in result.values():
-                self.assertEqual(direction['samples'], 3)
+                self.assertGreaterEqual(direction['samples'], 3)
                 self.assertAlmostEqual(direction['maximumDistance'], 1)
                 self.assertAlmostEqual(direction['rootMeanSquareDistance'], 1)
             self.assertAlmostEqual(surface_samples(source, source)
@@ -25,8 +25,9 @@ class SurfaceSampleChecks(unittest.TestCase):
 
     def test_comparison_budget(self):
         points = [(0, 0, 0)] * 4097
+        points = points * 5
         with self.assertRaisesRegex(ValueError, 'budget'):
-            directed_samples(points, [(0, 1, 2)], points, [(0, 1, 2)])
+            directed_samples(points, points, [(0, 1, 2)])
 
 
 if __name__ == '__main__':

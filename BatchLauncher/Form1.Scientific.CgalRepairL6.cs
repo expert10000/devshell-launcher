@@ -22,9 +22,12 @@ public partial class Form1
             || !baselineRecords.OfType<JsonObject>().Any(item => item["recordId"]?.GetValue<string>() == support["recordId"]?.GetValue<string>()
                 && item["capabilityId"]?.GetValue<string>() == "mesh.repair" && item["level"]?.GetValue<string>() == "L5"))
             throw new InvalidDataException("Current repair L5 reference does not match its saved run.");
-        var lower5 = ScientificCurrentLowerLevels(profileId, runtimeId);
-        if (lower5.ToJsonString() != baselineEvidence["lowerQualification"]?.ToJsonString())
-            throw new InvalidOperationException("Repair L5 lower support is no longer current.");
+        // The L5 run itself issues a fresh L0 inventory record. Keep its verified
+        // pinned L0-L4 support instead of selecting a different, newer L0 record.
+        var lower5 = baselineEvidence["lowerQualification"] as JsonObject;
+        if (lower5?["records"] is not JsonArray { Count: 5 })
+            throw new InvalidDataException("Repair L5 lower support is incomplete.");
+        lower5 = (JsonObject)lower5.DeepClone();
         var lower = (JsonArray)lower5["records"]!.DeepClone();
         lower.Add(support.DeepClone());
         var declarationPath = Path.Combine(AppContext.BaseDirectory, "runtimes", runtimeId, "runtime.json");
@@ -95,8 +98,7 @@ public partial class Form1
                     || actual?["outputAbsent"]?.ToJsonString() != expected?["outputAbsent"]?.ToJsonString())
                     throw new InvalidDataException("Repair output or rejection differs from the L5 reference.");
             }
-            if (ScientificCurrentLowerLevels(job.ProfileId, job.RuntimeId).ToJsonString() != lower5.ToJsonString()
-                || ScientificCurrentL5(job.ProfileId, job.RuntimeId, "mesh.repair")["recordId"]?.GetValue<string>()
+            if (ScientificCurrentL5(job.ProfileId, job.RuntimeId, "mesh.repair")["recordId"]?.GetValue<string>()
                     != support["recordId"]?.GetValue<string>())
                 throw new InvalidOperationException("Pinned repair L0-L5 evidence is no longer current.");
             var candidateL5 = new JsonObject { ["suiteId"] = ScientificRepairFixtures.SuiteId,

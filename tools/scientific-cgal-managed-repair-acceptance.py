@@ -90,11 +90,32 @@ def replay(python, worker, prefix, output_root, math3d_checkout=None, node='node
             or (negative / 'refused.obj').exists()
             or 'boundary-loop scope' not in rejected['diagnostics'][0]['message']):
         raise ValueError('Wrong operation was not safely rejected')
+    closed = dataset / 'closed-tetra.obj'
+    shutil.copyfile(ROOT / 'scientific/fixtures/cgal/closed-tetra.obj', closed)
+    closed_case = root / 'closed-rejection'
+    closed_case.mkdir()
+    request['runId'] = uuid.uuid4().hex
+    request['workingDirectory'] = str(closed_case)
+    request['recipeId'] = request['operation'] = 'cgal.fill-bounded-holes'
+    request['inputArtifacts'][0].update(path=str(closed), datasetId=closed.name,
+                                        sha256=sha(closed), bytes=closed.stat().st_size)
+    request['parameters']['inputId'] = closed.name
+    request['outputArtifacts'][0]['path'] = request['parameters']['outputName'] = 'closed-refused.obj'
+    (closed_case / 'request.json').write_text(json.dumps(request, indent=2), encoding='utf-8')
+    process = subprocess.run([str(python), str(ADAPTER), '--request', str(closed_case / 'request.json'), '--worker', str(worker)],
+                             cwd=closed_case, env=env, capture_output=True, text=True, timeout=150)
+    (closed_case / 'full.log').write_text(process.stdout + process.stderr, encoding='utf-8')
+    closed_result = json.loads((closed_case / 'results.json').read_text(encoding='utf-8'))
+    if (process.returncode == 0 or closed_result['state'] != 'failed' or closed_result['validatedCapabilities']
+            or (closed_case / 'closed-refused.obj').exists()
+            or 'Bounded repair requires' not in closed_result['diagnostics'][0]['message']):
+        raise ValueError('Closed mesh was not safely rejected')
     tamper = root / 'changed-dataset-hash'
     tamper.mkdir()
     request['runId'] = uuid.uuid4().hex
     request['workingDirectory'] = str(tamper)
     request['inputArtifacts'][0]['sha256'] = '0' * 64
+    request['outputArtifacts'][0]['path'] = request['parameters']['outputName'] = 'refused.obj'
     (tamper / 'request.json').write_text(json.dumps(request, indent=2), encoding='utf-8')
     process = subprocess.run([str(python), str(ADAPTER), '--request', str(tamper / 'request.json'), '--worker', str(worker)],
                              cwd=tamper, env=env, capture_output=True, text=True, timeout=150)
@@ -107,6 +128,7 @@ def replay(python, worker, prefix, output_root, math3d_checkout=None, node='node
     report = {'schemaVersion': 1, 'kind': 'scientific.cgal-managed-repair-acceptance',
               'workerSha256': sha(worker), 'adapterSha256': sha(ADAPTER),
               'cases': cases, 'wrongOperationResultSha256': sha(negative / 'results.json'),
+              'closedResultSha256': sha(closed_case / 'results.json'),
               'changedHashResultSha256': sha(tamper / 'results.json'), 'verdict': 'passed'}
     (root / 'acceptance.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
     print(json.dumps({'report': str(root / 'acceptance.json'), 'verdict': 'passed', 'recipes': len(cases)}))

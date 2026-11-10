@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { useScientificRuntime, ScientificHistoryEntry } from './useScientificRuntime'
 import type { ScientificRunResult } from './scientificRuntimeProfiles'
-import { MeshCanvas, initialCamera, ScientificMeshInspection } from './ScientificArtifacts'
-import type { Camera } from './ScientificArtifacts'
+import { MeshCanvas, ScientificMeshInspection } from './ScientificMeshViewer'
+import { initialCamera } from './scientificCamera'
+import type { Camera } from './scientificCamera'
 import { ScientificComparisonPresets } from './ScientificComparisonPresets'
 import { ScientificExactMathInspector, ScientificMeshFacts, ScientificMeshNumericDiff } from './ScientificArtifactInspector'
 

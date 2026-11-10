@@ -4,12 +4,15 @@ export type FileSearchHit = { repositoryId: string; repositoryName: string; entr
 type SearchResult = { entries: FileSearchHit[]; directoriesScanned: number; truncated: boolean; warnings: string[] }
 type Bridge = { postMessage: (message: unknown) => void; addEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void; removeEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void }
 
-export function ProjectFileSearch({ profileId, projectId, bridge, onOpen }: { profileId: string; projectId?: string; bridge: Bridge | null; onOpen: (hit: FileSearchHit) => void }) {
+type Props = { profileId: string; projectId?: string; bridge: Bridge | null; onOpen: (hit: FileSearchHit) => void }
+export function ProjectFileSearch(props: Props) {
+  return <ProjectFileSearchContent key={`${props.profileId}:${props.projectId ?? ''}`} {...props} />
+}
+function ProjectFileSearchContent({ profileId, projectId, bridge, onOpen }: Props) {
   const [query, setQuery] = useState(''); const [result, setResult] = useState<SearchResult>()
   const [pending, setPending] = useState(false); const [error, setError] = useState('')
   const current = useRef(''); const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   useEffect(() => {
-    setResult(undefined); setQuery(''); setError(''); setPending(false)
     if (!bridge) return
     const receive = (event: MessageEvent) => {
       let message: { type?: string; profileId?: string; requestId?: string; search?: SearchResult; error?: string }

@@ -50,8 +50,8 @@ try {
   const sourceBytes = new Uint8Array(await readFile(handoff.resource.path))
   const imported = await TetrahedralMeshDocumentAdapter.importResource(sourceBytes, handoff.sourceMsh.sha256)
   const pkg = imported.exportPackage()
-  if (imported.geometry().points.length !== 83 || imported.geometry().cells.length !== 204
-      || imported.geometry().boundary.length !== 156 || Math.abs(imported.geometry().volume - 1) > 1e-6)
+  if (imported.geometry().points.length !== exported.points || imported.geometry().cells.length !== exported.tetrahedra
+      || imported.geometry().boundary.length !== exported.boundaryTriangles || Math.abs(imported.geometry().volume - 1) > 1e-6)
     throw new Error('MATH3D did not import the fixed tetrahedral cube.')
   const documentPath = join(output, 'tetra-document.json')
   const resourcePath = join(output, 'tetra-resource.m3dt')
@@ -60,7 +60,7 @@ try {
   const savedDocument = JSON.parse(await readFile(documentPath, 'utf8'))
   const savedResource = new Uint8Array(await readFile(resourcePath))
   const reopened = await TetrahedralMeshDocumentAdapter.restore({ document: savedDocument, resourceBytes: savedResource })
-  if (reopened.geometry().cells.length !== 204 || reopened.document().identity.id !== savedDocument.identity.id)
+  if (reopened.geometry().cells.length !== exported.tetrahedra || reopened.document().identity.id !== savedDocument.identity.id)
     throw new Error('MATH3D could not reopen its saved tetrahedral document.')
   const altered = new Uint8Array(savedResource)
   altered[altered.length - 1] ^= 1
@@ -93,7 +93,7 @@ try {
   const canvasSize = await canvas.evaluate(element => ({ width: element.width, height: element.height }))
   if (await viewport.getAttribute('data-document-id') !== savedDocument.identity.id
       || await viewport.getAttribute('data-source-hash') !== savedDocument.identity.structuralHash
-      || Number(await viewport.getAttribute('data-tetrahedra')) !== 204
+      || Number(await viewport.getAttribute('data-tetrahedra')) !== exported.tetrahedra
       || canvasSize.width < 100 || canvasSize.height < 100)
     throw new Error('MATH3D tetrahedral viewport did not bind the reopened cells.')
   const screenshot = await viewport.screenshot({ path: join(output, 'viewer.png') })

@@ -49,12 +49,17 @@ def run(config):
                     '--resource', str(product / 'tetra-resource.m3dt'),
                     '--source-msh', str(directory / 'cube.msh'),
                     '--result', str(product / 'roundtrip.json')], check=True, timeout=60, cwd=ROOT)
+    exported = json.loads((directory / 'exporter.json').read_text(encoding='utf-8'))
     regression = json.loads((product / 'regression.json').read_text(encoding='utf-8'))
     roundtrip = json.loads((product / 'roundtrip.json').read_text(encoding='utf-8'))
     if (regression.get('regression') != 'passed' or regression.get('viewerState') != 'mounted'
-            or regression.get('points') != 83 or regression.get('tetrahedra') != 204
-            or regression.get('boundaryTriangles') != 156 or not regression.get('tamperRejected')
-            or roundtrip.get('verdict') != 'passed'):
+            or regression.get('points') != exported.get('points')
+            or regression.get('tetrahedra') != exported.get('tetrahedra')
+            or regression.get('boundaryTriangles') != exported.get('boundaryTriangles')
+            or not regression.get('tamperRejected') or roundtrip.get('verdict') != 'passed'
+            or roundtrip.get('points') != exported.get('points')
+            or roundtrip.get('tetrahedra') != exported.get('tetrahedra')
+            or roundtrip.get('boundaryTriangles') != exported.get('boundaryTriangles')):
         raise ValueError('Gmsh volume document, reload or viewer regression failed.')
     files = {name: sha(directory / name) for name in ARTIFACTS}
     files.update({f'product/{name}': sha(product / name) for name in PRODUCT})

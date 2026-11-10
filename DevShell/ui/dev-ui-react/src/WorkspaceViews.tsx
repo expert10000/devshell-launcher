@@ -16,7 +16,7 @@ type ChangedFile = { path: string; staged: boolean; unstaged: boolean; conflicte
 type Snapshot = { path: string; files: ChangedFile[]; blockedReason?: string }
 type Diff = { path: string; side: string; text: string; truncated: boolean }
 
-export function workspaceTabTitle(tab: WorkspaceViewTab, projects: Project[]) {
+function workspaceTabTitle(tab: WorkspaceViewTab, projects: Project[]) {
   const project = projects.find(item => item.id === tab.projectId)
   const repo = project?.repositories?.find(item => item.id === tab.repositoryId)
   if (tab.kind === 'logs') return `${repo?.name ?? 'Repository'} Logs`
@@ -57,7 +57,8 @@ function DiffView({ tab, profileId, bridge, active, busy, onChange }: { tab: Wor
   const [pending, setPending] = useState(false); const [error, setError] = useState('')
   const current = useRef<{ id: string; action: string; filePath?: string; side?: 'working' | 'staged' }>({ id: '', action: '' })
   const timeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const latest = useRef({ tab, onChange }); latest.current = { tab, onChange }
+  const latest = useRef({ tab, onChange })
+  useEffect(() => { latest.current = { tab, onChange } }, [tab, onChange])
   function request(action: 'changes' | 'file-diff', path?: string, targetSide?: 'working' | 'staged') {
     if (!bridge) { setError('Diff previews require the DevShell desktop app.'); return }
     clearTimeout(timeout.current)
@@ -86,13 +87,16 @@ function DiffView({ tab, profileId, bridge, active, busy, onChange }: { tab: Wor
       }
     }
     bridge.addEventListener('message', receive)
-    if (!tab.restored && active && !busy) request('changes')
-    return () => { clearTimeout(timeout.current); current.current.id = ''; bridge.removeEventListener('message', receive) }
+    const frame = !tab.restored && active && !busy ? requestAnimationFrame(() => request('changes')) : 0
+    return () => { cancelAnimationFrame(frame); clearTimeout(timeout.current); current.current.id = ''; bridge.removeEventListener('message', receive) }
   }, [bridge, profileId, tab.id])
   useEffect(() => {
     if (!active || busy || pending || !tab.filePath || tab.filePath === filePath && (tab.side ?? 'working') === side) return
-    setFilePath(tab.filePath); setSide(tab.side ?? 'working')
-    request('file-diff', tab.filePath, tab.side ?? 'working')
+    const frame = requestAnimationFrame(() => {
+      setFilePath(tab.filePath!); setSide(tab.side ?? 'working')
+      request('file-diff', tab.filePath, tab.side ?? 'working')
+    })
+    return () => cancelAnimationFrame(frame)
   }, [tab.filePath, tab.side, active, busy, pending])
   function choose(path: string, targetSide: 'working' | 'staged') {
     setFilePath(path); setSide(targetSide); onChange({ filePath: path, side: targetSide }); if (path) request('file-diff', path, targetSide)
@@ -125,13 +129,16 @@ export function WorkspaceViews({ tabs, activeId, profileId, projects, jobs, erro
   const layout = resolveWorkspaceSplit(split, profileId, ids, activeId)
   const direction = layout.direction === 'right' && compact ? 'below' : layout.direction
   const busyKeys = new Set([...reservedKeys, ...jobs.filter(job => ['queued', 'building', 'running'].includes(job.state)).map(job => job.key)])
-  useEffect(() => { setSplit(previous => resolveWorkspaceSplit(previous, profileId, tabs.map(tab => tab.id), activeId)) }, [profileId, tabs, activeId])
   useEffect(() => {
     const element = grid.current; if (!element) return
     const observer = new ResizeObserver(() => setCompact(element.clientWidth < 760))
     observer.observe(element); return () => observer.disconnect()
   }, [])
-  useEffect(() => { drag.current = null; setResizing(false) }, [profileId, direction])
+  useEffect(() => {
+    drag.current = null
+    const frame = requestAnimationFrame(() => setResizing(false))
+    return () => cancelAnimationFrame(frame)
+  }, [profileId, direction])
   useEffect(() => {
     if (!bridge) return
     const selected = tabs.find(tab => tab.id === activeId && (tab.kind === 'browser' || tab.kind === 'jupyter'))

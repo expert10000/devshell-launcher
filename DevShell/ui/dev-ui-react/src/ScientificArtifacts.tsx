@@ -1,17 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { useScientificRuntime } from './useScientificRuntime'
 import type { RuntimeProfile } from './scientificRuntimeProfiles'
 import { ScientificMeshInspection } from './ScientificMeshViewer'
-export { MeshCanvas, initialCamera, ScientificMeshInspection } from './ScientificMeshViewer'
-export type { Camera } from './ScientificMeshViewer'
 import './ScientificArtifacts.css'
 
 type CaseMeshStats = { vertices: number; faces: number; boundaryEdges: number; nonManifoldEdges: number; closed: boolean; volume: number; bounds: number[] | null }
 
-export function ScientificArtifacts({ runtime, native }: { runtime: RuntimeProfile; native: ReturnType<typeof useScientificRuntime> }) {
+type Props = { runtime: RuntimeProfile; native: ReturnType<typeof useScientificRuntime> }
+export function ScientificArtifacts(props: Props) {
+  return <ScientificArtifactsContent key={`${props.runtime.id}:${props.native.jobs[props.runtime.id]?.jobId ?? ''}`} {...props} />
+}
+function ScientificArtifactsContent({ runtime, native }: Props) {
   const job = native.jobs[runtime.id]
   const [selected, setSelected] = useState('')
-  useEffect(() => { setSelected('') }, [runtime.id, job?.jobId])
   const artifacts = (job?.result?.artifacts ?? []).filter(item => item.role !== 'operand' && /\.(obj|stl|ply|vtp|m3dm)$/i.test(item.path))
   const path = artifacts.some(item => item.path === selected) ? selected : artifacts[0]?.path ?? ''
   const cached = native.previews[runtime.id]

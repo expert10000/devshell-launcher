@@ -51,6 +51,16 @@ var request = new JsonObject {
 };
 void SaveRequest() => File.WriteAllText(Path.Combine(directory, "request.json"), request.ToJsonString());
 SaveRequest();
+Check(ScientificQualificationRecords.CgalRepairOutputValid(Path.Combine("scientific", "fixtures", "cgal", "closed-tetra.obj")),
+    "fixed outward CGAL repair geometry is accepted");
+Check(!ScientificQualificationRecords.CgalRepairOutputValid(Path.Combine("scientific", "fixtures", "cgal", "orientation", "inward-tetra.obj"))
+    && !ScientificQualificationRecords.CgalRepairOutputValid(Path.Combine("scientific", "fixtures", "cgal", "open-square.obj")),
+    "inward and open CGAL repair outputs are rejected");
+var wrongWinding = Path.Combine(directory, "wrong-winding.obj");
+File.WriteAllText(wrongWinding, File.ReadAllText(Path.Combine("scientific", "fixtures", "cgal", "closed-tetra.obj"))
+    .Replace("f 1 3 2", "f 1 2 3", StringComparison.Ordinal));
+Check(!ScientificQualificationRecords.CgalRepairOutputValid(wrongWinding),
+    "repair output with one reversed zero-volume face is rejected");
 Check(ScientificArtifactFiles.SmokeOutputs("vtk-win-conda", "test-all").SequenceEqual(new[] { "sphere.vtp", "render/vtk-offscreen.png" }), "VTK test-all declares mesh and PNG");
 Check(ScientificArtifactFiles.SmokeOutputs("vtk-win-conda", "run").SequenceEqual(new[] { "sphere.vtp" }), "VTK run declares only its mesh");
 Check(ScientificArtifactFiles.SmokeOutputs("vtk-win-conda", "configure").Length == 0 && ScientificArtifactFiles.SmokeOutputs("cgal-win-conda", "test-all").Length == 0, "other recipes do not acquire VTK outputs");

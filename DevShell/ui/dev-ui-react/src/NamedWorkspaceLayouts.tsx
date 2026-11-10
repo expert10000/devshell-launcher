@@ -6,13 +6,18 @@ type SavedLayout = { id: string; name: string; direction: 'right' | 'below'; rat
 type Bridge = { postMessage: (message: unknown) => void; addEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void; removeEventListener: (name: 'message', handler: (event: MessageEvent) => void) => void }
 type Restored = { profileId: string; requestId: string; primaryId?: string; secondaryId?: string; error?: string }
 
-export function NamedWorkspaceLayouts({ profileId, bridge, layout, tabs, onRestore }: { profileId: string; bridge: Bridge | null; layout: WorkspaceSplitState; tabs: WorkspaceViewTab[]; onRestore: (layout: WorkspaceSplitState) => void }) {
+type Props = { profileId: string; bridge: Bridge | null; layout: WorkspaceSplitState; tabs: WorkspaceViewTab[]; onRestore: (layout: WorkspaceSplitState) => void }
+export function NamedWorkspaceLayouts(props: Props) {
+  return <NamedWorkspaceLayoutsContent key={props.profileId} {...props} />
+}
+function NamedWorkspaceLayoutsContent({ profileId, bridge, layout, tabs, onRestore }: Props) {
   const [saved, setSaved] = useState<SavedLayout[]>([]); const [selected, setSelected] = useState(''); const [name, setName] = useState('')
   const [pending, setPending] = useState(false); const [error, setError] = useState('')
   const current = useRef<{ id: string; operation: string; layout?: SavedLayout }>({ id: '', operation: '' })
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const latest = useRef(onRestore); latest.current = onRestore
-  const savedRef = useRef(saved); savedRef.current = saved
+  const latest = useRef(onRestore)
+  const savedRef = useRef(saved)
+  useEffect(() => { latest.current = onRestore; savedRef.current = saved }, [onRestore, saved])
   function begin(operation: string, restored?: SavedLayout) {
     clearTimeout(timer.current); current.current = { id: crypto.randomUUID(), operation, layout: restored }; setPending(true); setError('')
     timer.current = setTimeout(() => { current.current.id = ''; setPending(false); setError('Layout request timed out. Refresh layouts to retry.') }, 30000)
@@ -22,8 +27,11 @@ export function NamedWorkspaceLayouts({ profileId, bridge, layout, tabs, onResto
     if (!bridge) { setError('Named layouts require the DevShell desktop app.'); return }
     bridge.postMessage({ type: 'workspace.tabs', profileId, requestId: begin(action), action, ...extra })
   }
+  function beginRestore(preset: SavedLayout) {
+    const requestId = begin('restore', preset)
+    window.dispatchEvent(new CustomEvent('devshell.workspace.layout-restore', { detail: { profileId, requestId, tabs: preset.tabs, focused: preset.focused } }))
+  }
   useEffect(() => {
-    setSaved([]); setSelected(''); setName(''); setPending(false); setError('')
     if (!bridge) return
     const receive = (event: MessageEvent) => {
       let message: { type?: string; profileId?: string; requestId?: string; layouts?: SavedLayout[]; savedId?: string; error?: string }
@@ -51,8 +59,8 @@ export function NamedWorkspaceLayouts({ profileId, bridge, layout, tabs, onResto
       else setError('Refresh layouts before opening this saved layout.')
     }
     bridge.addEventListener('message', receive); window.addEventListener('devshell.workspace.layout-restored', restored); window.addEventListener('devshell.workspace.named-layout', fromPalette)
-    request('layouts-load')
-    return () => { clearTimeout(timer.current); current.current.id = ''; bridge.removeEventListener('message', receive); window.removeEventListener('devshell.workspace.layout-restored', restored); window.removeEventListener('devshell.workspace.named-layout', fromPalette) }
+    const frame = requestAnimationFrame(() => request('layouts-load'))
+    return () => { cancelAnimationFrame(frame); clearTimeout(timer.current); current.current.id = ''; bridge.removeEventListener('message', receive); window.removeEventListener('devshell.workspace.layout-restored', restored); window.removeEventListener('devshell.workspace.named-layout', fromPalette) }
   }, [bridge, profileId])
   function save() {
     const primary = tabs.find(tab => tab.id === layout.primaryId); const secondary = tabs.find(tab => tab.id === layout.secondaryId)
@@ -63,10 +71,6 @@ export function NamedWorkspaceLayouts({ profileId, bridge, layout, tabs, onResto
   function restore() {
     const preset = saved.find(item => item.id === selected); if (!preset) return
     beginRestore(preset)
-  }
-  function beginRestore(preset: SavedLayout) {
-    const requestId = begin('restore', preset)
-    window.dispatchEvent(new CustomEvent('devshell.workspace.layout-restore', { detail: { profileId, requestId, tabs: preset.tabs, focused: preset.focused } }))
   }
   return <details className="named-workspace-layouts"><summary>Named layouts</summary><div className="named-layout-controls">
     <label>Layout name <input aria-label="Layout name" maxLength={48} value={name} placeholder="Code and build logs" onChange={event => setName(event.target.value)} /></label>

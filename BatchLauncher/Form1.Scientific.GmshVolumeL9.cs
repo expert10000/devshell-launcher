@@ -124,7 +124,9 @@ public partial class Form1
                 ?? throw new InvalidDataException("Tetrahedral exporter report is missing.");
             if (exported["sourceMshSha256"]?.GetValue<string>() != mshHash
                 || exported["resourceSha256"]?.GetValue<string>() != ScientificHash(At("volume.m3dt"))
-                || exported["tetrahedra"]?.GetValue<int>() != 204)
+                || exported["points"]?.GetValue<int>() != l7["reload"]?["points"]?.GetValue<int>()
+                || exported["tetrahedra"]?.GetValue<int>() != l7["reload"]?["tetrahedra"]?.GetValue<int>()
+                || exported["boundaryTriangles"]?.GetValue<int>() != l7["reload"]?["boundaryTriangles"]?.GetValue<int>())
                 throw new InvalidDataException("Tetrahedral resource differs from the worker artifact.");
             var contract = ScientificGmshVolumeL9Contract();
             var handoff = new JsonObject { ["schemaVersion"] = 1, ["contract"] = contract.DeepClone(),
@@ -151,7 +153,9 @@ public partial class Form1
             if (regression["regression"]?.GetValue<string>() != "passed"
                 || regression["viewerState"]?.GetValue<string>() != "mounted"
                 || regression["blueMeshPixels"]?.GetValue<int>() is not > 1000
-                || regression["tetrahedra"]?.GetValue<int>() != 204
+                || regression["points"]?.GetValue<int>() != exported["points"]?.GetValue<int>()
+                || regression["tetrahedra"]?.GetValue<int>() != exported["tetrahedra"]?.GetValue<int>()
+                || regression["boundaryTriangles"]?.GetValue<int>() != exported["boundaryTriangles"]?.GetValue<int>()
                 || regression["sourceMshSha256"]?.GetValue<string>() != mshHash
                 || regression["contractSha256"]?.GetValue<string>() != ScientificL6Digest(contract)
                 || roundtrip["verdict"]?.GetValue<string>() != "passed"

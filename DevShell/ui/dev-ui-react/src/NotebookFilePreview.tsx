@@ -8,7 +8,8 @@ function object(value: unknown): Record<string, unknown> {
 function text(value: unknown): string {
   return (typeof value === 'string' ? value : Array.isArray(value) ? value.filter(item => typeof item === 'string').join('') : '').slice(0, 32768)
 }
-function clean(value: unknown) { return text(value).replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '') }
+const ansiEscape = new RegExp(`${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`, 'g')
+function clean(value: unknown) { return text(value).replace(ansiEscape, '') }
 
 function savedImage(data: Record<string, unknown>): string | undefined {
   // Only raster data stored in the notebook is allowed. Never load a URL, SVG,
@@ -28,7 +29,7 @@ function savedImage(data: Record<string, unknown>): string | undefined {
 
 function NotebookOutput({ value }: { value: unknown }) {
   const output = object(value); const data = object(output.data)
-  const image = useMemo(() => savedImage(data), [value])
+  const image = savedImage(data)
   const [imageFailed, setImageFailed] = useState(false)
   if (output.output_type === 'stream') return <pre className={output.name === 'stderr' ? 'notebook-output notebook-error' : 'notebook-output'}>{clean(output.text)}</pre>
   if (output.output_type === 'error') return <pre className="notebook-output notebook-error">{clean(output.traceback) || `${text(output.ename)}: ${text(output.evalue)}`}</pre>

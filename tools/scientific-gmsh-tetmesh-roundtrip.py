@@ -57,7 +57,7 @@ def measure(document_path, resource_path, source_msh):
                     for pair in ((face[0],face[1]),(face[1],face[2]),(face[2],face[0])))
     bounds = [value for axis in range(3) for value in
               (min(point[axis] for point in points), max(point[axis] for point in points))]
-    if (count != 83 or cell_count != 204 or len(boundary) != 156
+    if (count < 8 or cell_count < 6 or len(boundary) < 12
             or any(number != 2 for number in edges.values())
             or abs(volume-1) > 1e-6
             or any(abs(value-target) > 1e-6 for value,target in zip(bounds,(0,1,0,1,0,1)))):

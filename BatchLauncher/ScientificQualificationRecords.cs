@@ -94,19 +94,24 @@ public static partial class ScientificQualificationRecords
 
     private static string? L5Hash(string directory, string runtimeId, JsonObject result, JsonObject components)
     {
-        var (capability, recipe, positiveId, negativeId, positiveName, negativeName, reason) = runtimeId switch
+        var repair = runtimeId == "cgal-win-conda" && result["recipeId"]?.GetValue<string>() == "l5.cgal-orientation";
+        var (capability, recipe, positiveId, negativeId, positiveName, negativeName, reason) = repair
+            ? ("mesh.repair", "cgal.repair-orientation", "cgal/inward-tetra.obj", "cgal/open-square.obj", "l5-repaired.obj", "l5-rejected.obj", "requires a closed mesh")
+            : runtimeId switch
         {
             "cgal-win-conda" => ("mesh.validate", "cgal.validate", "math3d/basic/01_tetrahedron.obj", "math3d/problematic/18_degenerate_faces.obj", "l5-positive.obj", "l5-rejected.obj", "not a readable manifold polygon mesh"),
             "vtk-win-conda" => ("mesh.read", "mesh.inspect", "math3d/basic/01_tetrahedron.obj", "math3d/import/truncated-ascii.ply", "l5-positive.vtp", "l5-rejected.vtp", "surface is empty"),
             "gmsh-win-conda" => ("mesh.generate", "gmsh.mesh2d", "gmsh/fixed-square.geo", "gmsh/tampered-square.geo", "l5-positive.msh", "l5-rejected.msh", "Only the registered fixed square GEO fixture is accepted"),
             _ => ("", "", "", "", "", "", "")
         };
-        if (capability.Length == 0 || result["recipeId"]?.GetValue<string>() != "l5.worker"
-            || result["l5Evidence"] is not JsonObject evidence || evidence["suiteId"]?.GetValue<string>() != "l5-worker-v1"
+        if (capability.Length == 0 || result["recipeId"]?.GetValue<string>() != (repair ? "l5.cgal-orientation" : "l5.worker")
+            || result["l5Evidence"] is not JsonObject evidence || evidence["suiteId"]?.GetValue<string>() != (repair ? "l5-cgal-orientation-v1" : "l5-worker-v1")
             || evidence["capabilityId"]?.GetValue<string>() != capability
             || evidence["workerContractVersion"]?.GetValue<int>() != 1
             || evidence["workerContractSha256"]?.GetValue<string>() != components["contract"]?["workerContractModule"]?["sha256"]?.GetValue<string>()
             || evidence["fixtureManifestSha256"]?.GetValue<string>() is not { Length: 64 }
+            || (repair && evidence["fixtureManifestSha256"]?.GetValue<string>()
+                != components["suite"]?["files"]?["scientific/fixtures/cgal/orientation/manifest.v1.json"]?["sha256"]?.GetValue<string>())
             || evidence["lowerQualification"]?["records"] is not JsonArray lower || lower.Count != 5
             || result["validatedCapabilities"] is not JsonArray validated || !validated.Any(item => item?.GetValue<string>() == capability)) return null;
         var required = new[] { "L0", "L1", "L2", "L3", "L4" };
@@ -120,7 +125,11 @@ public static partial class ScientificQualificationRecords
         {
             if (evidence[folder] is not JsonObject entry || entry["caseId"]?.GetValue<string>() != folder
                 || entry["recipeId"]?.GetValue<string>() != recipe || entry["datasetId"]?.GetValue<string>() != datasetId
-                || entry["state"]?.GetValue<string>() != state) return null;
+                || entry["state"]?.GetValue<string>() != state
+                || (repair && entry["inputSha256"]?.GetValue<string>()
+                    != components["suite"]?["files"]?[folder == "positive"
+                        ? "scientific/fixtures/cgal/orientation/inward-tetra.obj"
+                        : "scientific/fixtures/cgal/open-square.obj"]?["sha256"]?.GetValue<string>())) return null;
             var childDirectory = Path.Combine(directory, folder);
             var requestPath = Path.Combine(childDirectory, "request.json");
             var resultPath = Path.Combine(childDirectory, "results.json");
@@ -148,6 +157,10 @@ public static partial class ScientificQualificationRecords
                 if (entry["artifactPath"]?.GetValue<string>() != folder + "/" + outputName
                     || hash is not { Length: 64 } || !File.Exists(outputPath)
                     || Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(outputPath))).ToLowerInvariant() != hash
+                    || (repair && (!CgalRepairOutputValid(outputPath)
+                        || childResult["engineDetails"]?["beforeOrientation"]?.GetValue<string>() != "inward"
+                        || childResult["engineDetails"]?["afterOrientation"]?.GetValue<string>() != "outward"
+                        || childResult["engineDetails"]?["orientationChanged"]?.GetValue<bool>() != true))
                     || childResult["validatedCapabilities"] is not JsonArray childCapabilities
                     || !childCapabilities.Any(item => item?.GetValue<string>() == capability)
                     || result["artifacts"] is not JsonArray artifacts
@@ -838,6 +851,18 @@ public static partial class ScientificQualificationRecords
                 Add("mesh.repair", "L5", "l5.cgal-repair", hash,
                     result["repairQualificationEvidence"]?["lowerQualification"]);
         }
+        else if (recipeId == "l5.cgal-orientation" && runtimeId == "cgal-win-conda"
+            && manifest["qualificationRecipes"] is JsonArray orientationRecipes)
+        {
+            var declaration = orientationRecipes.OfType<JsonObject>().FirstOrDefault(item =>
+                item["id"]?.GetValue<string>() == "l5.cgal-orientation"
+                && item["readinessLevel"]?.GetValue<string>() == "L5"
+                && item["capability"]?.GetValue<string>() == "mesh.repair");
+            var hash = L5Hash(directory, runtimeId, result, components!);
+            if (declaration != null && hash != null)
+                Add("mesh.repair", "L5", "l5.cgal-orientation", hash,
+                    result["l5Evidence"]?["lowerQualification"]);
+        }
         else if (recipeId == "l5.gmsh-volume" && manifest["qualificationRecipes"] is JsonArray volumeL5Recipes)
         {
             var declaration = volumeL5Recipes.OfType<JsonObject>().FirstOrDefault(item =>
@@ -1169,6 +1194,16 @@ public static partial class ScientificQualificationRecords
                         || record["evidenceSha256"]?.GetValue<string>() != RepairL5Hash(directory, sourceResult,
                             fingerprint!["components"]!.AsObject()))
                         throw new InvalidDataException("CGAL repair L5 evidence changed.");
+                    continue;
+                }
+                if (record["evidenceId"]?.GetValue<string>() == "l5.cgal-orientation")
+                {
+                    if (sourceResult == null || runtimeId != "cgal-win-conda"
+                        || record["capabilityId"]?.GetValue<string>() != "mesh.repair"
+                        || record["lowerQualification"]?.ToJsonString() != sourceResult["l5Evidence"]?["lowerQualification"]?.ToJsonString()
+                        || record["evidenceSha256"]?.GetValue<string>() != L5Hash(directory, runtimeId!, sourceResult,
+                            fingerprint!["components"]!.AsObject()))
+                        throw new InvalidDataException("CGAL orientation L5 evidence changed.");
                     continue;
                 }
                 if (record["evidenceId"]?.GetValue<string>() == "l5.gmsh-volume")

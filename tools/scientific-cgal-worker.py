@@ -11,12 +11,13 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--request', required=True)
 parser.add_argument('--worker', required=True)
 args = parser.parse_args()
-contract = ScientificContract(args.request, 'cgal-win-conda', ('cgal.validate', 'cgal.remesh'))
+contract = ScientificContract(args.request, 'cgal-win-conda', ('cgal.validate', 'cgal.remesh', 'cgal.repair-orientation'))
 worker = Path(args.worker).resolve(strict=True)
-if worker.name.lower() != 'devshell_cgal_worker.exe':
+repair = contract.recipe == 'cgal.repair-orientation'
+if worker.name.lower() != ('devshell_cgal_orientation.exe' if repair else 'devshell_cgal_worker.exe'):
     raise ValueError('Expected the dedicated CGAL worker executable')
-if contract.input.suffix.lower() not in ('.obj', '.stl', '.ply', '.off'):
-    raise ValueError('Only OBJ/STL/PLY/OFF inputs supported')
+if contract.input.suffix.lower() not in (('.obj',) if repair else ('.obj', '.stl', '.ply', '.off')):
+    raise ValueError('Only registered mesh input formats are supported')
 parameters = contract.request.get('parameters', {})
 remesh = contract.recipe == 'cgal.remesh'
 edge = parameters.get('targetEdge', 0.1) if remesh else 0.1
@@ -29,8 +30,9 @@ if isinstance(iterations, bool) or not isinstance(iterations, int) or not 1 <= i
 timeout = contract.request.get('timeoutSeconds', 120)
 if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not 1 <= timeout <= 120:
     raise ValueError('Invalid worker timeout')
-command = [str(worker), 'remesh' if remesh else 'validate', str(contract.input), str(contract.output),
-           str(edge), str(iterations), '1' if boundary else '0']
+command = ([str(worker), 'orient', str(contract.input), str(contract.output)] if repair else
+           [str(worker), 'remesh' if remesh else 'validate', str(contract.input), str(contract.output),
+            str(edge), str(iterations), '1' if boundary else '0'])
 process = subprocess.run(command, cwd=contract.directory, timeout=timeout, capture_output=True,
                          text=True, encoding='utf-8', errors='replace', creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
 if process.stdout:
@@ -41,8 +43,14 @@ result_file = contract.directory / 'results.json'
 engine = json.loads(result_file.read_text(encoding='utf-8-sig')) if result_file.is_file() else {}
 contract.versions = engine.get('versions', {})
 diagnostics = [] if process.returncode == 0 else [{'severity': 'error', 'message': engine.get('error') or f'CGAL worker exited {process.returncode}'}]
+if repair and process.returncode == 0 and (engine.get('operation') != 'orient'
+        or engine.get('afterOrientation') != 'outward' or engine.get('closed') is not True
+        or not math.isfinite(engine.get('signedVolumeAfter', float('nan')))
+        or engine['signedVolumeAfter'] <= 0):
+    raise ValueError('CGAL repair did not establish an outward closed volume')
 contract.finish(state='succeeded' if process.returncode == 0 else 'failed', exit_code=process.returncode,
                 before=engine.get('before'), after=engine.get('after'), diagnostics=diagnostics,
-                capabilities=['mesh.read', 'mesh.write', 'mesh.validate'] + (['mesh.remesh'] if remesh else []) if process.returncode == 0 else [],
+                capabilities=(['mesh.read', 'mesh.write', 'mesh.repair'] if repair else
+                              ['mesh.read', 'mesh.write', 'mesh.validate'] + (['mesh.remesh'] if remesh else [])) if process.returncode == 0 else [],
                 scope=engine.get('scope', ''), extra={'engine': 'CGAL C++', 'engineDetails': engine})
 sys.exit(process.returncode)

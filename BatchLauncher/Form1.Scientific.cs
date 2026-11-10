@@ -255,6 +255,7 @@ public partial class Form1
             else if(action=="lab-probe") {ScientificProviderRegistry.RequireAction(runtimeId,action);data=ScientificLabProbeStart(profileId,runtimeId);}
             else if(action=="l5-worker")data=ScientificL5Start(profileId,runtimeId);
             else if(action=="l5-cgal-repair")data=ScientificCgalRepairL5Start(profileId,runtimeId);
+            else if(action=="l5-cgal-orientation")data=ScientificL5OrientationStart(profileId,runtimeId);
             else if(action=="l6-cgal-repair")data=ScientificCgalRepairL6Start(profileId,runtimeId);
             else if(action=="l7-cgal-repair")data=ScientificCgalRepairL7Start(profileId,runtimeId);
             else if(action=="l8-cgal-repair")data=ScientificCgalRepairL8Start(profileId,runtimeId);

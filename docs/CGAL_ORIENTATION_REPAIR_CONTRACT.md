@@ -1,0 +1,11 @@
+# CGAL orientation repair contract
+
+Status: the native worker built against the installed CGAL prefix and all six orientation checks passed on 2026-11-10. Managed desktop execution and L5 qualification still require a live run with current L0–L4 support.
+
+`cgal.repair-orientation` is the separate managed slice of `mesh.repair`. It accepts one registered, hash-checked OBJ copy up to 32 MiB. The existing native orientation worker requires a readable triangle manifold with at most 100,000 faces, no degenerate triangles or self-intersections, and one connected closed volume. It reverses face winding only when the input is inward. The output is a new OBJ in the owned run directory. An open surface, disconnected volume or invalid mesh must fail without an output artifact. The operation does not fill holes, remove degeneracies, reconstruct polygon soups, or claim arbitrary mesh repair.
+
+The managed adapter uses the shared version 1 JSON request/result envelope and executes the dedicated `devshell_cgal_orientation.exe` with argv. A successful result must report a closed outward volume and advertise `mesh.repair`; failed results advertise no validated capability or output. The launcher owns the CMake build, worker process, timeout, cancellation, logs and immutable run fingerprint. The source fingerprint includes the worker, adapter, contract, fixtures and qualification verifier.
+
+`l5.cgal-orientation` is a separate fixed-fixture gate. It pins current CGAL L0–L4 support, repairs the authored inward unit tetrahedron, and rejects the authored open square. The positive OBJ is independently parsed for four vertices, four faces, the six closed edges, the original unit tetrahedron coordinates, and positive signed volume `1/6`. The qualification record pins both requests, results, fixture hashes and the output hash. A changed output or case result invalidates the record. This grants only `mesh.repair` L5 for the named fixtures; it does not grant L6–L9, broker export or MATH3D product promotion.
+
+Hole repair has its own bounded worker, managed L5–L9 chain, and product contract. Orientation qualification remains separate evidence. Run its managed gate on the installed CGAL desktop before treating that L5 record as current.

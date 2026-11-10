@@ -12,6 +12,9 @@
     { "id": "l5.cgal-repair", "readinessLevel": "L5", "capability": "mesh.repair",
       "suiteId": "cgal-repair-qualification-v1", "positiveCases": 4, "rejectionCases": 2,
       "fixtureManifest": "scientific/fixtures/cgal-repair-qualification/manifest.json" },
+    { "id": "l5.cgal-orientation", "readinessLevel": "L5", "capability": "mesh.repair",
+      "positive": { "recipeId": "cgal.repair-orientation", "datasetId": "cgal/inward-tetra.obj", "outputName": "l5-repaired.obj" },
+      "rejection": { "recipeId": "cgal.repair-orientation", "datasetId": "cgal/open-square.obj", "outputName": "l5-rejected.obj", "expectedReason": "requires a closed mesh" } },
     { "id": "l6.reproduce", "readinessLevel": "L6", "capability": "mesh.validate", "referenceRecipe": "l5.worker", "comparison": "sha256-exact" },
     { "id": "l6.cgal-repair", "readinessLevel": "L6", "capability": "mesh.repair", "referenceRecipe": "l5.cgal-repair", "comparison": "sha256-exact" },
     { "id": "l7.cgal-repair", "readinessLevel": "L7", "capability": "mesh.repair", "referenceRecipe": "l6.cgal-repair", "consumer": "VTK+MATH3D" },
@@ -26,6 +29,12 @@
       "id": "cgal.validate",
       "adapter": "tools/scientific-cgal-worker.py",
       "capability": "mesh.validate",
+      "timeoutSeconds": 120
+    },
+    {
+      "id": "cgal.repair-orientation",
+      "adapter": "tools/scientific-cgal-worker.py",
+      "capability": "mesh.repair",
       "timeoutSeconds": 120
     },
     {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { RepositoryChangesPanel } from './RepositoryChangesPanel'
 
 type Repo = { id: string; name: string; path: string; url?: string; buildTask?: string; pdfPath?: string; pdfDirectory?: string }
@@ -19,7 +19,6 @@ export function RepositoryStrip({ project, profileId, statuses, jobs, errors, re
   const [changesId, setChangesId] = useState<string | null>(null)
   const repos = project.repositories ?? []
   const selected = repos.find((repo) => repo.id === (activeFilesRepoId ?? selectedId)) ?? repos[0]
-  useEffect(() => { if (activeFilesRepoId) setSelectedId(activeFilesRepoId) }, [activeFilesRepoId])
   const statusOf = (repo: Repo) => statuses.find((status) => status.projectId === project.id && status.id === repo.id)
   const summary = (status?: Status) => !status ? 'Checking...' : status.error ? 'Unavailable' :
     `${status.branch ?? 'No branch'} · ${status.changed ? `${status.changed} modified` : 'clean'} · ${status.upstream ? `↑${status.ahead ?? '?'} ↓${status.behind ?? '?'}` : 'no upstream'}`

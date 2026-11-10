@@ -16,7 +16,11 @@ function changeDraft(profileId: string, value: Draft) {
   window.dispatchEvent(new CustomEvent('devshell.workspace.link-draft', { detail: { profileId } }))
 }
 
-export function WorkspaceFileNavigation({ profileId, projectId, bridge, selected }: { profileId: string; projectId?: string; bridge: Bridge | null; selected?: FileReference }) {
+type Props = { profileId: string; projectId?: string; bridge: Bridge | null; selected?: FileReference }
+export function WorkspaceFileNavigation(props: Props) {
+  return <WorkspaceFileNavigationContent key={`${props.profileId}:${props.projectId ?? ''}`} {...props} />
+}
+function WorkspaceFileNavigationContent({ profileId, projectId, bridge, selected }: Props) {
   const [navigation, setNavigation] = useState<Navigation>({ recent: [], pinned: [], links: [] })
   const [draft, setDraft] = useState<Draft>(() => drafts.get(profileId) ?? {})
   const [pending, setPending] = useState(false); const [error, setError] = useState('')
@@ -29,7 +33,6 @@ export function WorkspaceFileNavigation({ profileId, projectId, bridge, selected
     bridge.postMessage({ type: 'workspace.files', profileId, projectId, requestId: current.current.id, action: 'navigation', operation, ...data })
   }
   useEffect(() => {
-    setNavigation({ recent: [], pinned: [], links: [] }); setDraft(drafts.get(profileId) ?? {}); setError(''); setPending(false)
     if (!bridge) return
     const receive = (event: MessageEvent) => {
       let message: { type?: string; profileId?: string; requestId?: string; navigation?: Navigation; error?: string }
@@ -46,8 +49,8 @@ export function WorkspaceFileNavigation({ profileId, projectId, bridge, selected
     }
     const receiveDraft = (event: Event) => { if ((event as CustomEvent<{ profileId: string }>).detail?.profileId === profileId) setDraft(drafts.get(profileId) ?? {}) }
     bridge.addEventListener('message', receive); window.addEventListener('devshell.workspace.link-draft', receiveDraft)
-    request('load') // Reference metadata only; does not list folders or reopen any file.
-    return () => { clearTimeout(timer.current); current.current.id = ''; bridge.removeEventListener('message', receive); window.removeEventListener('devshell.workspace.link-draft', receiveDraft) }
+    const frame = requestAnimationFrame(() => request('load')) // Reference metadata only; does not list folders or reopen any file.
+    return () => { cancelAnimationFrame(frame); clearTimeout(timer.current); current.current.id = ''; bridge.removeEventListener('message', receive); window.removeEventListener('devshell.workspace.link-draft', receiveDraft) }
   }, [bridge, profileId, projectId])
   function open(file: FileReference) {
     if (file.kind === 'pdf') {

@@ -2,8 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ScientificArtifactPreview, ScientificMeshPreview } from './useScientificRuntime'
 import './ScientificArtifacts.css'
 
-export type Camera = { yaw: number; pitch: number; zoom: number; wire: boolean }
-export const initialCamera: Camera = { yaw: 0.6, pitch: 0.35, zoom: 0.85, wire: false }
+import { initialCamera, type Camera } from './scientificCamera'
 type Layer = { id: string; name: string; mesh: ScientificMeshPreview; color: [number, number, number] }
 type Display = { visible: Record<string, boolean>; opacity: Record<string, number>; clip: boolean; axis: number; fraction: number; reverse: boolean }
 const solidDisplay: Display = { visible: {}, opacity: {}, clip: false, axis: 0, fraction: 0.5, reverse: false }

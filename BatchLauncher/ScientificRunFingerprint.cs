@@ -66,7 +66,8 @@ public static class ScientificRunFingerprint
         if (runtimeId.StartsWith("cgal", StringComparison.Ordinal))
             names.AddRange(new[] { "tools/scientific-cgal-worker.py", "scientific/cgal-worker/main.cpp", "scientific/cgal-worker/CMakeLists.txt", "tools/math3d-native-protocol.mjs", "tools/run-math3d-boolean.mjs" });
         if (runtimeId == "cgal-win-conda") names.AddRange(new[] { "tools/scientific-cgal-hole-repair-worker.py",
-            "tools/scientific_cgal_mesh_metrics.py", "scientific/cgal-worker/hole_repair.cpp" });
+            "tools/scientific_cgal_mesh_metrics.py", "scientific/cgal-worker/hole_repair.cpp",
+            "scientific/cgal-worker/orientation.cpp" });
         if (runtimeId.StartsWith("vtk", StringComparison.Ordinal))
             names.AddRange(new[] { "tools/scientific-mesh-worker.py", "tools/scientific-vtk-render-check.py" });
         if (runtimeId == "sage-wsl") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.Sage.cs",
@@ -199,6 +200,12 @@ public static class ScientificRunFingerprint
         if (recipeId == "lab.probe") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.RuntimeLab.cs", "tools/runtime-lab/Program.cs" });
         if (recipeId == "l5.worker") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L5.cs", "BatchLauncher/Form1.Scientific.Cgal.cs",
             "tools/scientific-cgal-worker.py", "tools/scientific-mesh-worker.py", "tools/scientific-gmsh-worker.py", "tools/scientific_worker_contract.py" });
+        if (recipeId is "l5.cgal-orientation" or "cgal.repair-orientation") names.AddRange(new[] {
+            "BatchLauncher/Form1.Scientific.L5.cs", "BatchLauncher/Form1.Scientific.Cgal.cs",
+            "BatchLauncher/ScientificQualificationRecords.CgalRepair.cs", "tools/scientific-cgal-worker.py",
+            "scientific/cgal-worker/orientation.cpp", "scientific/fixtures/cgal/orientation/inward-tetra.obj",
+            "scientific/fixtures/cgal/orientation/manifest.v1.json", "scientific/fixtures/cgal/open-square.obj",
+            "scientific/fixtures/cgal/manifest.v1.json", "tools/scientific_worker_contract.py" });
         if (recipeId == "l6.reproduce") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L5.cs", "BatchLauncher/Form1.Scientific.L6.cs", "BatchLauncher/Form1.Scientific.Cgal.cs",
             "tools/scientific-cgal-worker.py", "tools/scientific-mesh-worker.py", "tools/scientific_worker_contract.py", "tools/scientific-artifact-roundtrip.py" });
         if (recipeId == "l6.reproduce" && runtimeId == "gmsh-win-conda") names.AddRange(new[] {

@@ -15,7 +15,17 @@ export function PdfWorkspaceView({ tab, profileId, bridge, directory, job, onPag
   const requestId = useRef(''); const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   // Do not replay a completed build merely because this tab was restored or mounted.
   const lastCompletedBuild = useRef(job?.state === 'succeeded' && job.action === 'build' ? job.logPath : '')
-  useEffect(() => { setPage(String(tab.page ?? 1)) }, [tab.page])
+  function request(action: 'open' | 'refresh' | 'external' | 'list') {
+    if (!bridge) { setError('PDF viewing requires the DevShell desktop app.'); return }
+    const selectedPage = Number(page)
+    if (!Number.isInteger(selectedPage) || selectedPage < 1 || selectedPage > 1000000) { setError('Enter a page between 1 and 1000000.'); return }
+    const filePath = collection ? selectedFile : tab.filePath
+    if (action !== 'list' && !filePath) { setError('Choose a PDF first. Build PDFs if the list is empty.'); return }
+    clearTimeout(timer.current); requestId.current = crypto.randomUUID(); setPending(true); setError('')
+    if (action !== 'external' && action !== 'list') onPage(selectedPage)
+    timer.current = setTimeout(() => { requestId.current = ''; setPending(false); setError('PDF viewer timed out. Open or Refresh to retry.') }, 65000)
+    bridge.postMessage({ type: 'workspace.pdf', profileId, projectId: tab.projectId, repositoryId: tab.repositoryId, filePath: action === 'list' ? undefined : filePath, page: selectedPage, action, requestId: requestId.current })
+  }
   useEffect(() => {
     if (!bridge) return
     const receive = (event: MessageEvent) => {
@@ -39,26 +49,16 @@ export function PdfWorkspaceView({ tab, profileId, bridge, directory, job, onPag
       setStatus(message.action === 'external' ? 'Opened in the external PDF application.' : 'PDF loaded / refreshed in the native viewer pane.')
     }
     bridge.addEventListener('message', receive)
-    if (collection && !tab.restored) request('list')
-    return () => { clearTimeout(timer.current); requestId.current = ''; bridge.removeEventListener('message', receive) }
+    const frame = collection && !tab.restored ? requestAnimationFrame(() => request('list')) : 0
+    return () => { cancelAnimationFrame(frame); clearTimeout(timer.current); requestId.current = ''; bridge.removeEventListener('message', receive) }
   }, [bridge, profileId, tab.id, tab.filePath])
   useEffect(() => {
     if (!collection || !bridge || pending || job?.action !== 'build' || job.state !== 'succeeded' ||
         job.buildState !== 'succeeded' || !job.logPath || job.logPath === lastCompletedBuild.current) return
     lastCompletedBuild.current = job.logPath
-    request('list')
+    const frame = requestAnimationFrame(() => request('list'))
+    return () => cancelAnimationFrame(frame)
   }, [collection, bridge, pending, job?.action, job?.state, job?.buildState, job?.logPath])
-  function request(action: 'open' | 'refresh' | 'external' | 'list') {
-    if (!bridge) { setError('PDF viewing requires the DevShell desktop app.'); return }
-    const selectedPage = Number(page)
-    if (!Number.isInteger(selectedPage) || selectedPage < 1 || selectedPage > 1000000) { setError('Enter a page between 1 and 1000000.'); return }
-    const filePath = collection ? selectedFile : tab.filePath
-    if (action !== 'list' && !filePath) { setError('Choose a PDF first. Build PDFs if the list is empty.'); return }
-    clearTimeout(timer.current); requestId.current = crypto.randomUUID(); setPending(true); setError('')
-    if (action !== 'external' && action !== 'list') onPage(selectedPage)
-    timer.current = setTimeout(() => { requestId.current = ''; setPending(false); setError('PDF viewer timed out. Open or Refresh to retry.') }, 65000)
-    bridge.postMessage({ type: 'workspace.pdf', profileId, projectId: tab.projectId, repositoryId: tab.repositoryId, filePath: action === 'list' ? undefined : filePath, page: selectedPage, action, requestId: requestId.current })
-  }
   return <div className="workspace-pdf-entry">
     <div className="workspace-view-toolbar workspace-pdf-controls">
       {collection && <label>Volume / edition <select aria-label="PDF volume or edition" value={selectedFile} disabled={pending || !files.length} onChange={event => setSelectedFile(event.target.value)}><option value="">Select a PDF</option>{files.map(path => <option key={path} value={path}>{path.split('/').at(-1)}</option>)}</select></label>}

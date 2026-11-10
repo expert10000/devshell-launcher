@@ -5,6 +5,10 @@ static partial class BrokerManifest
 {
     static readonly string[] RepairRecipes = ["lab.probe", "compile-link", "l5.cgal-repair",
         "l6.cgal-repair", "l7.cgal-repair", "l8.cgal-repair", "l9.cgal-repair"];
+    static readonly string[] RepairProductFiles = ["handoff.json", "math3d-consumed.json",
+        "product/repair-mesh-document.json", "product/repair-mesh-resource.bin",
+        "product/repaired.m3dm", "product/product.json", "product/roundtrip.json",
+        "product/viewer.png", "product/viewer.json"];
 
     static JsonObject? RepairSourceFiles(string root)
     {
@@ -174,12 +178,31 @@ static partial class BrokerManifest
                 var id = fixture?["caseId"]?.GetValue<string>();
                 var source = Path.Combine(repo, fixture!["path"]!.GetValue<string>().Replace('/', Path.DirectorySeparatorChar));
                 var output = Path.Combine(directory, "cases", id!, "repaired.obj");
-                if (item is not JsonObject caseItem || caseItem["caseId"]?.GetValue<string>() != id
+                if (item is not JsonObject caseItem) { valid = false; break; }
+                var productRoot = Path.Combine(directory, "cases", id!);
+                var hashes = caseItem["artifactHashes"] as JsonObject;
+                var productHash = hashes?["product/repaired.m3dm"]?.GetValue<string>();
+                if (caseItem["caseId"]?.GetValue<string>() != id
                     || caseItem["recipeId"]?.GetValue<string>() != fixture["recipeId"]?.GetValue<string>()
                     || !File.Exists(source) || !File.Exists(output)
                     || HashFile(source) != fixture["sha256"]?.GetValue<string>()
                     || HashFile(output) != caseItem["outputSha256"]?.GetValue<string>()
-                    || caseItem["inputSha256"]?.GetValue<string>() != fixture["sha256"]?.GetValue<string>())
+                    || caseItem["inputSha256"]?.GetValue<string>() != fixture["sha256"]?.GetValue<string>()
+                    || hashes?.Count != RepairProductFiles.Length
+                    || RepairProductFiles.Any(name => !File.Exists(Path.Combine(productRoot,
+                        name.Replace('/', Path.DirectorySeparatorChar)))
+                        || HashFile(Path.Combine(productRoot, name.Replace('/', Path.DirectorySeparatorChar)))
+                            != hashes[name]?.GetValue<string>())
+                    || caseItem["handoff"]?["verdict"]?.GetValue<string>() != "passed"
+                    || caseItem["product"]?["verdict"]?.GetValue<string>() != "passed"
+                    || caseItem["roundtrip"]?["verdict"]?.GetValue<string>() != "passed"
+                    || caseItem["viewer"]?["verdict"]?.GetValue<string>() != "passed"
+                    || caseItem["product"]?["sourceObjSha256"]?.GetValue<string>() != caseItem["outputSha256"]?.GetValue<string>()
+                    || caseItem["product"]?["m3dmSha256"]?.GetValue<string>() != productHash
+                    || caseItem["roundtrip"]?["m3dmSha256"]?.GetValue<string>() != productHash
+                    || caseItem["viewer"]?["m3dmSha256"]?.GetValue<string>() != productHash
+                    || caseItem["viewer"]?["screenshotSha256"]?.GetValue<string>() != hashes["product/viewer.png"]?.GetValue<string>()
+                    || caseItem["viewer"]?["blueMeshPixels"]?.GetValue<int>() <= 1000)
                 { valid = false; break; }
                 references.Add(new JsonObject { ["caseId"] = id, ["recipeId"] = caseItem["recipeId"]?.DeepClone(),
                     ["inputSha256"] = fixture["sha256"]?.DeepClone(),

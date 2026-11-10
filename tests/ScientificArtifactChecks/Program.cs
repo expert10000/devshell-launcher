@@ -512,6 +512,24 @@ Check(!ScientificQualificationRecords.ValidInteropSemantics(cgalReload,vtkConsum
 math3dConsumer["signedVolume"]=8.0/3.0;vtkConsumer["bounds"]![1]=2.0;
 Check(!ScientificQualificationRecords.ValidInteropSemantics(cgalReload,vtkConsumer,math3dConsumer,rejectedHandoff,
     artifactHash,parserHash,parserHash),"L7 rejects changed VTK scale");
+var repairReload=(JsonObject)cgalReload.DeepClone();repairReload["points"]=8;repairReload["triangles"]=12;
+var repairVtk=(JsonObject)vtkConsumer.DeepClone();repairVtk["points"]=8;repairVtk["triangles"]=12;
+repairVtk["bounds"]![1]=1.0;
+var repairMath3D=(JsonObject)math3dConsumer.DeepClone();repairMath3D["points"]=8;repairMath3D["triangles"]=12;
+Check(ScientificQualificationRecords.ValidRepairInteropSemantics(repairReload,repairVtk,repairMath3D,rejectedHandoff,
+    artifactHash,parserHash,parserHash),"repair interop accepts a non-tetrahedron closed mesh across both consumers");
+repairMath3D["triangles"]=11;
+Check(!ScientificQualificationRecords.ValidRepairInteropSemantics(repairReload,repairVtk,repairMath3D,rejectedHandoff,
+    artifactHash,parserHash,parserHash),"repair interop rejects lost MATH3D faces");
+repairMath3D["triangles"]=12;repairMath3D["signedVolume"]=-8.0/3.0;
+Check(!ScientificQualificationRecords.ValidRepairInteropSemantics(repairReload,repairVtk,repairMath3D,rejectedHandoff,
+    artifactHash,parserHash,parserHash),"repair interop rejects flipped MATH3D orientation");
+repairMath3D["signedVolume"]=8.0/3.0;repairVtk["bounds"]![1]=2.0;
+Check(!ScientificQualificationRecords.ValidRepairInteropSemantics(repairReload,repairVtk,repairMath3D,rejectedHandoff,
+    artifactHash,parserHash,parserHash),"repair interop rejects changed VTK scale");
+repairVtk["bounds"]![1]=1.0;rejectedHandoff["state"]="succeeded";
+Check(!ScientificQualificationRecords.ValidRepairInteropSemantics(repairReload,repairVtk,repairMath3D,rejectedHandoff,
+    artifactHash,parserHash,parserHash),"repair interop requires malformed input rejection");
 var l8Lower=new JsonArray(Enumerable.Range(0,8).Select(index=>(JsonNode?)new JsonObject
     { ["level"]="L"+index,["recordId"]="resilience-"+index }).ToArray());
 var l8Assessed=new JsonArray(new JsonObject { ["level"]="L8",["status"]="current",

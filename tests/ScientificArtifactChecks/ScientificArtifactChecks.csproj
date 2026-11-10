@@ -10,6 +10,7 @@
     <Compile Include="../../BatchLauncher/ScientificRunFingerprint.cs" Link="ScientificRunFingerprint.cs" />
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.cs" Link="ScientificQualificationRecords.cs" />
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.Repair.cs" Link="ScientificQualificationRecords.Repair.cs" />
+    <Compile Include="../../BatchLauncher/ScientificQualificationRecords.RepairInterop.cs" Link="ScientificQualificationRecords.RepairInterop.cs" />
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.Sage.cs" Link="ScientificQualificationRecords.Sage.cs" />
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.Gmsh.cs" Link="ScientificQualificationRecords.Gmsh.cs" />
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.GmshVolume.cs" Link="ScientificQualificationRecords.GmshVolume.cs" />

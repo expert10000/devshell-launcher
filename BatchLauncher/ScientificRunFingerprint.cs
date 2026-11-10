@@ -168,6 +168,11 @@ public static class ScientificRunFingerprint
                 "BatchLauncher/ScientificQualificationRecords.Repair.cs",
                 "scientific/fixtures/cgal-repair-qualification/manifest.json",
                 "tools/scientific-cgal-hole-repair-worker.py", "scientific/cgal-worker/hole_repair.cpp" });
+        if (recipeId == "l7.cgal-repair")
+            names.AddRange(new[] { "BatchLauncher/Form1.Scientific.CgalRepairL7.cs",
+                "BatchLauncher/ScientificQualificationRecords.RepairInterop.cs",
+                "tools/scientific-artifact-roundtrip.py", "tools/scientific-vtk-interop.py",
+                "tools/math3d-vtk-import-handoff.mjs" });
         if (recipeId == "matrix.cgal.real-mesh") names.Add("BatchLauncher/Form1.Scientific.RealMesh.cs");
         if (recipeId == "cgal.boolean") names.Add("BatchLauncher/Form1.Scientific.Boolean.cs");
         if (recipeId == "datasets.import") names.Add("BatchLauncher/Form1.Scientific.MeshImport.cs");

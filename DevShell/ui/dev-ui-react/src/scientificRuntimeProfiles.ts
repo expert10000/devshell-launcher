@@ -61,6 +61,7 @@ export interface ScientificRunResult {
   runtimeId: string
   recipeId: string
   operation?: string
+  guardEvidence?: { path: string; sha256: string; state: 'accepted' | 'rejected'; policyId: string; policyVersion: number; policySha256: string; decision: { relativeVolumeDrift: number; relativeSampledDistance: number; checks: Record<string, boolean>; eligible: boolean } }
   repairAudit?: { retainedFaces: number; addedFaces: number; boundaryEdgesCovered: number; patchSha256: string }
   repairEvidence?: { boundaryLoopsBefore: number; boundaryEdgesBefore: number; boundaryLoopEdgeCounts: number[]; holesFilled: number; patchFaces: number; outputClosed: boolean; outwardVolume: number }
     repairQualificationEvidence?: { suiteId: string; capabilityId: string; cases: { caseId: string; state: string; artifactSha256?: string; outputAbsent?: boolean }[] }

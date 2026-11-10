@@ -20,8 +20,12 @@ SOURCE = ROOT / 'scientific/cgal-worker/main.cpp'
 METRICS = ROOT / 'tools/scientific_cgal_mesh_metrics.py'
 SAMPLES = ROOT / 'tools/scientific_cgal_surface_samples.py'
 QUALITY = ROOT / 'tools/scientific_cgal_triangle_quality.py'
-POLICY = {'relativeVolumeTolerance': 1e-8, 'relativeSampleTolerance': 1e-8,
-          'minimumAngleDegrees': 20.0, 'minimumShapeScore': 0.5}
+POLICY_FILE = ROOT / 'schemas/scientific-remesh-guard.v1.json'
+POLICY_DOCUMENT = json.loads(POLICY_FILE.read_text(encoding='utf-8'))
+if POLICY_DOCUMENT['schemaVersion'] != 1 or POLICY_DOCUMENT['policyId'] != 'cgal.remesh.closed-genus-zero':
+    raise ValueError('Unsupported remesh guard policy.')
+POLICY = {name: POLICY_DOCUMENT[name] for name in ('relativeVolumeTolerance',
+          'relativeSampleTolerance', 'minimumAngleDegrees', 'minimumShapeScore')}
 
 
 def closed_input(measured):
@@ -118,6 +122,8 @@ def run(worker, prefix, input_path, target_edge, iterations, preserve_boundary, 
               'inputSha256': sha(source), 'candidateSha256': sha(candidate),
               'acceptedSha256': sha(accepted) if accepted.exists() else None,
               'resultSha256': sha(root / 'results.json'),
+              'policyId': POLICY_DOCUMENT['policyId'], 'policyVersion': POLICY_DOCUMENT['schemaVersion'],
+              'policySha256': sha(POLICY_FILE),
               'parameters': {'targetEdge': target_edge, 'iterations': iterations,
                              'preserveBoundary': preserve_boundary},
               'policy': POLICY, 'measurements': measured,
@@ -138,7 +144,10 @@ def verify(path):
     params = report['parameters']
     source_path = Path(report['sourcePath']).resolve(strict=True)
     if (report.get('schemaVersion') != 1 or report.get('kind') != 'scientific.cgal-remesh-guarded'
-            or report.get('policy') != POLICY or sha(source_path) != report.get('sourceSha256')
+            or report.get('policy') != POLICY or report.get('policyId') != POLICY_DOCUMENT['policyId']
+            or report.get('policyVersion') != POLICY_DOCUMENT['schemaVersion']
+            or report.get('policySha256') != sha(POLICY_FILE)
+            or sha(source_path) != report.get('sourceSha256')
             or sha(Path(report['workerPath']).resolve(strict=True)) != report.get('workerSha256')
             or sha(SOURCE) != report.get('workerSourceSha256')
             or sha(METRICS) != report.get('metricsSourceSha256')

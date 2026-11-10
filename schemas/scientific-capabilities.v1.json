@@ -56,7 +56,7 @@
       { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Legacy aggregate result ID; use operation-specific IDs for new qualification." }
     ] },
     { "id": "mesh.remesh", "version": 1, "parametersSchema": "mesh-operation.v1", "resultSchema": "mesh-artifact.v1", "providers": [
-      { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Isotropic remesh recipe; negative acceptance case remains open." }
+      { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Guarded remesh accepts only bounded outward closed genus-zero OBJ inputs meeting the pinned volume, sampled-surface, angle and shape policy." }
     ] },
     { "id": "mesh.decimate", "version": 1, "parametersSchema": "mesh-operation.v1", "resultSchema": "mesh-artifact.v1", "providers": [
       { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Planned; no registered decimation worker." }

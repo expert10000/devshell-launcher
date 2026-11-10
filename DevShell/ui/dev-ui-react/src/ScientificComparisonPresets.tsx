@@ -8,12 +8,13 @@ export function ScientificComparisonPresets({ native }: { native: ReturnType<typ
   const [preserveBoundary, setPreserveBoundary] = useState(true)
   const datasets = (native.datasets?.entries ?? []).filter(item => !item.expectedProblem && /\.(obj|stl|ply|off)$/i.test(item.path))
   const selectedId = datasets.some(item => item.id === datasetId) ? datasetId : datasets[0]?.id ?? ''
+  const remeshInput = datasets.find(item => item.id === selectedId && /\.obj$/i.test(item.path))
   const edge = Number(targetEdge)
   const validEdge = Number.isFinite(edge) && edge > 0 && edge <= 1000000
   const validIterations = Number.isInteger(iterations) && iterations >= 1 && iterations <= 10
   const disabled = !selectedId || native.pending || native.busy
   const run = (recipeId: 'cgal.validate' | 'cgal.remesh') => {
-    if (!selectedId || native.pending || native.busy || (recipeId === 'cgal.remesh' && (!validEdge || !validIterations))) return
+    if (!selectedId || native.pending || native.busy || (recipeId === 'cgal.remesh' && (!remeshInput || !validEdge || !validIterations))) return
     native.send('cgal-win-conda', 'cgal-recipe', {
       recipeId,
       parameters: {
@@ -35,7 +36,7 @@ export function ScientificComparisonPresets({ native }: { native: ReturnType<typ
     </div>
     {!validEdge && <p role="alert">Enter a positive finite target edge length.</p>}
     {!validIterations && <p role="alert">Iterations must be an integer from 1 to 10.</p>}
-    <div className="scientific-history-actions"><button disabled={disabled} onClick={() => run('cgal.validate')}>1. Run baseline validation</button><button disabled={disabled} onClick={() => run('cgal.validate')}>Repeat baseline</button><button disabled={disabled || !validEdge || !validIterations} onClick={() => run('cgal.remesh')}>2. Run remesh variant</button></div>
-    <p className="scientific-runtime-note">Repeat baseline uses the same selected mesh and request parameters in a fresh run folder. Wait for each job to finish, then Refresh history and compare the two validation runs for input/output hashes. The remesh variant is a separate operation; target edge length uses the mesh's own units.</p>
+    <div className="scientific-history-actions"><button disabled={disabled} onClick={() => run('cgal.validate')}>1. Run baseline validation</button><button disabled={disabled} onClick={() => run('cgal.validate')}>Repeat baseline</button><button disabled={disabled || !remeshInput || !validEdge || !validIterations} onClick={() => run('cgal.remesh')}>2. Run remesh variant</button></div>
+    <p className="scientific-runtime-note">Repeat baseline uses the same selected mesh and request parameters in a fresh run folder. Remesh requires a bounded outward closed genus-zero OBJ; its pinned guard publishes only candidates that pass topology, volume, sampled surface, angle and shape checks. Target edge length uses the mesh's units. Refresh history to inspect the saved decision.</p>
   </section>
 }

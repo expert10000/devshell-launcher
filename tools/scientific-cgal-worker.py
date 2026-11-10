@@ -53,6 +53,8 @@ if remesh:
         scope='Bounded outward closed genus-zero OBJ; guarded tetrahedron policy',
         extra={'engine': 'CGAL C++', 'guardEvidence': {'path': str(report_path.relative_to(contract.directory)),
             'sha256': sha(report_path), 'state': guard['state'],
+            'policyId': guard['policyId'], 'policyVersion': guard['policyVersion'],
+            'policySha256': guard['policySha256'],
             'decision': guard['measurements']['decision']}})
     sys.exit(0 if accepted else 2)
 command = [str(worker), 'remesh' if remesh else 'validate', str(contract.input), str(contract.output),

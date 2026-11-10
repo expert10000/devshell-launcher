@@ -5,7 +5,7 @@ using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using BatchLauncher;
 
-static class BrokerManifest
+static partial class BrokerManifest
 {
     static string Hash(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
     static string HashFile(string path) => Hash(File.ReadAllBytes(path));
@@ -103,7 +103,7 @@ static class BrokerManifest
             catch (Exception error) when (error is IOException or JsonException or InvalidDataException
                 or InvalidOperationException or UnauthorizedAccessException or KeyNotFoundException)
             {
-                if (rejected != null && recipeId == "l9.gmsh-volume")
+                if (rejected != null && recipeId is "l9.gmsh-volume" or "l9.cgal-repair")
                     rejected.Add(new JsonObject { ["folderId"] = Path.GetFileName(directory),
                         ["reason"] = error.Message });
             }
@@ -487,8 +487,15 @@ static class BrokerManifest
                 Console.WriteLine(audit.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
                 return 0;
             }
+            if (args.Length == 5 && args[0] == "audit-repair")
+            {
+                var audit = AuditRepair(Path.GetFullPath(args[1]), Path.GetFullPath(args[2]),
+                    Path.GetFullPath(args[3]), args[4]);
+                Console.WriteLine(audit.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+                return 0;
+            }
             if (args.Length == 2 && args[0] == "verify") { Verify(args[1]); Console.WriteLine("Certified manifest verified."); return 0; }
-            Console.Error.WriteLine("Usage: export <repo> <installed-root> <math3d-root> <profile> <manifest.json> | audit-volume <repo> <installed-root> <math3d-root> <profile> | verify <manifest.json>");
+            Console.Error.WriteLine("Usage: export <repo> <installed-root> <math3d-root> <profile> <manifest.json> | audit-volume|audit-repair <repo> <installed-root> <math3d-root> <profile> | verify <manifest.json>");
             return 2;
         }
         catch (Exception error) { Console.Error.WriteLine(error.Message); return 1; }

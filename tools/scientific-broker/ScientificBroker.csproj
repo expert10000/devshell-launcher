@@ -4,12 +4,17 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <DefineConstants>$(DefineConstants);BROKER</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../BatchLauncher/ScientificRunFingerprint.cs" Link="ScientificRunFingerprint.cs" />
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords*.cs" Link="%(Filename)%(Extension)" />
     <Compile Include="../../BatchLauncher/ScientificProviderRegistry.cs" Link="ScientificProviderRegistry.cs" />
     <Compile Include="../../BatchLauncher/ScientificCapabilityRegistry.cs" Link="ScientificCapabilityRegistry.cs" />
+    <Compile Include="../../BatchLauncher/ScientificRepairProductContract.cs" Link="ScientificRepairProductContract.cs" />
+    <Compile Include="../../BatchLauncher/ScientificRepairFixtures.cs" Link="ScientificRepairFixtures.cs" />
+    <Compile Include="../../BatchLauncher/ScientificArtifactFiles.cs" Link="ScientificArtifactFiles.cs" />
+    <Compile Include="../../BatchLauncher/ScientificMeshImports.cs" Link="ScientificMeshImports.cs" />
     <EmbeddedResource Include="../../schemas/scientific-capabilities.v1.json" LogicalName="ScientificCapabilities" />
   </ItemGroup>
 </Project>

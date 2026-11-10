@@ -23,7 +23,16 @@ The **Load repair fixtures** action registers the pinned CC0 fixture pack under 
 
 **Test repair L8 resilience** requires a current repair L7 record. It repeats each of the four VTK reads three times under a 128 MiB process limit and compares each report to the L7 baseline. Separate owned children must cancel, time out, and stop at the memory limit without output. The saved verifier checks all twelve report hashes, process-limit observations and the linked L7 record before issuing `mesh.repair@L8`. This suite is limited to the authored repair fixtures and the VTK handoff; a live run is required before claiming L8.
 
-**Run repair L9 products** requires current repair L8 support and the pinned `product-contract.v1.json`. It makes four fresh managed repairs, checks their output hashes against the L7 consumer baseline, and runs the existing MATH3D importer, document save/reopen, independent M3DM reload and viewer on each result. The job saves all child requests, products, consumer reports and screenshots. The L9 record gate is a separate verifier; a successful job alone does not establish L9.
+**Run repair L9 products** requires current repair L8 support and the pinned `product-contract.v1.json`. It makes four fresh managed repairs, checks their output hashes against the L7 consumer baseline, and runs the existing MATH3D importer, document save/reopen, independent M3DM reload and viewer on each result. It also changes one M3DM byte and requires the independent reader to reject it without a reload report. The job saves all child requests, products, consumer reports and screenshots. A `mesh.repair@L9` record is issued only when the saved L8 chain, four products, nine artifacts per case, consumer sources, and rejection evidence verify. History marks it stale when the MATH3D source or product contract changes.
+
+The broker's read-only `audit-repair` command checks saved repair records and reports current eligibility, rejected L9 runs, and a managed requalification recipe plan:
+
+```powershell
+dotnet tools/scientific-broker/bin/Release/net8.0/ScientificBroker.dll audit-repair `
+  <devshell-repo> <installed-root> <math3d-checkout> <profile-id>
+```
+
+This audit does not write a manifest or raise a capability. Broker export and promotion require a current, verified L9 chain on the target host.
 
 For a successful repair in History, **Save and verify MATH3D document** starts a separate managed job. It rechecks the saved source and result hashes, reruns the patch audit, loads the repaired OBJ through MATH3D's actual desktop mesh importer, and compares topology, bounds, area, and volume. It saves a Mesh document, binary resource and `.m3dm`, reopens them with MATH3D, independently parses the M3DM with Python, and mounts the reopened document in the real Mesh viewport. The new run keeps the document, resource, M3DM, JSON evidence and viewer screenshot; the source run remains read-only. This product check is separate from repair L5–L9 qualification and broker certification.
 

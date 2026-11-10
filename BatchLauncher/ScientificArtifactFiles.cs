@@ -112,6 +112,7 @@ internal static class ScientificArtifactFiles
         return path;
     }
 
+#if !BROKER
     internal static WorkspaceImagePreview ImagePreview(string directory, JsonElement result, string relative)
     {
         var path = ResolveRegistered(directory, result, relative);
@@ -119,4 +120,5 @@ internal static class ScientificArtifactFiles
             throw new InvalidOperationException("Scientific image preview supports PNG artifacts only.");
         return WorkspaceFiles.ImagePreview(directory, relative);
     }
+#endif
 }

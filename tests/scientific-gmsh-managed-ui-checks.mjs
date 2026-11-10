@@ -1,16 +1,17 @@
 // Opt-in live Gmsh L0-L9 acceptance on a debug-port DevShell build.
 import assert from 'node:assert/strict'
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 
 const require = createRequire(import.meta.url)
 const { chromium } = require(join(import.meta.dirname, '..', 'DevShell', 'ui', 'dev-ui-react', 'node_modules', 'playwright-core'))
-const runs = join(import.meta.dirname, '..', '.scientific', 'runs')
+const runs = process.env.DEVSHELL_SCIENTIFIC_RUNS_ROOT || join(import.meta.dirname, '..', '.scientific', 'runs')
+mkdirSync(runs, { recursive: true })
 const prefix = 'gmsh-win-conda'
 
-async function newRun(previous, recipe, expectedLevels) {
+async function newRun(previous, recipe, expectedLevels, page, priorAlerts) {
   const deadline = Date.now() + 180_000
   while (Date.now() < deadline) {
     for (const name of readdirSync(runs)) {
@@ -20,8 +21,9 @@ async function newRun(previous, recipe, expectedLevels) {
       const fingerprintPath = join(folder, 'fingerprint.json')
       const qualificationPath = join(folder, 'qualifications.json')
       if (existsSync(resultPath)) {
-        const terminal = JSON.parse(readFileSync(resultPath, 'utf8'))
-        if (terminal.runtimeId === prefix && terminal.recipeId === recipe && terminal.state && terminal.state !== 'succeeded')
+        let terminal
+        try { terminal = JSON.parse(readFileSync(resultPath, 'utf8')) } catch { /* writer has not finished */ }
+        if (terminal?.runtimeId === prefix && terminal.recipeId === recipe && terminal.state && terminal.state !== 'succeeded')
           throw new Error(`${recipe} ended ${terminal.state}: ${JSON.stringify(terminal.diagnostics || terminal.error)}`)
       }
       if (![resultPath, fingerprintPath, qualificationPath].every(existsSync)) continue
@@ -38,6 +40,9 @@ async function newRun(previous, recipe, expectedLevels) {
         if (error?.name === 'AssertionError') throw error
       }
     }
+    const alerts = await page.getByRole('alert').allTextContents()
+    const fresh = alerts.find(message => message && !priorAlerts.includes(message))
+    if (fresh) throw new Error(`${recipe} failed before saving a run: ${fresh}`)
     await delay(500)
   }
   throw new Error(`${recipe} did not save managed qualification before timeout`)
@@ -77,8 +82,9 @@ try {
   const savedRuns = []
   for (const item of process.env.DEVSHELL_GMSH_HISTORY_ONLY ? [] : selectedCases) {
     const previous = new Set(readdirSync(runs))
+    const priorAlerts = await page.getByRole('alert').allTextContents()
     await detail.getByRole('button', { name: item.button, exact: true }).click()
-    const saved = await newRun(previous, item.recipe, item.levels)
+    const saved = await newRun(previous, item.recipe, item.levels, page, priorAlerts)
     savedRuns.push(saved)
     if (item.recipe === 'product-readiness.gmsh-volume') {
       assert.ok(['blocked', 'ready-for-l9'].includes(saved.result.volumeProductReadiness.status))

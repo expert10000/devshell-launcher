@@ -44,6 +44,8 @@ For end-to-end release verification, start an isolated `desktop-five` DevShell s
 
 After the managed chain passes, `tools/Invoke-CgalRepair-Release.ps1 -Worktree <path> -Math3DCheckout <path> -ReleaseTag <tag>` refreshes inventory, audits and exports the current chain, creates a separate verified broker profile, runs all four broker/MATH3D cases, then certifies and verifies a release report. The release gate requires that verified four-case smoke record. The command retains the config, smoke, and report paths for inspection.
 
+To check the saved smoke against record tampering, set `SCIENTIFIC_REPAIR_LIVE_CONFIG` and `SCIENTIFIC_REPAIR_LIVE_SMOKE_RECORD` to the command's printed paths, then run `python tests/test_scientific_repair_release.py -v`. The live test changes a copied case hash, recomputes its sidecar, and requires verification to reject it; the original evidence stays untouched.
+
 ```powershell
 python tools/scientific-broker/release_certification.py certify `
   --config <repair-config.json> --installed-root <launcher-install-root> `

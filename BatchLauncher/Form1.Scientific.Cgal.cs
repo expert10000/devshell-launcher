@@ -85,16 +85,15 @@ public partial class Form1
         var build=Path.Combine(ScientificDataRoot,"builds",key,"cgal-worker");
         var cmake=Path.Combine(prefix,"Library","bin","cmake.exe");
         await ScientificProcessAsync(processJob,prefix,cmake,new[]{"-S",Path.Combine(ScientificSourceRoot,"scientific","cgal-worker"),"-B",build,"-G","Visual Studio 17 2022","-A","x64","-DCMAKE_PREFIX_PATH="+Path.Combine(prefix,"Library")},job.Directory,180);
-        await ScientificProcessAsync(processJob,prefix,cmake,new[]{"--build",build,"--config","Release","--parallel","1"},job.Directory,180);
         var repair=job.RecipeId is "cgal.fill-one-hole" or "cgal.fill-quad-hole" or "cgal.fill-two-quad-holes";
+        await ScientificProcessAsync(processJob,prefix,cmake,repair
+            ? new[]{"--build",build,"--config","Release","--target","devshell_cgal_hole_repair","--parallel","1"}
+            : new[]{"--build",build,"--config","Release","--target","devshell_cgal_worker","--parallel","1"},job.Directory,180);
         var worker=Path.Combine(build,"Release",repair?"devshell_cgal_hole_repair.exe":"devshell_cgal_worker.exe");
         var adapter=Path.Combine(ScientificSourceRoot,"tools",repair?"scientific-cgal-hole-repair-worker.py":"scientific-cgal-worker.py");
         var condaHistory=Path.Combine(prefix,"conda-meta","history");
-        if (processOwner != null)
-        {
-            job.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(worker, repair?"cgal-hole-repair-worker":"cgal-worker"));
-            job.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(adapter, repair?"cgal-hole-repair-adapter":"cgal-adapter"));
-        }
+        job.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(worker, repair?"cgal-hole-repair-worker":"cgal-worker"));
+        job.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(adapter, repair?"cgal-hole-repair-adapter":"cgal-adapter"));
         job.EnvironmentFingerprint=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
             ScientificHash(condaHistory)+"|"+ScientificHash(worker)+"|"+ScientificHash(adapter)))).ToLowerInvariant();
         if(job.RecipeId=="cgal.validate")

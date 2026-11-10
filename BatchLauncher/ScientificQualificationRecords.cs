@@ -940,6 +940,23 @@ public static partial class ScientificQualificationRecords
                     evidence?["consumerContractSha256"]?.GetValue<string>(),
                     evidence?["consumerContract"]?["vtkEnvironmentSha256"]?.GetValue<string>());
         }
+        else if (recipeId == "l7.cgal-repair" && runtimeId == "cgal-win-conda"
+            && manifest["qualificationRecipes"] is JsonArray repairInteropRecipes)
+        {
+            var declaration = repairInteropRecipes.OfType<JsonObject>().FirstOrDefault(item =>
+                item["id"]?.GetValue<string>() == "l7.cgal-repair"
+                && item["readinessLevel"]?.GetValue<string>() == "L7"
+                && item["capability"]?.GetValue<string>() == "mesh.repair"
+                && item["referenceRecipe"]?.GetValue<string>() == "l6.cgal-repair"
+                && item["consumer"]?.GetValue<string>() == "VTK+MATH3D");
+            var hash = RepairL7Hash(directory, result, components!);
+            var evidence = result["repairInteropEvidence"];
+            if (declaration != null && hash != null)
+                Add("mesh.repair", "L7", "l7.cgal-repair", hash, evidence?["lowerQualification"],
+                    evidence?["consumerContract"]?["math3dImporterSourceSha256"]?.GetValue<string>(),
+                    evidence?["consumerContractSha256"]?.GetValue<string>(),
+                    evidence?["consumerContract"]?["vtkEnvironmentSha256"]?.GetValue<string>());
+        }
         else if (recipeId == "l8.resilience" && manifest["qualificationRecipes"] is JsonArray resilienceRecipes)
         {
             var declaration = resilienceRecipes.OfType<JsonObject>().FirstOrDefault(item =>
@@ -1173,6 +1190,19 @@ public static partial class ScientificQualificationRecords
             {
                 var sourceResult = JsonNode.Parse(result.GetRawText()) as JsonObject;
                 if (sourceResult == null) throw new InvalidDataException("L7 evidence is unavailable.");
+                if (record["evidenceId"]?.GetValue<string>() == "l7.cgal-repair")
+                {
+                    var evidence = sourceResult["repairInteropEvidence"];
+                    if (record["capabilityId"]?.GetValue<string>() != "mesh.repair"
+                        || record["lowerQualification"]?.ToJsonString() != evidence?["lowerQualification"]?.ToJsonString()
+                        || record["consumerSourceSha256"]?.GetValue<string>() != evidence?["consumerContract"]?["math3dImporterSourceSha256"]?.GetValue<string>()
+                        || record["consumerContractSha256"]?.GetValue<string>() != evidence?["consumerContractSha256"]?.GetValue<string>()
+                        || record["consumerEnvironmentSha256"]?.GetValue<string>() != evidence?["consumerContract"]?["vtkEnvironmentSha256"]?.GetValue<string>()
+                        || record["evidenceSha256"]?.GetValue<string>() != RepairL7Hash(directory, sourceResult,
+                            fingerprint!["components"]!.AsObject()))
+                        throw new InvalidDataException("CGAL repair L7 consumer evidence changed.");
+                    continue;
+                }
                 if (record["evidenceId"]?.GetValue<string>() == "l7.gmsh-volume")
                 {
                     if (record["capabilityId"]?.GetValue<string>() != "mesh.generate3d"

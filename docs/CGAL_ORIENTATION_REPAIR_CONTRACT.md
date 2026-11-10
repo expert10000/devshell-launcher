@@ -1,6 +1,6 @@
 # CGAL orientation repair contract
 
-Status: the native worker built against the installed CGAL prefix and all six orientation checks passed on 2026-11-10. Managed desktop execution and L5 qualification still require a live run with current L0–L4 support.
+Status: on 2026-11-10, the native worker built against the installed CGAL prefix and all six orientation checks passed. The `profile-portable` desktop produced current CGAL L0–L3 (`e16c71a25aa5401fa0db28cba4c97474`), L4 (`f70a551bd1fb460d9b5e2e7198a8bb3c`), and orientation L5 (`028db8caf8df4881a0069fd425f97a9b`) qualification records.
 
 `cgal.repair-orientation` is the separate managed slice of `mesh.repair`. It accepts one registered, hash-checked OBJ copy up to 32 MiB. The existing native orientation worker requires a readable triangle manifold with at most 100,000 faces, no degenerate triangles or self-intersections, and one connected closed volume. It reverses face winding only when the input is inward. The output is a new OBJ in the owned run directory. An open surface, disconnected volume or invalid mesh must fail without an output artifact. The operation does not fill holes, remove degeneracies, reconstruct polygon soups, or claim arbitrary mesh repair.
 
@@ -8,4 +8,4 @@ The managed adapter uses the shared version 1 JSON request/result envelope and e
 
 `l5.cgal-orientation` is a separate fixed-fixture gate. It pins current CGAL L0–L4 support, repairs the authored inward unit tetrahedron, and rejects the authored open square. The positive OBJ is independently parsed for four vertices, four faces, the six closed edges, the original unit tetrahedron coordinates, and positive signed volume `1/6`. The qualification record pins both requests, results, fixture hashes and the output hash. A changed output or case result invalidates the record. This grants only `mesh.repair` L5 for the named fixtures; it does not grant L6–L9, broker export or MATH3D product promotion.
 
-Hole repair has its own bounded worker, managed L5–L9 chain, and product contract. Orientation qualification remains separate evidence. Run its managed gate on the installed CGAL desktop before treating that L5 record as current.
+Hole repair has its own bounded worker, managed L5–L9 chain, and product contract. Orientation qualification remains separate fixed-fixture evidence; it does not promote arbitrary repair or broker capability.

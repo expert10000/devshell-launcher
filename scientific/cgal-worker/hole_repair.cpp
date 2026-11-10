@@ -40,12 +40,16 @@ int main(int argc, char** argv) {
     std::cerr << "results.json already exists; use a fresh working directory\n";
     return 3;
   }
-  std::string error;
+  std::string error, operation;
   std::size_t before_faces = 0, after_faces = 0, boundary_edges = 0, patch_faces = 0;
   double volume_after = 0;
   try {
-    if (argc != 4 || std::string(argv[1]) != "fill-one-hole")
-      throw std::runtime_error("Usage: devshell_cgal_hole_repair fill-one-hole input.obj output.obj");
+    if (argc != 4)
+      throw std::runtime_error("Usage: devshell_cgal_hole_repair fill-one-hole|fill-quad-hole input.obj output.obj");
+    operation = argv[1];
+    if (operation != "fill-one-hole" && operation != "fill-quad-hole")
+      throw std::runtime_error("Operation is not registered");
+    const std::size_t expected_edges = operation == "fill-one-hole" ? 3 : 4;
     const auto input = std::filesystem::u8path(argv[2]);
     const auto output = std::filesystem::u8path(argv[3]);
     if (!std::filesystem::is_regular_file(input) || input.extension() != ".obj"
@@ -74,19 +78,21 @@ int main(int argc, char** argv) {
     auto current = cycles.front();
     do {
       ++boundary_edges;
-      if (boundary_edges > 3) break;
+      if (boundary_edges > expected_edges) break;
       current = next(current, mesh);
     } while (current != cycles.front());
-    if (boundary_edges != 3 || current != cycles.front())
-      throw std::runtime_error("Hole repair requires a three-edge boundary");
+    if (boundary_edges != expected_edges || current != cycles.front())
+      throw std::runtime_error(operation == "fill-one-hole"
+                               ? "Hole repair requires a three-edge boundary"
+                               : "Hole repair requires a four-edge boundary");
     std::vector<Mesh::Face_index> patch;
     PMP::triangulate_hole(mesh, cycles.front(),
                           CGAL::parameters::face_output_iterator(std::back_inserter(patch)));
     patch_faces = patch.size();
     after_faces = mesh.number_of_faces();
-    if (patch_faces != 1 || after_faces != before_faces + 1 || !CGAL::is_closed(mesh)
+    if (patch_faces != expected_edges - 2 || after_faces != before_faces + expected_edges - 2 || !CGAL::is_closed(mesh)
         || !CGAL::is_valid_polygon_mesh(mesh))
-      throw std::runtime_error("Hole fill did not close exactly one triangular face");
+      throw std::runtime_error("Hole fill did not close the expected face count");
     for (auto face : mesh.faces())
       if (PMP::is_degenerate_triangle_face(face, mesh))
         throw std::runtime_error("Hole fill produced a degenerate triangle");
@@ -100,7 +106,7 @@ int main(int argc, char** argv) {
       throw std::runtime_error("Could not write repaired OBJ mesh");
   } catch (const std::exception& exception) { error = exception.what(); }
   std::ostringstream result; result << std::setprecision(17);
-  result << "{\"schemaVersion\":1,\"recipeId\":\"cgal.fill-one-hole\",\"state\":"
+  result << "{\"schemaVersion\":1,\"recipeId\":" << quote("cgal." + operation) << ",\"state\":"
          << quote(error.empty() ? "succeeded" : "failed")
          << ",\"exitCode\":" << (error.empty() ? 0 : 2)
          << ",\"beforeFaces\":" << before_faces << ",\"afterFaces\":" << after_faces
@@ -108,7 +114,7 @@ int main(int argc, char** argv) {
          << ",\"signedVolumeAfter\":" << volume_after
          << ",\"versions\":{\"cgal\":" << quote(CGAL_VERSION_STR)
          << "},\"error\":" << quote(error)
-         << ",\"scope\":\"One connected triangle manifold with exactly one three-edge boundary; no general hole repair\"}";
+         << ",\"scope\":\"One connected triangle manifold with exactly one three- or four-edge boundary selected explicitly; no general hole repair\"}";
   std::ofstream file("results.json", std::ios::binary); file << result.str(); file.close();
   std::cout << result.str() << std::endl;
   if (!file) { std::cerr << "Could not persist results.json\n"; return 3; }

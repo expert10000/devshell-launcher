@@ -1014,6 +1014,21 @@ public static partial class ScientificQualificationRecords
                 Add("mesh.generate3d", "L8", "l8.gmsh-volume", hash,
                     result["l8GmshVolumeEvidence"]?["lowerQualification"]);
         }
+        else if (recipeId == "l9.cgal-repair" && manifest["qualificationRecipes"] is JsonArray repairProductRecipes)
+        {
+            var declaration = repairProductRecipes.OfType<JsonObject>().FirstOrDefault(item =>
+                item["id"]?.GetValue<string>() == "l9.cgal-repair"
+                && item["readinessLevel"]?.GetValue<string>() == "L9"
+                && item["capability"]?.GetValue<string>() == "mesh.repair"
+                && item["referenceRecipe"]?.GetValue<string>() == "l8.cgal-repair"
+                && item["contract"]?.GetValue<string>() == ScientificRepairProductContract.Id);
+            var hash = RepairL9Hash(directory, result, components!);
+            var evidence = result["repairProductEvidence"];
+            if (declaration != null && hash != null)
+                Add("mesh.repair", "L9", "l9.cgal-repair", hash, evidence?["lowerQualification"],
+                    evidence?["consumerSourcesSha256"]?.GetValue<string>(),
+                    evidence?["productContractSha256"]?.GetValue<string>());
+        }
         else if (recipeId == "l9.math3d-product" && manifest["qualificationRecipes"] is JsonArray productRecipes)
         {
             var declaration = productRecipes.OfType<JsonObject>().FirstOrDefault(item =>
@@ -1298,6 +1313,18 @@ public static partial class ScientificQualificationRecords
             if (record["level"]?.GetValue<string>() == "L9")
             {
                 var sourceResult = JsonNode.Parse(result.GetRawText()) as JsonObject;
+                if (record["evidenceId"]?.GetValue<string>() == "l9.cgal-repair")
+                {
+                    var evidence = sourceResult?["repairProductEvidence"];
+                    if (sourceResult == null || record["capabilityId"]?.GetValue<string>() != "mesh.repair"
+                        || record["lowerQualification"]?.ToJsonString() != evidence?["lowerQualification"]?.ToJsonString()
+                        || record["consumerSourceSha256"]?.GetValue<string>() != evidence?["consumerSourcesSha256"]?.GetValue<string>()
+                        || record["consumerContractSha256"]?.GetValue<string>() != evidence?["productContractSha256"]?.GetValue<string>()
+                        || record["evidenceSha256"]?.GetValue<string>() != RepairL9Hash(directory, sourceResult,
+                            fingerprint!["components"]!.AsObject()))
+                        throw new InvalidDataException("CGAL repair L9 product evidence changed.");
+                    continue;
+                }
                 if (record["evidenceId"]?.GetValue<string>() == "l9.gmsh-volume")
                 {
                     var evidence = sourceResult?["l9GmshVolumeEvidence"];
@@ -1411,6 +1438,7 @@ public static partial class ScientificQualificationRecords
     {
         foreach (var record in records.OfType<JsonObject>().Where(item => item["level"]?.GetValue<string>() == "L9"))
         {
+            if (record["evidenceId"]?.GetValue<string>() == "l9.cgal-repair") continue;
             var reasons = record["staleReasons"] as JsonArray ?? new JsonArray();
             var volume = record["evidenceId"]?.GetValue<string>() == "l9.gmsh-volume";
             var sourcesSha256 = volume ? volumeSourcesSha256 : currentSourcesSha256;
@@ -1438,6 +1466,28 @@ public static partial class ScientificQualificationRecords
                     record["status"] = "stale";
                     reasons.Add("MATH3D product handoff contract changed");
                 }
+            }
+            record["staleReasons"] = reasons;
+        }
+    }
+
+    public static void AssessRepairL9Consumer(JsonArray records, string? sourceSha256, string? contractSha256)
+    {
+        foreach (var record in records.OfType<JsonObject>().Where(item =>
+            item["evidenceId"]?.GetValue<string>() == "l9.cgal-repair"))
+        {
+            var reasons = record["staleReasons"] as JsonArray ?? new JsonArray();
+            if (sourceSha256 == null || contractSha256 == null)
+            {
+                if (record["status"]?.GetValue<string>() != "stale") record["status"] = "unknown";
+                reasons.Add("MATH3D repair product consumer or contract is unavailable");
+            }
+            else
+            {
+                if (record["consumerSourceSha256"]?.GetValue<string>() != sourceSha256)
+                { record["status"] = "stale"; reasons.Add("MATH3D repair product source changed"); }
+                if (record["consumerContractSha256"]?.GetValue<string>() != contractSha256)
+                { record["status"] = "stale"; reasons.Add("MATH3D repair product contract changed"); }
             }
             record["staleReasons"] = reasons;
         }

@@ -180,6 +180,7 @@ public static class ScientificRunFingerprint
         if (recipeId == "l9.cgal-repair")
             names.AddRange(new[] { "BatchLauncher/Form1.Scientific.CgalRepairL9.cs",
                 "BatchLauncher/ScientificRepairProductContract.cs",
+                 "BatchLauncher/ScientificQualificationRecords.RepairProduct.cs",
                 "scientific/fixtures/cgal-repair-qualification/product-contract.v1.json",
                 "tools/scientific-cgal-repair-math3d-handoff.py", "tools/math3d-cgal-repair-product.mjs",
                 "tools/scientific-cgal-repair-m3dm-roundtrip.py", "tools/math3d-cgal-repair-viewer.mjs" });

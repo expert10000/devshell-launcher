@@ -576,6 +576,18 @@ ScientificQualificationRecords.AssessL9Consumer(l9ContractChanged,parserHash,par
 Check(l9ContractChanged[0]?["status"]?.GetValue<string>()=="stale"
     && l9ContractChanged[0]?["staleReasons"]?.ToJsonString().Contains("contract changed",StringComparison.Ordinal)==true,
     "L9 becomes stale when product handoff contract changes");
+var repairProductRecords=new JsonArray(new JsonObject { ["level"]="L9",["evidenceId"]="l9.cgal-repair",
+    ["status"]="current",["staleReasons"]=new JsonArray(),["consumerSourceSha256"]=parserHash,
+    ["consumerContractSha256"]=artifactHash });
+ScientificQualificationRecords.AssessL9Consumer(repairProductRecords,artifactHash,parserHash);
+Check(repairProductRecords[0]?["status"]?.GetValue<string>()=="current",
+    "repair L9 uses its own consumer contract");
+ScientificQualificationRecords.AssessRepairL9Consumer(repairProductRecords,parserHash,artifactHash);
+Check(repairProductRecords[0]?["status"]?.GetValue<string>()=="current",
+    "repair L9 remains current with pinned consumer and contract");
+ScientificQualificationRecords.AssessRepairL9Consumer(repairProductRecords,artifactHash,artifactHash);
+Check(repairProductRecords[0]?["status"]?.GetValue<string>()=="stale",
+    "repair L9 becomes stale when its consumer source changes");
 var failedProduct=ScientificQualificationRecords.Summarize("cgal-win-conda",new[] { new JsonObject
     { ["runtimeId"]="cgal-win-conda",["state"]="failed",["runId"]=new string('f',32),
       ["qualifications"]=new JsonArray(new JsonObject { ["level"]="L9",["status"]="current",

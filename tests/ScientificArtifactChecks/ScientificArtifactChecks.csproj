@@ -13,6 +13,7 @@
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.Repair.cs" Link="ScientificQualificationRecords.Repair.cs" />
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.RepairInterop.cs" Link="ScientificQualificationRecords.RepairInterop.cs" />
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.RepairResilience.cs" Link="ScientificQualificationRecords.RepairResilience.cs" />
+    <Compile Include="../../BatchLauncher/ScientificQualificationRecords.RepairProduct.cs" Link="ScientificQualificationRecords.RepairProduct.cs" />
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.Sage.cs" Link="ScientificQualificationRecords.Sage.cs" />
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.Gmsh.cs" Link="ScientificQualificationRecords.Gmsh.cs" />
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.GmshVolume.cs" Link="ScientificQualificationRecords.GmshVolume.cs" />

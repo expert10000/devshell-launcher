@@ -86,6 +86,9 @@ public partial class Form1
                     ScientificCurrentMath3DProductSources(checkout), ScientificL6Digest(ScientificL9Contract()),
                     File.Exists(codec) ? ScientificHash(codec) : null,
                     ScientificCurrentMath3DVolumeSources(checkout), ScientificL6Digest(ScientificGmshVolumeL9Contract()));
+                ScientificQualificationRecords.AssessRepairL9Consumer(assessed,
+                    ScientificCurrentRepairProductSources(checkout),
+                    ScientificCurrentRepairProductContract());
             }
             view["qualifications"] = assessed;
         }
@@ -214,6 +217,9 @@ public partial class Form1
                 ScientificQualificationRecords.AssessL9Consumer(records, productSources, productContract, codecHash,
                     runtimeId == "gmsh-win-conda" ? ScientificCurrentMath3DVolumeSources(ScientificL7Checkout()) : null,
                     ScientificL6Digest(ScientificGmshVolumeL9Contract()));
+                ScientificQualificationRecords.AssessRepairL9Consumer(records,
+                    runtimeId == "cgal-win-conda" ? ScientificCurrentRepairProductSources(ScientificL7Checkout()) : null,
+                    runtimeId == "cgal-win-conda" ? ScientificCurrentRepairProductContract() : null);
             }
         return ScientificQualificationRecords.Summarize(runtimeId, runs);
     }

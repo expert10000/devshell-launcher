@@ -2,12 +2,14 @@
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup>
   <ItemGroup>
     <Compile Include="../../BatchLauncher/ScientificMeshImports.cs" Link="ScientificMeshImports.cs" />
+    <Compile Include="../../BatchLauncher/ScientificRepairFixtures.cs" Link="ScientificRepairFixtures.cs" />
     <Compile Include="../../BatchLauncher/ScientificBooleanReplay.cs" Link="ScientificBooleanReplay.cs" />
     <Compile Include="../../BatchLauncher/ScientificBooleanParameters.cs" Link="ScientificBooleanParameters.cs" />
     <Compile Include="../../BatchLauncher/ScientificMath3DPreparation.cs" Link="ScientificMath3DPreparation.cs" />
     <Compile Include="../../BatchLauncher/ScientificArtifactFiles.cs" Link="ScientificArtifactFiles.cs" />
     <Compile Include="../../BatchLauncher/ScientificRunFingerprint.cs" Link="ScientificRunFingerprint.cs" />
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.cs" Link="ScientificQualificationRecords.cs" />
+    <Compile Include="../../BatchLauncher/ScientificQualificationRecords.Repair.cs" Link="ScientificQualificationRecords.Repair.cs" />
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.Sage.cs" Link="ScientificQualificationRecords.Sage.cs" />
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.Gmsh.cs" Link="ScientificQualificationRecords.Gmsh.cs" />
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.GmshVolume.cs" Link="ScientificQualificationRecords.GmshVolume.cs" />

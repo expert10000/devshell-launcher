@@ -823,6 +823,21 @@ public static partial class ScientificQualificationRecords
             if (capability != null && declaration?["capability"]?.GetValue<string>() == capability && hash != null)
                 Add(capability, "L5", "l5.worker", hash, result["l5Evidence"]?["lowerQualification"]);
         }
+        else if (recipeId == "l5.cgal-repair" && runtimeId == "cgal-win-conda"
+            && manifest["qualificationRecipes"] is JsonArray repairRecipes)
+        {
+            var declaration = repairRecipes.OfType<JsonObject>().FirstOrDefault(item =>
+                item["id"]?.GetValue<string>() == "l5.cgal-repair"
+                && item["readinessLevel"]?.GetValue<string>() == "L5"
+                && item["capability"]?.GetValue<string>() == "mesh.repair"
+                && item["suiteId"]?.GetValue<string>() == ScientificRepairFixtures.SuiteId
+                && item["positiveCases"]?.GetValue<int>() == 4
+                && item["rejectionCases"]?.GetValue<int>() == 2);
+            var hash = RepairL5Hash(directory, result, components!);
+            if (declaration != null && hash != null)
+                Add("mesh.repair", "L5", "l5.cgal-repair", hash,
+                    result["repairQualificationEvidence"]?["lowerQualification"]);
+        }
         else if (recipeId == "l5.gmsh-volume" && manifest["qualificationRecipes"] is JsonArray volumeL5Recipes)
         {
             var declaration = volumeL5Recipes.OfType<JsonObject>().FirstOrDefault(item =>
@@ -1085,6 +1100,16 @@ public static partial class ScientificQualificationRecords
             if (record["level"]?.GetValue<string>() == "L5")
             {
                 var sourceResult = JsonNode.Parse(result.GetRawText()) as JsonObject;
+                if (record["evidenceId"]?.GetValue<string>() == "l5.cgal-repair")
+                {
+                    if (sourceResult == null
+                        || record["capabilityId"]?.GetValue<string>() != "mesh.repair"
+                        || record["lowerQualification"]?.ToJsonString() != sourceResult["repairQualificationEvidence"]?["lowerQualification"]?.ToJsonString()
+                        || record["evidenceSha256"]?.GetValue<string>() != RepairL5Hash(directory, sourceResult,
+                            fingerprint!["components"]!.AsObject()))
+                        throw new InvalidDataException("CGAL repair L5 evidence changed.");
+                    continue;
+                }
                 if (record["evidenceId"]?.GetValue<string>() == "l5.gmsh-volume")
                 {
                     if (sourceResult == null

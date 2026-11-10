@@ -48,6 +48,7 @@ public partial class Form1
             var uniqueInputs = inputs.Select(item => item.Input).DistinctBy(item => item["datasetId"]?.GetValue<string>()).ToArray();
             var outputs = new JsonArray(RepairL5Cases.Where(item => item.Positive)
                 .Select(item => (JsonNode)new JsonObject { ["path"] = $"cases/{item.Id}/repaired.obj", ["mediaType"] = "model/obj" }).ToArray());
+            outputs.Add(new JsonObject { ["path"] = "fixture-manifest.json", ["mediaType"] = "application/json" });
             ScientificWriteRequest(job, parameters, uniqueInputs[0], "repair-l5-evidence.json",
                 new JsonArray(uniqueInputs.Skip(1).Select(item => (JsonNode)item.DeepClone()).ToArray()), outputs);
             _scientificJobs[profileId + ":" + runtimeId] = job;
@@ -119,6 +120,9 @@ public partial class Form1
         var timer = Stopwatch.StartNew();
         try
         {
+            File.Copy(Path.Combine(ScientificSourceRoot,
+                ScientificRepairFixtures.ManifestPath.Replace('/', Path.DirectorySeparatorChar)),
+                Path.Combine(job.Directory, "fixture-manifest.json"));
             var cases = new JsonArray();
             foreach (var (test, input) in inputs)
             {

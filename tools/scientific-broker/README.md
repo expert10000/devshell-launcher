@@ -382,6 +382,8 @@ For a fresh isolated qualification without a deployed volume profile, run `tools
 
 `tools/Invoke-GmshVolume-Release.ps1 -Worktree <path> -Math3DCheckout <path> -ReleaseTag <tag>` performs that candidate export, broker/MATH3D smoke, fresh run-scoped inventory, and release verification in a new deployment directory. It writes `qualified.json` only after every gate passes, preserving existing broker profiles. The marker pins the source commit, L9 record and hashes of the candidate manifest, config, inventory, smoke and release report. Requalification of an existing deployed manifest continues to use `gmsh_volume_requalify.py` and its rollback path.
 
+After both repair and volume have been qualified in the same worktree, `coexistence.py certify` accepts their separate configs and release reports plus the worktree, installed root and MATH3D checkout. It freshly exports the checkout, requires exactly the two scoped L9 entries, re-verifies both releases and saves a hash-sealed combined record. `coexistence.py verify --record <path>` repeats those checks; the live regression test uses `SCIENTIFIC_COMBINED_RELEASE_RECORD=<path> python tests/test_scientific_coexistence.py -v`.
+
 ```powershell
 python tools/scientific-broker/gmsh_volume_requalify.py plan --config <volume-config.json> --installed-root <launcher-install-root> --math3d-root <tetrahedral-math3d-checkout> --output-root .scientific/gmsh-requalification
 python tools/scientific-broker/gmsh_volume_requalify.py run --config <volume-config.json> --installed-root <launcher-install-root> --math3d-root <tetrahedral-math3d-checkout> --cdp-url http://127.0.0.1:9244 --output-root .scientific/gmsh-requalification

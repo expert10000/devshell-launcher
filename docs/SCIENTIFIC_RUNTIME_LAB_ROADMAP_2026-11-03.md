@@ -1777,6 +1777,8 @@ Verify a saved execution report against its sealed plan, ordered gates, linked e
 
 **2026-11-08 scoped delivery:** The new inventory path was exercised against the installed scientific environments. Unit checks covered inventory selection, product-smoke linkage and tamper detection, and failed-result verification. A passed volume release still awaits a prepared `desktop-five` session and a fresh managed L0–L9 chain.
 
+**2026-11-10 live follow-up:** An isolated short-path `desktop-five` worktree passed Gmsh fixed-cube L0–L9 and a staged broker/MATH3D volume smoke. The fresh fixed-cube release verified as qualified with a run-scoped inventory. The same desktop build then passed CGAL repair L0–L9; both audits remained current and a fresh export contained exactly `mesh.repair` and `mesh.generate3d`. Separate broker/MATH3D smokes and release reports for both capabilities verified against source commit `ad794d9`, and a sealed combined record rechecked both report chains and the two current manifest entries. A changed viewer byte removed volume from export, and a rehashed combined record with a changed volume ID was rejected. The evidence remains local under the isolated worktree; the certified scopes are the four authored repair fixtures and the fixed public unit cube.
+
 ---
 
 ## 28. Priority selection: what to implement first

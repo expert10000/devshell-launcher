@@ -14,6 +14,7 @@ def main():
     parser.add_argument('--adapter', required=True)
     parser.add_argument('--request', required=True)
     parser.add_argument('--worker', required=True)
+    parser.add_argument('--prefix')
     parser.add_argument('--release')
     args = parser.parse_args()
     gate = Path(args.gate)
@@ -30,6 +31,8 @@ def main():
                 raise TimeoutError('Scientific concurrency release gate was not opened.')
             time.sleep(0.005)
     command = [args.python, args.adapter, '--request', args.request, '--worker', args.worker]
+    if args.prefix:
+        command.extend(['--prefix', args.prefix])
     child = subprocess.Popen(command, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
     started = time.monotonic_ns()
     result = child.wait()

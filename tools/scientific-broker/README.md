@@ -16,6 +16,8 @@ The exporter rereads successful runs, verifies fingerprints and immutable qualif
 
 ## Configure and run
 
+The guarded `mesh.remesh` profile requires a current managed L5–L9 chain. It pins policy v2, eight allowlisted accepted and volume-loss cases, the worker, and six MATH3D consumer sources. Inspect readiness with `audit-remesh` using the same four paths as `export`.
+
 Create a local JSON file with absolute deployment paths:
 
 ```json
@@ -45,6 +47,8 @@ python tools/scientific-broker/broker.py serve --config <config.json> --port 876
 ```
 
 ## Version 1 API
+
+For `mesh.remesh`, `POST /v1/jobs` also requires `caseId` and `timeoutSeconds`. The case fixes the edge target, iteration count, input hash, and expected guard decision. Accepted jobs transport `remeshed.obj`, `guarded.json`, and `handoff.json`; volume-loss cases end `rejected` with no published mesh. Promotion checks current certification, saved guard and handoff, output hash, and MATH3D source identity. Run the opt-in live check with `DEVSHELL_REMESH_BROKER_CONFIG=<config.json> python tests/test_scientific_remesh_broker.py`.
 
 - `GET /v1/providers`: certified provider and capability discovery.
 - `POST /v1/jobs`: accept `schemaVersion`, `runtimeId`, `capabilityId`, `input: {path, sha256}`, and optional `timeoutSeconds` (1–120). The input must be a bounded registered dataset with the exact hash of the selected L9 fixture: OBJ for CGAL or `.geo` for Gmsh.

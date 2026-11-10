@@ -65,6 +65,7 @@ export function ScientificCgalRecipes({ runtime, native, edited }: {
         <option value="fill-one-hole">One three-edge loop</option>
         <option value="fill-quad-hole">One four-edge loop</option>
         <option value="fill-two-quad-holes">Two four-edge loops</option>
+        <option value="fill-bounded-holes">Bounded holes: 1–8 loops, 3–12 edges each</option>
       </select></label>}
       {operation === 'remesh' && <>
         <label>Target edge length (mesh units)<input aria-label="CGAL target edge length" type="number" min="0.000001" max="1000000" step="any" value={targetEdge} onChange={event => setTargetEdge(event.target.value)} /></label>
@@ -85,7 +86,7 @@ export function ScientificCgalRecipes({ runtime, native, edited }: {
       <button onClick={() => copy(command)}>Copy command template</button>
       <button onClick={() => copy(JSON.stringify(recipe, null, 2))}>Copy recipe</button>
     </div>
-    <p className="scientific-runtime-note">Hole repair accepts registered OBJ triangle manifolds with exactly the selected boundary loops: one three-edge, one four-edge, or two four-edge loops. It requires one connected component and checks the saved output is closed with outward positive volume. It does not provide general soup repair. Validation/remesh keep their existing limits; all inputs are capped at 32 MiB.</p>
+    <p className="scientific-runtime-note">Hole repair accepts registered OBJ triangle manifolds. Choose an exact small-hole shape or bounded fill for 1–8 loops of 3–12 edges each, at most 64 boundary edges total. The saved output must close to one outward volume; the audit checks retained faces and patch coverage. This does not repair arbitrary polygon soup. Validation/remesh keep their existing limits; all inputs are capped at 32 MiB.</p>
     {notice && <p role="status">{notice}</p>}
   </section>
 }

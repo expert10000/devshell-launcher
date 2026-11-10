@@ -61,6 +61,8 @@ export interface ScientificRunResult {
   runtimeId: string
   recipeId: string
   operation?: string
+  repairAudit?: { retainedFaces: number; addedFaces: number; boundaryEdgesCovered: number; patchSha256: string }
+  repairEvidence?: { boundaryLoopsBefore: number; boundaryEdgesBefore: number; boundaryLoopEdgeCounts: number[]; holesFilled: number; patchFaces: number; outputClosed: boolean; outwardVolume: number }
   testCaseId?: string
   environmentFingerprint?: string
   environmentFingerprintScope?: string

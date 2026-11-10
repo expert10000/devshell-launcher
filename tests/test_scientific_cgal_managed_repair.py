@@ -49,6 +49,14 @@ class ManagedRepairEvidenceTests(unittest.TestCase):
         path = ROOT / 'scientific/fixtures/cgal-repair-multi/cube-two-square-holes.obj'
         self.assertEqual(repair.boundary_sizes(path), [4, 4])
 
+    def test_patch_audit_rejects_changed_original_face(self):
+        source = ROOT / 'scientific/fixtures/cgal-repair/tetra-one-hole.obj'
+        closed = ROOT / 'scientific/fixtures/cgal/closed-tetra.obj'
+        audit = repair.audit_patch(source, closed, 1)
+        self.assertEqual((audit['retainedFaces'], audit['addedFaces'], audit['boundaryEdgesCovered']), (3, 1, 3))
+        with self.assertRaises(ValueError):
+            repair.audit_patch(closed, source, 1)
+
 
 if __name__ == '__main__':
     unittest.main()

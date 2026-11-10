@@ -54,11 +54,14 @@ def replay(python, worker, prefix, output_root):
         if (process.returncode != 0 or result['state'] != 'succeeded'
                 or 'mesh.repair' not in result['validatedCapabilities']
                 or result['artifacts'][0]['sha256'] != sha(output)
+                or result['repairAudit']['retainedFaces'] != result['before']['faces']
+                or result['repairAudit']['addedFaces'] != result['repairEvidence']['patchFaces']
+                or result['repairAudit']['boundaryEdgesCovered'] != result['before']['boundaryEdges']
                 or not result['repairEvidence']['outputClosed']):
             raise ValueError(f'{operation}: managed repair evidence failed')
         cases.append({'recipeId': recipe, 'requestSha256': sha(case_dir / 'request.json'),
                       'resultSha256': sha(case_dir / 'results.json'), 'outputSha256': sha(output),
-                      'before': result['before'], 'after': result['after']})
+                      'before': result['before'], 'after': result['after'], 'repairAudit': result['repairAudit']})
 
     # A valid dataset copy with the wrong selected operation must fail without an artifact.
     negative = root / 'wrong-operation'

@@ -1,5 +1,7 @@
 """Managed JSON boundary for the three explicitly scoped CGAL hole repairs."""
 import argparse
+from collections import Counter
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -43,6 +45,42 @@ def boundary_sizes(path):
             raise ValueError('Boundary loops share a vertex')
         sizes.append(size)
     return sorted(sizes)
+
+
+def audit_patch(source, output, expected_faces):
+    """Prove original oriented triangles remain and added faces only span the old rim."""
+    input_vertices, input_faces = parse_obj(source)
+    output_vertices, output_faces = parse_obj(output)
+
+    def triangle(vertices, face):
+        points = tuple(vertices[index] for index in face)
+        return min(points, points[1:] + points[:1], points[2:] + points[:2])
+
+    original = Counter(triangle(input_vertices, face) for face in input_faces)
+    saved = Counter(triangle(output_vertices, face) for face in output_faces)
+    if original - saved:
+        raise ValueError('Repair changed or removed an original oriented triangle')
+    added = list((saved - original).elements())
+    if len(added) != expected_faces:
+        raise ValueError('Repair patch does not contain the expected added triangles')
+
+    source_edges, _ = edge_data(input_vertices, input_faces)
+    boundary = {tuple(sorted((input_vertices[a], input_vertices[b])))
+                for (a, b), count in source_edges.items() if count == 1}
+    interior = {tuple(sorted((input_vertices[a], input_vertices[b])))
+                for (a, b), count in source_edges.items() if count == 2}
+    patch_edges = Counter(tuple(sorted((face[index], face[(index + 1) % 3])))
+                          for face in added for index in range(3))
+    if (any(patch_edges[edge] != 1 for edge in boundary)
+            or any(edge in interior for edge in patch_edges)
+            or any(count != 2 for edge, count in patch_edges.items() if edge not in boundary)):
+        raise ValueError('Repair patch does not cover exactly the original boundary')
+    if {point for face in added for point in face} - {point for edge in boundary for point in edge}:
+        raise ValueError('Repair patch introduced a vertex away from the boundary')
+    canonical = json.dumps(sorted(added), separators=(',', ':'), allow_nan=False)
+    return {'retainedFaces': len(input_faces), 'addedFaces': len(added),
+            'boundaryEdgesCovered': len(boundary),
+            'patchSha256': hashlib.sha256(canonical.encode('utf-8')).hexdigest()}
 
 
 def check_geometry(before, after, engine, recipe):
@@ -119,6 +157,7 @@ def run(request, worker):
             raise ValueError('CGAL repair did not write an OBJ artifact')
         after = metrics(contract.output)
         check_geometry(before, after, engine, contract.recipe)
+        audit = audit_patch(contract.input, contract.output, engine['patchFaces'])
     except Exception as error:
         contract.output.unlink(missing_ok=True)
         contract.finish(state='failed', exit_code=process.returncode or 1, before=before,
@@ -129,6 +168,7 @@ def run(request, worker):
                     capabilities=['mesh.read', 'mesh.write', 'mesh.validate', 'mesh.repair'],
                     scope='One connected triangle manifold; explicit small-hole recipes or bounded 1-8 loops of 3-12 edges each, at most 64 boundary edges; no soup repair',
                     extra={'engine': 'CGAL C++', 'engineDetails': engine,
+                           'repairAudit': audit,
                            'repairEvidence': {'boundaryLoopsBefore': before['boundaryLoops'], 'boundaryEdgesBefore': before['boundaryEdges'],
                                               'boundaryLoopEdgeCounts': before['boundaryLoopEdgeCounts'],
                                               'holesFilled': engine['holesFilled'], 'patchFaces': engine['patchFaces'],

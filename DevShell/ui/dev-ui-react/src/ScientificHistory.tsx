@@ -163,6 +163,12 @@ export function ScientificHistory({ native, runtimeId, focusRunId = null, compar
       {result.rerunOf && <p>Rerun of <code>{result.rerunOf}</code>. The original result remains in History.</p>}
       {result.imports && <section aria-label="Saved mesh import results"><h5>Imported meshes</h5><ul>{result.imports.map((item, index) => <li key={index}>{item.name} / {item.state} / {item.triangles ?? 'unknown'} triangles<p>{item.message}</p></li>)}</ul></section>}
       {result.boolean && <p><strong>{result.boolean.operation.toUpperCase()}</strong> / {result.boolean.empty ? 'Empty result' : `Volume ${result.after?.volume ?? 'unavailable'}`} / Mesh B scale {result.boolean.scaleB}, offset [{result.boolean.translateB.join(', ')}]. Retained input snapshots reopen the same operands used for this run.</p>}
+      {result.repairAudit && result.repairEvidence && <section aria-label="Saved hole repair audit" className="scientific-history-result">
+        <h5>Hole repair audit</h5>
+        <p>{result.repairEvidence.holesFilled} hole{result.repairEvidence.holesFilled === 1 ? '' : 's'} filled / boundary loops [{result.repairEvidence.boundaryLoopEdgeCounts.join(', ')}] edges / {result.repairAudit.retainedFaces} original faces retained / {result.repairAudit.addedFaces} patch faces added.</p>
+        <p>All {result.repairAudit.boundaryEdgesCovered} original boundary edges are covered. Saved output is {result.repairEvidence.outputClosed ? 'closed' : 'open'} with signed volume {metric(result.repairEvidence.outwardVolume)}. Patch SHA-256 <code>{result.repairAudit.patchSha256}</code>.</p>
+        <p className="scientific-runtime-note">This audit checks the saved OBJ against the registered input copy. Use Preview mesh to inspect the before and after surfaces.</p>
+      </section>}
       <h5>Artifacts</h5>{result.artifacts?.length ? <ul className="scientific-history-artifacts">{result.artifacts.map(artifact => <li key={artifact.path}>
         <code>{artifact.path}</code>{artifact.bytes !== undefined && <small>{artifact.bytes.toLocaleString()} bytes</small>}
         <div className="scientific-history-actions">

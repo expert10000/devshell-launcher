@@ -36,7 +36,7 @@ public partial class Form1
         var input=ScientificScopedFile(datasets,inputId);
         if(!File.Exists(input)||new FileInfo(input).Length>32*1024*1024||!new[]{".obj",".stl",".ply",".off"}.Contains(Path.GetExtension(input).ToLowerInvariant()))
             throw new InvalidOperationException("CGAL input must be an OBJ/STL/PLY/OFF fixture up to 32 MiB.");
-        if(repair&&Path.GetExtension(input).ToLowerInvariant()!=".obj")throw new InvalidOperationException("CGAL hole repair requires a registered OBJ mesh.");
+        if((repair||recipe=="cgal.remesh")&&Path.GetExtension(input).ToLowerInvariant()!=".obj")throw new InvalidOperationException("CGAL repair and guarded remesh require a registered OBJ mesh.");
         var output=parameters.GetProperty("outputName").GetString()??"";
         if(!Regex.IsMatch(output,@"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,99}\.obj$"))throw new InvalidOperationException("Output must be a safe OBJ filename.");
         var edge=recipe=="cgal.remesh"?parameters.GetProperty("targetEdge").GetDouble():0.1;
@@ -94,6 +94,11 @@ public partial class Form1
         var condaHistory=Path.Combine(prefix,"conda-meta","history");
         job.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(worker, repair?"cgal-hole-repair-worker":"cgal-worker"));
         job.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(adapter, repair?"cgal-hole-repair-adapter":"cgal-adapter"));
+        if(job.RecipeId=="cgal.remesh")
+            foreach(var name in new[]{"scientific_cgal_remesh_guard.py","scientific_cgal_mesh_metrics.py",
+                "scientific_cgal_surface_samples.py","scientific_cgal_triangle_quality.py"})
+                job.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(
+                    Path.Combine(ScientificSourceRoot,"tools",name),"cgal-remesh-guard"));
         job.EnvironmentFingerprint=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
             ScientificHash(condaHistory)+"|"+ScientificHash(worker)+"|"+ScientificHash(adapter)))).ToLowerInvariant();
         if(job.RecipeId=="cgal.validate")
@@ -106,7 +111,9 @@ public partial class Form1
         }
         else
         {
-            var args=new[]{adapter,"--request",Path.Combine(job.Directory,"request.json"),"--worker",worker};
+            var args=job.RecipeId=="cgal.remesh"
+                ? new[]{adapter,"--request",Path.Combine(job.Directory,"request.json"),"--worker",worker,"--prefix",prefix}
+                : new[]{adapter,"--request",Path.Combine(job.Directory,"request.json"),"--worker",worker};
             await ScientificProcessAsync(processJob,prefix,Path.Combine(prefix,"python.exe"),args,job.Directory,120);
         }
     }

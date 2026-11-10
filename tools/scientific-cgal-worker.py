@@ -3,6 +3,7 @@ import argparse
 import json
 import math
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 from scientific_worker_contract import ScientificContract
@@ -10,6 +11,7 @@ from scientific_worker_contract import ScientificContract
 parser = argparse.ArgumentParser()
 parser.add_argument('--request', required=True)
 parser.add_argument('--worker', required=True)
+parser.add_argument('--prefix')
 args = parser.parse_args()
 contract = ScientificContract(args.request, 'cgal-win-conda', ('cgal.validate', 'cgal.remesh'))
 worker = Path(args.worker).resolve(strict=True)
@@ -29,6 +31,30 @@ if isinstance(iterations, bool) or not isinstance(iterations, int) or not 1 <= i
 timeout = contract.request.get('timeoutSeconds', 120)
 if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not 1 <= timeout <= 120:
     raise ValueError('Invalid worker timeout')
+if remesh:
+    if contract.input.suffix.lower() != '.obj':
+        raise ValueError('Guarded remesh requires a registered OBJ input')
+    if not args.prefix:
+        raise ValueError('Guarded remesh requires its pinned CGAL prefix')
+    from scientific_cgal_remesh_guard import run as run_guard
+    from scientific_cgal_corpus import sha
+    report_path, guard = run_guard(worker, args.prefix,
+                                   contract.input, edge, iterations, int(boundary),
+                                   contract.directory / 'guard')
+    accepted = guard['state'] == 'accepted'
+    if accepted:
+        shutil.copyfile(report_path.parent / 'accepted.obj', contract.output)
+    result = contract.finish(state='succeeded' if accepted else 'failed',
+        exit_code=0 if accepted else 2,
+        before=guard['measurements']['inputMetrics'], after=guard['measurements']['candidateMetrics'],
+        capabilities=['mesh.read', 'mesh.write', 'mesh.validate', 'mesh.remesh'] if accepted else [],
+        diagnostics=[] if accepted else [{'severity': 'error',
+            'message': 'Guarded remesh candidate failed the pinned fidelity policy.'}],
+        scope='Bounded outward closed genus-zero OBJ; guarded tetrahedron policy',
+        extra={'engine': 'CGAL C++', 'guardEvidence': {'path': str(report_path.relative_to(contract.directory)),
+            'sha256': sha(report_path), 'state': guard['state'],
+            'decision': guard['measurements']['decision']}})
+    sys.exit(0 if accepted else 2)
 command = [str(worker), 'remesh' if remesh else 'validate', str(contract.input), str(contract.output),
            str(edge), str(iterations), '1' if boundary else '0']
 process = subprocess.run(command, cwd=contract.directory, timeout=timeout, capture_output=True,

@@ -1,15 +1,16 @@
 // Opt-in live CGAL repair L0-L9 acceptance on a debug-port DevShell session.
 import assert from 'node:assert/strict'
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 
 const require = createRequire(import.meta.url)
 const { chromium } = require(join(import.meta.dirname, '..', 'DevShell', 'ui', 'dev-ui-react', 'node_modules', 'playwright-core'))
-const runs = join(import.meta.dirname, '..', '.scientific', 'runs')
+const runs = process.env.DEVSHELL_SCIENTIFIC_RUNS_ROOT || join(import.meta.dirname, '..', '.scientific', 'runs')
+mkdirSync(runs, { recursive: true })
 
-async function newRun(previous, recipe, level, capability = 'mesh.repair') {
+async function newRun(previous, recipe, level, capability = 'mesh.repair', page, priorAlerts = []) {
   const deadline = Date.now() + 600_000
   while (Date.now() < deadline) {
     for (const name of readdirSync(runs)) {
@@ -17,16 +18,27 @@ async function newRun(previous, recipe, level, capability = 'mesh.repair') {
       const folder = join(runs, name)
       const path = join(folder, 'results.json')
       if (!existsSync(path)) continue
-      const result = JSON.parse(readFileSync(path, 'utf8'))
+      let result
+      try { result = JSON.parse(readFileSync(path, 'utf8')) } catch (error) {
+        if (error instanceof SyntaxError) continue
+        throw error
+      }
       if (result.runtimeId !== 'cgal-win-conda' || result.recipeId !== recipe) continue
       if (result.state && result.state !== 'succeeded')
         throw new Error(`${recipe} ended ${result.state}: ${JSON.stringify(result.diagnostics || result.error)}`)
       if (![join(folder, 'fingerprint.json'), join(folder, 'qualifications.json')].every(existsSync)) continue
-      const qualifications = JSON.parse(readFileSync(join(folder, 'qualifications.json'), 'utf8'))
+      let qualifications
+      try { qualifications = JSON.parse(readFileSync(join(folder, 'qualifications.json'), 'utf8')) } catch (error) {
+        if (error instanceof SyntaxError) continue
+        throw error
+      }
       assert.ok(qualifications.records.some(item => item.level === level && item.capabilityId === capability),
         `${recipe} did not issue ${capability}@${level}`)
       return { folder, result, qualifications }
     }
+    const alerts = await page.getByRole('alert').allTextContents()
+    const fresh = alerts.find(message => message && !priorAlerts.includes(message))
+    if (fresh) throw new Error(`${recipe} was rejected before a run started: ${fresh}`)
     await delay(500)
   }
   throw new Error(`${recipe} did not save a managed qualification`)
@@ -47,12 +59,30 @@ try {
   const detail = main.getByRole('region', { name: /runtime details/ })
   for (const [button, recipe] of [['Probe in runtime-lab', 'lab.probe'], ['Compile & link', 'compile-link']]) {
     const previous = new Set(readdirSync(runs))
+    const priorAlerts = await page.getByRole('alert').allTextContents()
     await detail.getByRole('button', { name: button, exact: true }).click()
-    await newRun(previous, recipe, 'L0', 'runtime.inventory')
+    await newRun(previous, recipe, 'L0', 'runtime.inventory', page, priorAlerts)
   }
-  await nav.getByRole('button', { name: 'Recipes', exact: true }).click()
   await detail.getByRole('button', { name: 'Repair holes', exact: true }).click()
+  const beforeFixtureAlerts = await page.getByRole('alert').allTextContents()
   await detail.getByRole('button', { name: 'Load repair fixtures', exact: true }).click()
+  const registryPath = join(dirname(runs), 'datasets', 'manifest.json')
+  const fixtureDeadline = Date.now() + 60_000
+  let fixturesReady = false
+  while (Date.now() < fixtureDeadline) {
+    if (existsSync(registryPath)) {
+      const registry = JSON.parse(readFileSync(registryPath, 'utf8'))
+      if (registry.entries?.filter(item => item.id?.startsWith('imported/')).length >= 5) {
+        fixturesReady = true
+        break
+      }
+    }
+    const alerts = await page.getByRole('alert').allTextContents()
+    const fresh = alerts.find(message => message && !beforeFixtureAlerts.includes(message))
+    if (fresh) throw new Error(`Repair fixture load failed: ${fresh}`)
+    await delay(500)
+  }
+  assert.ok(fixturesReady, 'Repair fixture registration did not complete')
   const cases = [
     ['Run repair L5 qualification', 'l5.cgal-repair', 'L5'],
     ['Reproduce repair L6', 'l6.cgal-repair', 'L6'],
@@ -62,8 +92,9 @@ try {
   ]
   for (const [button, recipe, level] of cases) {
     const previous = new Set(readdirSync(runs))
+    const priorAlerts = await page.getByRole('alert').allTextContents()
     await detail.getByRole('button', { name: button, exact: true }).click()
-    const saved = await newRun(previous, recipe, level)
+    const saved = await newRun(previous, recipe, level, 'mesh.repair', page, priorAlerts)
     if (level === 'L9') {
       assert.equal(saved.result.repairProductEvidence.cases.length, 4)
       assert.equal(saved.result.repairProductEvidence.negative.state, 'rejected')

@@ -1,2 +1,7 @@
 scientific/fixtures/cgal/*.obj text eol=lf
 scientific/fixtures/cgal/orientation/*.obj text eol=lf
+scientific/fixtures/cgal-repair/*.obj text eol=lf
+scientific/fixtures/cgal-repair-quad/*.obj text eol=lf
+scientific/fixtures/cgal-repair-multi/*.obj text eol=lf
+scientific/fixtures/cgal-repair-bounded/*.obj text eol=lf
+scientific/fixtures/cgal-repair-qualification/*.json text eol=lf

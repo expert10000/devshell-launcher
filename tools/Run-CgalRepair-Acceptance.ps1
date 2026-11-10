@@ -1,6 +1,7 @@
 param(
     [int]$CdpPort = 9244,
     [string]$Math3DCheckout = $env:MATH3D_CHECKOUT,
+    [string]$ExistingWorktree,
     [switch]$UseRunningApp,
     [switch]$SkipBuild,
     [switch]$BootOnly
@@ -11,6 +12,7 @@ $root = Split-Path -Parent $PSScriptRoot
 $previousArgs = [Environment]::GetEnvironmentVariable('WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS', 'Process')
 $previousUrl = [Environment]::GetEnvironmentVariable('DEVSHELL_CDP_URL', 'Process')
 $previousCheckout = [Environment]::GetEnvironmentVariable('MATH3D_CHECKOUT', 'Process')
+$previousRuns = [Environment]::GetEnvironmentVariable('DEVSHELL_SCIENTIFIC_RUNS_ROOT', 'Process')
 $ownedApp = $null
 $worktree = $root
 $cdpUrl = "http://127.0.0.1:$CdpPort"
@@ -21,9 +23,10 @@ try {
         !(Test-Path -LiteralPath (Join-Path $Math3DCheckout 'renderer\src\mesh\surfaceMesh.ts'))) {
         throw 'Pass -Math3DCheckout with a MATH3D checkout that has the Mesh importer.'
     }
-    if (!$UseRunningApp) {
-        $session = [guid]::NewGuid().ToString('N')
-        $worktree = Join-Path $root ".scientific\repair-acceptance-$session"
+    if (!$UseRunningApp -and !$ExistingWorktree) {
+        # MSVC's CMake scratch projects exceed MAX_PATH when nested under OneDrive.
+        $session = [guid]::NewGuid().ToString('N').Substring(0, 12)
+        $worktree = Join-Path $env:SystemDrive "dsr-$session"
         & git -C $root worktree add --detach $worktree HEAD
         if ($LASTEXITCODE -ne 0) { throw 'Could not create an isolated repair acceptance worktree.' }
         Write-Host "WORKTREE=$worktree"
@@ -34,6 +37,16 @@ try {
             Copy-Item -LiteralPath $inventory -Destination (Join-Path $scientific 'runtime-report.json')
         }
     }
+    elseif ($ExistingWorktree) {
+        $worktree = (Resolve-Path -LiteralPath $ExistingWorktree).Path
+        if (!(Test-Path -LiteralPath (Join-Path $worktree '.git')) -or
+            !(Test-Path -LiteralPath (Join-Path $worktree 'BatchLauncher\BatchLauncher.csproj'))) {
+            throw 'ExistingWorktree must be a DevShell Git worktree.'
+        }
+        Write-Host "WORKTREE=$worktree"
+    }
+    if ($worktree.Length -gt 90) { throw 'Acceptance worktree path is too long for the CGAL CMake build.' }
+    New-Item -ItemType Directory -Path (Join-Path $worktree '.scientific\runs') -Force | Out-Null
     $frontend = Join-Path $worktree 'DevShell\ui\dev-ui-react'
     $project = Join-Path $worktree 'BatchLauncher\BatchLauncher.csproj'
     $app = Join-Path $worktree 'BatchLauncher\bin\Release\net8.0-windows\BatchLauncher.exe'
@@ -59,6 +72,8 @@ try {
     }
     [Environment]::SetEnvironmentVariable('DEVSHELL_CDP_URL', $cdpUrl, 'Process')
     [Environment]::SetEnvironmentVariable('MATH3D_CHECKOUT', $Math3DCheckout, 'Process')
+    [Environment]::SetEnvironmentVariable('DEVSHELL_SCIENTIFIC_RUNS_ROOT',
+        (Join-Path $worktree '.scientific\runs'), 'Process')
     $ready = $false
     for ($attempt = 0; $attempt -lt 60; $attempt++) {
         if ($ownedApp -and $ownedApp.HasExited) { throw 'Isolated DevShell exited before WebView2 was ready.' }
@@ -73,7 +88,7 @@ try {
     }
     if (!$ready) { throw "Isolated DevShell WebView2 did not appear at $cdpUrl." }
     if (!$BootOnly) {
-        & node (Join-Path $worktree 'tests\scientific-cgal-repair-managed-ui-checks.mjs')
+        & node (Join-Path $root 'tests\scientific-cgal-repair-managed-ui-checks.mjs')
         if ($LASTEXITCODE -ne 0) { throw 'Managed repair L0-L9 acceptance failed.' }
     }
     Write-Host 'PASS: isolated repair acceptance session'
@@ -82,6 +97,7 @@ finally {
     [Environment]::SetEnvironmentVariable('WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS', $previousArgs, 'Process')
     [Environment]::SetEnvironmentVariable('DEVSHELL_CDP_URL', $previousUrl, 'Process')
     [Environment]::SetEnvironmentVariable('MATH3D_CHECKOUT', $previousCheckout, 'Process')
+    [Environment]::SetEnvironmentVariable('DEVSHELL_SCIENTIFIC_RUNS_ROOT', $previousRuns, 'Process')
     if ($ownedApp -and !$ownedApp.HasExited) {
         $null = $ownedApp.CloseMainWindow()
         if (!$ownedApp.WaitForExit(10000)) { Stop-Process -Id $ownedApp.Id -Force }

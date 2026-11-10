@@ -47,13 +47,14 @@ int main(int argc, char** argv) {
   double volume_after = 0;
   try {
     if (argc != 4)
-      throw std::runtime_error("Usage: devshell_cgal_hole_repair fill-one-hole|fill-quad-hole|fill-two-quad-holes input.obj output.obj");
+      throw std::runtime_error("Usage: devshell_cgal_hole_repair fill-one-hole|fill-quad-hole|fill-two-quad-holes|fill-bounded-holes input.obj output.obj");
     operation = argv[1];
     if (operation != "fill-one-hole" && operation != "fill-quad-hole"
-        && operation != "fill-two-quad-holes")
+        && operation != "fill-two-quad-holes" && operation != "fill-bounded-holes")
       throw std::runtime_error("Operation is not registered");
+    const bool bounded = operation == "fill-bounded-holes";
     const std::size_t expected_edges = operation == "fill-one-hole" ? 3 : 4;
-    const std::size_t expected_loops = operation == "fill-two-quad-holes" ? 2 : 1;
+    std::size_t expected_loops = operation == "fill-two-quad-holes" ? 2 : 1;
     const auto input = std::filesystem::u8path(argv[2]);
     const auto output = std::filesystem::u8path(argv[3]);
     if (!std::filesystem::is_regular_file(input) || input.extension() != ".obj"
@@ -78,6 +79,11 @@ int main(int argc, char** argv) {
     std::vector<Mesh::Halfedge_index> initial_cycles;
     PMP::extract_boundary_cycles(mesh, std::back_inserter(initial_cycles));
     boundary_loops = initial_cycles.size();
+    if (bounded) {
+      if (boundary_loops < 1 || boundary_loops > 8)
+        throw std::runtime_error("Bounded repair requires one to eight boundary loops");
+      expected_loops = boundary_loops;
+    }
     if (boundary_loops != expected_loops)
       throw std::runtime_error(expected_loops == 1
                                ? "Hole repair requires exactly one boundary loop"
@@ -91,13 +97,14 @@ int main(int argc, char** argv) {
       std::size_t edges_this_loop = 0;
       do {
         ++edges_this_loop;
-        if (edges_this_loop > expected_edges) break;
+        if (edges_this_loop > (bounded ? 12 : expected_edges)) break;
         current = next(current, mesh);
       } while (current != cycles.front());
       boundary_edges += edges_this_loop;
-      if (edges_this_loop != expected_edges || current != cycles.front())
-        throw std::runtime_error(operation == "fill-one-hole"
-                                 ? "Hole repair requires a three-edge boundary"
+      if ((bounded ? edges_this_loop < 3 || edges_this_loop > 12 || boundary_edges > 64
+                   : edges_this_loop != expected_edges) || current != cycles.front())
+        throw std::runtime_error(bounded ? "Bounded repair requires 3-12 edges per loop and at most 64 boundary edges"
+                                 : operation == "fill-one-hole" ? "Hole repair requires a three-edge boundary"
                                  : "Hole repair requires a four-edge boundary");
       std::vector<Mesh::Face_index> patch;
       PMP::triangulate_hole(mesh, cycles.front(),
@@ -105,11 +112,11 @@ int main(int argc, char** argv) {
       patch_face_counts.push_back(patch.size());
       patch_faces += patch.size();
       ++holes_filled;
-      if (patch.size() != expected_edges - 2)
+      if (patch.size() != edges_this_loop - 2)
         throw std::runtime_error("Hole fill did not add the expected patch faces");
     }
     after_faces = mesh.number_of_faces();
-    if (patch_faces != expected_loops * (expected_edges - 2)
+    if ((!bounded && patch_faces != expected_loops * (expected_edges - 2))
         || after_faces != before_faces + patch_faces || !CGAL::is_closed(mesh)
         || !CGAL::is_valid_polygon_mesh(mesh))
       throw std::runtime_error("Hole fill did not close the expected face count");
@@ -142,7 +149,7 @@ int main(int argc, char** argv) {
          << ",\"signedVolumeAfter\":" << volume_after
          << ",\"versions\":{\"cgal\":" << quote(CGAL_VERSION_STR)
          << "},\"error\":" << quote(error)
-         << ",\"scope\":\"One connected triangle manifold with one three-edge, one four-edge, or two four-edge loops selected explicitly; no general hole repair\"}";
+         << ",\"scope\":\"One connected triangle manifold; explicit three-edge/four-edge cases or bounded 1-8 loops of 3-12 edges each, at most 64 boundary edges; no soup repair\"}";
   std::ofstream file("results.json", std::ios::binary); file << result.str(); file.close();
   std::cout << result.str() << std::endl;
   if (!file) { std::cerr << "Could not persist results.json\n"; return 3; }

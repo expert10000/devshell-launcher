@@ -1,0 +1,12 @@
+# Project-authored pentagonal pyramid with its five-edge base omitted (CC0).
+v 1 0 0
+v 0.3 0.95 0
+v -0.8 0.6 0
+v -0.8 -0.6 0
+v 0.3 -0.95 0
+v 0 0 1
+f 1 2 6
+f 2 3 6
+f 3 4 6
+f 4 5 6
+f 5 1 6

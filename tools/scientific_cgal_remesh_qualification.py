@@ -14,10 +14,12 @@ from scientific_cgal_remesh_guard import verify as verify_guard
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / 'scientific/fixtures/cgal-remesh-qualification/manifest.json'
-POLICY = ROOT / 'schemas/scientific-remesh-guard.v1.json'
+POLICY = ROOT / 'schemas/scientific-remesh-guard.v2.json'
 ADAPTER = ROOT / 'tools/scientific-cgal-worker.py'
 GUARD = ROOT / 'tools/scientific_cgal_remesh_guard.py'
-CASES = ('accepted', 'volume-loss', 'malformed-open', 'affine-accepted', 'affine-volume-loss')
+CASES = ('accepted', 'volume-loss', 'malformed-open', 'affine-accepted', 'affine-volume-loss',
+         'cube-accepted', 'cube-volume-loss', 'octa-accepted', 'octa-volume-loss',
+         'inward-invalid', 'nonmanifold-invalid', 'degenerate-invalid')
 
 
 def sha(path):
@@ -26,7 +28,7 @@ def sha(path):
 
 def fixture_manifest():
     manifest = json.loads(MANIFEST.read_text(encoding='utf-8'))
-    if (manifest.get('schemaVersion') != 1 or manifest.get('suiteId') != 'cgal-remesh-guarded-v1'
+    if (manifest.get('schemaVersion') != 1 or manifest.get('suiteId') != 'cgal-remesh-guarded-v2'
             or manifest.get('capabilityId') != 'mesh.remesh'
             or [item['caseId'] for item in manifest['cases']] != list(CASES)
             or manifest.get('policy') != str(POLICY.relative_to(ROOT)).replace('\\', '/')):

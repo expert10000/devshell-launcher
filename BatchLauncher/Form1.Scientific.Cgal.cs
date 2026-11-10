@@ -95,10 +95,14 @@ public partial class Form1
         job.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(worker, repair?"cgal-hole-repair-worker":"cgal-worker"));
         job.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(adapter, repair?"cgal-hole-repair-adapter":"cgal-adapter"));
         if(job.RecipeId=="cgal.remesh")
+        {
             foreach(var name in new[]{"scientific_cgal_remesh_guard.py","scientific_cgal_mesh_metrics.py",
                 "scientific_cgal_surface_samples.py","scientific_cgal_triangle_quality.py"})
                 job.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(
                     Path.Combine(ScientificSourceRoot,"tools",name),"cgal-remesh-guard"));
+            job.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(
+                Path.Combine(ScientificSourceRoot,"schemas","scientific-remesh-guard.v2.json"),"cgal-remesh-policy"));
+        }
         job.EnvironmentFingerprint=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
             ScientificHash(condaHistory)+"|"+ScientificHash(worker)+"|"+ScientificHash(adapter)))).ToLowerInvariant();
         if(job.RecipeId=="cgal.validate")

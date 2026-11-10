@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "policyVersion": 2,
+  "policyId": "cgal.remesh.closed-genus-zero",
+  "inputScope": "Bounded outward closed genus-zero triangle OBJ",
+  "qualifiedShapeFamilies": ["tetrahedron", "triangulated cube", "octahedron"],
+  "relativeVolumeTolerance": 1e-8,
+  "relativeSampleTolerance": 1e-8,
+  "minimumAngleDegrees": 20.0,
+  "minimumShapeScore": 0.5
+}

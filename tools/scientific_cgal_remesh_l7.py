@@ -87,7 +87,7 @@ def verify(path):
             or report['l6Sha256'] != sha(report['l6Path'])):
         raise ValueError('Remesh L7 source identity changed.')
     sources = accepted(report['l6Path'])
-    if len(sources) != 2 or [item['caseId'] for item in report['cases']] != [item[0] for item in sources]:
+    if len(sources) != 4 or [item['caseId'] for item in report['cases']] != [item[0] for item in sources]:
         raise ValueError('Remesh L7 accepted case set changed.')
     for item, (_, source, output_sha) in zip(report['cases'], sources):
         vtk, math3d = Path(item['vtkPath']), Path(item['math3dPath'])

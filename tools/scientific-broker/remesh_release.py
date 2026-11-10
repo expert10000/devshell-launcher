@@ -16,7 +16,8 @@ from scientific_cgal_remesh_l9 import verify as verify_l9
 from coexistence import verify as verify_coexistence
 
 SOURCE = Path(__file__).resolve()
-ALLOWED = ('accepted', 'volume-loss', 'affine-accepted', 'affine-volume-loss')
+ALLOWED = ('accepted', 'volume-loss', 'affine-accepted', 'affine-volume-loss',
+           'cube-accepted', 'cube-volume-loss', 'octa-accepted', 'octa-volume-loss')
 
 
 def commit():

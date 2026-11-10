@@ -1,14 +1,21 @@
 {
   "schemaVersion": 1,
-  "suiteId": "cgal-remesh-guarded-v1",
+  "suiteId": "cgal-remesh-guarded-v2",
   "capabilityId": "mesh.remesh",
-  "policy": "schemas/scientific-remesh-guard.v1.json",
+  "policy": "schemas/scientific-remesh-guard.v2.json",
   "license": "CC0-1.0",
   "cases": [
     { "caseId": "accepted", "path": "scientific/fixtures/cgal/closed-tetra.obj", "sha256": "21b1325a5d9f7ef43f04b923c7b469e6a8c73cc41eef436924801d37ac29113d", "targetEdge": 0.5, "iterations": 1, "expected": "accepted" },
     { "caseId": "volume-loss", "path": "scientific/fixtures/cgal/closed-tetra.obj", "sha256": "21b1325a5d9f7ef43f04b923c7b469e6a8c73cc41eef436924801d37ac29113d", "targetEdge": 0.5, "iterations": 2, "expected": "rejected" },
     { "caseId": "malformed-open", "path": "scientific/fixtures/cgal/open-square.obj", "sha256": "4f597c42980410d32acc3ed609278030c26fff2e8155b3802756222df2d714cd", "targetEdge": 0.5, "iterations": 1, "expected": "invalid-input" },
     { "caseId": "affine-accepted", "path": "scientific/fixtures/cgal-remesh-qualification/affine-tetra.obj", "sha256": "bfdb09b4122479ac1997396c5273a89e9d8c6c7687ce7b885070372511d03bac", "targetEdge": 1.0, "iterations": 1, "expected": "accepted" },
-    { "caseId": "affine-volume-loss", "path": "scientific/fixtures/cgal-remesh-qualification/affine-tetra.obj", "sha256": "bfdb09b4122479ac1997396c5273a89e9d8c6c7687ce7b885070372511d03bac", "targetEdge": 1.0, "iterations": 2, "expected": "rejected" }
+    { "caseId": "affine-volume-loss", "path": "scientific/fixtures/cgal-remesh-qualification/affine-tetra.obj", "sha256": "bfdb09b4122479ac1997396c5273a89e9d8c6c7687ce7b885070372511d03bac", "targetEdge": 1.0, "iterations": 2, "expected": "rejected" },
+    { "caseId": "cube-accepted", "path": "scientific/fixtures/cgal-repair-quad/cube-closed.obj", "sha256": "70a95597b1464af10a197f4c0d6def7f51fbd77118d765fc735e807ec52ca504", "targetEdge": 0.5, "iterations": 1, "expected": "accepted" },
+    { "caseId": "cube-volume-loss", "path": "scientific/fixtures/cgal-repair-quad/cube-closed.obj", "sha256": "70a95597b1464af10a197f4c0d6def7f51fbd77118d765fc735e807ec52ca504", "targetEdge": 0.5, "iterations": 2, "expected": "rejected" },
+    { "caseId": "octa-accepted", "path": "scientific/fixtures/cgal-remesh-qualification/octahedron.obj", "sha256": "72cff9d9e08a2ce0ba81932417e0c6351bc11174d394607e7041586ad59b1a5a", "targetEdge": 1.5, "iterations": 1, "expected": "accepted" },
+    { "caseId": "octa-volume-loss", "path": "scientific/fixtures/cgal-remesh-qualification/octahedron.obj", "sha256": "72cff9d9e08a2ce0ba81932417e0c6351bc11174d394607e7041586ad59b1a5a", "targetEdge": 0.5, "iterations": 1, "expected": "rejected" },
+    { "caseId": "inward-invalid", "path": "scientific/fixtures/cgal/orientation/inward-tetra.obj", "sha256": "d5b87797f298bb0e230bd51832a0162ebc8a59cb16f33dd917487b5057faa857", "targetEdge": 0.5, "iterations": 1, "expected": "invalid-input" },
+    { "caseId": "nonmanifold-invalid", "path": "scientific/fixtures/cgal/nonmanifold-edge.obj", "sha256": "becb55a2ad02dc0e3e1da288e730688f02969adc6b4c5a1d710fa3ae6bae24cb", "targetEdge": 0.5, "iterations": 1, "expected": "invalid-input" },
+    { "caseId": "degenerate-invalid", "path": "scientific/fixtures/cgal/degenerate-triangle.obj", "sha256": "422613a31164b447d6a7d796e74cc3c8a34e2b4689d6846a55d8912267126cf8", "targetEdge": 0.5, "iterations": 1, "expected": "invalid-input" }
   ]
 }

@@ -50,7 +50,7 @@ if remesh:
         capabilities=['mesh.read', 'mesh.write', 'mesh.validate', 'mesh.remesh'] if accepted else [],
         diagnostics=[] if accepted else [{'severity': 'error',
             'message': 'Guarded remesh candidate failed the pinned fidelity policy.'}],
-        scope='Bounded outward closed genus-zero OBJ; guarded tetrahedron policy',
+        scope='Bounded outward closed genus-zero OBJ; guarded policy v2',
         extra={'engine': 'CGAL C++', 'guardEvidence': {'path': str(report_path.relative_to(contract.directory)),
             'sha256': sha(report_path), 'state': guard['state'],
             'policyId': guard['policyId'], 'policyVersion': guard['policyVersion'],

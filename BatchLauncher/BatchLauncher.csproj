@@ -74,6 +74,12 @@
 
   <ItemGroup>
     <Content Include="..\scientific\cgal-worker\**\*" Link="scientific\cgal-worker\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\scientific\fixtures\cgal-repair\*.obj" Link="scientific\fixtures\cgal-repair\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\scientific\fixtures\cgal-repair-quad\*.obj" Link="scientific\fixtures\cgal-repair-quad\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\scientific\fixtures\cgal-repair-multi\*.obj" Link="scientific\fixtures\cgal-repair-multi\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\scientific\fixtures\cgal-repair-bounded\*.obj" Link="scientific\fixtures\cgal-repair-bounded\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\scientific\fixtures\cgal\closed-tetra.obj" Link="scientific\fixtures\cgal\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\scientific\fixtures\cgal-repair-qualification\manifest.json" Link="scientific\fixtures\cgal-repair-qualification\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\tools\runtime-lab\RuntimeLab.csproj" ReferenceOutputAssembly="false" />

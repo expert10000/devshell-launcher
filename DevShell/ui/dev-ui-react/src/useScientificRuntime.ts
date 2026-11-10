@@ -93,6 +93,7 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
       else if (message.action === 'environment' && message.data && message.runtimeId) setEnvironments(previous => ({ ...previous, [message.runtimeId!]: message.data as ScientificEnvironment }))
       else if (message.action === 'math3d-readiness' && message.data) setMath3dReadiness(message.data as Math3DReadiness)
       else if (message.action === 'datasets' && message.data) setDatasets(message.data as { importedAt: string; note: string; entries: ScientificDataset[] })
+      else if (message.action === 'repair-fixtures' && message.data) { setDatasets(message.data as { importedAt: string; note: string; entries: ScientificDataset[] }); setNotice('Authored repair fixtures copied and registered.') }
       else if (message.action === 'test-matrix' && Array.isArray(message.data)) setTestMatrix(message.data as ScientificMatrixCase[])
       else if (message.action === 'ci-matrix' && Array.isArray(message.data)) setCiMatrix(message.data as ScientificCiImport[])
       else if (message.action === 'history-drift-diagnose' && message.data) setDriftDiagnosis(message.data as ScientificDriftDiagnosis)

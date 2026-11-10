@@ -238,6 +238,13 @@ public partial class Form1
             {
                 data=ScientificMeshImports.ReadManifest(ScientificDataRoot);
             }
+            else if(action=="repair-fixtures")
+            {
+                ScientificProviderRegistry.RequireAction(runtimeId,action);
+                if(!_scientificGate.Wait(0))throw new InvalidOperationException("A Scientific job is already running.");
+                try{data=ScientificRepairFixtures.Load(ScientificSourceRoot,ScientificDataRoot,_scientificLifetime.Token);}
+                finally{_scientificGate.Release();}
+            }
             else if(action is "open-log" or "open-output" or "stop" or "artifacts")
             {
                 if(!_scientificJobs.TryGetValue(profileId+":"+runtimeId,out var job)||request.GetProperty("jobId").GetString()!=job.Id)throw new InvalidOperationException("Job is no longer current.");

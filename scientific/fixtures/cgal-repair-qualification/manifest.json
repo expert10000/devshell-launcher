@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "suiteId": "cgal-repair-qualification-v1",
+  "license": "CC0-1.0",
+  "fixtures": [
+    { "caseId": "triangle", "recipeId": "cgal.fill-one-hole", "path": "scientific/fixtures/cgal-repair/tetra-one-hole.obj", "sha256": "6731a065358d94c0af18274bc4a19fbe4a386f2cef64b5bbd9d841a6191d6f61", "boundaryLoops": 1, "boundaryEdges": 3, "patchFaces": 1 },
+    { "caseId": "square", "recipeId": "cgal.fill-quad-hole", "path": "scientific/fixtures/cgal-repair-quad/cube-one-quad-hole.obj", "sha256": "54b975fae857450a7a3e7f19b1d4a22218925dbd1847fa674f7bf085960fc14f", "boundaryLoops": 1, "boundaryEdges": 4, "patchFaces": 2 },
+    { "caseId": "two-squares", "recipeId": "cgal.fill-two-quad-holes", "path": "scientific/fixtures/cgal-repair-multi/cube-two-square-holes.obj", "sha256": "4e1b6ec4df484098a90808d41befe4885521ecdbec0711b906e7477ff75dedd9", "boundaryLoops": 2, "boundaryEdges": 8, "patchFaces": 4 },
+    { "caseId": "pentagon", "recipeId": "cgal.fill-bounded-holes", "path": "scientific/fixtures/cgal-repair-bounded/pentagonal-pyramid-open-base.obj", "sha256": "ff04bf0ed56cb86aa83ad10a3a57278c4b15b22939fea0bbb100b6078e33b045", "boundaryLoops": 1, "boundaryEdges": 5, "patchFaces": 3 },
+    { "caseId": "closed-rejection", "recipeId": "cgal.fill-bounded-holes", "path": "scientific/fixtures/cgal/closed-tetra.obj", "sha256": "21b1325a5d9f7ef43f04b923c7b469e6a8c73cc41eef436924801d37ac29113d", "boundaryLoops": 0, "boundaryEdges": 0, "patchFaces": 0 }
+  ]
+}

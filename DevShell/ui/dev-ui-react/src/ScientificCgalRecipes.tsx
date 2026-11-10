@@ -59,6 +59,7 @@ export function ScientificCgalRecipes({ runtime, native, edited }: {
       <button aria-pressed={repair} onClick={() => setOperation('fill-one-hole')}>Repair holes</button>
       {['Boolean', 'Simplify', 'AABB', 'Distance', 'Intersection'].map(name => <button key={name} disabled title="This CGAL worker operation is not implemented">{name}</button>)}
     </div>
+    {repair && <div className="scientific-comparison-presets"><strong>Authored repair fixtures</strong><p className="scientific-runtime-note">Copy the four open meshes and closed rejection mesh into the registered local dataset store. Source files remain unchanged.</p><button disabled={!executable || native.busy || native.pending} onClick={() => native.send(runtime.id, 'repair-fixtures')}>Load repair fixtures</button></div>}
     <div className="scientific-runtime-fields">
       <label>Input dataset<select aria-label="CGAL input dataset" value={inputId} onChange={event => setInputId(event.target.value)}><option value="">Load and select a duplicated mesh...</option>{inputs.map(item => <option key={item.id} value={item.id}>{item.category} / {item.name}{item.expectedProblem ? ' / expected problem' : ''}</option>)}</select></label>
       {repair && <label>Boundary loops<select aria-label="CGAL hole repair scope" value={operation} onChange={event => setOperation(event.target.value)}>

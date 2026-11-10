@@ -34,6 +34,8 @@ dotnet tools/scientific-broker/bin/Release/net8.0/ScientificBroker.dll audit-rep
 
 This audit does not write a manifest or raise a capability. `export` includes the scoped `mesh.repair@L9` entry only when the saved four-case record, all nine supporting levels, fixture hashes, MATH3D source hashes, and worker identity still match. The entry carries four fixed recipe/input/output references. An unqualified host exports no repair capability.
 
+A separate broker profile can use that manifest with `capabilityId: mesh.repair`, `adapter: tools/scientific-cgal-hole-repair-worker.py`, and the matching `devshell_cgal_hole_repair.exe`. Submit a typed `caseId` (`triangle`, `square`, `two-squares`, or `pentagon`) and a registered OBJ input with the certified fixture hash. The broker derives the repair recipe and output name from the manifest and checks the exact repaired OBJ hash before serving it.
+
 For a successful repair in History, **Save and verify MATH3D document** starts a separate managed job. It rechecks the saved source and result hashes, reruns the patch audit, loads the repaired OBJ through MATH3D's actual desktop mesh importer, and compares topology, bounds, area, and volume. It saves a Mesh document, binary resource and `.m3dm`, reopens them with MATH3D, independently parses the M3DM with Python, and mounts the reopened document in the real Mesh viewport. The new run keeps the document, resource, M3DM, JSON evidence and viewer screenshot; the source run remains read-only. This product check is separate from repair L5–L9 qualification and broker certification.
 
 To replay the managed adapter acceptance on a machine with the CGAL prefix and built worker:

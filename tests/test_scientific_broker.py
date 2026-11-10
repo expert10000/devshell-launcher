@@ -18,6 +18,29 @@ module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 
 
+class RepairRouting(unittest.TestCase):
+    def test_case_scope_rejects_other_inputs_and_operations(self):
+        broker = module.Broker.__new__(module.Broker)
+        broker.runtime_id = 'cgal-win-conda'
+        broker.capability_id = 'mesh.repair'
+        broker.gmsh = False
+        broker.repair = True
+        broker.verify = lambda: None
+        source = BROKER_PATH.parents[2] / 'scientific/fixtures/cgal-repair/tetra-one-hole.obj'
+        broker.paths = {'datasetRoot': BROKER_PATH.parents[2] / 'scientific/fixtures'}
+        broker.capabilities = [{'referenceCases': [{'caseId': 'triangle', 'recipeId': 'cgal.fill-one-hole',
+            'inputSha256': module.sha(source), 'outputSha256': 'a' * 64}]}]
+        request = {'schemaVersion': 1, 'runtimeId': 'cgal-win-conda', 'capabilityId': 'mesh.repair',
+                   'caseId': 'triangle', 'input': {'path': str(source), 'sha256': module.sha(source)}}
+        with self.assertRaisesRegex(ValueError, 'caseId'):
+            broker.submit({**request, 'caseId': 'arbitrary'})
+        other = BROKER_PATH.parents[2] / 'scientific/fixtures/cgal-repair-quad/cube-one-quad-hole.obj'
+        with self.assertRaisesRegex(ValueError, 'certified repair case fixture'):
+            broker.submit({**request, 'input': {'path': str(other), 'sha256': module.sha(other)}})
+        with self.assertRaisesRegex(ValueError, 'caseId'):
+            broker.submit({**request, 'recipeId': 'cgal.validate'})
+
+
 @unittest.skipUnless(os.environ.get('SCIENTIFIC_BROKER_CONFIG'), 'Local broker config is required')
 class BrokerIntegration(unittest.TestCase):
     def setUp(self):

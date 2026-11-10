@@ -25,6 +25,9 @@ CONTRACT = dict(id='math3d.mesh-product-handoff', version=1, workerResultSchemaV
 VOLUME_CONTRACT = dict(id='math3d.tetrahedral-product-handoff', version=1,
                        documentFormat='math3d.tetrahedral-mesh-document',
                        resourceEncoding='math3d.tetmesh-buffers.v1', viewer='TetrahedralMeshViewport')
+REPAIR_CONTRACT = json.loads((Path(__file__).resolve().parents[2] /
+    'scientific/fixtures/cgal-repair-qualification/product-contract.v1.json').read_text(encoding='utf-8'))
+REPAIR_CASES = ('triangle', 'square', 'two-squares', 'pentagon')
 CONSUMER_FILES = {'renderer/src/mesh/surfaceMesh.ts', 'renderer/src/mesh/meshDocumentAdapter.ts',
                   'renderer/src/mesh/meshResourceStore.ts', 'renderer/src/workspace/MeshDocumentViewport.tsx',
                   'renderer/src/components/SurfaceViewer.tsx', 'packages/core/src/meshDocument.ts'}
@@ -69,10 +72,11 @@ class Broker:
             raise ValueError('Unsupported broker runtime profile.')
         self.gmsh = self.runtime_id == 'gmsh-win-conda'
         self.capability_id = config.get('capabilityId', 'mesh.generate' if self.gmsh else 'mesh.interop.vtk-math3d')
-        if self.capability_id not in (('mesh.generate', 'mesh.generate3d') if self.gmsh else ('mesh.interop.vtk-math3d',)):
+        if self.capability_id not in (('mesh.generate', 'mesh.generate3d') if self.gmsh else ('mesh.interop.vtk-math3d', 'mesh.repair')):
             raise ValueError('Unsupported broker capability profile.')
+        self.repair = self.capability_id == 'mesh.repair'
         self.volume = self.capability_id == 'mesh.generate3d'
-        self.contract = VOLUME_CONTRACT if self.volume else CONTRACT
+        self.contract = VOLUME_CONTRACT if self.volume else REPAIR_CONTRACT if self.repair else CONTRACT
         self.paths = {name: Path(config[name]).resolve(strict=True) for name in
                       ('manifest', 'runtimeManifest', 'adapter', 'workerContract', 'python', 'worker', 'prefix', 'datasetRoot')}
         if self.volume:
@@ -119,7 +123,8 @@ class Broker:
             identity = (entry.get('runtimeId'), entry.get('capabilityId'), entry.get('level'))
             if identity not in (('cgal-win-conda', 'mesh.interop.vtk-math3d', 'L9'),
                                 ('gmsh-win-conda', 'mesh.generate', 'L9'),
-                                ('gmsh-win-conda', 'mesh.generate3d', 'L9')):
+                                ('gmsh-win-conda', 'mesh.generate3d', 'L9'),
+                                ('cgal-win-conda', 'mesh.repair', 'L9')):
                 raise ValueError('Unqualified or unsupported provider in certified manifest.')
             if entry.get('runtimeId') != self.runtime_id or entry.get('capabilityId') != self.capability_id:
                 continue
@@ -128,6 +133,22 @@ class Broker:
             contract_hash = hashlib.sha256(json.dumps(self.contract, separators=(',', ':')).encode()).hexdigest()
             if entry.get('productContractSha256') != contract_hash:
                 raise ValueError('MATH3D product contract hash mismatch.')
+            if self.repair:
+                require_hash(self.source_root / self.contract['fixtureManifest'],
+                             entry.get('fixtureManifestSha256'), 'Repair fixture manifest')
+                references = entry.get('referenceCases')
+                if (not isinstance(references, list) or len(references) != 4
+                        or [case.get('caseId') for case in references] != list(REPAIR_CASES)
+                        or [case.get('recipeId') for case in references] !=
+                           [case['recipeId'] for case in self.contract['cases']]):
+                    raise ValueError('The certified repair case pack is incomplete.')
+                fixtures = json.loads((self.source_root / self.contract['fixtureManifest']).read_text(encoding='utf-8'))
+                for index, case in enumerate(references):
+                    fixture = fixtures['fixtures'][index]
+                    if case.get('inputSha256') != fixture.get('sha256') or not re.fullmatch(
+                            '[0-9a-f]{64}', case.get('outputSha256', '')):
+                        raise ValueError('The certified repair fixture identity changed.')
+                    require_hash(self.source_root / fixture['path'], case['inputSha256'], 'Repair fixture')
             for name, field in [('runtimeManifest', 'runtimeManifestSha256'), ('adapter', 'adapterSha256'),
                                 ('workerContract', 'workerContractSha256'), ('python', 'pythonSha256'),
                                 ('worker', 'workerBinarySha256')]:
@@ -164,10 +185,10 @@ class Broker:
                 raise ValueError('L9 qualification identity differs from its support chain.')
             if support[8]['recordId'] != entry['sourceL8RecordId'] or support[8]['runId'] != entry['sourceL8RunId']:
                 raise ValueError('L8 qualification identity differs from its support chain.')
-            expected_files = VOLUME_CONSUMER_FILES if self.volume else CONSUMER_FILES
+            expected_files = VOLUME_CONSUMER_FILES if self.volume else set(REPAIR_CONTRACT['consumerSources']) if self.repair else CONSUMER_FILES
             if not isinstance(entry.get('consumerSources'), dict) or set(entry['consumerSources']) != expected_files:
                 raise ValueError('MATH3D consumer source identity is missing.')
-            if self.volume and self.math3d_root is not None:
+            if (self.volume or self.repair) and self.math3d_root is not None:
                 for name, expected in entry['consumerSources'].items():
                     require_hash(self.math3d_root / name, expected, 'MATH3D volume consumer ' + name)
                 source_hash = hashlib.sha256(json.dumps(entry['consumerSources'], separators=(',', ':')).encode()).hexdigest()
@@ -181,7 +202,7 @@ class Broker:
         self.verify()
         return {'schemaVersion': 1, 'providers': [{'runtimeId': self.runtime_id, 'backend': 'windows-native',
                 'capabilities': [{'capabilityId': entry['capabilityId'], 'level': entry['level'],
-                                  'recordId': entry['recordId'], 'contractVersion': self.contract['version']}]
+                                  'recordId': entry['recordId'], 'contractVersion': self.contract.get('version', 1)}]
                 } for entry in self.capabilities]}
 
     def snapshot(self, job):
@@ -205,7 +226,16 @@ class Broker:
         if source.suffix.lower() != suffix or not source.is_relative_to(self.paths['datasetRoot']) or source.stat().st_size > MAX_INPUT:
             raise ValueError(f'Input must be a bounded registered {suffix} dataset.')
         require_hash(source, input_info.get('sha256'), 'Input artifact')
-        if input_info['sha256'] != self.capabilities[0]['referenceInputSha256']:
+        repair_case = None
+        if self.repair:
+            case_id = body.get('caseId')
+            repair_case = next((case for case in self.capabilities[0]['referenceCases']
+                                if case['caseId'] == case_id), None)
+            if repair_case is None or set(body) - {'schemaVersion', 'runtimeId', 'capabilityId', 'caseId', 'input', 'timeoutSeconds'}:
+                raise ValueError('Only a certified repair caseId and typed input are allowed.')
+            if input_info['sha256'] != repair_case['inputSha256']:
+                raise ValueError('Input is outside the certified repair case fixture.')
+        elif input_info['sha256'] != self.capabilities[0]['referenceInputSha256']:
             raise ValueError('Input is outside the fixed L9 qualification fixture.')
         with self.lock:
             running = sum(job['state'] == 'running' for job in self.jobs.values())
@@ -223,13 +253,16 @@ class Broker:
             with source_path.open('x', encoding='utf-8') as stream:
                 json.dump(source_snapshot, stream, separators=(',', ':'))
             source_sha = sha(source_path)
-            recipe = 'gmsh.volume3d.cube' if self.volume else 'gmsh.mesh2d' if self.gmsh else 'cgal.validate'
-            output_name = 'cube.msh' if self.volume else 'l5-positive.msh' if self.gmsh else 'l5-positive.obj'
+            recipe = 'gmsh.volume3d.cube' if self.volume else 'gmsh.mesh2d' if self.gmsh else repair_case['recipeId'] if self.repair else 'cgal.validate'
+            output_name = 'cube.msh' if self.volume else 'l5-positive.msh' if self.gmsh else 'repaired.obj' if self.repair else 'l5-positive.obj'
+            dataset_id = hashlib.sha256((repair_case['caseId'] + ':' + repair_case['inputSha256']).encode()).hexdigest() if self.repair else None
             request = {'schemaVersion': 1, 'runId': job_id, 'runtimeId': self.runtime_id,
                    'recipeId': recipe, 'operation': recipe,
-                   'parameters': {'meshSize': 0.35 if self.volume else 0.2} if self.gmsh else {},
+                   'parameters': {'meshSize': 0.35 if self.volume else 0.2} if self.gmsh else
+                                 {'inputId': dataset_id, 'outputName': output_name} if self.repair else {},
                    'workingDirectory': str(directory), 'datasetRoot': str(dataset),
-                   'timeoutSeconds': timeout, 'inputArtifacts': [{'path': str(copied), 'sha256': input_info['sha256']}],
+                   'timeoutSeconds': timeout, 'inputArtifacts': [{'path': str(copied), 'sha256': input_info['sha256'],
+                                                                  **({'datasetId': dataset_id} if self.repair else {})}],
                    'outputArtifacts': [{'path': output_name, 'mediaType': 'model/vnd.gmsh.msh' if self.gmsh else 'model/obj'}],
                    'provenance': {'brokerContractVersion': 1, 'certificationRecordId': self.capabilities[0]['recordId'],
                                   'sourceSnapshotSha256': source_sha}}
@@ -238,6 +271,7 @@ class Broker:
                'state': 'running', 'stage': 'queued', 'progress': 0, 'contractVersion': 1,
                'certificationRecordId': self.capabilities[0]['recordId'], 'artifacts': [], 'diagnostics': [],
                'directory': str(directory), 'sourceSnapshotSha256': source_sha,
+               **({'caseId': repair_case['caseId']} if self.repair else {}),
                'cancel': threading.Event(), 'process': None}
             self.jobs[job_id] = job
         threading.Thread(target=self._run, args=(job, timeout), daemon=True).start()
@@ -334,7 +368,7 @@ class Broker:
             if result_path.is_file() and result_path.stat().st_size > 1048576:
                 raise ValueError('Worker result exceeds 1 MiB.')
             result = json.loads(result_path.read_text(encoding='utf-8')) if result_path.is_file() else None
-            worker_name = 'cube.msh' if self.volume else 'l5-positive.msh' if self.gmsh else 'l5-positive.obj'
+            worker_name = 'cube.msh' if self.volume else 'l5-positive.msh' if self.gmsh else 'repaired.obj' if self.repair else 'l5-positive.obj'
             artifact = directory / worker_name
             if artifact.is_file() and artifact.stat().st_size > MAX_INPUT:
                 raise ValueError('Worker artifact exceeds 32 MiB.')
@@ -344,7 +378,7 @@ class Broker:
                     item.get('message', '') for item in (result or {}).get('diagnostics', [])] or ['Worker failed.'])
                 return
             artifact_hash = sha(artifact)
-            validated = 'mesh.generate3d' if self.volume else 'mesh.generate' if self.gmsh else 'mesh.validate'
+            validated = 'mesh.generate3d' if self.volume else 'mesh.generate' if self.gmsh else 'mesh.repair' if self.repair else 'mesh.validate'
             if (result.get('runId') != job['jobId'] or validated not in result.get('validatedCapabilities', [])
                     or not any(item.get('path') == worker_name and item.get('sha256') == artifact_hash
                                for item in result.get('artifacts', []))):
@@ -352,7 +386,9 @@ class Broker:
                 return
             self.verify()
             entry = next((item for item in self.capabilities if item['recordId'] == job['certificationRecordId']), None)
-            if entry is None or artifact_hash != entry['referenceWorkerArtifactSha256' if self.gmsh else 'referenceArtifactSha256']:
+            reference = next((case for case in entry['referenceCases'] if case['caseId'] == job['caseId']), None) if self.repair and entry else None
+            expected_artifact = reference['outputSha256'] if reference else entry['referenceWorkerArtifactSha256' if self.gmsh else 'referenceArtifactSha256'] if entry else None
+            if entry is None or artifact_hash != expected_artifact:
                 with self.lock: job.update(pendingState='partial', stage='finalizing', diagnostics=['Current qualification or reference artifact differs.'])
                 return
             if self.volume:
@@ -395,6 +431,12 @@ class Broker:
                        'workerRequest': {'path': str(directory / 'request.json'), 'sha256': sha(directory / 'request.json')},
                        'workerResult': {'path': str(result_path), 'sha256': sha(result_path)},
                        'artifact': {'path': str(artifact), 'sha256': artifact_hash}}
+            if self.repair:
+                handoff['caseId'] = job['caseId']
+                handoff['recipeId'] = reference['recipeId']
+                handoff['sourceL9RunId'] = entry['sourceRunId']
+                handoff['sourceL9RecordId'] = entry['recordId']
+                handoff['repairAudit'] = result.get('repairAudit')
             if self.volume:
                 handoff['sourceMsh'] = {'path': str(directory / 'cube.msh'), 'sha256': sha(directory / 'cube.msh')}
                 handoff['resource'] = {'path': str(directory / 'volume.m3dt'), 'sha256': sha(directory / 'volume.m3dt')}
@@ -407,6 +449,7 @@ class Broker:
             handoff_path.write_text(json.dumps(handoff, separators=(',', ':')), encoding='utf-8')
             names = (('cube.msh', 'volume.m3dt', 'exporter.json', 'handoff.json') if self.volume else
                      ('l5-positive.msh', 'l5-positive.obj', 'conversion.json', 'handoff.json') if self.gmsh else
+                     ('repaired.obj', 'handoff.json') if self.repair else
                      ('l5-positive.obj', 'handoff.json'))
             artifacts = [{'path': name, 'sha256': sha(directory / name), 'bytes': (directory / name).stat().st_size}
                          for name in names]
@@ -440,6 +483,7 @@ class Broker:
             if pending != 'succeeded':
                 for name in (('cube.msh', 'volume.m3dt', 'exporter.json', 'handoff.json') if self.volume else
                              ('l5-positive.msh', 'l5-positive.obj', 'conversion.json', 'handoff.json') if self.gmsh else
+                             ('repaired.obj', 'handoff.json') if self.repair else
                              ('l5-positive.obj', 'handoff.json')):
                     path = directory / name
                     if path.exists():

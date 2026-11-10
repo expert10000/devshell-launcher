@@ -259,6 +259,8 @@ public partial class Form1
             else if(action=="l7-cgal-repair")data=ScientificCgalRepairL7Start(profileId,runtimeId);
             else if(action=="l8-cgal-repair")data=ScientificCgalRepairL8Start(profileId,runtimeId);
             else if(action=="l9-cgal-repair")data=ScientificCgalRepairL9Start(profileId,runtimeId);
+            else if(action is "l5-cgal-remesh" or "l6-cgal-remesh" or "l7-cgal-remesh" or "l8-cgal-remesh" or "l9-cgal-remesh")
+                data=ScientificCgalRemeshLevelStart(profileId,runtimeId,action[1]-'0');
             else if(action=="l6-reproduce")data=ScientificL6Start(profileId,runtimeId);
             else if(action=="l7-math3d-import")data=ScientificL7Start(profileId,runtimeId);
             else if(action=="l7-cgal-vtk-math3d")data=ScientificL7InteropStart(profileId,runtimeId);

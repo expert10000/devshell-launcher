@@ -153,6 +153,20 @@ public static class ScientificRunFingerprint
             "tools/scientific_cgal_mesh_metrics.py", "tools/scientific_cgal_surface_samples.py",
             "tools/scientific_cgal_triangle_quality.py", "schemas/scientific-remesh-guard.v2.json",
             "scientific/cgal-worker/main.cpp" });
+        if (recipeId is "l5.cgal-remesh" or "l6.cgal-remesh" or "l7.cgal-remesh" or "l8.cgal-remesh" or "l9.cgal-remesh")
+            names.AddRange(new[] { "BatchLauncher/Form1.Scientific.CgalRemesh.cs",
+                "BatchLauncher/ScientificQualificationRecords.Remesh.cs",
+                "scientific/fixtures/cgal-remesh-qualification/manifest.json",
+                "scientific/fixtures/cgal-remesh-qualification/affine-tetra.obj",
+                "scientific/fixtures/cgal-remesh-qualification/octahedron.obj",
+                "scientific/fixtures/cgal-repair-quad/cube-closed.obj",
+                "schemas/scientific-remesh-guard.v2.json", "scientific/cgal-worker/main.cpp",
+                "tools/scientific-cgal-worker.py", "tools/scientific_cgal_remesh_guard.py",
+                "tools/scientific_cgal_remesh_qualification.py", "tools/scientific_cgal_remesh_l7.py",
+                "tools/scientific_cgal_remesh_l8.py", "tools/scientific_cgal_remesh_l9.py",
+                "tools/scientific-vtk-interop.py", "tools/math3d-vtk-import-handoff.mjs",
+                "tools/math3d-cgal-remesh-product.mjs", "tools/math3d-cgal-remesh-viewer.mjs",
+                "tools/scientific-cgal-repair-m3dm-roundtrip.py" });
         if (recipeId is "cgal.fill-one-hole" or "cgal.fill-quad-hole" or "cgal.fill-two-quad-holes" or "cgal.fill-bounded-holes")
             names.AddRange(new[] { "BatchLauncher/Form1.Scientific.Cgal.cs", "tools/scientific-cgal-hole-repair-worker.py",
                 "tools/scientific_cgal_mesh_metrics.py", "scientific/cgal-worker/hole_repair.cpp" });

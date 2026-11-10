@@ -1029,6 +1029,22 @@ public static partial class ScientificQualificationRecords
                     evidence?["consumerSourcesSha256"]?.GetValue<string>(),
                     evidence?["productContractSha256"]?.GetValue<string>());
         }
+        else if (runtimeId == "cgal-win-conda" && recipeId is ("l5.cgal-remesh" or "l6.cgal-remesh" or "l7.cgal-remesh" or "l8.cgal-remesh" or "l9.cgal-remesh")
+            && manifest["qualificationRecipes"] is JsonArray remeshRecipes)
+        {
+            var level = $"L{recipeId[1]}";
+            var declaration = remeshRecipes.OfType<JsonObject>().FirstOrDefault(item =>
+                item["id"]?.GetValue<string>() == recipeId
+                && item["readinessLevel"]?.GetValue<string>() == level
+                && item["capability"]?.GetValue<string>() == "mesh.remesh"
+                && (level == "L5" ? item["suiteId"]?.GetValue<string>() == "cgal-remesh-guarded-v2"
+                    : item["referenceRecipe"]?.GetValue<string>() == $"l{recipeId[1] - '1'}.cgal-remesh"));
+            var hash = RemeshHash(directory, result, components!, level);
+            var evidence = result["remeshQualificationEvidence"];
+            if (declaration != null && hash != null)
+                Add("mesh.remesh", level, recipeId, hash, evidence?["lowerQualification"],
+                    evidence?["consumerSourceSha256"]?.GetValue<string>());
+        }
         else if (recipeId == "l9.math3d-product" && manifest["qualificationRecipes"] is JsonArray productRecipes)
         {
             var declaration = productRecipes.OfType<JsonObject>().FirstOrDefault(item =>
@@ -1157,6 +1173,21 @@ public static partial class ScientificQualificationRecords
                     || !string.Equals(record["evidenceSha256"]?.GetValue<string>(),
                         Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(binary))).ToLowerInvariant(), StringComparison.OrdinalIgnoreCase))
                     throw new InvalidDataException("Compiled qualification binary has changed.");
+            }
+            var remeshId = record["evidenceId"]?.GetValue<string>();
+            if (remeshId is "l5.cgal-remesh" or "l6.cgal-remesh" or "l7.cgal-remesh" or "l8.cgal-remesh" or "l9.cgal-remesh")
+            {
+                var sourceResult = JsonNode.Parse(result.GetRawText()) as JsonObject;
+                var evidence = sourceResult?["remeshQualificationEvidence"];
+                var level = $"L{remeshId[1]}";
+                if (sourceResult == null || record["level"]?.GetValue<string>() != level
+                    || record["capabilityId"]?.GetValue<string>() != "mesh.remesh"
+                    || record["lowerQualification"]?.ToJsonString() != evidence?["lowerQualification"]?.ToJsonString()
+                    || record["consumerSourceSha256"]?.GetValue<string>() != evidence?["consumerSourceSha256"]?.GetValue<string>()
+                    || record["evidenceSha256"]?.GetValue<string>() != RemeshHash(directory, sourceResult,
+                        fingerprint!["components"]!.AsObject(), level))
+                    throw new InvalidDataException("CGAL remesh qualification evidence changed.");
+                continue;
             }
             if (record["level"]?.GetValue<string>() == "L5")
             {
@@ -1438,7 +1469,7 @@ public static partial class ScientificQualificationRecords
     {
         foreach (var record in records.OfType<JsonObject>().Where(item => item["level"]?.GetValue<string>() == "L9"))
         {
-            if (record["evidenceId"]?.GetValue<string>() == "l9.cgal-repair") continue;
+            if (record["evidenceId"]?.GetValue<string>() is "l9.cgal-repair" or "l9.cgal-remesh") continue;
             var reasons = record["staleReasons"] as JsonArray ?? new JsonArray();
             var volume = record["evidenceId"]?.GetValue<string>() == "l9.gmsh-volume";
             var sourcesSha256 = volume ? volumeSourcesSha256 : currentSourcesSha256;

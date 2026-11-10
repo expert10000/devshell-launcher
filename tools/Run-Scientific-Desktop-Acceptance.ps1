@@ -1,5 +1,5 @@
 param(
-    [Parameter(Mandatory=$true)][ValidateSet('Repair', 'GmshVolume')][string]$Scenario,
+    [Parameter(Mandatory=$true)][ValidateSet('Repair', 'GmshVolume', 'Remesh')][string]$Scenario,
     [int]$CdpPort = 9244,
     [string]$Math3DCheckout = $env:MATH3D_CHECKOUT,
     [string]$ExistingWorktree,
@@ -75,6 +75,7 @@ try {
         if ($LASTEXITCODE -ne 0) { throw 'Desktop build failed.' }
     }
     if (!(Test-Path -LiteralPath $app)) { throw "Desktop executable is unavailable: $app" }
+    [Environment]::SetEnvironmentVariable('MATH3D_CHECKOUT', $Math3DCheckout, 'Process')
     if (!$UseRunningApp) {
         [Environment]::SetEnvironmentVariable('WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS',
             "--remote-debugging-port=$CdpPort", 'Process')
@@ -105,6 +106,7 @@ try {
     if (!$ready) { throw "Isolated DevShell WebView2 did not appear at $cdpUrl." }
     if (!$BootOnly) {
         $script = if ($Scenario -eq 'Repair') { 'scientific-cgal-repair-managed-ui-checks.mjs' }
+            elseif ($Scenario -eq 'Remesh') { 'scientific-cgal-remesh-managed-ui-checks.mjs' }
             else { 'scientific-gmsh-managed-ui-checks.mjs' }
         & node (Join-Path $root "tests\$script")
         if ($LASTEXITCODE -ne 0) { throw "Managed $Scenario acceptance failed." }

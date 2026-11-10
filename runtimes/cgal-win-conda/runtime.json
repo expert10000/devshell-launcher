@@ -17,6 +17,11 @@
     { "id": "l7.cgal-repair", "readinessLevel": "L7", "capability": "mesh.repair", "referenceRecipe": "l6.cgal-repair", "consumer": "VTK+MATH3D" },
     { "id": "l8.cgal-repair", "readinessLevel": "L8", "capability": "mesh.repair", "referenceRecipe": "l7.cgal-repair", "repeatCount": 3, "memoryLimitBytes": 134217728 },
     { "id": "l9.cgal-repair", "readinessLevel": "L9", "capability": "mesh.repair", "referenceRecipe": "l8.cgal-repair", "contract": "cgal-repair-math3d-product-v1" },
+    { "id": "l5.cgal-remesh", "readinessLevel": "L5", "capability": "mesh.remesh", "suiteId": "cgal-remesh-guarded-v2", "positiveCases": 4, "rejectionCases": 8, "fixtureManifest": "scientific/fixtures/cgal-remesh-qualification/manifest.json" },
+    { "id": "l6.cgal-remesh", "readinessLevel": "L6", "capability": "mesh.remesh", "referenceRecipe": "l5.cgal-remesh", "comparison": "state-and-accepted-output-sha256" },
+    { "id": "l7.cgal-remesh", "readinessLevel": "L7", "capability": "mesh.remesh", "referenceRecipe": "l6.cgal-remesh", "consumer": "VTK+MATH3D" },
+    { "id": "l8.cgal-remesh", "readinessLevel": "L8", "capability": "mesh.remesh", "referenceRecipe": "l7.cgal-remesh", "repeatCount": 3, "memoryLimitBytes": 134217728 },
+    { "id": "l9.cgal-remesh", "readinessLevel": "L9", "capability": "mesh.remesh", "referenceRecipe": "l8.cgal-remesh", "contract": "cgal-remesh-guarded-v2", "viewer": "MeshDocumentViewport" },
     { "id": "l7.cgal-vtk-math3d", "readinessLevel": "L7", "capability": "mesh.interop.vtk-math3d", "referenceRecipe": "l6.reproduce", "format": "obj" },
     { "id": "l8.resilience", "readinessLevel": "L8", "capability": "mesh.interop.vtk-math3d", "referenceRecipe": "l7.cgal-vtk-math3d", "repeatCount": 3, "memoryLimitBytes": 134217728 },
     { "id": "l9.math3d-product", "readinessLevel": "L9", "capability": "mesh.interop.vtk-math3d", "referenceRecipe": "l8.resilience", "contractVersion": 1, "viewer": "MeshDocumentViewport" }
@@ -26,6 +31,12 @@
       "id": "cgal.validate",
       "adapter": "tools/scientific-cgal-worker.py",
       "capability": "mesh.validate",
+      "timeoutSeconds": 120
+    },
+    {
+      "id": "cgal.remesh",
+      "adapter": "tools/scientific-cgal-worker.py",
+      "capability": "mesh.remesh",
       "timeoutSeconds": 120
     },
     {

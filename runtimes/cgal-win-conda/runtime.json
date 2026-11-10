@@ -20,6 +20,24 @@
       "adapter": "tools/scientific-cgal-worker.py",
       "capability": "mesh.validate",
       "timeoutSeconds": 120
+    },
+    {
+      "id": "cgal.fill-one-hole",
+      "adapter": "tools/scientific-cgal-hole-repair-worker.py",
+      "capability": "mesh.repair",
+      "timeoutSeconds": 120
+    },
+    {
+      "id": "cgal.fill-quad-hole",
+      "adapter": "tools/scientific-cgal-hole-repair-worker.py",
+      "capability": "mesh.repair",
+      "timeoutSeconds": 120
+    },
+    {
+      "id": "cgal.fill-two-quad-holes",
+      "adapter": "tools/scientific-cgal-hole-repair-worker.py",
+      "capability": "mesh.repair",
+      "timeoutSeconds": 120
     }
   ],
   "testMatrix": [

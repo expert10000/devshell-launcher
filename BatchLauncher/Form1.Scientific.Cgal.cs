@@ -14,7 +14,8 @@ public partial class Form1
         if(runtimeId!="cgal-win-conda")throw new InvalidOperationException("Select the installed Windows Native CGAL profile.");
         var prefix=ScientificPrefix(runtimeId);
         var recipe=request.GetProperty("recipeId").GetString();
-        if(recipe is not ("cgal.validate" or "cgal.remesh"))throw new InvalidOperationException("CGAL recipe is not registered.");
+        if(recipe is not ("cgal.validate" or "cgal.remesh" or "cgal.fill-one-hole" or "cgal.fill-quad-hole" or "cgal.fill-two-quad-holes"))throw new InvalidOperationException("CGAL recipe is not registered.");
+        var repair=recipe is "cgal.fill-one-hole" or "cgal.fill-quad-hole" or "cgal.fill-two-quad-holes";
         var parameters=request.GetProperty("parameters");
         if(parameters.TryGetProperty("testCaseId",out var testCase))
         {
@@ -35,6 +36,7 @@ public partial class Form1
         var input=ScientificScopedFile(datasets,inputId);
         if(!File.Exists(input)||new FileInfo(input).Length>32*1024*1024||!new[]{".obj",".stl",".ply",".off"}.Contains(Path.GetExtension(input).ToLowerInvariant()))
             throw new InvalidOperationException("CGAL input must be an OBJ/STL/PLY/OFF fixture up to 32 MiB.");
+        if(repair&&Path.GetExtension(input).ToLowerInvariant()!=".obj")throw new InvalidOperationException("CGAL hole repair requires a registered OBJ mesh.");
         var output=parameters.GetProperty("outputName").GetString()??"";
         if(!Regex.IsMatch(output,@"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,99}\.obj$"))throw new InvalidOperationException("Output must be a safe OBJ filename.");
         var edge=recipe=="cgal.remesh"?parameters.GetProperty("targetEdge").GetDouble():0.1;
@@ -84,13 +86,14 @@ public partial class Form1
         var cmake=Path.Combine(prefix,"Library","bin","cmake.exe");
         await ScientificProcessAsync(processJob,prefix,cmake,new[]{"-S",Path.Combine(ScientificSourceRoot,"scientific","cgal-worker"),"-B",build,"-G","Visual Studio 17 2022","-A","x64","-DCMAKE_PREFIX_PATH="+Path.Combine(prefix,"Library")},job.Directory,180);
         await ScientificProcessAsync(processJob,prefix,cmake,new[]{"--build",build,"--config","Release","--parallel","1"},job.Directory,180);
-        var worker=Path.Combine(build,"Release","devshell_cgal_worker.exe");
-        var adapter=Path.Combine(ScientificSourceRoot,"tools","scientific-cgal-worker.py");
+        var repair=job.RecipeId is "cgal.fill-one-hole" or "cgal.fill-quad-hole" or "cgal.fill-two-quad-holes";
+        var worker=Path.Combine(build,"Release",repair?"devshell_cgal_hole_repair.exe":"devshell_cgal_worker.exe");
+        var adapter=Path.Combine(ScientificSourceRoot,"tools",repair?"scientific-cgal-hole-repair-worker.py":"scientific-cgal-worker.py");
         var condaHistory=Path.Combine(prefix,"conda-meta","history");
         if (processOwner != null)
         {
-            job.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(worker, "cgal-worker"));
-            job.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(adapter, "cgal-adapter"));
+            job.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(worker, repair?"cgal-hole-repair-worker":"cgal-worker"));
+            job.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(adapter, repair?"cgal-hole-repair-adapter":"cgal-adapter"));
         }
         job.EnvironmentFingerprint=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
             ScientificHash(condaHistory)+"|"+ScientificHash(worker)+"|"+ScientificHash(adapter)))).ToLowerInvariant();

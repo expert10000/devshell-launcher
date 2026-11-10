@@ -65,6 +65,8 @@ public static class ScientificRunFingerprint
         if (runtimeId == "cgal-win-conda") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L7Interop.cs", "BatchLauncher/Form1.Scientific.L8.cs", "BatchLauncher/Form1.Scientific.L9.cs", "BatchLauncher/OwnedProcessJob.cs", "tools/scientific-vtk-interop.py", "tools/math3d-vtk-import-handoff.mjs", "tools/math3d-l9-product-handoff.mjs" });
         if (runtimeId.StartsWith("cgal", StringComparison.Ordinal))
             names.AddRange(new[] { "tools/scientific-cgal-worker.py", "scientific/cgal-worker/main.cpp", "scientific/cgal-worker/CMakeLists.txt", "tools/math3d-native-protocol.mjs", "tools/run-math3d-boolean.mjs" });
+        if (runtimeId == "cgal-win-conda") names.AddRange(new[] { "tools/scientific-cgal-hole-repair-worker.py",
+            "tools/scientific_cgal_mesh_metrics.py", "scientific/cgal-worker/hole_repair.cpp" });
         if (runtimeId.StartsWith("vtk", StringComparison.Ordinal))
             names.AddRange(new[] { "tools/scientific-mesh-worker.py", "tools/scientific-vtk-render-check.py" });
         if (runtimeId == "sage-wsl") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.Sage.cs",
@@ -146,6 +148,9 @@ public static class ScientificRunFingerprint
         }
         if (recipeId is "matrix.cgal.validation" or "cgal.validate" or "matrix.cgal.real-mesh")
             names.AddRange(new[] { "BatchLauncher/Form1.Scientific.Matrix.cs", "BatchLauncher/Form1.Scientific.Cgal.cs" });
+        if (recipeId is "cgal.fill-one-hole" or "cgal.fill-quad-hole" or "cgal.fill-two-quad-holes")
+            names.AddRange(new[] { "BatchLauncher/Form1.Scientific.Cgal.cs", "tools/scientific-cgal-hole-repair-worker.py",
+                "tools/scientific_cgal_mesh_metrics.py", "scientific/cgal-worker/hole_repair.cpp" });
         if (recipeId == "matrix.cgal.real-mesh") names.Add("BatchLauncher/Form1.Scientific.RealMesh.cs");
         if (recipeId == "cgal.boolean") names.Add("BatchLauncher/Form1.Scientific.Boolean.cs");
         if (recipeId == "datasets.import") names.Add("BatchLauncher/Form1.Scientific.MeshImport.cs");

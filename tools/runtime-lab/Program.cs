@@ -106,8 +106,10 @@ internal static class Program
             if (manifest.Probes.Any(p => string.IsNullOrWhiteSpace(p.Id) || p.Arguments.Count == 0
                 || p.TimeoutSeconds is < 1 or > 120))
                 throw new InvalidDataException($"Invalid probe in {file}");
-            if (manifest.Recipes.Any(r => r.Id != "cgal.validate" || r.Adapter != "tools/scientific-cgal-worker.py"
-                || r.TimeoutSeconds is < 1 or > 120 || r.Capability != "mesh.validate")
+            if (manifest.Recipes.Any(r => r.TimeoutSeconds is < 1 or > 120
+                || !(r.Id == "cgal.validate" && r.Adapter == "tools/scientific-cgal-worker.py" && r.Capability == "mesh.validate"
+                    || (r.Id is "cgal.fill-one-hole" or "cgal.fill-quad-hole" or "cgal.fill-two-quad-holes")
+                        && r.Adapter == "tools/scientific-cgal-hole-repair-worker.py" && r.Capability == "mesh.repair"))
                 || (manifest.Id != "cgal-win-conda" && manifest.Recipes.Count != 0))
                 throw new InvalidDataException($"Unsupported recipe in {file}");
             manifests.Add(manifest);

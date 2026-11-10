@@ -13,7 +13,7 @@ public static class ScientificProviderRegistry
     public static IReadOnlyList<ScientificProvider> Providers { get; } = new[]
     {
         new ScientificProvider("cgal-win-conda", "windows-native", "devshell-cgal", true, true,
-            new[] { "import-meshes", "repair-fixtures", "test-matrix", "math3d-readiness", "environment", "terminal", "export", "test-hold", "recipe", "boolean-recipe", "cgal-recipe", "run-matrix", "real-mesh-suite", "math3d-integration", "math3d-prepare-run", "l5-worker", "l5-cgal-repair", "l6-reproduce", "l6-cgal-repair", "l7-cgal-repair", "l8-cgal-repair", "l7-cgal-vtk-math3d", "l8-resilience", "l9-math3d-product" }),
+            new[] { "import-meshes", "repair-fixtures", "test-matrix", "math3d-readiness", "environment", "terminal", "export", "test-hold", "recipe", "boolean-recipe", "cgal-recipe", "run-matrix", "real-mesh-suite", "math3d-integration", "math3d-prepare-run", "l5-worker", "l5-cgal-repair", "l6-reproduce", "l6-cgal-repair", "l7-cgal-repair", "l8-cgal-repair", "l9-cgal-repair", "l7-cgal-vtk-math3d", "l8-resilience", "l9-math3d-product" }),
         new ScientificProvider("vtk-win-conda", "windows-native", "devshell-vtk", true, true,
             new[] { "environment", "terminal", "export", "test-hold", "recipe", "vtk-rejections", "l5-worker", "l6-reproduce", "l7-math3d-import" }),
         new ScientificProvider("gmsh-win-conda", "windows-native", "devshell-scientific", true, true,

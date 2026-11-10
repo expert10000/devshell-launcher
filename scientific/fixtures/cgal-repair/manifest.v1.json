@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "kind": "scientific.cgal-hole-repair-fixture",
+  "license": "CC0-1.0",
+  "source": "Project-authored removal of one face from the authored closed tetrahedron",
+  "sourceFixture": "../cgal/closed-tetra.obj",
+  "sourceSha256": "21b1325a5d9f7ef43f04b923c7b469e6a8c73cc41eef436924801d37ac29113d",
+  "fixture": "tetra-one-hole.obj",
+  "fixtureSha256": "6731a065358d94c0af18274bc4a19fbe4a386f2cef64b5bbd9d841a6191d6f61",
+  "removedFace": [2, 3, 4],
+  "expected": {
+    "vertices": 4,
+    "faces": 3,
+    "components": 1,
+    "boundaryEdges": 3,
+    "boundaryLoops": 1,
+    "eulerCharacteristic": 1,
+    "degenerateFaces": 0,
+    "area": 1.5
+  }
+}

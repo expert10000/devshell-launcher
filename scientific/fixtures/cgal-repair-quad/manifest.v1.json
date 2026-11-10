@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "kind": "scientific.cgal-quad-hole-fixture",
+  "license": "CC0-1.0",
+  "source": "Project-authored triangulated unit cube and exact top-face removal",
+  "closed": "cube-closed.obj",
+  "closedSha256": "70a95597b1464af10a197f4c0d6def7f51fbd77118d765fc735e807ec52ca504",
+  "open": "cube-one-quad-hole.obj",
+  "openSha256": "54b975fae857450a7a3e7f19b1d4a22218925dbd1847fa674f7bf085960fc14f",
+  "removedFaces": [[5, 6, 7], [5, 7, 8]],
+  "expectedClosed": {
+    "vertices": 8,
+    "faces": 12,
+    "components": 1,
+    "boundaryEdges": 0,
+    "boundaryLoops": 0,
+    "eulerCharacteristic": 2,
+    "degenerateFaces": 0,
+    "area": 6.0,
+    "signedVolume": 1.0
+  },
+  "expectedOpen": {
+    "vertices": 8,
+    "faces": 10,
+    "components": 1,
+    "boundaryEdges": 4,
+    "boundaryLoops": 1,
+    "boundaryLength": 4.0,
+    "eulerCharacteristic": 1,
+    "degenerateFaces": 0,
+    "area": 5.0
+  }
+}

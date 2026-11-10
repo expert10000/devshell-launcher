@@ -67,6 +67,7 @@ export interface ScientificRunResult {
   handoff?: { verdict: string; outputSha256: string; importerSourceSha256: string; consumer: { points: number; triangles: number; boundaryEdges: number; signedVolume: number } }
   repairProduct?: { verdict: string; documentSha256: string; resourceSha256: string; m3dmSha256: string; documentId: string; structuralHash: string; points: number; triangles: number }
   m3dmRoundtrip?: { verdict: string; m3dmSha256: string; source: { signedVolume: number; surfaceArea: number }; reloaded: { signedVolume: number; surfaceArea: number; boundaryEdges: number } }
+  viewerRegression?: { verdict: string; viewerState: string; blueMeshPixels: number; screenshotSha256: string; m3dmSha256: string }
   testCaseId?: string
   environmentFingerprint?: string
   environmentFingerprintScope?: string

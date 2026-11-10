@@ -35,7 +35,9 @@ public partial class Form1
                     new JsonObject { ["path"] = "product/repair-mesh-resource.bin", ["mediaType"] = "application/octet-stream" },
                     new JsonObject { ["path"] = "product/repaired.m3dm", ["mediaType"] = "application/octet-stream" },
                     new JsonObject { ["path"] = "product/product.json", ["mediaType"] = "application/json" },
-                    new JsonObject { ["path"] = "product/roundtrip.json", ["mediaType"] = "application/json" }));
+                    new JsonObject { ["path"] = "product/roundtrip.json", ["mediaType"] = "application/json" },
+                    new JsonObject { ["path"] = "product/viewer.png", ["mediaType"] = "image/png" },
+                    new JsonObject { ["path"] = "product/viewer.json", ["mediaType"] = "application/json" }));
             _scientificJobs[profileId + ":" + runtimeId] = job;
             ScientificSend(new { type = "scientific.runtime.job", profileId, job = ScientificJobSnapshot(job) });
             _ = ScientificCgalRepairHandoffRunAsync(job, prefix, node, checkout, sourceDirectory, sourceRunId);
@@ -84,9 +86,22 @@ public partial class Form1
                 || product["runId"]?.GetValue<string>() != sourceRunId || roundtrip["runId"]?.GetValue<string>() != sourceRunId
                 || product["m3dmSha256"]?.GetValue<string>() != roundtrip["m3dmSha256"]?.GetValue<string>())
                 throw new InvalidDataException("MATH3D document and independent M3DM reload did not match.");
+            var viewerTool = Path.Combine(ScientificSourceRoot, "tools", "math3d-cgal-repair-viewer.mjs");
+            job.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(
+                Path.Combine(checkout, "renderer", "src", "workspace", "MeshDocumentViewport.tsx"), "math3d-viewer-source"));
+            await ScientificProcessAsync(job, prefix, node,
+                new[] { viewerTool, "--checkout", checkout, "--product", productDirectory }, job.Directory, 150);
+            var viewer = JsonNode.Parse(File.ReadAllText(Path.Combine(productDirectory, "viewer.json"))) as JsonObject
+                ?? throw new InvalidDataException("MATH3D repair viewer result is invalid.");
+            if (viewer["verdict"]?.GetValue<string>() != "passed"
+                || viewer["runId"]?.GetValue<string>() != sourceRunId
+                || viewer["m3dmSha256"]?.GetValue<string>() != product["m3dmSha256"]?.GetValue<string>()
+                || viewer["viewerState"]?.GetValue<string>() != "mounted")
+                throw new InvalidDataException("MATH3D repair viewer regression did not match the document.");
             File.WriteAllText(Path.Combine(job.Directory, "results.json"),
                 new JsonObject { ["sourceRunId"] = sourceRunId, ["handoff"] = handoff.DeepClone(),
                     ["repairProduct"] = product.DeepClone(), ["m3dmRoundtrip"] = roundtrip.DeepClone(),
+                    ["viewerRegression"] = viewer.DeepClone(),
                     ["validatedCapabilities"] = new JsonArray() }.ToJsonString());
             job.State = "succeeded";
             job.Stage = "completed";

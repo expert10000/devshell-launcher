@@ -1,4 +1,5 @@
 """Live fixed-cube broker certification, product handoff and tamper gates."""
+import json
 import os
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -36,6 +37,18 @@ class GmshVolumeBrokerIntegration(unittest.TestCase):
         record_path, record = run(config)
         self.assertEqual(record['verdict'], 'passed')
         self.assertEqual(verify(record_path, config)['sourceJobId'], record['sourceJobId'])
+        sidecar = Path(str(record_path) + '.sha256')
+        original_record, original_sidecar = record_path.read_bytes(), sidecar.read_bytes()
+        try:
+            changed = json.loads(original_record)
+            changed['sourceJobId'] = '0' * 32
+            record_path.write_text(json.dumps(changed, separators=(',', ':')), encoding='utf-8')
+            sidecar.write_text(sha(record_path), encoding='utf-8')
+            with self.assertRaisesRegex(ValueError, 'Source broker job'):
+                verify(record_path, config)
+        finally:
+            record_path.write_bytes(original_record)
+            sidecar.write_bytes(original_sidecar)
         with ThreadingHTTPServer(('127.0.0.1', 0), handler_for(Broker(config))) as server:
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()

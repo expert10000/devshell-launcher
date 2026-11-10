@@ -584,7 +584,7 @@ class Broker:
                             reasons.append(str(error))
                 try:
                     handoff = json.loads(self.artifact(job_id, 'handoff.json'))
-                    output = self.artifact(job_id, 'volume.m3dt' if self.volume else 'l5-positive.obj')
+                    output = self.artifact(job_id, 'volume.m3dt' if self.volume else 'repaired.obj' if self.repair else 'l5-positive.obj')
                     worker_request = json.loads((Path(job['directory']) / 'request.json').read_text(encoding='utf-8'))
                     worker_result = json.loads((Path(job['directory']) / 'results.json').read_text(encoding='utf-8'))
                     gmsh_worker_ok = True
@@ -605,7 +605,20 @@ class Broker:
                                           and handoff.get('workerArtifact', {}).get('sha256') == hashlib.sha256(msh).hexdigest()
                                           and conversion.get('sourceMshSha256') == hashlib.sha256(msh).hexdigest()
                                           and conversion.get('outputObjSha256') == hashlib.sha256(output).hexdigest())
-                    validated = 'mesh.generate3d' if self.volume else 'mesh.generate' if self.gmsh else 'mesh.validate'
+                    elif self.repair:
+                        reference = next((case for case in entry['referenceCases'] if case['caseId'] == job['caseId']), None)
+                        gmsh_worker_ok = (reference is not None
+                                          and worker_request.get('recipeId') == reference['recipeId']
+                                          and worker_result.get('recipeId') == reference['recipeId']
+                                          and worker_request.get('inputArtifacts', [{}])[0].get('sha256') == reference['inputSha256']
+                                          and hashlib.sha256(output).hexdigest() == reference['outputSha256']
+                                          and handoff.get('caseId') == job['caseId']
+                                          and handoff.get('recipeId') == reference['recipeId']
+                                          and handoff.get('sourceL9RunId') == entry['sourceRunId']
+                                          and handoff.get('sourceL9RecordId') == entry['recordId']
+                                          and handoff.get('repairAudit') == worker_result.get('repairAudit')
+                                          and worker_result.get('repairAudit', {}).get('patchSha256'))
+                    validated = 'mesh.generate3d' if self.volume else 'mesh.generate' if self.gmsh else 'mesh.repair' if self.repair else 'mesh.validate'
                     if (handoff.get('contract') != self.contract or handoff.get('runtimeId') != job['runtimeId']
                             or handoff.get('capabilityId') != job['capabilityId']
                             or handoff.get('sourceL8RunId') != entry['sourceL8RunId']
@@ -627,10 +640,12 @@ class Broker:
                       'sourceJobState': job['state'], 'capabilityId': job['capabilityId'],
                       'runtimeId': job['runtimeId'], 'certificationRecordId': job['certificationRecordId'],
                       'manifestSha256': sha(self.paths['manifest']) if self.paths['manifest'].is_file() else None,
-                      'contractVersion': self.contract['version'],
+                      'contractVersion': self.contract.get('version', 1),
                       'sourceSnapshotSha256': job.get('sourceSnapshotSha256'),
                       'handoffSha256': sha(Path(job['directory']) / 'handoff.json') if decision == 'allowed' else None,
-                      'artifactSha256': entry['referenceArtifactSha256'] if decision == 'allowed' else None}
+                      'artifactSha256': (next(case['outputSha256'] for case in entry['referenceCases']
+                          if case['caseId'] == job['caseId']) if self.repair else entry['referenceArtifactSha256'])
+                          if decision == 'allowed' else None}
             directory = Path(job['directory']) / 'promotions'
             directory.mkdir(exist_ok=True)
             path = directory / (promotion_id + '.json')

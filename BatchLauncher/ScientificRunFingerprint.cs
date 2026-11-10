@@ -148,7 +148,7 @@ public static class ScientificRunFingerprint
         }
         if (recipeId is "matrix.cgal.validation" or "cgal.validate" or "matrix.cgal.real-mesh")
             names.AddRange(new[] { "BatchLauncher/Form1.Scientific.Matrix.cs", "BatchLauncher/Form1.Scientific.Cgal.cs" });
-        if (recipeId is "cgal.fill-one-hole" or "cgal.fill-quad-hole" or "cgal.fill-two-quad-holes")
+        if (recipeId is "cgal.fill-one-hole" or "cgal.fill-quad-hole" or "cgal.fill-two-quad-holes" or "cgal.fill-bounded-holes")
             names.AddRange(new[] { "BatchLauncher/Form1.Scientific.Cgal.cs", "tools/scientific-cgal-hole-repair-worker.py",
                 "tools/scientific_cgal_mesh_metrics.py", "scientific/cgal-worker/hole_repair.cpp" });
         if (recipeId == "matrix.cgal.real-mesh") names.Add("BatchLauncher/Form1.Scientific.RealMesh.cs");

@@ -16,6 +16,7 @@ CASES = (
     ('fill-one-hole', ROOT / 'scientific/fixtures/cgal-repair/tetra-one-hole.obj'),
     ('fill-quad-hole', ROOT / 'scientific/fixtures/cgal-repair-quad/cube-one-quad-hole.obj'),
     ('fill-two-quad-holes', ROOT / 'scientific/fixtures/cgal-repair-multi/cube-two-square-holes.obj'),
+    ('fill-bounded-holes', ROOT / 'scientific/fixtures/cgal-repair-bounded/pentagonal-pyramid-open-base.obj'),
 )
 
 

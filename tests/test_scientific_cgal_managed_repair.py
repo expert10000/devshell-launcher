@@ -30,7 +30,8 @@ class ManagedRepairEvidenceTests(unittest.TestCase):
 
     def test_evidence_rejects_wrong_face_count_and_volume(self):
         before = {'faces': 3, 'vertices': 4, 'boundaryLoops': 1, 'boundaryEdges': 3,
-                  'components': 1, 'maximumEdgeIncidence': 2, 'degenerateFaces': 0}
+                  'boundaryLoopEdgeCounts': [3], 'components': 1,
+                  'maximumEdgeIncidence': 2, 'degenerateFaces': 0}
         after = {'faces': 4, 'vertices': 4, 'boundaryLoops': 0, 'boundaryEdges': 0,
                  'components': 1, 'maximumEdgeIncidence': 2, 'degenerateFaces': 0,
                  'signedVolume': 1 / 6}
@@ -41,6 +42,12 @@ class ManagedRepairEvidenceTests(unittest.TestCase):
         for key, value in (('afterFaces', 5), ('signedVolumeAfter', -1)):
             with self.subTest(key=key), self.assertRaises(ValueError):
                 repair.check_geometry(before, after, {**engine, key: value}, 'cgal.fill-one-hole')
+
+    def test_bounded_boundary_measurement(self):
+        path = ROOT / 'scientific/fixtures/cgal-repair-bounded/pentagonal-pyramid-open-base.obj'
+        self.assertEqual(repair.boundary_sizes(path), [5])
+        path = ROOT / 'scientific/fixtures/cgal-repair-multi/cube-two-square-holes.obj'
+        self.assertEqual(repair.boundary_sizes(path), [4, 4])
 
 
 if __name__ == '__main__':

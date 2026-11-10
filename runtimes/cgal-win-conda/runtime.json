@@ -38,6 +38,12 @@
       "adapter": "tools/scientific-cgal-hole-repair-worker.py",
       "capability": "mesh.repair",
       "timeoutSeconds": 120
+    },
+    {
+      "id": "cgal.fill-bounded-holes",
+      "adapter": "tools/scientific-cgal-hole-repair-worker.py",
+      "capability": "mesh.repair",
+      "timeoutSeconds": 120
     }
   ],
   "testMatrix": [

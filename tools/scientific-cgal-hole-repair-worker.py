@@ -7,20 +7,55 @@ import subprocess
 import sys
 
 from scientific_worker_contract import ScientificContract
-from scientific_cgal_mesh_metrics import metrics
+from scientific_cgal_mesh_metrics import edge_data, metrics, parse_obj
 
 
 OPERATIONS = {
     'cgal.fill-one-hole': ('fill-one-hole', 1, 3, 1),
     'cgal.fill-quad-hole': ('fill-quad-hole', 1, 4, 2),
     'cgal.fill-two-quad-holes': ('fill-two-quad-holes', 2, 8, 4),
+    'cgal.fill-bounded-holes': ('fill-bounded-holes', None, None, None),
 }
+
+
+def boundary_sizes(path):
+    vertices, faces = parse_obj(path)
+    counts, _ = edge_data(vertices, faces)
+    adjacent = {}
+    for (a, b), count in counts.items():
+        if count != 1:
+            continue
+        adjacent.setdefault(a, set()).add(b)
+        adjacent.setdefault(b, set()).add(a)
+    if any(len(neighbors) != 2 for neighbors in adjacent.values()):
+        raise ValueError('Boundary is not a union of simple loops')
+    sizes, visited = [], set()
+    for start in adjacent:
+        if start in visited:
+            continue
+        current, previous, size = start, None, 0
+        while current not in visited:
+            visited.add(current)
+            size += 1
+            next_vertex = next(vertex for vertex in adjacent[current] if vertex != previous)
+            previous, current = current, next_vertex
+        if current != start:
+            raise ValueError('Boundary loops share a vertex')
+        sizes.append(size)
+    return sorted(sizes)
 
 
 def check_geometry(before, after, engine, recipe):
     _, loops, edges, patches = OPERATIONS[recipe]
-    if (before['boundaryLoops'], before['boundaryEdges']) != (loops, edges):
+    sizes = before['boundaryLoopEdgeCounts']
+    if recipe == 'cgal.fill-bounded-holes':
+        if not 1 <= len(sizes) <= 8 or any(not 3 <= size <= 12 for size in sizes) or sum(sizes) > 64:
+            raise ValueError('Bounded repair requires 1-8 loops of 3-12 edges, at most 64 total')
+        loops, edges, patches = len(sizes), sum(sizes), sum(size - 2 for size in sizes)
+    elif (before['boundaryLoops'], before['boundaryEdges']) != (loops, edges):
         raise ValueError('Input does not match the selected boundary-loop scope')
+    if before['boundaryLoops'] != len(sizes) or before['boundaryEdges'] != sum(sizes):
+        raise ValueError('Boundary-loop measurements disagree')
     if before['components'] != 1 or before['maximumEdgeIncidence'] > 2 or before['degenerateFaces']:
         raise ValueError('Input must be one nondegenerate manifold component')
     if (after['boundaryLoops'] != 0 or after['boundaryEdges'] != 0 or after['components'] != 1
@@ -29,12 +64,14 @@ def check_geometry(before, after, engine, recipe):
             or after['vertices'] != before['vertices']
             or not math.isfinite(after['signedVolume']) or after['signedVolume'] <= 0):
         raise ValueError('Repaired OBJ failed independent closure and face-count checks')
-    expected_counts = [patches // loops] * loops
+    expected_counts = sorted(size - 2 for size in sizes)
     expected = {'beforeFaces': before['faces'], 'afterFaces': after['faces'],
                 'boundaryLoopsBefore': loops, 'boundaryEdgesBefore': edges,
-                'holesFilled': loops, 'patchFaces': patches, 'patchFaceCounts': expected_counts}
+                'holesFilled': loops, 'patchFaces': patches}
     if any(engine.get(key) != value for key, value in expected.items()):
         raise ValueError('CGAL repair evidence disagrees with the saved OBJ geometry')
+    if sorted(engine.get('patchFaceCounts', [])) != expected_counts:
+        raise ValueError('CGAL patch sizes disagree with the input boundary loops')
     volume = engine.get('signedVolumeAfter')
     if not isinstance(volume, (int, float)) or not math.isclose(volume, after['signedVolume'], rel_tol=1e-7, abs_tol=1e-9):
         raise ValueError('CGAL repair volume disagrees with the saved OBJ geometry')
@@ -54,9 +91,14 @@ def run(request, worker):
     if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not 1 <= timeout <= 120:
         raise ValueError('Invalid repair timeout')
     before = metrics(contract.input)
+    before['boundaryLoopEdgeCounts'] = boundary_sizes(contract.input)
     operation, loops, edges, _ = OPERATIONS[contract.recipe]
-    if before['boundaryLoops'] != loops or before['boundaryEdges'] != edges:
+    if loops is not None and (before['boundaryLoops'] != loops or before['boundaryEdges'] != edges):
         raise ValueError('Input does not match the selected boundary-loop scope')
+    if loops is None and (not 1 <= len(before['boundaryLoopEdgeCounts']) <= 8
+            or any(not 3 <= size <= 12 for size in before['boundaryLoopEdgeCounts'])
+            or sum(before['boundaryLoopEdgeCounts']) > 64):
+        raise ValueError('Bounded repair requires 1-8 loops of 3-12 edges, at most 64 total')
     process = subprocess.run([str(worker), operation, str(contract.input), str(contract.output)],
                              cwd=contract.directory, timeout=timeout, capture_output=True,
                              text=True, encoding='utf-8', errors='replace',
@@ -85,10 +127,11 @@ def run(request, worker):
         return process.returncode or 1
     contract.finish(before=before, after=after,
                     capabilities=['mesh.read', 'mesh.write', 'mesh.validate', 'mesh.repair'],
-                    scope='One connected triangle manifold with the explicitly selected three-edge, four-edge, or two four-edge boundary loops; no general repair',
+                    scope='One connected triangle manifold; explicit small-hole recipes or bounded 1-8 loops of 3-12 edges each, at most 64 boundary edges; no soup repair',
                     extra={'engine': 'CGAL C++', 'engineDetails': engine,
-                           'repairEvidence': {'boundaryLoopsBefore': loops, 'boundaryEdgesBefore': edges,
-                                              'holesFilled': loops, 'patchFaces': engine['patchFaces'],
+                           'repairEvidence': {'boundaryLoopsBefore': before['boundaryLoops'], 'boundaryEdgesBefore': before['boundaryEdges'],
+                                              'boundaryLoopEdgeCounts': before['boundaryLoopEdgeCounts'],
+                                              'holesFilled': engine['holesFilled'], 'patchFaces': engine['patchFaces'],
                                               'outputClosed': True, 'outwardVolume': after['signedVolume']}})
     return 0
 

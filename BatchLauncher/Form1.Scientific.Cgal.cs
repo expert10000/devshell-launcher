@@ -14,8 +14,8 @@ public partial class Form1
         if(runtimeId!="cgal-win-conda")throw new InvalidOperationException("Select the installed Windows Native CGAL profile.");
         var prefix=ScientificPrefix(runtimeId);
         var recipe=request.GetProperty("recipeId").GetString();
-        if(recipe is not ("cgal.validate" or "cgal.remesh" or "cgal.fill-one-hole" or "cgal.fill-quad-hole" or "cgal.fill-two-quad-holes"))throw new InvalidOperationException("CGAL recipe is not registered.");
-        var repair=recipe is "cgal.fill-one-hole" or "cgal.fill-quad-hole" or "cgal.fill-two-quad-holes";
+        if(recipe is not ("cgal.validate" or "cgal.remesh" or "cgal.fill-one-hole" or "cgal.fill-quad-hole" or "cgal.fill-two-quad-holes" or "cgal.fill-bounded-holes"))throw new InvalidOperationException("CGAL recipe is not registered.");
+        var repair=recipe is "cgal.fill-one-hole" or "cgal.fill-quad-hole" or "cgal.fill-two-quad-holes" or "cgal.fill-bounded-holes";
         var parameters=request.GetProperty("parameters");
         if(parameters.TryGetProperty("testCaseId",out var testCase))
         {
@@ -85,7 +85,7 @@ public partial class Form1
         var build=Path.Combine(ScientificDataRoot,"builds",key,"cgal-worker");
         var cmake=Path.Combine(prefix,"Library","bin","cmake.exe");
         await ScientificProcessAsync(processJob,prefix,cmake,new[]{"-S",Path.Combine(ScientificSourceRoot,"scientific","cgal-worker"),"-B",build,"-G","Visual Studio 17 2022","-A","x64","-DCMAKE_PREFIX_PATH="+Path.Combine(prefix,"Library")},job.Directory,180);
-        var repair=job.RecipeId is "cgal.fill-one-hole" or "cgal.fill-quad-hole" or "cgal.fill-two-quad-holes";
+        var repair=job.RecipeId is "cgal.fill-one-hole" or "cgal.fill-quad-hole" or "cgal.fill-two-quad-holes" or "cgal.fill-bounded-holes";
         await ScientificProcessAsync(processJob,prefix,cmake,repair
             ? new[]{"--build",build,"--config","Release","--target","devshell_cgal_hole_repair","--parallel","1"}
             : new[]{"--build",build,"--config","Release","--target","devshell_cgal_worker","--parallel","1"},job.Directory,180);

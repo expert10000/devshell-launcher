@@ -38,6 +38,19 @@ A separate broker profile can use that manifest with `capabilityId: mesh.repair`
 
 Promotion rechecks the saved worker result, patch audit, exact case output, L9 manifest reference, MATH3D consumer sources, and process cleanup. `python tools/scientific-broker/repair_smoke.py run --config <repair-config.json>` runs all four broker cases, promotes each, then saves and reopens each in MATH3D, independently reloads M3DM, and mounts the Mesh viewer. The resulting `repair-smoke.json` has a hash sidecar and can be checked with the script's `verify` command.
 
+For end-to-end release verification, start an isolated `desktop-five` DevShell session with a WebView2 debug port and set `DEVSHELL_CDP_URL`. Run `node tests/scientific-cgal-repair-managed-ui-checks.mjs` to produce the managed L0–L9 repair chain. Re-run `audit-repair`, export a candidate manifest, configure a separate repair broker against that manifest, and run `repair_smoke.py`. The release gate requires that verified four-case smoke record:
+
+```powershell
+python tools/scientific-broker/release_certification.py certify `
+  --config <repair-config.json> --installed-root <launcher-install-root> `
+  --profile-id desktop-five --release-tag <tag> `
+  --smoke-record <job/repair-smoke.json> --output-root .scientific/releases
+python tools/scientific-broker/release_certification.py verify `
+  --config <repair-config.json> --report <release/qualification-report.json>
+```
+
+A qualified repair release links the fresh export, current runtime inventory, complete L0–L9 chain, all four promoted broker jobs, and MATH3D product evidence. With no current L9 chain, `audit-repair` reports `eligible: false` and the exporter omits repair.
+
 For a successful repair in History, **Save and verify MATH3D document** starts a separate managed job. It rechecks the saved source and result hashes, reruns the patch audit, loads the repaired OBJ through MATH3D's actual desktop mesh importer, and compares topology, bounds, area, and volume. It saves a Mesh document, binary resource and `.m3dm`, reopens them with MATH3D, independently parses the M3DM with Python, and mounts the reopened document in the real Mesh viewport. The new run keeps the document, resource, M3DM, JSON evidence and viewer screenshot; the source run remains read-only. This product check is separate from repair L5–L9 qualification and broker certification.
 
 To replay the managed adapter acceptance on a machine with the CGAL prefix and built worker:

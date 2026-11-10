@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from benchmark import environment_fingerprint
 from broker import Broker, sha
 from gmsh_volume_smoke import verify as verify_volume_smoke
+from repair_smoke import verify as verify_repair_smoke
 from telemetry import host_fingerprint
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -88,6 +89,16 @@ def volume_smoke_link(config_path, record_path):
             'certificationRecordId': record['certificationRecordId']}
 
 
+def repair_smoke_link(config_path, record_path):
+    if record_path is None:
+        raise ValueError('A verified four-case broker/MATH3D smoke record is required for repair release.')
+    path = Path(record_path).resolve(strict=True)
+    record = verify_repair_smoke(path, config_path)
+    return {'recordPath': str(path), 'recordSha256': sha(path),
+            'sourceJobIds': [case['sourceJobId'] for case in record['cases']],
+            'certificationRecordId': record['certificationRecordId']}
+
+
 def gate_verdicts(fresh, runtime_id='cgal-win-conda', capability_id=None):
     capabilities = fresh.get('certifiedCapabilities', [])
     matching = [item for item in capabilities if item.get('runtimeId') == runtime_id
@@ -108,7 +119,8 @@ def certify(config_path, installed_root, profile_id, release_tag, output_root,
     broker = Broker(config_path)
     if broker.math3d_root is None:
         raise ValueError('MATH3D consumer checkout is required.')
-    smoke = volume_smoke_link(config_path, smoke_record) if broker.volume else None
+    smoke = volume_smoke_link(config_path, smoke_record) if broker.volume else (
+        repair_smoke_link(config_path, smoke_record) if broker.repair else None)
     repo = broker.source_root
     installed_root = Path(installed_root).resolve(strict=True)
     output_root = Path(output_root).resolve()
@@ -186,17 +198,24 @@ def verify_release(report_path, config_path=None):
     if report.get('schemaVersion') != 1 or report.get('kind') != 'scientific.release-qualification-report':
         raise ValueError('Release report contract mismatch.')
     smoke = report.get('productSmoke')
+    if report.get('verdict') == 'qualified' and report.get('capabilityId') in ('mesh.generate3d', 'mesh.repair') and smoke is None:
+        raise ValueError('Qualified volume or repair release is missing its product smoke.')
     if smoke is not None:
         path = Path(smoke['recordPath']).resolve(strict=True)
         if (sha(path) != smoke.get('recordSha256')
                 or Path(str(path) + '.sha256').read_text(encoding='utf-8').strip() != smoke['recordSha256']):
-            raise ValueError('Volume product smoke record hash mismatch.')
+            raise ValueError('Product smoke record hash mismatch.')
         record = json.loads(path.read_text(encoding='utf-8'))
-        if (record.get('sourceJobId') != smoke.get('sourceJobId')
-                or record.get('certificationRecordId') != smoke.get('certificationRecordId')):
+        if record.get('certificationRecordId') != smoke.get('certificationRecordId'):
+            raise ValueError('Product smoke identity mismatch.')
+        if report.get('capabilityId') == 'mesh.repair':
+            if ([case.get('sourceJobId') for case in record.get('cases', [])] != smoke.get('sourceJobIds')
+                    or len(smoke.get('sourceJobIds', [])) != 4):
+                raise ValueError('Four-case repair smoke identity mismatch.')
+        elif record.get('sourceJobId') != smoke.get('sourceJobId'):
             raise ValueError('Volume product smoke identity mismatch.')
         if config_path:
-            verify_volume_smoke(path, config_path)
+            (verify_repair_smoke if report.get('capabilityId') == 'mesh.repair' else verify_volume_smoke)(path, config_path)
     fresh_path = report_path.parent / 'fresh-capabilities.json'
     if 'inventoryPath' in report:
         inventory_path = report_path.parent / 'runtime-inventory.json'

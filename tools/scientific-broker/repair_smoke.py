@@ -123,6 +123,7 @@ def verify(path, config):
         if (any(report.get('verdict') != 'passed' for report in reports)
                 or reports[1].get('sourceObjSha256') != case['outputSha256']
                 or reports[1].get('m3dmSha256') != case['files']['repaired.m3dm']
+                or case['files']['repaired.m3dm'] != reference['m3dmSha256']
                 or reports[2].get('m3dmSha256') != case['files']['repaired.m3dm']
                 or reports[3].get('viewerState') != 'mounted'
                 or reports[3].get('screenshotSha256') != case['files']['viewer.png']):

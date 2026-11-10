@@ -25,8 +25,34 @@ CONTRACT = dict(id='math3d.mesh-product-handoff', version=1, workerResultSchemaV
 VOLUME_CONTRACT = dict(id='math3d.tetrahedral-product-handoff', version=1,
                        documentFormat='math3d.tetrahedral-mesh-document',
                        resourceEncoding='math3d.tetmesh-buffers.v1', viewer='TetrahedralMeshViewport')
-REPAIR_CONTRACT = json.loads((Path(__file__).resolve().parents[2] /
-    'scientific/fixtures/cgal-repair-qualification/product-contract.v1.json').read_text(encoding='utf-8'))
+REPAIR_CONTRACT_PATH = (Path(__file__).resolve().parents[2] /
+    'scientific/fixtures/cgal-repair-qualification/product-contract.v1.json')
+REPAIR_CONTRACT_TEXT = REPAIR_CONTRACT_PATH.read_text(encoding='utf-8')
+REPAIR_CONTRACT = json.loads(REPAIR_CONTRACT_TEXT)
+
+
+def compact_json_text(value):
+    """Remove insignificant whitespace while retaining JSON numeric lexemes."""
+    result = []
+    quoted = escaped = False
+    for char in value:
+        if quoted:
+            result.append(char)
+            if escaped:
+                escaped = False
+            elif char == '\\':
+                escaped = True
+            elif char == '"':
+                quoted = False
+        elif char == '"':
+            quoted = True
+            result.append(char)
+        elif not char.isspace():
+            result.append(char)
+    return ''.join(result)
+
+
+REPAIR_CONTRACT_SHA256 = hashlib.sha256(compact_json_text(REPAIR_CONTRACT_TEXT).encode()).hexdigest()
 REPAIR_CASES = ('triangle', 'square', 'two-squares', 'pentagon')
 CONSUMER_FILES = {'renderer/src/mesh/surfaceMesh.ts', 'renderer/src/mesh/meshDocumentAdapter.ts',
                   'renderer/src/mesh/meshResourceStore.ts', 'renderer/src/workspace/MeshDocumentViewport.tsx',
@@ -130,7 +156,8 @@ class Broker:
                 continue
             if entry.get('productContract') != self.contract:
                 raise ValueError('MATH3D product contract changed.')
-            contract_hash = hashlib.sha256(json.dumps(self.contract, separators=(',', ':')).encode()).hexdigest()
+            contract_hash = REPAIR_CONTRACT_SHA256 if self.repair else hashlib.sha256(
+                json.dumps(self.contract, separators=(',', ':')).encode()).hexdigest()
             if entry.get('productContractSha256') != contract_hash:
                 raise ValueError('MATH3D product contract hash mismatch.')
             if self.repair:
@@ -146,9 +173,13 @@ class Broker:
                 for index, case in enumerate(references):
                     fixture = fixtures['fixtures'][index]
                     if case.get('inputSha256') != fixture.get('sha256') or not re.fullmatch(
-                            '[0-9a-f]{64}', case.get('outputSha256', '')):
+                            '[0-9a-f]{64}', case.get('outputSha256', '')) or not re.fullmatch(
+                            '[0-9a-f]{64}', case.get('m3dmSha256', '')):
                         raise ValueError('The certified repair fixture identity changed.')
                     require_hash(self.source_root / fixture['path'], case['inputSha256'], 'Repair fixture')
+                if (entry.get('referenceInputSha256') != references[0]['inputSha256']
+                        or entry.get('referenceArtifactSha256') != references[0]['outputSha256']):
+                    raise ValueError('The certified repair reference differs from its case pack.')
             for name, field in [('runtimeManifest', 'runtimeManifestSha256'), ('adapter', 'adapterSha256'),
                                 ('workerContract', 'workerContractSha256'), ('python', 'pythonSha256'),
                                 ('worker', 'workerBinarySha256')]:

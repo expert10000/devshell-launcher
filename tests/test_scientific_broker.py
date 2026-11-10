@@ -19,6 +19,10 @@ spec.loader.exec_module(module)
 
 
 class RepairRouting(unittest.TestCase):
+    def test_repair_contract_retains_dotnet_decimal_identity(self):
+        self.assertEqual(module.REPAIR_CONTRACT_SHA256,
+                         '4208e7565476b8ee20e97543dea31cb0bd71af1b20a45ef61fb740d6a0287a09')
+
     def test_case_scope_rejects_other_inputs_and_operations(self):
         broker = module.Broker.__new__(module.Broker)
         broker.runtime_id = 'cgal-win-conda'

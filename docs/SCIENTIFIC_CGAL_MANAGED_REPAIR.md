@@ -32,7 +32,7 @@ dotnet tools/scientific-broker/bin/Release/net8.0/ScientificBroker.dll audit-rep
   <devshell-repo> <installed-root> <math3d-checkout> <profile-id>
 ```
 
-This audit does not write a manifest or raise a capability. Broker export and promotion require a current, verified L9 chain on the target host.
+This audit does not write a manifest or raise a capability. `export` includes the scoped `mesh.repair@L9` entry only when the saved four-case record, all nine supporting levels, fixture hashes, MATH3D source hashes, and worker identity still match. The entry carries four fixed recipe/input/output references. An unqualified host exports no repair capability.
 
 For a successful repair in History, **Save and verify MATH3D document** starts a separate managed job. It rechecks the saved source and result hashes, reruns the patch audit, loads the repaired OBJ through MATH3D's actual desktop mesh importer, and compares topology, bounds, area, and volume. It saves a Mesh document, binary resource and `.m3dm`, reopens them with MATH3D, independently parses the M3DM with Python, and mounts the reopened document in the real Mesh viewport. The new run keeps the document, resource, M3DM, JSON evidence and viewer screenshot; the source run remains read-only. This product check is separate from repair L5–L9 qualification and broker certification.
 

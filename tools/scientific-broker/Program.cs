@@ -436,6 +436,8 @@ static partial class BrokerManifest
         if (gmsh != null) certified.Add(gmsh);
         var gmshVolume = ExportGmshVolume(repo, installed, math3d, profile);
         if (gmshVolume != null) certified.Add(gmshVolume);
+        var repair = ExportRepair(repo, installed, math3d, profile);
+        if (repair != null) certified.Add(repair);
         return new JsonObject { ["schemaVersion"] = 1, ["kind"] = "scientific.certified-capabilities",
             ["issuedAtUtc"] = DateTimeOffset.UtcNow.ToString("O"), ["profileId"] = profile,
             ["providerRegistryVersion"] = ScientificProviderRegistry.ContractVersion,
@@ -459,9 +461,9 @@ static partial class BrokerManifest
         if (manifest["schemaVersion"]?.GetValue<int>() != 1 || manifest["kind"]?.GetValue<string>() != "scientific.certified-capabilities"
             || manifest["certifiedCapabilities"] is not JsonArray capabilities
             || capabilities.Any(item => item?["runtimeId"]?.GetValue<string>() is not ("cgal-win-conda" or "gmsh-win-conda")
-                || item?["capabilityId"]?.GetValue<string>() is not ("mesh.interop.vtk-math3d" or "mesh.generate" or "mesh.generate3d")
+                || item?["capabilityId"]?.GetValue<string>() is not ("mesh.interop.vtk-math3d" or "mesh.generate" or "mesh.generate3d" or "mesh.repair")
                 || (item?["runtimeId"]?.GetValue<string>() == "cgal-win-conda"
-                    && item?["capabilityId"]?.GetValue<string>() != "mesh.interop.vtk-math3d")
+                    && item?["capabilityId"]?.GetValue<string>() is not ("mesh.interop.vtk-math3d" or "mesh.repair"))
                 || !ScientificCapabilityRegistry.IsDeclared(item?["runtimeId"]?.GetValue<string>() ?? "",
                     item?["capabilityId"]?.GetValue<string>() ?? "")
                 || item?["level"]?.GetValue<string>() != "L9"))

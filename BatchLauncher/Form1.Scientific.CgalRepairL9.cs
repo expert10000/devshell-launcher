@@ -129,6 +129,16 @@ public partial class Form1
                 job.Cancellation.Token.ThrowIfCancellationRequested();
                 job.Stage = test.Id;
                 var child = await ScientificCgalRepairL5CaseAsync(job, prefix, test, input);
+                if (outcomes.Count == 0)
+                {
+                    var buildKey = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                        Encoding.UTF8.GetBytes(job.ProfileId + "|" + prefix)))[..12];
+                    var worker = Path.Combine(ScientificDataRoot, "builds", buildKey, "cgal-worker", "Release",
+                        "devshell_cgal_hole_repair.exe");
+                    job.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(worker, "cgal-hole-repair-worker"));
+                    job.ExecutedFiles.Add(ScientificRunFingerprint.ExecutedFile(Path.Combine(ScientificSourceRoot,
+                        "tools", "scientific-cgal-hole-repair-worker.py"), "cgal-hole-repair-adapter"));
+                }
                 var caseDirectory = Path.Combine(job.Directory, "cases", test.Id);
                 var output = Path.Combine(caseDirectory, "repaired.obj");
                 if (child["artifactSha256"]?.GetValue<string>() != baselineHash

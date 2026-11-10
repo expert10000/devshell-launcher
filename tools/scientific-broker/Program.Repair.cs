@@ -114,4 +114,89 @@ static partial class BrokerManifest
             ["candidates"] = candidates,
             ["rejectedL9Runs"] = new JsonArray(rejected.Select(item => (JsonNode?)item).ToArray()) };
     }
+
+    static JsonObject? ExportRepair(string repo, string installed, string math3d, string profile)
+    {
+        if (!ScientificCapabilityRegistry.IsDeclared("cgal-win-conda", "mesh.repair")) return null;
+        var files = RepairSourceFiles(math3d);
+        if (files == null) return null;
+        JsonObject contract;
+        try { contract = ScientificRepairProductContract.Load(repo); }
+        catch (Exception error) when (error is IOException or InvalidOperationException or ArgumentException) { return null; }
+        var runs = RepairRuns(repo, installed, math3d, profile);
+        var summary = ScientificQualificationRecords.Summarize("cgal-win-conda", runs);
+        var currentIds = CurrentIds(runs, "L0", "L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9");
+        foreach (var current in summary["currentRecords"]!.AsArray().OfType<JsonObject>()
+            .Where(item => item["level"]?.GetValue<string>() == "L9"
+                && item["capabilityId"]?.GetValue<string>() == "mesh.repair")
+            .OrderByDescending(item => item["finishedAtUtc"]?.GetValue<string>(), StringComparer.Ordinal))
+        {
+            var run = runs.Single(item => item["runId"]?.GetValue<string>() == current["runId"]?.GetValue<string>());
+            var directory = run["directory"]!.GetValue<string>();
+            var result = JsonNode.Parse(File.ReadAllText(Path.Combine(directory, "results.json")))!;
+            var evidence = result["repairProductEvidence"];
+            var record = run["qualifications"]!.AsArray().OfType<JsonObject>()
+                .Single(item => item["recordId"]?.GetValue<string>() == current["recordId"]?.GetValue<string>());
+            var lower = record["lowerQualification"]?["records"] as JsonArray;
+            if (evidence?["productContractSha256"]?.GetValue<string>() != Digest(contract)
+                || record["consumerSourceSha256"]?.GetValue<string>() != Digest(files)
+                || lower is not { Count: 9 }
+                || lower.Where((item, index) => item?["level"]?.GetValue<string>() != "L" + index
+                    || item?["recordId"]?.GetValue<string>() is not { } id || !currentIds.Contains(id)).Any()) continue;
+            var cases = evidence["cases"] as JsonArray;
+            var fixtures = ScientificRepairFixtures.Manifest(repo)["fixtures"]!.AsArray();
+            if (cases?.Count != 4) continue;
+            var references = new JsonArray();
+            var valid = true;
+            for (var index = 0; index < 4; index++)
+            {
+                var item = cases[index];
+                var fixture = fixtures[index];
+                var id = fixture?["caseId"]?.GetValue<string>();
+                var source = Path.Combine(repo, fixture!["path"]!.GetValue<string>().Replace('/', Path.DirectorySeparatorChar));
+                var output = Path.Combine(directory, "cases", id!, "repaired.obj");
+                if (item is not JsonObject caseItem || caseItem["caseId"]?.GetValue<string>() != id
+                    || caseItem["recipeId"]?.GetValue<string>() != fixture["recipeId"]?.GetValue<string>()
+                    || !File.Exists(source) || !File.Exists(output)
+                    || HashFile(source) != fixture["sha256"]?.GetValue<string>()
+                    || HashFile(output) != caseItem["outputSha256"]?.GetValue<string>()
+                    || caseItem["inputSha256"]?.GetValue<string>() != fixture["sha256"]?.GetValue<string>())
+                { valid = false; break; }
+                references.Add(new JsonObject { ["caseId"] = id, ["recipeId"] = caseItem["recipeId"]?.DeepClone(),
+                    ["inputSha256"] = fixture["sha256"]?.DeepClone(),
+                    ["outputSha256"] = caseItem["outputSha256"]?.DeepClone(),
+                    ["m3dmSha256"] = caseItem["artifactHashes"]?["product/repaired.m3dm"]?.DeepClone() });
+            }
+            if (!valid) continue;
+            var fingerprint = JsonNode.Parse(File.ReadAllText(Path.Combine(directory, "fingerprint.json")))!;
+            var binary = fingerprint["components"]?["worker"]?["executedFiles"]?.AsArray().OfType<JsonObject>()
+                .FirstOrDefault(item => item["role"]?.GetValue<string>() == "cgal-hole-repair-worker");
+            var binaryHash = binary?["sha256"]?.GetValue<string>();
+            if (binaryHash is not { Length: 64 }) continue;
+            var support = new JsonArray(lower.Select(item => item!.DeepClone()).ToArray());
+            support.Add(new JsonObject { ["level"] = "L9", ["capabilityId"] = "mesh.repair",
+                ["runId"] = current["runId"]?.DeepClone(), ["recordId"] = current["recordId"]?.DeepClone() });
+            return new JsonObject { ["runtimeId"] = "cgal-win-conda", ["capabilityId"] = "mesh.repair",
+                ["level"] = "L9", ["scope"] = "four pinned public CGAL hole-repair fixtures",
+                ["sourceRunId"] = current["runId"]?.DeepClone(), ["recordId"] = current["recordId"]?.DeepClone(),
+                ["runFingerprintSha256"] = run["fingerprintSha256"]?.DeepClone(),
+                ["suiteRevisionSha256"] = record["suiteRevisionSha256"]?.DeepClone(),
+                ["qualificationSha256"] = run["qualificationSha256"]?.DeepClone(),
+                ["workerContractSha256"] = fingerprint["components"]?["contract"]?["workerContractModule"]?["sha256"]?.DeepClone(),
+                ["runtimeManifestSha256"] = fingerprint["components"]?["contract"]?["runtimeManifest"]?["sha256"]?.DeepClone(),
+                ["adapterSha256"] = HashFile(Path.Combine(repo, "tools", "scientific-cgal-hole-repair-worker.py")),
+                ["workerBinarySha256"] = binaryHash,
+                ["pythonSha256"] = fingerprint["components"]?["environment"]?["pythonExecutable"]?["sha256"]?.DeepClone(),
+                ["packageRecordsSha256"] = fingerprint["components"]?["environment"]?["condaPackageRecords"]?["sha256"]?.DeepClone(),
+                ["productContract"] = contract.DeepClone(), ["productContractSha256"] = Digest(contract),
+                ["consumerSources"] = files, ["consumerSourceSha256"] = Digest(files),
+                ["fixtureManifestSha256"] = contract["fixtureManifestSha256"]?.DeepClone(),
+                ["referenceCases"] = references, ["referenceInputSha256"] = references[0]?["inputSha256"]?.DeepClone(),
+                ["referenceArtifactSha256"] = references[0]?["outputSha256"]?.DeepClone(),
+                ["sourceL8RunId"] = evidence["sourceL8RunId"]?.DeepClone(),
+                ["sourceL8RecordId"] = evidence["sourceL8RecordId"]?.DeepClone(),
+                ["supportingRecords"] = support };
+        }
+        return null;
+    }
 }

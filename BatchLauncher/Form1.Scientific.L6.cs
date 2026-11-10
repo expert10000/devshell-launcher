@@ -11,34 +11,37 @@ public partial class Form1
     private static string ScientificL6Digest(JsonNode? value) => Convert.ToHexString(
         SHA256.HashData(Encoding.UTF8.GetBytes(value?.ToJsonString() ?? "null"))).ToLowerInvariant();
 
-    private JsonObject ScientificCurrentL5(string profileId, string runtimeId, string capability)
+    private JsonObject ScientificCurrentL5(string profileId, string runtimeId, string capability, string evidenceId = "l5.worker")
     {
         var summary = ScientificQualificationSummary(profileId, runtimeId);
         var support = summary["currentRecords"]?.AsArray().OfType<JsonObject>()
             .Where(item => item["capabilityId"]?.GetValue<string>() == capability
-                && item["level"]?.GetValue<string>() == "L5")
+                && item["level"]?.GetValue<string>() == "L5"
+                && item["evidenceId"]?.GetValue<string>() == evidenceId)
             .OrderByDescending(item => item["finishedAtUtc"]?.GetValue<string>(), StringComparer.Ordinal)
             .FirstOrDefault();
-        if (support == null) throw new InvalidOperationException("A current L5 worker qualification is required before L6.");
+        if (support == null) throw new InvalidOperationException($"A current {evidenceId} qualification is required before L6.");
         return new JsonObject { ["runId"] = support["runId"]?.GetValue<string>(),
             ["recordId"] = support["recordId"]?.GetValue<string>(), ["capabilityId"] = capability, ["level"] = "L5" };
     }
 
-    private static void ScientificCheckL6Declaration(string runtimeId, string capability)
+    private static void ScientificCheckL6Declaration(string runtimeId, string capability,
+        string recipeId = "l6.reproduce", string referenceRecipe = "l5.worker")
     {
         var path = Path.Combine(AppContext.BaseDirectory, "runtimes", runtimeId, "runtime.json");
         if (!File.Exists(path) || new FileInfo(path).Length > 65536)
             throw new InvalidOperationException("L6 runtime manifest is unavailable.");
         var declaration = (JsonNode.Parse(File.ReadAllText(path))?["qualificationRecipes"] as JsonArray)?
-            .OfType<JsonObject>().FirstOrDefault(item => item["id"]?.GetValue<string>() == "l6.reproduce");
+            .OfType<JsonObject>().FirstOrDefault(item => item["id"]?.GetValue<string>() == recipeId);
         if (declaration?["readinessLevel"]?.GetValue<string>() != "L6"
             || declaration["capability"]?.GetValue<string>() != capability
-            || declaration["referenceRecipe"]?.GetValue<string>() != "l5.worker"
+            || declaration["referenceRecipe"]?.GetValue<string>() != referenceRecipe
             || declaration["comparison"]?.GetValue<string>() != "sha256-exact")
             throw new InvalidOperationException("L6 reproduction contract does not match the registered manifest.");
     }
 
-    private static JsonObject ScientificL6Baseline(string profileId, string runtimeId, JsonObject support)
+    private static JsonObject ScientificL6Baseline(string profileId, string runtimeId, JsonObject support,
+        string referenceRecipe = "l5.worker")
     {
         var runId = support["runId"]?.GetValue<string>() ?? "";
         var (directory, result) = ScientificHistoryFind(profileId, runId);
@@ -48,14 +51,16 @@ public partial class Form1
             ?? throw new InvalidDataException("L5 reference evidence is missing.");
         var records = ScientificQualificationRecords.Verify(directory, result);
         if (source["runtimeId"]?.GetValue<string>() != runtimeId
-            || source["recipeId"]?.GetValue<string>() != "l5.worker"
+            || source["recipeId"]?.GetValue<string>() != referenceRecipe
             || source["state"]?.GetValue<string>() != "succeeded"
             || !records.OfType<JsonObject>().Any(item => item["recordId"]?.GetValue<string>() == support["recordId"]?.GetValue<string>()
-                && item["level"]?.GetValue<string>() == "L5"))
+                && item["level"]?.GetValue<string>() == "L5"
+                && item["evidenceId"]?.GetValue<string>() == referenceRecipe))
             throw new InvalidDataException("L5 reference record does not match its run.");
         var fingerprint = JsonNode.Parse(File.ReadAllText(Path.Combine(directory, "fingerprint.json")));
         return new JsonObject { ["runId"] = runId, ["folderId"] = Path.GetFileName(directory),
             ["recordId"] = support["recordId"]?.GetValue<string>(),
+            ["evidenceId"] = referenceRecipe,
             ["runFingerprintSha256"] = source["runFingerprintSha256"]?.GetValue<string>(),
             ["artifactPath"] = evidence["positive"]?["artifactPath"]?.GetValue<string>(),
             ["artifactSha256"] = evidence["positive"]?["artifactSha256"]?.GetValue<string>(),
@@ -65,15 +70,25 @@ public partial class Form1
             ["environmentSha256"] = ScientificL6Digest(fingerprint?["components"]?["environment"]) };
     }
 
-    private object ScientificL6Start(string profileId, string runtimeId)
+    private object ScientificL6Start(string profileId, string runtimeId) => ScientificL6StartCore(profileId, runtimeId, false);
+
+    private object ScientificL6OrientationStart(string profileId, string runtimeId) => ScientificL6StartCore(profileId, runtimeId, true);
+
+    private object ScientificL6StartCore(string profileId, string runtimeId, bool orientation)
     {
-        ScientificProviderRegistry.RequireAction(runtimeId, "l6-reproduce");
-        var (capability, positive, rejection) = ScientificL5Cases(runtimeId);
-        ScientificCheckL5Declaration(runtimeId, capability, positive, rejection);
-        ScientificCheckL6Declaration(runtimeId, capability);
+        ScientificProviderRegistry.RequireAction(runtimeId, orientation ? "l6-cgal-orientation" : "l6-reproduce");
+        if (orientation && runtimeId != "cgal-win-conda") throw new InvalidOperationException("CGAL is required for orientation reproduction.");
+        var (capability, positive, rejection) = orientation
+            ? ("mesh.repair", new ScientificL5Case("cgal.repair-orientation", "cgal/inward-tetra.obj", "l5-repaired.obj", null),
+                new ScientificL5Case("cgal.repair-orientation", "cgal/open-square.obj", "l5-rejected.obj", "requires a closed mesh"))
+            : ScientificL5Cases(runtimeId);
+        var l5Recipe = orientation ? "l5.cgal-orientation" : "l5.worker";
+        var l6Recipe = orientation ? "l6.cgal-orientation" : "l6.reproduce";
+        ScientificCheckL5Declaration(runtimeId, capability, positive, rejection, l5Recipe);
+        ScientificCheckL6Declaration(runtimeId, capability, l6Recipe, l5Recipe);
         var lower = ScientificCurrentLowerLevels(profileId, runtimeId);
-        var support = ScientificCurrentL5(profileId, runtimeId, capability);
-        var baseline = ScientificL6Baseline(profileId, runtimeId, support);
+        var support = ScientificCurrentL5(profileId, runtimeId, capability, l5Recipe);
+        var baseline = ScientificL6Baseline(profileId, runtimeId, support, l5Recipe);
         var positiveInput = ScientificDatasetArtifact(positive.DatasetId);
         var rejectionInput = ScientificDatasetArtifact(rejection.DatasetId);
         var prefix = ScientificPrefix(runtimeId);
@@ -83,8 +98,8 @@ public partial class Form1
             var directory = Path.Combine(ScientificDataRoot, "runs", Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(directory);
             var job = new ScientificJob { ProfileId = profileId, RuntimeId = runtimeId,
-                RecipeId = "l6.reproduce", Directory = directory };
-            var parameters = JsonSerializer.SerializeToElement(new { suiteId = "l6-reproduce-v1",
+                RecipeId = l6Recipe, Directory = directory };
+            var parameters = JsonSerializer.SerializeToElement(new { suiteId = orientation ? "l6-cgal-orientation-v1" : "l6-reproduce-v1",
                 baselineRunId = baseline["runId"]?.GetValue<string>(), baselineRecordId = baseline["recordId"]?.GetValue<string>(),
                 positiveCase = positive.DatasetId, rejectionCase = rejection.DatasetId }, ScientificJson);
             ScientificWriteRequest(job, parameters, positiveInput, additionalInputs: new JsonArray(rejectionInput.DeepClone()),
@@ -93,7 +108,7 @@ public partial class Form1
                     new JsonObject { ["path"] = "reload/results.json", ["mediaType"] = "application/json" }));
             _scientificJobs[profileId + ":" + runtimeId] = job;
             ScientificSend(new { type = "scientific.runtime.job", job = ScientificJobSnapshot(job) });
-            _ = ScientificL6RunAsync(job, prefix, capability, positive, rejection, positiveInput, rejectionInput, lower, support, baseline);
+            _ = ScientificL6RunAsync(job, prefix, capability, positive, rejection, positiveInput, rejectionInput, lower, support, baseline, orientation);
             return ScientificJobSnapshot(job);
         }
         catch { _scientificGate.Release(); throw; }
@@ -101,15 +116,15 @@ public partial class Form1
 
     private async Task ScientificL6RunAsync(ScientificJob job, string prefix, string capability,
         ScientificL5Case positive, ScientificL5Case rejection, JsonObject positiveInput,
-        JsonObject rejectionInput, JsonObject lower, JsonObject support, JsonObject baseline)
+        JsonObject rejectionInput, JsonObject lower, JsonObject support, JsonObject baseline, bool orientation)
     {
         var timer = Stopwatch.StartNew();
         try
         {
             job.Stage = "positive";
-            var passed = await ScientificL5CaseAsync(job, prefix, "positive", positive, positiveInput);
+            var passed = await ScientificL5CaseAsync(job, prefix, "positive", positive, positiveInput, capability);
             job.Stage = "rejection";
-            var rejected = await ScientificL5CaseAsync(job, prefix, "rejection", rejection, rejectionInput);
+            var rejected = await ScientificL5CaseAsync(job, prefix, "rejection", rejection, rejectionInput, capability);
             job.Stage = "reload";
             var reloadDirectory = Path.Combine(job.Directory, "reload");
             Directory.CreateDirectory(reloadDirectory);
@@ -131,21 +146,29 @@ public partial class Form1
                 && rejected["inputSha256"]?.GetValue<string>() == baseline["rejectionInputSha256"]?.GetValue<string>()
                 && contract?["workerContractModule"]?["sha256"]?.GetValue<string>() == baseline["workerContractSha256"]?.GetValue<string>()
                 && currentEnvironment == baseline["environmentSha256"]?.GetValue<string>()
-                && ScientificQualificationRecords.ValidRoundTrip(reloaded, job.RuntimeId, passed["artifactSha256"]?.GetValue<string>(),
-                    job.FingerprintComponents?["suite"]?["files"]?["tools/" + reloadTool]?["sha256"]?.GetValue<string>());
+                && (orientation
+                    ? ScientificQualificationRecords.ValidOrientationRoundTrip(reloaded,
+                        passed["artifactSha256"]?.GetValue<string>(),
+                        job.FingerprintComponents?["suite"]?["files"]?["tools/" + reloadTool]?["sha256"]?.GetValue<string>())
+                    : ScientificQualificationRecords.ValidRoundTrip(reloaded, job.RuntimeId,
+                        passed["artifactSha256"]?.GetValue<string>(),
+                        job.FingerprintComponents?["suite"]?["files"]?["tools/" + reloadTool]?["sha256"]?.GetValue<string>()));
             var currentLower = ScientificCurrentLowerLevels(job.ProfileId, job.RuntimeId);
-            var currentL5 = ScientificCurrentL5(job.ProfileId, job.RuntimeId, capability);
+            var currentL5 = ScientificCurrentL5(job.ProfileId, job.RuntimeId, capability,
+                orientation ? "l5.cgal-orientation" : "l5.worker");
             if (currentLower.ToJsonString() != lower.ToJsonString()
                 || currentL5["recordId"]?.GetValue<string>() != support["recordId"]?.GetValue<string>())
                 throw new InvalidOperationException("The pinned L0-L5 evidence is no longer current.");
             var lowerRecords = (JsonArray)lower["records"]!.DeepClone();
             lowerRecords.Add(support.DeepClone());
-            var l5Evidence = new JsonObject { ["suiteId"] = "l5-worker-v1", ["capabilityId"] = capability,
+            var l5Evidence = new JsonObject { ["suiteId"] = orientation ? "l5-cgal-orientation-v1" : "l5-worker-v1", ["capabilityId"] = capability,
                 ["workerContractVersion"] = contract?["requestSchemaVersion"]?.GetValue<int>(),
                 ["workerContractSha256"] = contract?["workerContractModule"]?["sha256"]?.GetValue<string>(),
-                ["fixtureManifestSha256"] = ScientificHash(Path.Combine(ScientificDataRoot, "datasets", "manifest.json")),
+                ["fixtureManifestSha256"] = ScientificHash(orientation
+                    ? Path.Combine(ScientificSourceRoot, "scientific", "fixtures", "cgal", "orientation", "manifest.v1.json")
+                    : Path.Combine(ScientificDataRoot, "datasets", "manifest.json")),
                 ["lowerQualification"] = lower.DeepClone(), ["positive"] = passed.DeepClone(), ["rejection"] = rejected.DeepClone() };
-            var comparison = new JsonObject { ["suiteId"] = "l6-reproduce-v1", ["capabilityId"] = capability,
+            var comparison = new JsonObject { ["suiteId"] = orientation ? "l6-cgal-orientation-v1" : "l6-reproduce-v1", ["capabilityId"] = capability,
                 ["comparison"] = "sha256-exact", ["verdict"] = matched ? "matched" : "mismatch",
                 ["baseline"] = baseline.DeepClone(), ["positive"] = passed.DeepClone(), ["rejection"] = rejected.DeepClone(),
                 ["environmentSha256"] = currentEnvironment, ["roundTrip"] = reloaded.DeepClone(),

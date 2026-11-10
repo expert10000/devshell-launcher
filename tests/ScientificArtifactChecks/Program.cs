@@ -506,6 +506,15 @@ Check(ScientificQualificationRecords.ValidRoundTrip(reloadedTetra,"vtk-win-conda
 var changedReload=(JsonObject)reloadedTetra.DeepClone();changedReload["boundaryEdges"]=1;
 Check(!ScientificQualificationRecords.ValidRoundTrip(changedReload,"vtk-win-conda",artifactHash,parserHash),
     "L6 rejects changed reloaded topology");
+var orientationReload=new JsonObject { ["parserVersion"]=1,["format"]="obj",["artifactSha256"]=artifactHash,
+    ["parserSourceSha256"]=parserHash,["points"]=4,["triangles"]=4,
+    ["bounds"]=new JsonArray(0.0,1.0,0.0,1.0,0.0,1.0),["boundaryEdges"]=0,
+    ["nonManifoldEdges"]=0,["closed"]=true,["signedVolume"]=1.0/6.0,["absoluteVolume"]=1.0/6.0 };
+Check(ScientificQualificationRecords.ValidOrientationRoundTrip(orientationReload,artifactHash,parserHash),
+    "orientation L6 accepts independent outward unit tetrahedron reload");
+orientationReload["signedVolume"]=-1.0/6.0;
+Check(!ScientificQualificationRecords.ValidOrientationRoundTrip(orientationReload,artifactHash,parserHash),
+    "orientation L6 rejects inward reload despite matching topology");
 var importedTetra=new JsonObject { ["consumer"]="MATH3D desktop loadSurfaceMeshFromFile",["consumerVersion"]=1,
     ["format"]="obj",["indicesInRange"]=true,["points"]=4,["triangles"]=4,
     ["bounds"]=new JsonArray(-1.0,1.0,-1.0,1.0,-1.0,1.0),["boundaryEdges"]=0,["nonManifoldEdges"]=0,["closed"]=true };

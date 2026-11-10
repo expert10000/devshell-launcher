@@ -208,6 +208,12 @@ public static class ScientificRunFingerprint
             "scientific/fixtures/cgal/manifest.v1.json", "tools/scientific_worker_contract.py" });
         if (recipeId == "l6.reproduce") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L5.cs", "BatchLauncher/Form1.Scientific.L6.cs", "BatchLauncher/Form1.Scientific.Cgal.cs",
             "tools/scientific-cgal-worker.py", "tools/scientific-mesh-worker.py", "tools/scientific_worker_contract.py", "tools/scientific-artifact-roundtrip.py" });
+        if (recipeId == "l6.cgal-orientation") names.AddRange(new[] {
+            "BatchLauncher/Form1.Scientific.L5.cs", "BatchLauncher/Form1.Scientific.L6.cs",
+            "BatchLauncher/Form1.Scientific.Cgal.cs", "BatchLauncher/ScientificQualificationRecords.CgalRepair.cs",
+            "tools/scientific-cgal-worker.py", "tools/scientific-artifact-roundtrip.py",
+            "scientific/cgal-worker/orientation.cpp", "scientific/fixtures/cgal/orientation/inward-tetra.obj",
+            "scientific/fixtures/cgal/orientation/manifest.v1.json", "scientific/fixtures/cgal/open-square.obj" });
         if (recipeId == "l6.reproduce" && runtimeId == "gmsh-win-conda") names.AddRange(new[] {
             "tools/scientific-gmsh-worker.py", "tools/scientific-gmsh-handoff.py", "tools/scientific-gmsh-roundtrip.py" });
         if (recipeId == "l7.math3d-import") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L7.cs",

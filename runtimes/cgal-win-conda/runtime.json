@@ -17,6 +17,7 @@
       "rejection": { "recipeId": "cgal.repair-orientation", "datasetId": "cgal/open-square.obj", "outputName": "l5-rejected.obj", "expectedReason": "requires a closed mesh" } },
     { "id": "l6.reproduce", "readinessLevel": "L6", "capability": "mesh.validate", "referenceRecipe": "l5.worker", "comparison": "sha256-exact" },
     { "id": "l6.cgal-repair", "readinessLevel": "L6", "capability": "mesh.repair", "referenceRecipe": "l5.cgal-repair", "comparison": "sha256-exact" },
+    { "id": "l6.cgal-orientation", "readinessLevel": "L6", "capability": "mesh.repair", "referenceRecipe": "l5.cgal-orientation", "comparison": "sha256-exact" },
     { "id": "l7.cgal-repair", "readinessLevel": "L7", "capability": "mesh.repair", "referenceRecipe": "l6.cgal-repair", "consumer": "VTK+MATH3D" },
     { "id": "l8.cgal-repair", "readinessLevel": "L8", "capability": "mesh.repair", "referenceRecipe": "l7.cgal-repair", "repeatCount": 3, "memoryLimitBytes": 134217728 },
     { "id": "l9.cgal-repair", "readinessLevel": "L9", "capability": "mesh.repair", "referenceRecipe": "l8.cgal-repair", "contract": "cgal-repair-math3d-product-v1" },

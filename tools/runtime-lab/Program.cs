@@ -109,7 +109,7 @@ internal static class Program
             if (manifest.Recipes.Any(r => r.TimeoutSeconds is < 1 or > 120
                 || !(r.Id == "cgal.validate" && r.Adapter == "tools/scientific-cgal-worker.py" && r.Capability == "mesh.validate"
                     || r.Id == "cgal.remesh" && r.Adapter == "tools/scientific-cgal-worker.py" && r.Capability == "mesh.remesh"
-                    || r.Id == "cgal.repair-orientation" && r.Adapter == "tools/scientific-cgal-worker.py" && r.Capability == "mesh.repair"
+                    || r.Id == "cgal.repair-orientation" && r.Adapter == "tools/scientific-cgal-worker.py" && r.Capability == "mesh.orient"
                     || (r.Id is "cgal.fill-one-hole" or "cgal.fill-quad-hole" or "cgal.fill-two-quad-holes" or "cgal.fill-bounded-holes")
                         && r.Adapter == "tools/scientific-cgal-hole-repair-worker.py" && r.Capability == "mesh.repair"))
                 || (manifest.Id != "cgal-win-conda" && manifest.Recipes.Count != 0))

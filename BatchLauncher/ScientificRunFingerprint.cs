@@ -168,6 +168,29 @@ public static class ScientificRunFingerprint
                 "tools/scientific-vtk-interop.py", "tools/math3d-vtk-import-handoff.mjs",
                 "tools/math3d-cgal-remesh-product.mjs", "tools/math3d-cgal-remesh-viewer.mjs",
                 "tools/scientific-cgal-repair-m3dm-roundtrip.py" });
+        if (recipeId is "l5.cgal-orient" or "l6.cgal-orient" or "l7.cgal-orient" or "l8.cgal-orient" or "l9.cgal-orient")
+            names.AddRange(new[] { "BatchLauncher/Form1.Scientific.CgalOrientation.cs",
+                "BatchLauncher/ScientificQualificationRecords.Orientation.cs",
+                "scientific/fixtures/cgal/orientation/manifest.v2.json",
+                "scientific/fixtures/cgal/orientation/inward-tetra.obj",
+                "scientific/fixtures/cgal/orientation/inward-cube.obj",
+                "scientific/fixtures/cgal/orientation/outward-cube.obj",
+                "scientific/fixtures/cgal/orientation/inward-octa.obj",
+                "scientific/fixtures/cgal/orientation/inward-affine.obj",
+                "scientific/fixtures/cgal/orientation/disconnected-tetra.obj",
+                "scientific/fixtures/cgal/closed-tetra.obj",
+                "scientific/fixtures/cgal-remesh-qualification/octahedron.obj",
+                "scientific/fixtures/cgal-remesh-qualification/affine-tetra.obj",
+                "scientific/fixtures/cgal/open-square.obj", "scientific/fixtures/cgal/nonmanifold-edge.obj",
+                "scientific/fixtures/cgal/degenerate-triangle.obj", "scientific/cgal-worker/orientation.cpp",
+                "tools/scientific-cgal-worker.py", "tools/scientific_worker_contract.py",
+                "tools/scientific_cgal_corpus.py", "tools/scientific_cgal_orientation_fixture.py",
+                "tools/scientific_cgal_mesh_metrics.py",
+                "tools/scientific_cgal_orientation_scope.py", "tools/scientific_cgal_orientation_qualification.py",
+                "tools/scientific_cgal_orientation_l7.py", "tools/scientific_cgal_orientation_l8.py",
+                "tools/scientific_cgal_orientation_l9.py", "tools/scientific-vtk-interop.py",
+                "tools/math3d-vtk-import-handoff.mjs", "tools/math3d-cgal-orientation-product.mjs",
+                "tools/math3d-cgal-orientation-viewer.mjs", "tools/scientific-cgal-repair-m3dm-roundtrip.py" });
         if (recipeId is "cgal.fill-one-hole" or "cgal.fill-quad-hole" or "cgal.fill-two-quad-holes" or "cgal.fill-bounded-holes")
             names.AddRange(new[] { "BatchLauncher/Form1.Scientific.Cgal.cs", "tools/scientific-cgal-hole-repair-worker.py",
                 "tools/scientific_cgal_mesh_metrics.py", "scientific/cgal-worker/hole_repair.cpp" });

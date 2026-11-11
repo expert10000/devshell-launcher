@@ -91,6 +91,11 @@ public partial class Form1
                     ScientificCurrentRepairProductContract());
                 ScientificQualificationRecords.AssessRemeshL9Consumer(assessed,
                     ScientificCurrentRemeshProductSources(checkout));
+                ScientificQualificationRecords.AssessOrientationL7Consumer(assessed,
+                    File.Exists(Path.Combine(checkout, "renderer", "src", "mesh", "surfaceMesh.ts"))
+                        ? ScientificHash(Path.Combine(checkout, "renderer", "src", "mesh", "surfaceMesh.ts")) : null);
+                ScientificQualificationRecords.AssessOrientationL9Consumer(assessed,
+                    ScientificCurrentOrientationProductSources(checkout));
             }
             view["qualifications"] = assessed;
         }
@@ -224,6 +229,11 @@ public partial class Form1
                     runtimeId == "cgal-win-conda" ? ScientificCurrentRepairProductContract() : null);
                 ScientificQualificationRecords.AssessRemeshL9Consumer(records,
                     runtimeId == "cgal-win-conda" ? ScientificCurrentRemeshProductSources(ScientificL7Checkout()) : null);
+                ScientificQualificationRecords.AssessOrientationL7Consumer(records,
+                    runtimeId == "cgal-win-conda" && File.Exists(Path.Combine(ScientificL7Checkout(), "renderer", "src", "mesh", "surfaceMesh.ts"))
+                        ? ScientificHash(Path.Combine(ScientificL7Checkout(), "renderer", "src", "mesh", "surfaceMesh.ts")) : null);
+                ScientificQualificationRecords.AssessOrientationL9Consumer(records,
+                    runtimeId == "cgal-win-conda" ? ScientificCurrentOrientationProductSources(ScientificL7Checkout()) : null);
             }
         return ScientificQualificationRecords.Summarize(runtimeId, runs);
     }

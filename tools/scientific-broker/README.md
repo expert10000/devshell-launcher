@@ -56,6 +56,10 @@ For `mesh.remesh`, `POST /v1/jobs` also requires `caseId` and `timeoutSeconds`. 
 
 `three_capability_release.py run --math3d-root <checkout>` creates one short, isolated Git worktree at the current commit. It builds DevShell, requalifies remesh, repair and fixed-cube volume through the managed desktop actions, exports their current L9 records, runs each broker/MATH3D smoke, and writes a hash-sealed coexistence record under that worktree's `.scientific/three-capability-release`. The worktree and evidence remain for later verification. Run `three_capability_release.py verify --record <coexistence.json>` to re-export from the same checkout and refuse source, environment, lower-support, broker, product, or artifact drift.
 
+## Four-capability release
+
+`four_capability_release.py run --math3d-root <checkout>` builds one isolated worktree at the current commit, runs the managed orientation, remesh, hole repair, and fixed-cube volume L0–L9 actions, exports one fresh certification manifest, and runs all four broker/MATH3D product smokes. It writes a SHA-256-sealed `scientific.four-capability-release` coexistence record under `.scientific/four-capability-release` in that worktree. `four_capability_release.py verify --record <coexistence.json>` re-exports from that same checkout and rejects changed source commit, missing or stale lower records, source and consumer drift, changed broker config, smoke, product, or artifacts. The earlier three-capability record remains historical and does not cover the merged orientation source.
+
 - `GET /v1/providers`: certified provider and capability discovery.
 - `POST /v1/jobs`: accept `schemaVersion`, `runtimeId`, `capabilityId`, `input: {path, sha256}`, and optional `timeoutSeconds` (1–120). The input must be a bounded registered dataset with the exact hash of the selected L9 fixture: OBJ for CGAL or `.geo` for Gmsh.
 - `GET /v1/jobs/{id}`: state (`running`, `succeeded`, `partial`, `failed`, `cancelled`, `timed-out`, `resource-exhausted`), stage, progress, diagnostics, and verified artifact metadata.

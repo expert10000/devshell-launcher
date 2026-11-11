@@ -11,7 +11,7 @@ public partial class Form1
     {
         ScientificProviderRegistry.RequireAction(runtimeId, "l6-cgal-repair");
         var prefix = ScientificPrefix(runtimeId);
-        var support = ScientificCurrentL5(profileId, runtimeId, "mesh.repair");
+        var support = ScientificCurrentL5(profileId, runtimeId, "mesh.repair", "l5.cgal-repair");
         var baselineRunId = support["runId"]!.GetValue<string>();
         var (baselineDirectory, saved) = ScientificHistoryFind(profileId, baselineRunId);
         var baseline = JsonNode.Parse(saved.GetRawText()) as JsonObject
@@ -98,7 +98,7 @@ public partial class Form1
                     || actual?["outputAbsent"]?.ToJsonString() != expected?["outputAbsent"]?.ToJsonString())
                     throw new InvalidDataException("Repair output or rejection differs from the L5 reference.");
             }
-            if (ScientificCurrentL5(job.ProfileId, job.RuntimeId, "mesh.repair")["recordId"]?.GetValue<string>()
+            if (ScientificCurrentL5(job.ProfileId, job.RuntimeId, "mesh.repair", "l5.cgal-repair")["recordId"]?.GetValue<string>()
                     != support["recordId"]?.GetValue<string>())
                 throw new InvalidOperationException("Pinned repair L0-L5 evidence is no longer current.");
             var candidateL5 = new JsonObject { ["suiteId"] = ScientificRepairFixtures.SuiteId,

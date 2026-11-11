@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "kind": "scientific.evidence-trust",
+  "keys": [
+    {
+      "keyId": "devshell-evidence-2026-11",
+      "publicKeyBase64": "yrvgqc1lFY/tkTjcW+ZrGRdQ/yecKgyFyy6GpUZ6cAE=",
+      "validFromUtc": "2026-11-11T00:00:00+00:00",
+      "validUntilUtc": "2027-11-11T00:00:00+00:00"
+    }
+  ]
+}

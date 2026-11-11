@@ -105,7 +105,7 @@ static partial class BrokerManifest
             catch (Exception error) when (error is IOException or JsonException or InvalidDataException
                 or InvalidOperationException or UnauthorizedAccessException or KeyNotFoundException)
             {
-                if (rejected != null && recipeId is "l9.gmsh-volume" or "l9.cgal-repair" or "l9.cgal-remesh")
+                if (rejected != null && recipeId is "l9.gmsh-volume" or "l9.cgal-repair" or "l9.cgal-remesh" or "l9.cgal-orient")
                     rejected.Add(new JsonObject { ["folderId"] = Path.GetFileName(directory),
                         ["reason"] = error.Message });
             }
@@ -486,6 +486,8 @@ static partial class BrokerManifest
         if (repair != null) certified.Add(repair);
         var remesh = ExportRemesh(repo, installed, math3d, profile);
         if (remesh != null) certified.Add(remesh);
+        var orientation = ExportOrientation(repo, installed, math3d, profile);
+        if (orientation != null) certified.Add(orientation);
         return new JsonObject { ["schemaVersion"] = 1, ["kind"] = "scientific.certified-capabilities",
             ["issuedAtUtc"] = DateTimeOffset.UtcNow.ToString("O"), ["profileId"] = profile,
             ["providerRegistryVersion"] = ScientificProviderRegistry.ContractVersion,
@@ -509,9 +511,9 @@ static partial class BrokerManifest
         if (manifest["schemaVersion"]?.GetValue<int>() != 1 || manifest["kind"]?.GetValue<string>() != "scientific.certified-capabilities"
             || manifest["certifiedCapabilities"] is not JsonArray capabilities
             || capabilities.Any(item => item?["runtimeId"]?.GetValue<string>() is not ("cgal-win-conda" or "gmsh-win-conda")
-                || item?["capabilityId"]?.GetValue<string>() is not ("mesh.interop.vtk-math3d" or "mesh.generate" or "mesh.generate3d" or "mesh.repair" or "mesh.remesh")
+                || item?["capabilityId"]?.GetValue<string>() is not ("mesh.interop.vtk-math3d" or "mesh.generate" or "mesh.generate3d" or "mesh.repair" or "mesh.remesh" or "mesh.orient")
                 || (item?["runtimeId"]?.GetValue<string>() == "cgal-win-conda"
-                    && item?["capabilityId"]?.GetValue<string>() is not ("mesh.interop.vtk-math3d" or "mesh.repair" or "mesh.remesh"))
+                    && item?["capabilityId"]?.GetValue<string>() is not ("mesh.interop.vtk-math3d" or "mesh.repair" or "mesh.remesh" or "mesh.orient"))
                 || !ScientificCapabilityRegistry.IsDeclared(item?["runtimeId"]?.GetValue<string>() ?? "",
                     item?["capabilityId"]?.GetValue<string>() ?? "")
                 || item?["level"]?.GetValue<string>() != "L9"))
@@ -547,6 +549,12 @@ static partial class BrokerManifest
             if (args.Length == 5 && args[0] == "audit-remesh")
             {
                 Console.WriteLine(AuditRemesh(Path.GetFullPath(args[1]), Path.GetFullPath(args[2]),
+                    Path.GetFullPath(args[3]), args[4]).ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+                return 0;
+            }
+            if (args.Length == 5 && args[0] == "audit-orientation")
+            {
+                Console.WriteLine(AuditOrientation(Path.GetFullPath(args[1]), Path.GetFullPath(args[2]),
                     Path.GetFullPath(args[3]), args[4]).ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
                 return 0;
             }

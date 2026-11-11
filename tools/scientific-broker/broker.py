@@ -56,6 +56,25 @@ REPAIR_CONTRACT_SHA256 = hashlib.sha256(compact_json_text(REPAIR_CONTRACT_TEXT).
 REMESH_CONTRACT = dict(id='math3d.guarded-remesh-handoff', version=1,
                        inputFormat='obj', outputFormat='obj', policyVersion=2,
                        viewer='MeshDocumentViewport')
+ORIENTATION_CONTRACT = dict(id='math3d.orientation-handoff', version=1,
+                            inputFormat='obj', outputFormat='obj', scopeVersion=2,
+                            viewer='MeshDocumentViewport')
+ORIENTATION_CASES = ('tetra-inward', 'tetra-outward', 'cube-inward', 'cube-outward',
+                     'octa-inward', 'octa-outward', 'affine-inward', 'affine-outward',
+                     'open', 'disconnected', 'nonmanifold', 'degenerate')
+ORIENTATION_SOURCES = ('scientific/cgal-worker/orientation.cpp', 'tools/scientific-cgal-worker.py',
+                       'tools/scientific_worker_contract.py', 'tools/scientific_cgal_corpus.py',
+                       'tools/scientific_cgal_orientation_fixture.py', 'tools/scientific_cgal_orientation_scope.py',
+                       'tools/scientific_cgal_orientation_qualification.py', 'tools/scientific_cgal_orientation_l7.py',
+                       'tools/scientific_cgal_orientation_l8.py', 'tools/scientific_cgal_orientation_l9.py',
+                       'tools/math3d-cgal-orientation-product.mjs', 'tools/math3d-cgal-orientation-viewer.mjs',
+                       'tools/scientific-cgal-repair-m3dm-roundtrip.py',
+                       'BatchLauncher/Form1.Scientific.CgalOrientation.cs',
+                       'BatchLauncher/ScientificQualificationRecords.Orientation.cs',
+                       'BatchLauncher/ScientificRunFingerprint.cs', 'tools/runtime-lab/Program.cs',
+                       'tools/scientific-broker/Program.cs', 'tools/scientific-broker/Program.Repair.cs',
+                       'tools/scientific-broker/Program.Orientation.cs', 'tools/scientific-broker/broker.py',
+                       'tools/scientific-broker/orientation_broker_smoke.py')
 REMESH_CASES = ('accepted', 'volume-loss', 'affine-accepted', 'affine-volume-loss',
                 'cube-accepted', 'cube-volume-loss', 'octa-accepted', 'octa-volume-loss')
 REMESH_CONSUMER_FILES = ('renderer/src/mesh/surfaceMesh.ts', 'renderer/src/mesh/meshDocumentAdapter.ts',
@@ -106,12 +125,13 @@ class Broker:
             raise ValueError('Unsupported broker runtime profile.')
         self.gmsh = self.runtime_id == 'gmsh-win-conda'
         self.capability_id = config.get('capabilityId', 'mesh.generate' if self.gmsh else 'mesh.interop.vtk-math3d')
-        if self.capability_id not in (('mesh.generate', 'mesh.generate3d') if self.gmsh else ('mesh.interop.vtk-math3d', 'mesh.repair', 'mesh.remesh')):
+        if self.capability_id not in (('mesh.generate', 'mesh.generate3d') if self.gmsh else ('mesh.interop.vtk-math3d', 'mesh.repair', 'mesh.remesh', 'mesh.orient')):
             raise ValueError('Unsupported broker capability profile.')
         self.repair = self.capability_id == 'mesh.repair'
         self.remesh = self.capability_id == 'mesh.remesh'
+        self.orientation = self.capability_id == 'mesh.orient'
         self.volume = self.capability_id == 'mesh.generate3d'
-        self.contract = VOLUME_CONTRACT if self.volume else REPAIR_CONTRACT if self.repair else REMESH_CONTRACT if self.remesh else CONTRACT
+        self.contract = VOLUME_CONTRACT if self.volume else REPAIR_CONTRACT if self.repair else REMESH_CONTRACT if self.remesh else ORIENTATION_CONTRACT if self.orientation else CONTRACT
         self.paths = {name: Path(config[name]).resolve(strict=True) for name in
                       ('manifest', 'runtimeManifest', 'adapter', 'workerContract', 'python', 'worker', 'prefix', 'datasetRoot')}
         if self.volume:
@@ -160,7 +180,8 @@ class Broker:
                                 ('gmsh-win-conda', 'mesh.generate', 'L9'),
                                 ('gmsh-win-conda', 'mesh.generate3d', 'L9'),
                                 ('cgal-win-conda', 'mesh.repair', 'L9'),
-                                ('cgal-win-conda', 'mesh.remesh', 'L9')):
+                                ('cgal-win-conda', 'mesh.remesh', 'L9'),
+                                ('cgal-win-conda', 'mesh.orient', 'L9')):
                 raise ValueError('Unqualified or unsupported provider in certified manifest.')
             if entry.get('runtimeId') != self.runtime_id or entry.get('capabilityId') != self.capability_id:
                 continue
@@ -213,6 +234,35 @@ class Broker:
                 if (entry.get('referenceInputSha256') != references[0]['inputSha256']
                         or entry.get('referenceArtifactSha256') != references[0]['outputSha256']):
                     raise ValueError('The guarded remesh reference differs from its case pack.')
+            if self.orientation:
+                fixture_path = self.source_root / 'scientific/fixtures/cgal/orientation/manifest.v2.json'
+                require_hash(fixture_path, entry.get('fixtureManifestSha256'), 'Orientation fixture manifest')
+                fixtures = json.loads(fixture_path.read_text(encoding='utf-8'))
+                references = entry.get('referenceCases')
+                if (fixtures.get('schemaVersion') != 2 or fixtures.get('capabilityId') != 'mesh.orient'
+                        or not isinstance(references, list)
+                        or [case.get('caseId') for case in references] != list(ORIENTATION_CASES)
+                        or [case.get('caseId') for case in fixtures.get('cases', [])] != list(ORIENTATION_CASES)):
+                    raise ValueError('The certified orientation case profile is incomplete.')
+                for fixture, case in zip(fixtures['cases'], references):
+                    expected = fixture['expected']
+                    if (case.get('inputSha256') != fixture['sha256'] or case.get('expected') != expected
+                            or case.get('orientation') != fixture.get('orientation')
+                            or case.get('errorContains') != fixture.get('errorContains')
+                            or (expected == 'accepted') != bool(re.fullmatch('[0-9a-f]{64}', case.get('outputSha256') or ''))
+                            or expected not in ('accepted', 'rejected')):
+                        raise ValueError('The certified orientation case identity changed.')
+                    require_hash(self.source_root / fixture['path'], fixture['sha256'], 'Orientation fixture')
+                if (entry.get('referenceInputSha256') != references[0]['inputSha256']
+                        or entry.get('referenceArtifactSha256') != references[0]['outputSha256']):
+                    raise ValueError('The certified orientation reference differs from its case pack.')
+                sources = entry.get('orientationSources')
+                if not isinstance(sources, dict) or set(sources) != set(ORIENTATION_SOURCES):
+                    raise ValueError('Orientation qualification source identity is incomplete.')
+                for name, digest in sources.items():
+                    require_hash(self.source_root / name, digest, 'Orientation source ' + name)
+                if hashlib.sha256(json.dumps(sources, separators=(',', ':')).encode()).hexdigest() != entry.get('orientationSourcesSha256'):
+                    raise ValueError('Orientation qualification source digest changed.')
             for name, field in [('runtimeManifest', 'runtimeManifestSha256'), ('adapter', 'adapterSha256'),
                                 ('workerContract', 'workerContractSha256'), ('python', 'pythonSha256'),
                                 ('worker', 'workerBinarySha256')]:
@@ -249,10 +299,10 @@ class Broker:
                 raise ValueError('L9 qualification identity differs from its support chain.')
             if support[8]['recordId'] != entry['sourceL8RecordId'] or support[8]['runId'] != entry['sourceL8RunId']:
                 raise ValueError('L8 qualification identity differs from its support chain.')
-            expected_files = VOLUME_CONSUMER_FILES if self.volume else set(REPAIR_CONTRACT['consumerSources']) if self.repair else set(REMESH_CONSUMER_FILES) if self.remesh else CONSUMER_FILES
+            expected_files = VOLUME_CONSUMER_FILES if self.volume else set(REPAIR_CONTRACT['consumerSources']) if self.repair else set(REMESH_CONSUMER_FILES) if self.remesh or self.orientation else CONSUMER_FILES
             if not isinstance(entry.get('consumerSources'), dict) or set(entry['consumerSources']) != expected_files:
                 raise ValueError('MATH3D consumer source identity is missing.')
-            if (self.volume or self.repair or self.remesh) and self.math3d_root is not None:
+            if (self.volume or self.repair or self.remesh or self.orientation) and self.math3d_root is not None:
                 for name, expected in entry['consumerSources'].items():
                     require_hash(self.math3d_root / name, expected, 'MATH3D volume consumer ' + name)
                 source_hash = hashlib.sha256(json.dumps(entry['consumerSources'], separators=(',', ':')).encode()).hexdigest()
@@ -292,6 +342,7 @@ class Broker:
         require_hash(source, input_info.get('sha256'), 'Input artifact')
         repair_case = None
         remesh_case = None
+        orientation_case = None
         if self.repair:
             case_id = body.get('caseId')
             repair_case = next((case for case in self.capabilities[0]['referenceCases']
@@ -308,6 +359,14 @@ class Broker:
                     or set(input_info) != {'path', 'sha256'}
                     or input_info['sha256'] != remesh_case['inputSha256']):
                 raise ValueError('Only an allowlisted remesh case and its pinned typed input are accepted.')
+        elif self.orientation:
+            orientation_case = next((case for case in self.capabilities[0]['referenceCases']
+                                     if case['caseId'] == body.get('caseId')), None)
+            if (orientation_case is None
+                    or set(body) != {'schemaVersion', 'runtimeId', 'capabilityId', 'caseId', 'input', 'timeoutSeconds'}
+                    or set(input_info) != {'path', 'sha256'}
+                    or input_info['sha256'] != orientation_case['inputSha256']):
+                raise ValueError('Only an allowlisted orientation case and its pinned typed input are accepted.')
         elif input_info['sha256'] != self.capabilities[0]['referenceInputSha256']:
             raise ValueError('Input is outside the fixed L9 qualification fixture.')
         with self.lock:
@@ -326,8 +385,8 @@ class Broker:
             with source_path.open('x', encoding='utf-8') as stream:
                 json.dump(source_snapshot, stream, separators=(',', ':'))
             source_sha = sha(source_path)
-            recipe = 'gmsh.volume3d.cube' if self.volume else 'gmsh.mesh2d' if self.gmsh else repair_case['recipeId'] if self.repair else 'cgal.remesh' if self.remesh else 'cgal.validate'
-            output_name = 'cube.msh' if self.volume else 'l5-positive.msh' if self.gmsh else 'repaired.obj' if self.repair else 'remeshed.obj' if self.remesh else 'l5-positive.obj'
+            recipe = 'gmsh.volume3d.cube' if self.volume else 'gmsh.mesh2d' if self.gmsh else repair_case['recipeId'] if self.repair else 'cgal.remesh' if self.remesh else 'cgal.repair-orientation' if self.orientation else 'cgal.validate'
+            output_name = 'cube.msh' if self.volume else 'l5-positive.msh' if self.gmsh else 'repaired.obj' if self.repair else 'remeshed.obj' if self.remesh else 'oriented.obj' if self.orientation else 'l5-positive.obj'
             dataset_id = hashlib.sha256((repair_case['caseId'] + ':' + repair_case['inputSha256']).encode()).hexdigest() if self.repair else None
             request = {'schemaVersion': 1, 'runId': job_id, 'runtimeId': self.runtime_id,
                    'recipeId': recipe, 'operation': recipe,
@@ -346,7 +405,7 @@ class Broker:
                'state': 'running', 'stage': 'queued', 'progress': 0, 'contractVersion': 1,
                'certificationRecordId': self.capabilities[0]['recordId'], 'artifacts': [], 'diagnostics': [],
                'directory': str(directory), 'sourceSnapshotSha256': source_sha,
-               **({'caseId': repair_case['caseId']} if self.repair else {'caseId': remesh_case['caseId']} if self.remesh else {}),
+               **({'caseId': repair_case['caseId']} if self.repair else {'caseId': remesh_case['caseId']} if self.remesh else {'caseId': orientation_case['caseId']} if self.orientation else {}),
                'cancel': threading.Event(), 'process': None}
             self.jobs[job_id] = job
         threading.Thread(target=self._run, args=(job, timeout), daemon=True).start()
@@ -439,6 +498,67 @@ class Broker:
         with self.lock:
             job.update(pendingState='succeeded', stage='finalizing', progress=95, artifacts=artifacts)
 
+    def _finish_orientation(self, job, result, result_path, directory, exit_code):
+        self.verify()
+        entry = next((item for item in self.capabilities if item['recordId'] == job['certificationRecordId']), None)
+        reference = next((case for case in entry['referenceCases'] if case['caseId'] == job['caseId']), None) if entry else None
+        if entry is None or reference is None or not isinstance(result, dict):
+            raise ValueError('Current orientation qualification is unavailable.')
+        request_path = directory / 'request.json'
+        request = json.loads(request_path.read_text(encoding='utf-8'))
+        copied = directory / 'dataset/input.obj'
+        output = directory / 'oriented.obj'
+        engine = result.get('engineDetails') or {}
+        if (request.get('recipeId') != 'cgal.repair-orientation'
+                or result.get('recipeId') != 'cgal.repair-orientation'
+                or request.get('runId') != job['jobId'] or result.get('runId') != job['jobId']
+                or request.get('parameters') != {} or sha(copied) != reference['inputSha256']
+                or result.get('inputArtifacts', [{}])[0].get('sha256') != reference['inputSha256']):
+            raise ValueError('Orientation typed request or fixture identity changed.')
+        if reference['expected'] == 'rejected':
+            if (exit_code == 0 or result.get('state') != 'failed' or output.exists()
+                    or result.get('artifacts') or result.get('validatedCapabilities')
+                    or reference['errorContains'] not in engine.get('error', '')):
+                raise ValueError('Adverse orientation case published or changed its rejection.')
+            with self.lock:
+                job.update(pendingState='rejected', stage='finalizing', progress=95,
+                           diagnostics=[engine['error']])
+            return
+        digest = reference['outputSha256']
+        if (exit_code != 0 or result.get('state') != 'succeeded'
+                or engine.get('operation') != 'orient'
+                or engine.get('closed') is not True
+                or engine.get('beforeOrientation') != reference['orientation']
+                or engine.get('afterOrientation') != 'outward'
+                or engine.get('orientationChanged') != (reference['orientation'] == 'inward')
+                or not output.is_file() or output.stat().st_size > MAX_INPUT or sha(output) != digest
+                or 'mesh.orient' not in result.get('validatedCapabilities', [])
+                or not any(item.get('path') == 'oriented.obj' and item.get('sha256') == digest
+                           for item in result.get('artifacts', []))):
+            raise ValueError('Accepted orientation differs from its L9 case artifact.')
+        scope = {'schemaVersion': 2, 'kind': 'scientific.cgal-orientation-broker-guard',
+                 'capabilityId': 'mesh.orient', 'caseId': job['caseId'], 'expected': 'accepted',
+                 'fixtureManifestSha256': entry['fixtureManifestSha256'],
+                 'orientationSourcesSha256': entry['orientationSourcesSha256'],
+                 'workerBinarySha256': entry['workerBinarySha256'],
+                 'inputSha256': reference['inputSha256'], 'outputSha256': digest}
+        scope_path = directory / 'scope.json'
+        scope_path.write_text(json.dumps(scope, separators=(',', ':')), encoding='utf-8')
+        handoff = {'schemaVersion': 1, 'contract': self.contract, 'runtimeId': self.runtime_id,
+                   'capabilityId': self.capability_id, 'caseId': job['caseId'],
+                   'sourceL9RunId': entry['sourceRunId'], 'sourceL9RecordId': entry['recordId'],
+                   'sourceL8RunId': entry['sourceL8RunId'], 'sourceL8RecordId': entry['sourceL8RecordId'],
+                   'workerRequest': {'path': str(request_path), 'sha256': sha(request_path)},
+                   'workerResult': {'path': str(result_path), 'sha256': sha(result_path)},
+                   'scopeGuard': {'path': str(scope_path), 'sha256': sha(scope_path)},
+                   'artifact': {'path': str(output), 'sha256': digest}}
+        (directory / 'handoff.json').write_text(json.dumps(handoff, separators=(',', ':')), encoding='utf-8')
+        names = ('oriented.obj', 'scope.json', 'handoff.json')
+        artifacts = [{'path': name, 'sha256': sha(directory / name), 'bytes': (directory / name).stat().st_size}
+                     for name in names]
+        with self.lock:
+            job.update(pendingState='succeeded', stage='finalizing', progress=95, artifacts=artifacts)
+
     def _run(self, job, timeout):
         directory = Path(job['directory'])
         started = time.monotonic()
@@ -511,6 +631,9 @@ class Broker:
             result = json.loads(result_path.read_text(encoding='utf-8')) if result_path.is_file() else None
             if self.remesh:
                 self._finish_remesh(job, result, result_path, directory, process.returncode)
+                return
+            if self.orientation:
+                self._finish_orientation(job, result, result_path, directory, process.returncode)
                 return
             worker_name = 'cube.msh' if self.volume else 'l5-positive.msh' if self.gmsh else 'repaired.obj' if self.repair else 'l5-positive.obj'
             artifact = directory / worker_name
@@ -690,6 +813,8 @@ class Broker:
     def promote(self, job_id):
         if self.remesh:
             return self._promote_remesh(job_id)
+        if self.orientation:
+            return self._promote_orientation(job_id)
         with self.lock:
             job = self.jobs.get(job_id)
             if job is None:
@@ -852,6 +977,78 @@ class Broker:
                         reasons.append('Broker remesh handoff or accepted artifact changed.')
                 except (ValueError, OSError, KeyError, json.JSONDecodeError) as error:
                     reasons.append('Verified remesh handoff is unavailable: ' + str(error))
+            decision = 'allowed' if not reasons else 'blocked'
+            promotion_id = uuid.uuid4().hex
+            record = {'schemaVersion': 1, 'kind': 'scientific.math3d-promotion', 'promotionId': promotion_id,
+                      'decision': decision, 'reasons': reasons, 'sourceJobId': job_id,
+                      'sourceJobState': job['state'], 'capabilityId': job['capabilityId'],
+                      'runtimeId': job['runtimeId'], 'certificationRecordId': job['certificationRecordId'],
+                      'manifestSha256': sha(self.paths['manifest']) if self.paths['manifest'].is_file() else None,
+                      'contractVersion': self.contract['version'],
+                      'sourceSnapshotSha256': job.get('sourceSnapshotSha256'),
+                      'handoffSha256': sha(Path(job['directory']) / 'handoff.json') if decision == 'allowed' else None,
+                      'artifactSha256': next(case['outputSha256'] for case in entry['referenceCases']
+                          if case['caseId'] == job['caseId']) if decision == 'allowed' else None}
+            folder = Path(job['directory']) / 'promotions'
+            folder.mkdir(exist_ok=True)
+            path = folder / (promotion_id + '.json')
+            path.write_text(json.dumps(record, separators=(',', ':')), encoding='utf-8')
+            return {**record, 'path': str(path), 'sha256': sha(path)}
+
+    def _promote_orientation(self, job_id):
+        with self.lock:
+            job = self.jobs.get(job_id)
+            if job is None:
+                raise KeyError(job_id)
+            reasons = []
+            entry = None
+            try:
+                self.verify()
+                entry = next((item for item in self.capabilities if item['recordId'] == job['certificationRecordId']), None)
+                if entry is None:
+                    reasons.append('The L0-L9 orientation qualification is no longer certified.')
+            except (ValueError, OSError) as error:
+                reasons.append('Certified orientation identity changed: ' + str(error))
+            if job['state'] != 'succeeded':
+                reasons.append(f"Source job is {job['state']}; only accepted orientation can be promoted.")
+            if self.math3d_root is None:
+                reasons.append('MATH3D consumer checkout is unavailable.')
+            elif entry is not None:
+                try:
+                    for name, digest in entry['consumerSources'].items():
+                        require_hash(self.math3d_root / name, digest, 'MATH3D orientation consumer ' + name)
+                except (ValueError, OSError) as error:
+                    reasons.append(str(error))
+            if entry is not None and job['state'] == 'succeeded':
+                try:
+                    self.source(job_id)
+                    folder = Path(job['directory'])
+                    handoff = json.loads(self.artifact(job_id, 'handoff.json'))
+                    output = self.artifact(job_id, 'oriented.obj')
+                    scope = json.loads(self.artifact(job_id, 'scope.json'))
+                    request = json.loads((folder / 'request.json').read_text(encoding='utf-8'))
+                    result = json.loads((folder / 'results.json').read_text(encoding='utf-8'))
+                    reference = next(case for case in entry['referenceCases'] if case['caseId'] == job['caseId'])
+                    digest = hashlib.sha256(output).hexdigest()
+                    if (reference['expected'] != 'accepted' or digest != reference['outputSha256']
+                            or handoff.get('contract') != self.contract
+                            or handoff.get('caseId') != job['caseId']
+                            or handoff.get('sourceL9RecordId') != entry['recordId']
+                            or handoff.get('sourceL8RecordId') != entry['sourceL8RecordId']
+                            or handoff.get('workerRequest', {}).get('sha256') != sha(folder / 'request.json')
+                            or handoff.get('workerResult', {}).get('sha256') != sha(folder / 'results.json')
+                            or handoff.get('scopeGuard', {}).get('sha256') != sha(folder / 'scope.json')
+                            or handoff.get('artifact', {}).get('sha256') != digest
+                            or scope.get('fixtureManifestSha256') != entry['fixtureManifestSha256']
+                            or scope.get('orientationSourcesSha256') != entry['orientationSourcesSha256']
+                            or scope.get('workerBinarySha256') != entry['workerBinarySha256']
+                            or scope.get('inputSha256') != reference['inputSha256']
+                            or scope.get('outputSha256') != digest
+                            or request.get('parameters') != {}
+                            or result.get('engineDetails', {}).get('afterOrientation') != 'outward'):
+                        reasons.append('Broker orientation handoff or accepted artifact changed.')
+                except (ValueError, OSError, KeyError, json.JSONDecodeError) as error:
+                    reasons.append('Verified orientation handoff is unavailable: ' + str(error))
             decision = 'allowed' if not reasons else 'blocked'
             promotion_id = uuid.uuid4().hex
             record = {'schemaVersion': 1, 'kind': 'scientific.math3d-promotion', 'promotionId': promotion_id,

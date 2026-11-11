@@ -18,6 +18,8 @@ The exporter rereads successful runs, verifies fingerprints and immutable qualif
 
 The guarded `mesh.remesh` profile requires a current managed L5–L9 chain. It pins policy v2, eight allowlisted accepted and volume-loss cases, the worker, and six MATH3D consumer sources. Inspect readiness with `audit-remesh` using the same four paths as `export`.
 
+The dedicated `mesh.orient` profile requires current managed orientation v2 L5–L9 records. Its twelve typed cases pin eight accepted outward OBJ results and four rejected pathological inputs. The broker checks the case manifest, qualification and broker sources, dedicated worker, runtime package inventory, and six MATH3D consumer files. Accepted jobs transport `oriented.obj`, `scope.json`, and `handoff.json`; rejected jobs publish no mesh. Promotion rechecks those bytes and the L9/L8 record identities. Run the opt-in HTTP acceptance with `DEVSHELL_ORIENTATION_BROKER_CONFIG=<config.json> python tests/test_scientific_orientation_broker.py`; it exercises accepted, rejected, tampered, and cancelled jobs. `orientation_broker_smoke.py run --config <config.json>` verifies all twelve broker decisions and eight MATH3D document/viewer round trips.
+
 Create a local JSON file with absolute deployment paths:
 
 ```json

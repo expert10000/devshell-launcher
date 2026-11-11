@@ -99,6 +99,10 @@ public partial class Form1
                     ScientificCurrentRepairProductContract());
                 ScientificQualificationRecords.AssessRemeshL9Consumer(assessed,
                     ScientificCurrentRemeshProductSources(checkout));
+                var inspectImporter = Path.Combine(checkout, "renderer", "src", "mesh", "surfaceMesh.ts");
+                ScientificQualificationRecords.AssessInspectConsumers(assessed,
+                    File.Exists(inspectImporter) ? ScientificHash(inspectImporter) : null,
+                    ScientificCurrentCgalInspectProductSources(checkout));
                 ScientificQualificationRecords.AssessOrientationL7Consumer(assessed,
                     File.Exists(Path.Combine(checkout, "renderer", "src", "mesh", "surfaceMesh.ts"))
                         ? ScientificHash(Path.Combine(checkout, "renderer", "src", "mesh", "surfaceMesh.ts")) : null);
@@ -245,6 +249,11 @@ public partial class Form1
                     runtimeId == "cgal-win-conda" ? ScientificCurrentRepairProductContract() : null);
                 ScientificQualificationRecords.AssessRemeshL9Consumer(records,
                     runtimeId == "cgal-win-conda" ? ScientificCurrentRemeshProductSources(ScientificL7Checkout()) : null);
+                var inspectCheckout = ScientificL7Checkout();
+                var inspectImporter = Path.Combine(inspectCheckout, "renderer", "src", "mesh", "surfaceMesh.ts");
+                ScientificQualificationRecords.AssessInspectConsumers(records,
+                    runtimeId == "cgal-win-conda" && File.Exists(inspectImporter) ? ScientificHash(inspectImporter) : null,
+                    runtimeId == "cgal-win-conda" ? ScientificCurrentCgalInspectProductSources(inspectCheckout) : null);
                 ScientificQualificationRecords.AssessOrientationL7Consumer(records,
                     runtimeId == "cgal-win-conda" && File.Exists(Path.Combine(ScientificL7Checkout(), "renderer", "src", "mesh", "surfaceMesh.ts"))
                         ? ScientificHash(Path.Combine(ScientificL7Checkout(), "renderer", "src", "mesh", "surfaceMesh.ts")) : null);

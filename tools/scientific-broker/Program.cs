@@ -490,6 +490,8 @@ static partial class BrokerManifest
         if (orientation != null) certified.Add(orientation);
         var vtkRead = ExportVtkRead(repo, installed, math3d, profile);
         if (vtkRead != null) certified.Add(vtkRead);
+        var inspect = ExportInspect(repo, installed, math3d, profile);
+        if (inspect != null) certified.Add(inspect);
         return new JsonObject { ["schemaVersion"] = 1, ["kind"] = "scientific.certified-capabilities",
             ["issuedAtUtc"] = DateTimeOffset.UtcNow.ToString("O"), ["profileId"] = profile,
             ["providerRegistryVersion"] = ScientificProviderRegistry.ContractVersion,
@@ -513,9 +515,9 @@ static partial class BrokerManifest
         if (manifest["schemaVersion"]?.GetValue<int>() != 1 || manifest["kind"]?.GetValue<string>() != "scientific.certified-capabilities"
             || manifest["certifiedCapabilities"] is not JsonArray capabilities
             || capabilities.Any(item => item?["runtimeId"]?.GetValue<string>() is not ("cgal-win-conda" or "gmsh-win-conda" or "vtk-win-conda")
-                || item?["capabilityId"]?.GetValue<string>() is not ("mesh.interop.vtk-math3d" or "mesh.generate" or "mesh.generate3d" or "mesh.repair" or "mesh.remesh" or "mesh.orient" or "mesh.read")
+                || item?["capabilityId"]?.GetValue<string>() is not ("mesh.interop.vtk-math3d" or "mesh.generate" or "mesh.generate3d" or "mesh.repair" or "mesh.remesh" or "mesh.inspect" or "mesh.orient" or "mesh.read")
                 || (item?["runtimeId"]?.GetValue<string>() == "cgal-win-conda"
-                    && item?["capabilityId"]?.GetValue<string>() is not ("mesh.interop.vtk-math3d" or "mesh.repair" or "mesh.remesh" or "mesh.orient"))
+                    && item?["capabilityId"]?.GetValue<string>() is not ("mesh.interop.vtk-math3d" or "mesh.repair" or "mesh.remesh" or "mesh.inspect" or "mesh.orient"))
                 || (item?["runtimeId"]?.GetValue<string>() == "vtk-win-conda"
                     && item?["capabilityId"]?.GetValue<string>() != "mesh.read")
                 || (item?["runtimeId"]?.GetValue<string>() == "gmsh-win-conda"

@@ -68,6 +68,7 @@ function ScientificCgalRecipesContent({ runtime, native, edited }: Props) {
       <strong>Guarded remesh L5–L9</strong>
       <p className="scientific-runtime-note">The pinned suite exercises tetrahedron, affine tetrahedron, cube, and octahedron with accepted, volume-loss, and invalid inputs. Run the levels in order; History checks each saved report, its supporting records, and source drift.</p>
       <div className="scientific-inspector-actions">{[5, 6, 7, 8, 9].map(level => <button key={level} disabled={!executable || native.busy || native.pending} onClick={() => native.send(runtime.id, `l${level}-cgal-remesh`)}>Run remesh L{level}</button>)}</div>
+      <div className="scientific-inspector-actions">{[5, 6, 7, 8, 9].map(level => <button key={level} disabled={!executable || native.busy || native.pending} onClick={() => native.send(runtime.id, `l${level}-cgal-inspect`)}>Run inspect L{level}</button>)}</div>
     </div>}
     <div className="scientific-runtime-fields">
       <label>Input dataset<select aria-label="CGAL input dataset" value={inputId} onChange={event => setInputId(event.target.value)}><option value="">Load and select a duplicated mesh...</option>{inputs.map(item => <option key={item.id} value={item.id}>{item.category} / {item.name}{item.expectedProblem ? ' / expected problem' : ''}</option>)}</select></label>

@@ -56,6 +56,19 @@ REPAIR_CONTRACT_SHA256 = hashlib.sha256(compact_json_text(REPAIR_CONTRACT_TEXT).
 REMESH_CONTRACT = dict(id='math3d.guarded-remesh-handoff', version=1,
                        inputFormat='obj', outputFormat='obj', policyVersion=2,
                        viewer='MeshDocumentViewport')
+INSPECT_CONTRACT = dict(id='math3d.mesh-inspect-handoff', version=1,
+                        inputFormat='obj', outputFormat='obj', scopeVersion=1,
+                        viewer='MeshDocumentViewport')
+INSPECT_CASES = ('tetra', 'octa', 'cube', 'affine', 'open', 'nonmanifold', 'degenerate')
+INSPECT_CONSUMERS = ('renderer/src/mesh/surfaceMesh.ts',
+                     'renderer/src/workspace/MeshDocumentViewport.tsx', 'packages/core/src/meshDocument.ts')
+INSPECT_SOURCES = ('tools/scientific-cgal-worker.py', 'tools/scientific_worker_contract.py',
+                   'tools/scientific_cgal_inspect_qualification.py',
+                   'scientific/fixtures/cgal-inspect/manifest.v1.json',
+                   'BatchLauncher/Form1.Scientific.CgalInspect.cs',
+                   'BatchLauncher/ScientificQualificationRecords.Inspect.cs',
+                   'BatchLauncher/ScientificRunFingerprint.cs',
+                   'tools/scientific-broker/Program.Inspect.cs', 'tools/scientific-broker/broker.py')
 ORIENTATION_CONTRACT = dict(id='math3d.orientation-handoff', version=1,
                             inputFormat='obj', outputFormat='obj', scopeVersion=2,
                             viewer='MeshDocumentViewport')
@@ -139,14 +152,15 @@ class Broker:
             raise ValueError('Unsupported broker runtime profile.')
         self.gmsh = self.runtime_id == 'gmsh-win-conda'
         self.capability_id = config.get('capabilityId', 'mesh.generate' if self.gmsh else 'mesh.interop.vtk-math3d')
-        if self.capability_id not in (('mesh.generate', 'mesh.generate3d') if self.gmsh else ('mesh.read',) if self.runtime_id == 'vtk-win-conda' else ('mesh.interop.vtk-math3d', 'mesh.repair', 'mesh.remesh', 'mesh.orient')):
+        if self.capability_id not in (('mesh.generate', 'mesh.generate3d') if self.gmsh else ('mesh.read',) if self.runtime_id == 'vtk-win-conda' else ('mesh.interop.vtk-math3d', 'mesh.repair', 'mesh.remesh', 'mesh.orient', 'mesh.inspect')):
             raise ValueError('Unsupported broker capability profile.')
         self.repair = self.capability_id == 'mesh.repair'
         self.remesh = self.capability_id == 'mesh.remesh'
+        self.inspect = self.capability_id == 'mesh.inspect'
         self.orientation = self.capability_id == 'mesh.orient'
         self.vtk_read = self.runtime_id == 'vtk-win-conda' and self.capability_id == 'mesh.read'
         self.volume = self.capability_id == 'mesh.generate3d'
-        self.contract = VOLUME_CONTRACT if self.volume else REPAIR_CONTRACT if self.repair else REMESH_CONTRACT if self.remesh else ORIENTATION_CONTRACT if self.orientation else VTK_READ_CONTRACT if self.vtk_read else CONTRACT
+        self.contract = VOLUME_CONTRACT if self.volume else REPAIR_CONTRACT if self.repair else INSPECT_CONTRACT if self.inspect else REMESH_CONTRACT if self.remesh else ORIENTATION_CONTRACT if self.orientation else VTK_READ_CONTRACT if self.vtk_read else CONTRACT
         self.paths = {name: Path(config[name]).resolve(strict=True) for name in
                       ('manifest', 'runtimeManifest', 'adapter', 'workerContract', 'python', 'worker', 'prefix', 'datasetRoot')}
         if self.volume:
@@ -196,6 +210,7 @@ class Broker:
                                 ('gmsh-win-conda', 'mesh.generate3d', 'L9'),
                                 ('cgal-win-conda', 'mesh.repair', 'L9'),
                                 ('cgal-win-conda', 'mesh.remesh', 'L9'),
+                                ('cgal-win-conda', 'mesh.inspect', 'L9'),
                                 ('cgal-win-conda', 'mesh.orient', 'L9'),
                                 ('vtk-win-conda', 'mesh.read', 'L9')):
                 raise ValueError('Unqualified or unsupported provider in certified manifest.')
@@ -227,6 +242,30 @@ class Broker:
                 if (entry.get('referenceInputSha256') != references[0]['inputSha256']
                         or entry.get('referenceArtifactSha256') != references[0]['outputSha256']):
                     raise ValueError('The certified repair reference differs from its case pack.')
+            if self.inspect:
+                fixture_path = self.source_root / 'scientific/fixtures/cgal-inspect/manifest.v1.json'
+                require_hash(fixture_path, entry.get('fixtureManifestSha256'), 'Inspection fixture manifest')
+                fixtures = json.loads(fixture_path.read_text(encoding='utf-8'))
+                references = entry.get('referenceCases')
+                if (fixtures.get('capabilityId') != 'mesh.inspect' or not isinstance(references, list)
+                        or [item.get('caseId') for item in references] != list(INSPECT_CASES)):
+                    raise ValueError('Certified inspection case pack is incomplete.')
+                for fixture, case in zip(fixtures['cases'], references):
+                    expected = fixture['expected']
+                    if (case.get('inputSha256') != fixture['sha256'] or case.get('expected') != expected
+                            or (expected == 'accepted') != bool(re.fullmatch('[0-9a-f]{64}', case.get('outputSha256') or ''))):
+                        raise ValueError('Certified inspection case identity changed.')
+                    require_hash(self.source_root / fixture['path'], fixture['sha256'], 'Inspection fixture')
+                if (entry.get('referenceInputSha256') != references[0]['inputSha256']
+                        or entry.get('referenceArtifactSha256') != references[0]['outputSha256']):
+                    raise ValueError('Certified inspection reference changed.')
+                sources = entry.get('inspectSources')
+                if not isinstance(sources, dict) or set(sources) != set(INSPECT_SOURCES):
+                    raise ValueError('Inspection qualification sources are incomplete.')
+                for name, digest in sources.items():
+                    require_hash(self.source_root / name, digest, 'Inspection source ' + name)
+                if hashlib.sha256(json.dumps(sources, separators=(',', ':')).encode()).hexdigest() != entry.get('inspectSourcesSha256'):
+                    raise ValueError('Inspection source fingerprint changed.')
             if self.remesh:
                 fixture_path = self.source_root / 'scientific/fixtures/cgal-remesh-qualification/manifest.json'
                 policy_path = self.source_root / 'schemas/scientific-remesh-guard.v2.json'
@@ -345,10 +384,10 @@ class Broker:
                 raise ValueError('L9 qualification identity differs from its support chain.')
             if support[8]['recordId'] != entry['sourceL8RecordId'] or support[8]['runId'] != entry['sourceL8RunId']:
                 raise ValueError('L8 qualification identity differs from its support chain.')
-            expected_files = VOLUME_CONSUMER_FILES if self.volume else set(REPAIR_CONTRACT['consumerSources']) if self.repair else set(REMESH_CONSUMER_FILES) if self.remesh or self.orientation or self.vtk_read else CONSUMER_FILES
+            expected_files = VOLUME_CONSUMER_FILES if self.volume else set(REPAIR_CONTRACT['consumerSources']) if self.repair else set(INSPECT_CONSUMERS) if self.inspect else set(REMESH_CONSUMER_FILES) if self.remesh or self.orientation or self.vtk_read else CONSUMER_FILES
             if not isinstance(entry.get('consumerSources'), dict) or set(entry['consumerSources']) != expected_files:
                 raise ValueError('MATH3D consumer source identity is missing.')
-            if (self.volume or self.repair or self.remesh or self.orientation or self.vtk_read) and self.math3d_root is not None:
+            if (self.volume or self.repair or self.remesh or self.inspect or self.orientation or self.vtk_read) and self.math3d_root is not None:
                 for name, expected in entry['consumerSources'].items():
                     require_hash(self.math3d_root / name, expected, 'MATH3D volume consumer ' + name)
                 source_hash = hashlib.sha256(json.dumps(entry['consumerSources'], separators=(',', ':')).encode()).hexdigest()
@@ -389,6 +428,7 @@ class Broker:
         require_hash(source, input_info.get('sha256'), 'Input artifact')
         repair_case = None
         remesh_case = None
+        inspect_case = None
         orientation_case = None
         vtk_case = None
         if self.repair:
@@ -399,6 +439,16 @@ class Broker:
                 raise ValueError('Only a certified repair caseId and typed input are allowed.')
             if input_info['sha256'] != repair_case['inputSha256']:
                 raise ValueError('Input is outside the certified repair case fixture.')
+        elif self.inspect:
+            inspect_case = next((case for case in self.capabilities[0]['referenceCases']
+                                 if case['caseId'] == body.get('caseId')), None)
+            if (inspect_case is None
+                    or set(body) != {'schemaVersion', 'runtimeId', 'capabilityId', 'caseId', 'input', 'timeoutSeconds'}
+                    or set(input_info) != {'path', 'sha256'}
+                    or input_info['sha256'] != inspect_case['inputSha256']):
+                raise ValueError('Only a pinned typed inspection case is allowed.')
+            if inspect_case['caseId'] == 'open':
+                raise ValueError('Open mesh is outside the closed inspection scope.')
         elif self.remesh:
             case_id = body.get('caseId')
             remesh_case = next((case for case in self.capabilities[0]['referenceCases']
@@ -451,7 +501,7 @@ class Broker:
             with source_path.open('x', encoding='utf-8') as stream:
                 json.dump(source_snapshot, stream, separators=(',', ':'))
             source_sha = sha(source_path)
-            inspecting = self.remesh and body.get('operation') == 'mesh.inspect'
+            inspecting = self.inspect or (self.remesh and body.get('operation') == 'mesh.inspect')
             recipe = 'gmsh.volume3d.cube' if self.volume else 'gmsh.mesh2d' if self.gmsh else repair_case['recipeId'] if self.repair else 'cgal.validate' if inspecting else 'cgal.remesh' if self.remesh else 'cgal.repair-orientation' if self.orientation else 'mesh.inspect' if self.vtk_read else 'cgal.validate'
             output_name = 'cube.msh' if self.volume else 'l5-positive.msh' if self.gmsh else 'repaired.obj' if self.repair else 'inspected.obj' if inspecting else 'remeshed.obj' if self.remesh else 'oriented.obj' if self.orientation else 'read.vtp' if self.vtk_read else 'l5-positive.obj'
             dataset_id = hashlib.sha256((repair_case['caseId'] + ':' + repair_case['inputSha256']).encode()).hexdigest() if self.repair else None
@@ -473,7 +523,7 @@ class Broker:
                'certificationRecordId': self.capabilities[0]['recordId'], 'artifacts': [], 'diagnostics': [],
                'directory': str(directory), 'sourceSnapshotSha256': source_sha,
                **({'operation': 'mesh.inspect'} if inspecting else {}),
-               **({'caseId': repair_case['caseId']} if self.repair else {'caseId': remesh_case['caseId']} if self.remesh else {'caseId': orientation_case['caseId']} if self.orientation else {'caseId': vtk_case['caseId']} if self.vtk_read else {}),
+               **({'caseId': repair_case['caseId']} if self.repair else {'caseId': inspect_case['caseId']} if self.inspect else {'caseId': remesh_case['caseId']} if self.remesh else {'caseId': orientation_case['caseId']} if self.orientation else {'caseId': vtk_case['caseId']} if self.vtk_read else {}),
                'cancel': threading.Event(), 'process': None}
             self.jobs[job_id] = job
         threading.Thread(target=self._run, args=(job, timeout), daemon=True).start()
@@ -572,11 +622,20 @@ class Broker:
         reference = next((case for case in entry['referenceCases'] if case['caseId'] == job['caseId']), None) if entry else None
         request = json.loads((directory / 'request.json').read_text(encoding='utf-8'))
         output = directory / 'inspected.obj'
+        if self.inspect and reference is not None and reference['expected'] == 'rejected':
+            if (not isinstance(result, dict) or result.get('state') != 'failed' or exit_code == 0
+                    or output.exists() or result.get('artifacts') or result.get('validatedCapabilities')):
+                raise ValueError('Adverse inspection case published an artifact.')
+            with self.lock:
+                job.update(pendingState='rejected', stage='finalizing', progress=95,
+                           diagnostics=[item.get('message', '') for item in result.get('diagnostics', [])])
+            return
         if (entry is None or reference is None or not isinstance(result, dict)
                 or request.get('recipeId') != 'cgal.validate' or request.get('operation') != 'mesh.inspect'
                 or result.get('recipeId') != 'cgal.validate' or result.get('operation') != 'mesh.inspect'
                 or result.get('runId') != job['jobId'] or result.get('state') != 'succeeded'
                 or exit_code != 0 or not output.is_file() or output.stat().st_size > MAX_INPUT
+                or (self.inspect and sha(output) != reference['outputSha256'])
                 or sha(directory / 'dataset/input.obj') != reference['inputSha256']
                 or 'mesh.validate' not in result.get('validatedCapabilities', [])
                 or not any(item.get('path') == 'inspected.obj' and item.get('sha256') == sha(output)
@@ -591,9 +650,20 @@ class Broker:
                 or after.get('boundaryEdges') != 0 or engine.get('degenerateTriangles') != 0
                 or engine.get('selfIntersections') is not False):
             raise ValueError('CGAL inspection topology or nonmutation check failed.')
+        names = ['inspected.obj']
+        if self.inspect:
+            handoff = {'schemaVersion': 1, 'contract': self.contract,
+                       'runtimeId': self.runtime_id, 'capabilityId': self.capability_id,
+                       'caseId': job['caseId'], 'sourceL9RecordId': entry['recordId'],
+                       'sourceL8RecordId': entry['sourceL8RecordId'],
+                       'workerRequestSha256': sha(directory / 'request.json'),
+                       'workerResultSha256': sha(result_path), 'artifactSha256': sha(output)}
+            (directory / 'handoff.json').write_text(json.dumps(handoff, separators=(',', ':')), encoding='utf-8')
+            names.append('handoff.json')
         with self.lock:
             job.update(pendingState='succeeded', stage='finalizing', progress=95,
-                       artifacts=[{'path': 'inspected.obj', 'sha256': sha(output), 'bytes': output.stat().st_size}])
+                       artifacts=[{'path': name, 'sha256': sha(directory / name),
+                                   'bytes': (directory / name).stat().st_size} for name in names])
 
     def _finish_orientation(self, job, result, result_path, directory, exit_code):
         self.verify()
@@ -794,7 +864,7 @@ class Broker:
             if result_path.is_file() and result_path.stat().st_size > 1048576:
                 raise ValueError('Worker result exceeds 1 MiB.')
             result = json.loads(result_path.read_text(encoding='utf-8')) if result_path.is_file() else None
-            if self.remesh and job.get('operation') == 'mesh.inspect':
+            if self.inspect or self.remesh and job.get('operation') == 'mesh.inspect':
                 self._finish_inspect(job, result, result_path, directory, process.returncode)
                 return
             if self.remesh:
@@ -922,7 +992,7 @@ class Broker:
                 for name in (('cube.msh', 'volume.m3dt', 'exporter.json', 'handoff.json') if self.volume else
                              ('l5-positive.msh', 'l5-positive.obj', 'conversion.json', 'handoff.json') if self.gmsh else
                              ('repaired.obj', 'handoff.json') if self.repair else
-                             ('inspected.obj',) if self.remesh and job.get('operation') == 'mesh.inspect' else
+                             ('inspected.obj', 'handoff.json') if self.inspect or self.remesh and job.get('operation') == 'mesh.inspect' else
                              ('l5-positive.obj', 'handoff.json')):
                     path = directory / name
                     if path.exists():
@@ -983,6 +1053,8 @@ class Broker:
             return json.loads(path.read_text(encoding='utf-8'))
 
     def promote(self, job_id):
+        if self.inspect:
+            return self._promote_inspect(job_id)
         if self.remesh:
             return self._promote_remesh(job_id)
         if self.orientation:
@@ -1094,6 +1166,69 @@ class Broker:
             directory = Path(job['directory']) / 'promotions'
             directory.mkdir(exist_ok=True)
             path = directory / (promotion_id + '.json')
+            with path.open('x', encoding='utf-8') as stream:
+                json.dump(record, stream, separators=(',', ':'))
+            return {**record, 'path': str(path), 'sha256': sha(path)}
+
+    def _promote_inspect(self, job_id):
+        with self.lock:
+            job = self.jobs.get(job_id)
+            if job is None:
+                raise KeyError(job_id)
+            reasons = []
+            entry = None
+            try:
+                self.verify()
+                entry = next((item for item in self.capabilities
+                              if item['recordId'] == job['certificationRecordId']), None)
+                if entry is None:
+                    reasons.append('The L0-L9 inspection qualification is no longer current.')
+            except (ValueError, OSError) as error:
+                reasons.append('Inspection certification drifted: ' + str(error))
+            if job['state'] != 'succeeded':
+                reasons.append('Only a successful accepted inspection can be promoted.')
+            if self.math3d_root is None:
+                reasons.append('MATH3D consumer checkout is unavailable.')
+            elif entry is not None:
+                for name, digest in entry['consumerSources'].items():
+                    try:
+                        require_hash(self.math3d_root / name, digest, 'MATH3D inspection consumer ' + name)
+                    except (ValueError, OSError) as error:
+                        reasons.append(str(error))
+            if entry is not None and job['state'] == 'succeeded':
+                try:
+                    self.source(job_id)
+                    directory = Path(job['directory'])
+                    request = json.loads((directory / 'request.json').read_text(encoding='utf-8'))
+                    result = json.loads((directory / 'results.json').read_text(encoding='utf-8'))
+                    handoff = json.loads(self.artifact(job_id, 'handoff.json'))
+                    output = self.artifact(job_id, 'inspected.obj')
+                    reference = next(item for item in entry['referenceCases'] if item['caseId'] == job['caseId'])
+                    digest = hashlib.sha256(output).hexdigest()
+                    if (reference['expected'] != 'accepted' or digest != reference['outputSha256']
+                            or request.get('operation') != 'mesh.inspect'
+                            or result.get('operation') != 'mesh.inspect'
+                            or handoff.get('contract') != self.contract
+                            or handoff.get('sourceL9RecordId') != entry['recordId']
+                            or handoff.get('sourceL8RecordId') != entry['sourceL8RecordId']
+                            or handoff.get('workerRequestSha256') != sha(directory / 'request.json')
+                            or handoff.get('workerResultSha256') != sha(directory / 'results.json')
+                            or handoff.get('artifactSha256') != digest):
+                        reasons.append('Inspection handoff or accepted artifact changed.')
+                except (ValueError, OSError, KeyError, StopIteration, json.JSONDecodeError) as error:
+                    reasons.append('Verified inspection handoff is unavailable: ' + str(error))
+            decision = 'allowed' if not reasons else 'blocked'
+            record = {'schemaVersion': 1, 'kind': 'scientific.math3d-promotion',
+                      'promotionId': uuid.uuid4().hex, 'decision': decision, 'reasons': reasons,
+                      'sourceJobId': job_id, 'sourceJobState': job['state'],
+                      'runtimeId': self.runtime_id, 'capabilityId': self.capability_id,
+                      'certificationRecordId': job['certificationRecordId'],
+                      'manifestSha256': sha(self.paths['manifest']),
+                      'sourceSnapshotSha256': job.get('sourceSnapshotSha256'),
+                      'contractVersion': self.contract['version'],
+                      'handoffSha256': sha(Path(job['directory']) / 'handoff.json') if decision == 'allowed' else None,
+                      'artifactSha256': reference['outputSha256'] if decision == 'allowed' else None}
+            path = Path(job['directory']) / (record['promotionId'] + '.json')
             with path.open('x', encoding='utf-8') as stream:
                 json.dump(record, stream, separators=(',', ':'))
             return {**record, 'path': str(path), 'sha256': sha(path)}

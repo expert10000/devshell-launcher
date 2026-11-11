@@ -40,6 +40,10 @@
     { "id": "mesh.validate", "version": 1, "parametersSchema": "mesh-file.v1", "resultSchema": "mesh-diagnostics.v1", "providers": [
       { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Fixed surface-mesh fixture and expected rejection; broader geometry is unqualified." }
     ] },
+    { "id": "mesh.inspect", "version": 1, "parametersSchema": "mesh-file.v1", "resultSchema": "mesh-diagnostics.v1", "providers": [
+      { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Version 1 closed triangular OBJ case pack with four accepted shapes and three no-output rejections; current managed evidence required." },
+      { "runtimeId": "vtk-win-conda", "backend": "windows-native", "limitations": "Shared inspection requires current VTK mesh.read L9 and the versioned matched fixture contract." }
+    ] },
     { "id": "mesh.repair", "version": 1, "parametersSchema": "mesh-operation.v1", "resultSchema": "mesh-artifact.v1", "providers": [
         { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Registered OBJ hole filling for exact small-hole choices or bounded 1-8 loops of 3-12 edges each (64 total) on a connected triangle manifold. No general soup repair; each qualification is fixture scoped." }
     ] },

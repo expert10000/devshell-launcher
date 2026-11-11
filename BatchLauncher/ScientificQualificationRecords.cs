@@ -1117,6 +1117,22 @@ public static partial class ScientificQualificationRecords
                 Add("mesh.remesh", level, recipeId, hash, evidence?["lowerQualification"],
                     evidence?["consumerSourceSha256"]?.GetValue<string>());
         }
+        else if (runtimeId == "cgal-win-conda" && recipeId is ("l5.cgal-inspect" or "l6.cgal-inspect" or "l7.cgal-inspect" or "l8.cgal-inspect" or "l9.cgal-inspect")
+            && manifest["qualificationRecipes"] is JsonArray inspectRecipes)
+        {
+            var level = $"L{recipeId[1]}";
+            var declaration = inspectRecipes.OfType<JsonObject>().FirstOrDefault(item =>
+                item["id"]?.GetValue<string>() == recipeId
+                && item["readinessLevel"]?.GetValue<string>() == level
+                && item["capability"]?.GetValue<string>() == "mesh.inspect"
+                && (level == "L5" ? item["suiteId"]?.GetValue<string>() == "cgal-mesh-inspect-v1"
+                    : item["referenceRecipe"]?.GetValue<string>() == $"l{recipeId[1] - '1'}.cgal-inspect"));
+            var hash = InspectHash(directory, result, components!, level);
+            var evidence = result["inspectQualificationEvidence"];
+            if (declaration != null && hash != null)
+                Add("mesh.inspect", level, recipeId, hash, evidence?["lowerQualification"],
+                    evidence?["consumerSourceSha256"]?.GetValue<string>());
+        }
         else if (runtimeId == "cgal-win-conda" && recipeId is ("l5.cgal-orient" or "l6.cgal-orient" or "l7.cgal-orient" or "l8.cgal-orient" or "l9.cgal-orient")
             && manifest["qualificationRecipes"] is JsonArray orientationV2Recipes)
         {
@@ -1296,6 +1312,20 @@ public static partial class ScientificQualificationRecords
                     || record["evidenceSha256"]?.GetValue<string>() != RemeshHash(directory, sourceResult,
                         fingerprint!["components"]!.AsObject(), level))
                     throw new InvalidDataException("CGAL remesh qualification evidence changed.");
+                continue;
+            }
+            if (remeshId is "l5.cgal-inspect" or "l6.cgal-inspect" or "l7.cgal-inspect" or "l8.cgal-inspect" or "l9.cgal-inspect")
+            {
+                var sourceResult = JsonNode.Parse(result.GetRawText()) as JsonObject;
+                var evidence = sourceResult?["inspectQualificationEvidence"];
+                var level = $"L{remeshId[1]}";
+                if (sourceResult == null || record["level"]?.GetValue<string>() != level
+                    || record["capabilityId"]?.GetValue<string>() != "mesh.inspect"
+                    || record["lowerQualification"]?.ToJsonString() != evidence?["lowerQualification"]?.ToJsonString()
+                    || record["consumerSourceSha256"]?.GetValue<string>() != evidence?["consumerSourceSha256"]?.GetValue<string>()
+                    || record["evidenceSha256"]?.GetValue<string>() != InspectHash(directory, sourceResult,
+                        fingerprint!["components"]!.AsObject(), level))
+                    throw new InvalidDataException("CGAL inspect qualification evidence changed.");
                 continue;
             }
             if (remeshId is "l5.cgal-orient" or "l6.cgal-orient" or "l7.cgal-orient" or "l8.cgal-orient" or "l9.cgal-orient")
@@ -1626,7 +1656,7 @@ public static partial class ScientificQualificationRecords
     {
         foreach (var record in records.OfType<JsonObject>().Where(item => item["level"]?.GetValue<string>() == "L9"))
         {
-            if (record["evidenceId"]?.GetValue<string>() is "l9.cgal-repair" or "l9.cgal-remesh" or "l9.cgal-orient" or "l9.vtk-read") continue;
+            if (record["evidenceId"]?.GetValue<string>() is "l9.cgal-repair" or "l9.cgal-remesh" or "l9.cgal-inspect" or "l9.cgal-orient" or "l9.vtk-read") continue;
             var reasons = record["staleReasons"] as JsonArray ?? new JsonArray();
             var volume = record["evidenceId"]?.GetValue<string>() == "l9.gmsh-volume";
             var sourcesSha256 = volume ? volumeSourcesSha256 : currentSourcesSha256;

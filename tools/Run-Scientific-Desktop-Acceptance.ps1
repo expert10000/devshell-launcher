@@ -1,5 +1,5 @@
 param(
-    [Parameter(Mandatory=$true)][ValidateSet('Repair', 'GmshVolume', 'Remesh', 'Orientation', 'VtkRead')][string]$Scenario,
+    [Parameter(Mandatory=$true)][ValidateSet('Repair', 'GmshVolume', 'Remesh', 'CgalInspect', 'Orientation', 'VtkRead')][string]$Scenario,
     [int]$CdpPort = 9244,
     [string]$Math3DCheckout = $env:MATH3D_CHECKOUT,
     [string]$ExistingWorktree,
@@ -107,6 +107,7 @@ try {
     if (!$BootOnly) {
         $script = if ($Scenario -eq 'Repair') { 'scientific-cgal-repair-managed-ui-checks.mjs' }
             elseif ($Scenario -eq 'Remesh') { 'scientific-cgal-remesh-managed-ui-checks.mjs' }
+            elseif ($Scenario -eq 'CgalInspect') { 'scientific-cgal-inspect-managed-ui-checks.mjs' }
             elseif ($Scenario -eq 'Orientation') { 'scientific-cgal-orientation-managed-ui-checks.mjs' }
             elseif ($Scenario -eq 'VtkRead') { 'scientific-vtk-read-managed-ui-checks.mjs' }
             else { 'scientific-gmsh-managed-ui-checks.mjs' }

@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 2,
+  "suiteId": "cgal-mesh-inspect-v2",
+  "capabilityId": "mesh.inspect",
+  "cases": [
+    {
+      "caseId": "tetra",
+      "path": "scientific/fixtures/cgal/closed-tetra.obj",
+      "sha256": "21b1325a5d9f7ef43f04b923c7b469e6a8c73cc41eef436924801d37ac29113d",
+      "expected": "accepted",
+      "points": 4,
+      "triangles": 4
+    },
+    {
+      "caseId": "octa",
+      "path": "scientific/fixtures/cgal-remesh-qualification/octahedron.obj",
+      "sha256": "72cff9d9e08a2ce0ba81932417e0c6351bc11174d394607e7041586ad59b1a5a",
+      "expected": "accepted",
+      "points": 6,
+      "triangles": 8
+    },
+    {
+      "caseId": "cube",
+      "path": "scientific/fixtures/cgal-repair-quad/cube-closed.obj",
+      "sha256": "70a95597b1464af10a197f4c0d6def7f51fbd77118d765fc735e807ec52ca504",
+      "expected": "accepted",
+      "points": 8,
+      "triangles": 12
+    },
+    {
+      "caseId": "affine",
+      "path": "scientific/fixtures/cgal-remesh-qualification/affine-tetra.obj",
+      "sha256": "bfdb09b4122479ac1997396c5273a89e9d8c6c7687ce7b885070372511d03bac",
+      "expected": "accepted",
+      "points": 4,
+      "triangles": 4
+    },
+    {
+      "caseId": "sphere-128",
+      "path": "scientific/fixtures/inspect-shared/sphere-128.obj",
+      "sha256": "bf3a21ef2ebe26f8e7daf3a88c94c54f06fac040a183adc7958d07e431a85b70",
+      "expected": "accepted",
+      "points": 66,
+      "triangles": 128,
+      "outputSha256": "92c3fe8ddd154aee6e4a7841523c400b71ec3f0418477b757bedcfdd3c07efcf"
+    },
+    {
+      "caseId": "sphere-512",
+      "path": "scientific/fixtures/inspect-shared/sphere-512.obj",
+      "sha256": "8c05a577381397605ec5b0717cea164f378dbc5b47959b1a4c3a18235f850563",
+      "expected": "accepted",
+      "points": 258,
+      "triangles": 512,
+      "outputSha256": "547f7892fadbb8a05f904c0415bcbc7f4c7d4b0a4fb0f566ed1986360fe6eb5c"
+    },
+    {
+      "caseId": "sphere-2048",
+      "path": "scientific/fixtures/inspect-shared/sphere-2048.obj",
+      "sha256": "ec86b08e0b43aee95708ae08d83703dc3edbb92c0bddf517038c2e8711298afa",
+      "expected": "accepted",
+      "points": 1026,
+      "triangles": 2048,
+      "outputSha256": "32379a3f4d92582f4ed437fcb9d744ad4f059b0558c3c27af46ed78f3883b5dd"
+    },
+    {
+      "caseId": "open",
+      "path": "scientific/fixtures/cgal/open-square.obj",
+      "sha256": "4f597c42980410d32acc3ed609278030c26fff2e8155b3802756222df2d714cd",
+      "expected": "rejected"
+    },
+    {
+      "caseId": "nonmanifold",
+      "path": "scientific/fixtures/cgal/nonmanifold-edge.obj",
+      "sha256": "becb55a2ad02dc0e3e1da288e730688f02969adc6b4c5a1d710fa3ae6bae24cb",
+      "expected": "rejected"
+    },
+    {
+      "caseId": "degenerate",
+      "path": "scientific/fixtures/cgal/degenerate-triangle.obj",
+      "sha256": "422613a31164b447d6a7d796e74cc3c8a34e2b4689d6846a55d8912267126cf8",
+      "expected": "rejected"
+    }
+  ]
+}

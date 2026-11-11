@@ -29,7 +29,7 @@ def run(config):
     if node is None:
         raise ValueError('Node.js is required for inspection product smoke.')
     fixtures = {item['caseId']: item for item in json.loads((broker.source_root /
-        'scientific/fixtures/cgal-inspect/manifest.v1.json').read_text())['cases']}
+        'scientific/fixtures/cgal-inspect/manifest.v2.json').read_text())['cases']}
     references = {item['caseId']: item for item in broker.capabilities[0]['referenceCases']}
     outcomes = []
     for case_id in INSPECT_CASES:

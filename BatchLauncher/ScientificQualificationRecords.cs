@@ -1125,7 +1125,7 @@ public static partial class ScientificQualificationRecords
                 item["id"]?.GetValue<string>() == recipeId
                 && item["readinessLevel"]?.GetValue<string>() == level
                 && item["capability"]?.GetValue<string>() == "mesh.inspect"
-                && (level == "L5" ? item["suiteId"]?.GetValue<string>() == "cgal-mesh-inspect-v1"
+                && (level == "L5" ? item["suiteId"]?.GetValue<string>() == "cgal-mesh-inspect-v2"
                     : item["referenceRecipe"]?.GetValue<string>() == $"l{recipeId[1] - '1'}.cgal-inspect"));
             var hash = InspectHash(directory, result, components!, level);
             var evidence = result["inspectQualificationEvidence"];
@@ -1157,7 +1157,7 @@ public static partial class ScientificQualificationRecords
                 item["id"]?.GetValue<string>() == recipeId
                 && item["readinessLevel"]?.GetValue<string>() == level
                 && item["capability"]?.GetValue<string>() == "mesh.read"
-                && (level == "L5" ? item["suiteId"]?.GetValue<string>() == "vtk-mesh-read-v2"
+                && (level == "L5" ? item["suiteId"]?.GetValue<string>() == "vtk-mesh-read-v3"
                     : item["referenceRecipe"]?.GetValue<string>() == $"l{recipeId[1] - '1'}.vtk-read"));
             var hash = VtkReadHash(directory, result, components!, level);
             var evidence = result["vtkReadQualificationEvidence"];

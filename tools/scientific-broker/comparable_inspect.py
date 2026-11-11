@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import random
 import shutil
 import statistics
 import time
@@ -13,10 +14,18 @@ import uuid
 
 from broker import Broker, sha
 from differential import compare_descriptors, load_saved_mesh
-from five_capability_release import verify as verify_release
+
+
+def verify_release(path):
+    kind = json.loads(Path(path).read_text(encoding='utf-8')).get('kind')
+    if kind == 'scientific.six-capability-release':
+        from six_capability_release import verify
+    else:
+        from five_capability_release import verify
+    return verify(path)
 
 ROOT = Path(__file__).resolve().parents[2]
-CONTRACT = ROOT / 'schemas/scientific-mesh-inspect.v1.json'
+CONTRACT = ROOT / 'schemas/scientific-mesh-inspect.v2.json'
 
 
 def host_fingerprint():
@@ -28,10 +37,12 @@ def host_fingerprint():
 
 
 def policy(repo):
-    path = Path(repo) / 'schemas/scientific-mesh-inspect.v1.json'
+    path = Path(repo) / 'schemas/scientific-mesh-inspect.v2.json'
     value = json.loads(path.read_text(encoding='utf-8'))
-    if (value.get('schemaVersion') != 1 or value.get('operation') != 'mesh.inspect'
-            or [item.get('id') for item in value.get('tiers', [])] != ['tetra-4', 'octa-6', 'cube-8']
+    if (value.get('schemaVersion') != 2 or value.get('scopeVersion') != 2
+            or value.get('operation') != 'mesh.inspect'
+            or [item.get('id') for item in value.get('tiers', [])] !=
+            ['tetra-4', 'octa-6', 'cube-8', 'sphere-128', 'sphere-512', 'sphere-2048']
             or value.get('minimumSamples', 0) < 5 or not 0 < value.get('tolerance', 0) <= 1e-6):
         raise ValueError('Shared mesh.inspect contract changed.')
     for tier in value['tiers']:
@@ -62,8 +73,6 @@ def inspect_sample(broker, case_id, fixture, digest, provider):
     request = {'schemaVersion': 1, 'runtimeId': broker.runtime_id,
                'capabilityId': broker.capability_id, 'caseId': case_id,
                'input': {'path': str(fixture), 'sha256': digest}, 'timeoutSeconds': 120}
-    if provider == 'cgal':
-        request['operation'] = 'mesh.inspect'
     job_id = broker.submit(request)['jobId']
     deadline = time.monotonic() + 150
     while broker.jobs[job_id]['state'] == 'running' and time.monotonic() < deadline:
@@ -91,10 +100,14 @@ def inspect_sample(broker, case_id, fixture, digest, provider):
 
 def summary(values):
     ordered = sorted(values)
-    return {'samples': len(values), 'medianMs': statistics.median(values),
+    median = statistics.median(values)
+    bootstrap = random.Random(0x1A5E)
+    medians = sorted(statistics.median(bootstrap.choices(values, k=len(values))) for _ in range(2000))
+    return {'samples': len(values), 'medianMs': median,
             'p10Ms': ordered[max(0, round((len(values) - 1) * .1))],
             'p90Ms': ordered[min(len(values) - 1, round((len(values) - 1) * .9))],
-            'madMs': statistics.median(abs(value - statistics.median(values)) for value in values)}
+            'madMs': statistics.median(abs(value - median) for value in values),
+            'median95PctBootstrapMs': [medians[49], medians[1949]]}
 
 
 def run(release_path, output_root, repetitions=7):
@@ -104,10 +117,11 @@ def run(release_path, output_root, repetitions=7):
         raise ValueError('Comparable inspection requires 5–20 measured samples.')
     repo = Path(release['repo'])
     contract, contract_sha = policy(repo)
-    configs = {name: Path(release['profiles'][name]['config']) for name in ('remesh', 'vtk_read')}
+    configs = {name: Path(release['profiles'][profile]['config'])
+               for name, profile in (('cgal', 'inspect'), ('vtk', 'vtk_read'))}
     brokers = {name: Broker(path) for name, path in configs.items()}
-    if not brokers['remesh'].remesh or not brokers['vtk_read'].vtk_read:
-        raise ValueError('Current CGAL remesh and VTK read broker profiles are required.')
+    if not brokers['cgal'].inspect or not brokers['vtk'].vtk_read:
+        raise ValueError('Current dedicated CGAL inspect and VTK read broker profiles are required.')
     root = Path(output_root).resolve() / uuid.uuid4().hex
     root.mkdir(parents=True)
     tiers = {}
@@ -115,7 +129,7 @@ def run(release_path, output_root, repetitions=7):
         fixtures = {name: repo / tier[name + 'Fixture'] for name in ('cgal', 'vtk')}
         broker_jobs = {}
         staged = {}
-        for name, broker in (('cgal', brokers['remesh']), ('vtk', brokers['vtk_read'])):
+        for name, broker in brokers.items():
             case_id = tier['cgalCase' if name == 'cgal' else 'vtkCase']
             destination = broker.paths['datasetRoot'] / ('inspect-' + tier['id'] + '-' + name + '.obj')
             destination.parent.mkdir(parents=True, exist_ok=True)
@@ -124,12 +138,18 @@ def run(release_path, output_root, repetitions=7):
             broker_jobs[name] = wait_job(broker, {'schemaVersion': 1, 'runtimeId': broker.runtime_id,
                 'capabilityId': broker.capability_id, 'caseId': case_id,
                 'input': {'path': str(destination), 'sha256': sha(destination)}, 'timeoutSeconds': 120})
-        active = {'cgal': brokers['remesh'], 'vtk': brokers['vtk_read']}
+        active = brokers
         warmups = {name: inspect_sample(active[name], tier[name + 'Case'], staged[name],
                                         tier[name + 'Sha256'], name) for name in active}
         observations = {name: [] for name in active}
+        order_seed = int.from_bytes(hashlib.sha256((contract_sha + tier['id']).encode()).digest()[:8], 'big')
+        order_rng = random.Random(order_seed)
+        sample_order = []
         for _ in range(repetitions):
-            for name in active:
+            order = list(active)
+            order_rng.shuffle(order)
+            sample_order.append(order)
+            for name in order:
                 observations[name].append(inspect_sample(active[name], tier[name + 'Case'], staged[name],
                                                          tier[name + 'Sha256'], name))
         left, right = (observations[name][0]['descriptor'] for name in ('cgal', 'vtk'))
@@ -144,13 +164,14 @@ def run(release_path, output_root, repetitions=7):
                     or before.get('boundaryEdges') != 0 or before.get('nonManifoldEdges', 0) != 0):
                 raise ValueError('Shared inspection topology differs: ' + tier['id'])
         tiers[tier['id']] = {'brokerJobs': broker_jobs, 'geometry': geometry,
+            'sampleOrder': sample_order, 'orderSeed': order_seed,
             'warmups': {name: {key: value for key, value in run.items() if key != 'descriptor'}
                         for name, run in warmups.items()},
             'measurements': {name: {'runs': [{key: value for key, value in run.items() if key != 'descriptor'}
                                              for run in observations[name]],
                                     'statistics': summary([run['durationMs'] for run in observations[name]])}
                              for name in active}}
-    record = {'schemaVersion': 1, 'kind': 'scientific.comparable-mesh-inspect',
+    record = {'schemaVersion': 2, 'kind': 'scientific.comparable-mesh-inspect',
               'state': 'qualified-shared-scope', 'operation': 'mesh.inspect',
               'createdAtUtc': datetime.now(timezone.utc).isoformat(),
               'sourceCommit': release['sourceCommit'], 'releaseRecord': str(release_path),
@@ -171,7 +192,7 @@ def verify(path):
     if sha(path) != Path(str(path) + '.sha256').read_text().strip():
         raise ValueError('Shared inspection record seal changed.')
     record = json.loads(path.read_text(encoding='utf-8'))
-    if (record.get('schemaVersion') != 1 or record.get('kind') != 'scientific.comparable-mesh-inspect'
+    if (record.get('schemaVersion') != 2 or record.get('kind') != 'scientific.comparable-mesh-inspect'
             or record.get('state') != 'qualified-shared-scope' or record.get('operation') != 'mesh.inspect'):
         raise ValueError('Shared inspection qualification changed.')
     release = verify_release(record['releaseRecord'])
@@ -186,6 +207,15 @@ def verify(path):
         Broker(config)
     for tier in contract['tiers']:
         saved = record['tiers'][tier['id']]
+        order_seed = int.from_bytes(hashlib.sha256((contract_sha + tier['id']).encode()).digest()[:8], 'big')
+        rng = random.Random(order_seed)
+        expected_order = []
+        for _ in range(record['repetitions']):
+            order = ['cgal', 'vtk']
+            rng.shuffle(order)
+            expected_order.append(order)
+        if saved.get('orderSeed') != order_seed or saved.get('sampleOrder') != expected_order:
+            raise ValueError('Shared inspection randomized order changed.')
         for name in ('cgal', 'vtk'):
             job = saved['brokerJobs'][name]
             if sha(job['resultPath']) != job['resultSha256'] or sha(job['promotionPath']) != job['promotionSha256']:

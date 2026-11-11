@@ -57,14 +57,18 @@ REMESH_CONTRACT = dict(id='math3d.guarded-remesh-handoff', version=1,
                        inputFormat='obj', outputFormat='obj', policyVersion=2,
                        viewer='MeshDocumentViewport')
 INSPECT_CONTRACT = dict(id='math3d.mesh-inspect-handoff', version=1,
-                        inputFormat='obj', outputFormat='obj', scopeVersion=1,
+                        inputFormat='obj', outputFormat='obj', scopeVersion=2,
                         viewer='MeshDocumentViewport')
-INSPECT_CASES = ('tetra', 'octa', 'cube', 'affine', 'open', 'nonmanifold', 'degenerate')
+INSPECT_CASES = ('tetra', 'octa', 'cube', 'affine', 'sphere-128', 'sphere-512', 'sphere-2048', 'open', 'nonmanifold', 'degenerate')
 INSPECT_CONSUMERS = ('renderer/src/mesh/surfaceMesh.ts',
                      'renderer/src/workspace/MeshDocumentViewport.tsx', 'packages/core/src/meshDocument.ts')
 INSPECT_SOURCES = ('tools/scientific-cgal-worker.py', 'tools/scientific_worker_contract.py',
                    'tools/scientific_cgal_inspect_qualification.py',
-                   'scientific/fixtures/cgal-inspect/manifest.v1.json',
+                   'scientific/fixtures/cgal-inspect/manifest.v2.json',
+                   'schemas/scientific-mesh-inspect.v2.json',
+                   'scientific/fixtures/inspect-shared/sphere-128.obj',
+                   'scientific/fixtures/inspect-shared/sphere-512.obj',
+                   'scientific/fixtures/inspect-shared/sphere-2048.obj',
                    'BatchLauncher/Form1.Scientific.CgalInspect.cs',
                    'BatchLauncher/ScientificQualificationRecords.Inspect.cs',
                    'BatchLauncher/ScientificRunFingerprint.cs',
@@ -73,9 +77,9 @@ ORIENTATION_CONTRACT = dict(id='math3d.orientation-handoff', version=1,
                             inputFormat='obj', outputFormat='obj', scopeVersion=2,
                             viewer='MeshDocumentViewport')
 VTK_READ_CONTRACT = dict(id='math3d.vtk-mesh-read-handoff', version=1,
-                         inputFormat='obj-ply-vtp', outputFormat='vtp-and-obj', scopeVersion=2,
+                         inputFormat='obj-ply-vtp', outputFormat='vtp-and-obj', scopeVersion=3,
                          viewer='MeshDocumentViewport')
-VTK_READ_CASES = ('tetra', 'cube', 'octa', 'affine', 'open', 'disconnected', 'empty', 'truncated', 'invalid')
+VTK_READ_CASES = ('tetra', 'cube', 'octa', 'affine', 'sphere-128', 'sphere-512', 'sphere-2048', 'open', 'disconnected', 'empty', 'truncated', 'invalid')
 VTK_READ_SOURCES = ('tools/scientific-mesh-worker.py', 'tools/scientific_worker_contract.py',
                     'tools/scientific_vtk_read_scope.py', 'tools/scientific_vtk_read_qualification.py',
                     'tools/scientific-artifact-roundtrip.py', 'tools/scientific-vtk-interop.py',
@@ -243,7 +247,7 @@ class Broker:
                         or entry.get('referenceArtifactSha256') != references[0]['outputSha256']):
                     raise ValueError('The certified repair reference differs from its case pack.')
             if self.inspect:
-                fixture_path = self.source_root / 'scientific/fixtures/cgal-inspect/manifest.v1.json'
+                fixture_path = self.source_root / 'scientific/fixtures/cgal-inspect/manifest.v2.json'
                 require_hash(fixture_path, entry.get('fixtureManifestSha256'), 'Inspection fixture manifest')
                 fixtures = json.loads(fixture_path.read_text(encoding='utf-8'))
                 references = entry.get('referenceCases')
@@ -319,7 +323,7 @@ class Broker:
                 if hashlib.sha256(json.dumps(sources, separators=(',', ':')).encode()).hexdigest() != entry.get('orientationSourcesSha256'):
                     raise ValueError('Orientation qualification source digest changed.')
             if self.vtk_read:
-                fixture_path = self.source_root / 'scientific/fixtures/vtk/read/manifest.v2.json'
+                fixture_path = self.source_root / 'scientific/fixtures/vtk/read/manifest.v3.json'
                 require_hash(fixture_path, entry.get('fixtureManifestSha256'), 'VTK read fixture manifest')
                 fixtures = json.loads(fixture_path.read_text(encoding='utf-8'))
                 references = entry.get('referenceCases')
@@ -453,19 +457,11 @@ class Broker:
             case_id = body.get('caseId')
             remesh_case = next((case for case in self.capabilities[0]['referenceCases']
                                 if case['caseId'] == case_id), None)
-            inspect = body.get('operation') == 'mesh.inspect'
             allowed = {'schemaVersion', 'runtimeId', 'capabilityId', 'caseId', 'input', 'timeoutSeconds'}
-            if (remesh_case is None or set(body) != (allowed | {'operation'} if inspect else allowed)
+            if (remesh_case is None or set(body) != allowed
                     or set(input_info) != {'path', 'sha256'}
                     or input_info['sha256'] != remesh_case['inputSha256']):
                 raise ValueError('Only an allowlisted remesh case and its pinned typed input are accepted.')
-            if inspect:
-                shared = json.loads((self.source_root / 'schemas/scientific-mesh-inspect.v1.json').read_text(encoding='utf-8'))
-                selected = next((tier for tier in shared['tiers'] if tier['cgalCase'] == case_id), None)
-                if (shared.get('schemaVersion') != 1 or shared.get('operation') != 'mesh.inspect'
-                        or selected is None or selected['cgalSha256'] != input_info['sha256']
-                        or remesh_case['expected'] != 'accepted'):
-                    raise ValueError('CGAL inspection input is outside the versioned shared scope.')
         elif self.orientation:
             orientation_case = next((case for case in self.capabilities[0]['referenceCases']
                                      if case['caseId'] == body.get('caseId')), None)

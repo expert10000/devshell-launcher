@@ -10,10 +10,10 @@ import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = Path(__file__).resolve()
-MANIFEST = ROOT / 'scientific/fixtures/vtk/read/manifest.v2.json'
+MANIFEST = ROOT / 'scientific/fixtures/vtk/read/manifest.v3.json'
 WORKER = ROOT / 'tools/scientific-mesh-worker.py'
 CONTRACT = ROOT / 'tools/scientific_worker_contract.py'
-CASES = ('tetra', 'cube', 'octa', 'affine', 'open', 'disconnected', 'empty', 'truncated', 'invalid')
+CASES = ('tetra', 'cube', 'octa', 'affine', 'sphere-128', 'sphere-512', 'sphere-2048', 'open', 'disconnected', 'empty', 'truncated', 'invalid')
 
 
 def sha(path):
@@ -22,8 +22,8 @@ def sha(path):
 
 def manifest():
     value = json.loads(MANIFEST.read_text(encoding='utf-8'))
-    if (value.get('schemaVersion') != 2 or value.get('kind') != 'scientific.vtk-mesh-read-scope'
-            or value.get('capabilityId') != 'mesh.read' or value.get('suiteId') != 'vtk-mesh-read-v2'
+    if (value.get('schemaVersion') != 3 or value.get('kind') != 'scientific.vtk-mesh-read-scope'
+            or value.get('capabilityId') != 'mesh.read' or value.get('suiteId') != 'vtk-mesh-read-v3'
             or value.get('license') != 'CC0-1.0' or value.get('vtkVersion') != '9.6.1'
             or tuple(item.get('caseId') for item in value.get('cases', [])) != CASES):
         raise ValueError('VTK read scope identity changed.')

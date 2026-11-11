@@ -5,7 +5,7 @@ namespace BatchLauncher;
 
 public static partial class ScientificQualificationRecords
 {
-    private static readonly string[] VtkReadCases = ["tetra", "cube", "octa", "affine", "open", "disconnected",
+    private static readonly string[] VtkReadCases = ["tetra", "cube", "octa", "affine", "sphere-128", "sphere-512", "sphere-2048", "open", "disconnected",
         "empty", "truncated", "invalid"];
     private static readonly string[] VtkReadProductFiles = ["vtk-mesh-document.json", "vtk-mesh-resource.bin",
         "read.m3dm", "product.json", "viewer.png", "viewer.json"];
@@ -66,7 +66,7 @@ public static partial class ScientificQualificationRecords
         var files = components["suite"]?["files"];
         return scope?["kind"]?.GetValue<string>() == "scientific.vtk-mesh-read-scope"
             && scope["verdict"]?.GetValue<string>() == "passed"
-            && scope["manifestSha256"]?.GetValue<string>() == files?["scientific/fixtures/vtk/read/manifest.v2.json"]?["sha256"]?.GetValue<string>()
+            && scope["manifestSha256"]?.GetValue<string>() == files?["scientific/fixtures/vtk/read/manifest.v3.json"]?["sha256"]?.GetValue<string>()
             && scope["workerSourceSha256"]?.GetValue<string>() == files?["tools/scientific-mesh-worker.py"]?["sha256"]?.GetValue<string>()
             && scope["scopeSourceSha256"]?.GetValue<string>() == files?["tools/scientific_vtk_read_scope.py"]?["sha256"]?.GetValue<string>()
             && VtkReadScopeCases(path, scope, fixture);
@@ -81,10 +81,10 @@ public static partial class ScientificQualificationRecords
             var index = int.Parse(level[1..]);
             if (result["recipeId"]?.GetValue<string>() != $"l{index}.vtk-read"
                 || result["state"]?.GetValue<string>() != "succeeded"
-                || evidence?["suiteId"]?.GetValue<string>() != "vtk-mesh-read-v2"
+                || evidence?["suiteId"]?.GetValue<string>() != "vtk-mesh-read-v3"
                 || evidence["level"]?.GetValue<string>() != level
                 || evidence["capabilityId"]?.GetValue<string>() != "mesh.read"
-                || evidence["manifestSha256"]?.GetValue<string>() != suite?["scientific/fixtures/vtk/read/manifest.v2.json"]?["sha256"]?.GetValue<string>()
+                || evidence["manifestSha256"]?.GetValue<string>() != suite?["scientific/fixtures/vtk/read/manifest.v3.json"]?["sha256"]?.GetValue<string>()
                 || result["validatedCapabilities"] is not JsonArray capabilities
                 || !capabilities.Any(item => item?.GetValue<string>() == "mesh.read")
                 || evidence["lowerQualification"]?["records"] is not JsonArray lower || lower.Count != index
@@ -135,7 +135,7 @@ public static partial class ScientificQualificationRecords
                     valid &= report["math3dImporterSha256"]?.GetValue<string>() == evidence["consumerSourceSha256"]?.GetValue<string>()
                         && report["parserSha256"]?.GetValue<string>() == suite?["tools/scientific-artifact-roundtrip.py"]?["sha256"]?.GetValue<string>()
                         && report["vtkConsumerSha256"]?.GetValue<string>() == suite?["tools/scientific-vtk-interop.py"]?["sha256"]?.GetValue<string>()
-                        && report["cases"] is JsonArray consumers && consumers.Count == 6;
+                        && report["cases"] is JsonArray consumers && consumers.Count == 9;
                     if (valid) foreach (var item in report["cases"]!.AsArray())
                         foreach (var name in new[] { "obj", "reload", "vtk", "math3d" })
                             valid &= RemeshLinkedFile(item?[name + "Path"], item?[name + "Sha256"]);
@@ -144,7 +144,7 @@ public static partial class ScientificQualificationRecords
                 {
                     valid &= report["repeatCount"]?.GetValue<int>() == 3
                         && report["memoryLimitBytes"]?.GetValue<long>() == 134217728
-                        && report["repeats"] is JsonArray repeats && repeats.Count == 18;
+                        && report["repeats"] is JsonArray repeats && repeats.Count == 27;
                     if (valid) foreach (var item in report["repeats"]!.AsArray())
                         valid &= RemeshLinkedFile(item?["path"], item?["sha256"], 65536);
                     foreach (var (probe, state) in new[] { ("cancel", "cancelled"), ("timeout", "timed-out"), ("memory", "limited") })
@@ -155,7 +155,7 @@ public static partial class ScientificQualificationRecords
                 {
                     valid &= report["productSourceSha256"]?.GetValue<string>() == suite?["tools/math3d-vtk-read-product.mjs"]?["sha256"]?.GetValue<string>()
                         && report["viewerSourceSha256"]?.GetValue<string>() == suite?["tools/math3d-vtk-read-viewer.mjs"]?["sha256"]?.GetValue<string>()
-                        && report["cases"] is JsonArray products && products.Count == 6
+                        && report["cases"] is JsonArray products && products.Count == 9
                         && evidence["consumerSourceSha256"]?.GetValue<string>() is { Length: 64 };
                     if (valid) foreach (var item in report["cases"]!.AsArray())
                     {

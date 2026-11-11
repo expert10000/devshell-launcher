@@ -37,7 +37,7 @@ def run(config_path):
 
     def submit(case_id):
         case = next(item for item in broker.capabilities[0]['referenceCases'] if item['caseId'] == case_id)
-        fixture = next(item for item in json.loads((broker.source_root / 'scientific/fixtures/vtk/read/manifest.v2.json').read_text())['cases']
+        fixture = next(item for item in json.loads((broker.source_root / 'scientific/fixtures/vtk/read/manifest.v3.json').read_text())['cases']
                        if item['caseId'] == case_id)
         source = broker.paths['datasetRoot'] / f'{case_id}.obj'
         shutil.copyfile(broker.source_root / fixture['path'], source)

@@ -5,7 +5,7 @@ namespace BatchLauncher;
 
 public static partial class ScientificQualificationRecords
 {
-    private static readonly string[] InspectCases = ["tetra", "octa", "cube", "affine", "open", "nonmanifold", "degenerate"];
+    private static readonly string[] InspectCases = ["tetra", "octa", "cube", "affine", "sphere-128", "sphere-512", "sphere-2048", "open", "nonmanifold", "degenerate"];
     private static readonly string[] InspectProductFiles = ["vtk-mesh-document.json", "vtk-mesh-resource.bin",
         "read.m3dm", "product.json", "viewer.png", "viewer.json"];
 
@@ -52,7 +52,9 @@ public static partial class ScientificQualificationRecords
             if (accepted && (result["before"]?["points"]?.GetValue<int>() != fixture?["points"]?.GetValue<int>()
                 || result["before"]?["triangles"]?.GetValue<int>() != fixture?["triangles"]?.GetValue<int>()
                 || result["before"]?["boundaryEdges"]?.GetValue<int>() != 0
-                || result["before"]?.ToJsonString() != result["after"]?.ToJsonString())) return false;
+                || result["before"]?.ToJsonString() != result["after"]?.ToJsonString()
+                || (fixture["outputSha256"] is JsonValue pinned
+                    && pinned.GetValue<string>() != item["outputSha256"]?.GetValue<string>()))) return false;
         }
         return true;
     }
@@ -64,10 +66,10 @@ public static partial class ScientificQualificationRecords
             var index = int.Parse(level[1..]);
             var evidence = result["inspectQualificationEvidence"] as JsonObject;
             var files = components["suite"]?["files"];
-            const string manifestName = "scientific/fixtures/cgal-inspect/manifest.v1.json";
+            const string manifestName = "scientific/fixtures/cgal-inspect/manifest.v2.json";
             if (result["recipeId"]?.GetValue<string>() != $"l{index}.cgal-inspect"
                 || result["state"]?.GetValue<string>() != "succeeded"
-                || evidence?["suiteId"]?.GetValue<string>() != "cgal-mesh-inspect-v1"
+                || evidence?["suiteId"]?.GetValue<string>() != "cgal-mesh-inspect-v2"
                 || evidence["level"]?.GetValue<string>() != level
                 || evidence["capabilityId"]?.GetValue<string>() != "mesh.inspect"
                 || evidence["manifestSha256"]?.GetValue<string>() != files?[manifestName]?["sha256"]?.GetValue<string>()
@@ -112,7 +114,7 @@ public static partial class ScientificQualificationRecords
                         && report["comparison"]?.GetValue<string>() == "state-and-output-sha256";
                 else if (index == 7)
                 {
-                    valid &= report["cases"] is JsonArray consumers && consumers.Count == 4
+                    valid &= report["cases"] is JsonArray consumers && consumers.Count == 7
                         && report["importerSha256"]?.GetValue<string>() == evidence["consumerSourceSha256"]?.GetValue<string>();
                     if (valid) foreach (var item in report["cases"]!.AsArray())
                         foreach (var name in new[] { "source", "vtk", "math3d" })
@@ -121,7 +123,7 @@ public static partial class ScientificQualificationRecords
                 else if (index == 8)
                 {
                     valid &= report["repeatCount"]?.GetValue<int>() == 3
-                        && report["repeats"] is JsonArray repeats && repeats.Count == 12;
+                        && report["repeats"] is JsonArray repeats && repeats.Count == 21;
                     if (valid) foreach (var item in report["repeats"]!.AsArray())
                     {
                         var fixture = manifest["cases"]?.AsArray().OfType<JsonObject>()
@@ -139,7 +141,7 @@ public static partial class ScientificQualificationRecords
                 }
                 else
                 {
-                    valid &= report["cases"] is JsonArray products && products.Count == 4
+                    valid &= report["cases"] is JsonArray products && products.Count == 7
                         && evidence["consumerSourceSha256"]?.GetValue<string>() is { Length: 64 };
                     if (valid) foreach (var item in report["cases"]!.AsArray())
                     {

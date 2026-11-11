@@ -17,9 +17,12 @@ class SharedInspectPolicy(unittest.TestCase):
     def test_versioned_matched_tiers(self):
         contract, digest = policy(ROOT)
         self.assertEqual('mesh.inspect', contract['operation'])
-        self.assertEqual(['tetra-4', 'octa-6', 'cube-8'], [item['id'] for item in contract['tiers']])
+        self.assertEqual(['tetra-4', 'octa-6', 'cube-8', 'sphere-128', 'sphere-512', 'sphere-2048'],
+                         [item['id'] for item in contract['tiers']])
+        self.assertEqual([128, 512, 2048], [item['triangles'] for item in contract['tiers'][3:]])
         self.assertEqual(64, len(digest))
         self.assertEqual(5, summary([1, 2, 3, 4, 5])['samples'])
+        self.assertEqual([1, 5], summary([1, 2, 3, 4, 5])['median95PctBootstrapMs'])
 
     def test_ranking_requires_verified_scope_and_exact_tier(self):
         with self.assertRaisesRegex(ValueError, 'requires a current comparable-inspection'):
@@ -44,7 +47,7 @@ class LiveSharedInspect(unittest.TestCase):
         path = Path(os.environ['SCIENTIFIC_SHARED_INSPECT_RECORD'])
         record = verify(path)
         self.assertEqual('qualified-shared-scope', record['state'])
-        self.assertEqual(3, len(record['tiers']))
+        self.assertEqual(6, len(record['tiers']))
         with tempfile.TemporaryDirectory() as directory:
             copied = Path(directory) / 'record.json'
             copied.write_bytes(path.read_bytes() + b' ')

@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 2,
+  "operation": "mesh.inspect",
+  "kind": "scientific.comparable-operation",
+  "scope": "Closed outward triangular manifold OBJ; read and report topology and geometry without intentional mesh edits. The listed small and sphere fixtures are the only interchangeable inputs.",
+  "tolerance": 1e-06,
+  "warmups": 1,
+  "minimumSamples": 5,
+  "measuredQuantity": "broker workerDurationMs including adapter and native/VTK startup; no product UI time; paired randomized provider order",
+  "tiers": [
+    {
+      "id": "tetra-4",
+      "points": 4,
+      "triangles": 4,
+      "cgalCase": "tetra",
+      "vtkCase": "tetra",
+      "cgalFixture": "scientific/fixtures/cgal/closed-tetra.obj",
+      "vtkFixture": "scientific/fixtures/cgal/closed-tetra.obj",
+      "cgalSha256": "21b1325a5d9f7ef43f04b923c7b469e6a8c73cc41eef436924801d37ac29113d",
+      "vtkSha256": "21b1325a5d9f7ef43f04b923c7b469e6a8c73cc41eef436924801d37ac29113d"
+    },
+    {
+      "id": "octa-6",
+      "points": 6,
+      "triangles": 8,
+      "cgalCase": "octa",
+      "vtkCase": "octa",
+      "cgalFixture": "scientific/fixtures/cgal-remesh-qualification/octahedron.obj",
+      "vtkFixture": "scientific/fixtures/cgal-remesh-qualification/octahedron.obj",
+      "cgalSha256": "72cff9d9e08a2ce0ba81932417e0c6351bc11174d394607e7041586ad59b1a5a",
+      "vtkSha256": "72cff9d9e08a2ce0ba81932417e0c6351bc11174d394607e7041586ad59b1a5a"
+    },
+    {
+      "id": "cube-8",
+      "points": 8,
+      "triangles": 12,
+      "cgalCase": "cube",
+      "vtkCase": "cube",
+      "cgalFixture": "scientific/fixtures/cgal-repair-quad/cube-closed.obj",
+      "vtkFixture": "scientific/fixtures/cgal/orientation/outward-cube.obj",
+      "cgalSha256": "70a95597b1464af10a197f4c0d6def7f51fbd77118d765fc735e807ec52ca504",
+      "vtkSha256": "f192781cc0ded64a05a7d80c332a40aac278f6e5c9a439bdddb7d6c80b5287e3"
+    },
+    {
+      "id": "sphere-128",
+      "points": 66,
+      "triangles": 128,
+      "cgalCase": "sphere-128",
+      "vtkCase": "sphere-128",
+      "cgalFixture": "scientific/fixtures/inspect-shared/sphere-128.obj",
+      "vtkFixture": "scientific/fixtures/inspect-shared/sphere-128.obj",
+      "cgalSha256": "bf3a21ef2ebe26f8e7daf3a88c94c54f06fac040a183adc7958d07e431a85b70",
+      "vtkSha256": "bf3a21ef2ebe26f8e7daf3a88c94c54f06fac040a183adc7958d07e431a85b70"
+    },
+    {
+      "id": "sphere-512",
+      "points": 258,
+      "triangles": 512,
+      "cgalCase": "sphere-512",
+      "vtkCase": "sphere-512",
+      "cgalFixture": "scientific/fixtures/inspect-shared/sphere-512.obj",
+      "vtkFixture": "scientific/fixtures/inspect-shared/sphere-512.obj",
+      "cgalSha256": "8c05a577381397605ec5b0717cea164f378dbc5b47959b1a4c3a18235f850563",
+      "vtkSha256": "8c05a577381397605ec5b0717cea164f378dbc5b47959b1a4c3a18235f850563"
+    },
+    {
+      "id": "sphere-2048",
+      "points": 1026,
+      "triangles": 2048,
+      "cgalCase": "sphere-2048",
+      "vtkCase": "sphere-2048",
+      "cgalFixture": "scientific/fixtures/inspect-shared/sphere-2048.obj",
+      "vtkFixture": "scientific/fixtures/inspect-shared/sphere-2048.obj",
+      "cgalSha256": "ec86b08e0b43aee95708ae08d83703dc3edbb92c0bddf517038c2e8711298afa",
+      "vtkSha256": "ec86b08e0b43aee95708ae08d83703dc3edbb92c0bddf517038c2e8711298afa"
+    }
+  ],
+  "scopeVersion": 2
+}

@@ -7,7 +7,11 @@ static partial class BrokerManifest
         "renderer/src/workspace/MeshDocumentViewport.tsx", "packages/core/src/meshDocument.ts"];
     static readonly string[] InspectSources = ["tools/scientific-cgal-worker.py",
         "tools/scientific_worker_contract.py", "tools/scientific_cgal_inspect_qualification.py",
-        "scientific/fixtures/cgal-inspect/manifest.v1.json",
+        "scientific/fixtures/cgal-inspect/manifest.v2.json",
+        "schemas/scientific-mesh-inspect.v2.json",
+        "scientific/fixtures/inspect-shared/sphere-128.obj",
+        "scientific/fixtures/inspect-shared/sphere-512.obj",
+        "scientific/fixtures/inspect-shared/sphere-2048.obj",
         "BatchLauncher/Form1.Scientific.CgalInspect.cs",
         "BatchLauncher/ScientificQualificationRecords.Inspect.cs",
         "BatchLauncher/ScientificRunFingerprint.cs", "tools/scientific-broker/Program.Inspect.cs",
@@ -15,7 +19,7 @@ static partial class BrokerManifest
 
     static JsonObject InspectContract() => new() { ["id"] = "math3d.mesh-inspect-handoff",
         ["version"] = 1, ["inputFormat"] = "obj", ["outputFormat"] = "obj",
-        ["scopeVersion"] = 1, ["viewer"] = "MeshDocumentViewport" };
+        ["scopeVersion"] = 2, ["viewer"] = "MeshDocumentViewport" };
 
     static JsonObject? InspectFiles(string root, IEnumerable<string> names)
     {
@@ -43,9 +47,9 @@ static partial class BrokerManifest
                     File.Exists(importer) ? HashFile(importer) : null, Digest(consumers));
         var ids = CurrentIds(runs, "L0", "L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9");
         var summary = ScientificQualificationRecords.Summarize("cgal-win-conda", runs);
-        var fixturePath = Path.Combine(repo, "scientific", "fixtures", "cgal-inspect", "manifest.v1.json");
+        var fixturePath = Path.Combine(repo, "scientific", "fixtures", "cgal-inspect", "manifest.v2.json");
         var fixtures = JsonNode.Parse(File.ReadAllText(fixturePath))?["cases"] as JsonArray;
-        if (fixtures is not { Count: 7 }) return null;
+        if (fixtures is not { Count: 10 }) return null;
         foreach (var current in summary["currentRecords"]!.AsArray().OfType<JsonObject>()
             .Where(item => item["level"]?.GetValue<string>() == "L9"
                 && item["capabilityId"]?.GetValue<string>() == "mesh.inspect"
@@ -85,7 +89,7 @@ static partial class BrokerManifest
                     ["expected"] = fixture["expected"]?.DeepClone() });
             }
             var worker = l5["workerPath"]?.GetValue<string>();
-            if (!valid || references.Count != 7 || worker == null || !File.Exists(worker)
+            if (!valid || references.Count != 10 || worker == null || !File.Exists(worker)
                 || HashFile(worker) != l5["workerSha256"]?.GetValue<string>()) continue;
             var fingerprint = JsonNode.Parse(File.ReadAllText(Path.Combine(directory, "fingerprint.json")))!;
             var support = new JsonArray(lower.Select(item => item!.DeepClone()).ToArray());
@@ -93,7 +97,7 @@ static partial class BrokerManifest
                 ["runId"] = current["runId"]?.DeepClone(), ["recordId"] = current["recordId"]?.DeepClone() });
             var contract = InspectContract();
             return new JsonObject { ["runtimeId"] = "cgal-win-conda", ["capabilityId"] = "mesh.inspect", ["level"] = "L9",
-                ["scope"] = "four pinned closed OBJ inspections and three no-output rejections",
+                ["scope"] = "seven pinned closed OBJ inspections and three no-output rejections",
                 ["sourceRunId"] = current["runId"]?.DeepClone(), ["recordId"] = current["recordId"]?.DeepClone(),
                 ["runFingerprintSha256"] = run["fingerprintSha256"]?.DeepClone(),
                 ["suiteRevisionSha256"] = record["suiteRevisionSha256"]?.DeepClone(),

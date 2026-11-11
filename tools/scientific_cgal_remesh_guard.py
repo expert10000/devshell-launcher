@@ -64,6 +64,21 @@ def measurements(source, candidate):
             'decision': assess(original, measured, samples, shape)}
 
 
+def same_measurements(saved, current):
+    if type(saved) is not type(current):
+        return False
+    if isinstance(saved, dict):
+        return saved.keys() == current.keys() and all(
+            same_measurements(saved[key], current[key]) for key in saved)
+    if isinstance(saved, list):
+        return len(saved) == len(current) and all(
+            same_measurements(left, right) for left, right in zip(saved, current))
+    if isinstance(saved, float):
+        return math.isfinite(saved) and math.isfinite(current) and math.isclose(
+            saved, current, rel_tol=1e-12, abs_tol=1e-14)
+    return saved == current
+
+
 def check_artifacts(report, root):
     source, candidate, accepted, result_path = (root / name for name in
                                                 ('input.obj', 'candidate.obj', 'accepted.obj', 'results.json'))
@@ -76,7 +91,7 @@ def check_artifacts(report, root):
             or result.get('state') != 'succeeded' or result.get('exitCode') != 0
             or result.get('after', {}).get('faces') != measured['candidateMetrics']['faces']
             or result['after'].get('boundaryEdges') != measured['candidateMetrics']['boundaryEdges']
-            or report['measurements'] != measured):
+            or not same_measurements(report['measurements'], measured)):
         raise ValueError('Guarded remesh measurement changed.')
     if measured['decision']['eligible']:
         if (report['state'] != 'accepted' or sha(accepted) != report['acceptedSha256']

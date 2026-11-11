@@ -8,10 +8,25 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 from scientific_cgal_mesh_metrics import metrics
-from scientific_cgal_remesh_guard import assess, run, verify
+from scientific_cgal_remesh_guard import assess, run, same_measurements, verify
 
 
 class GuardPolicyChecks(unittest.TestCase):
+    def test_recomputed_float_noise_preserves_exact_decisions(self):
+        saved = {'surfaceSamples': [{'maximumDistance': 1.942890293094024e-16}],
+                 'decision': {'eligible': True}, 'faces': 8}
+        current = {'surfaceSamples': [{'maximumDistance': 1.5700924586837752e-16}],
+                   'decision': {'eligible': True}, 'faces': 8}
+        self.assertTrue(same_measurements(saved, current))
+        current['surfaceSamples'][0]['maximumDistance'] = 1e-8
+        self.assertFalse(same_measurements(saved, current))
+        current['surfaceSamples'][0]['maximumDistance'] = 1.5700924586837752e-16
+        current['decision']['eligible'] = False
+        self.assertFalse(same_measurements(saved, current))
+        current['decision']['eligible'] = True
+        current['faces'] = 7
+        self.assertFalse(same_measurements(saved, current))
+
     def test_relative_volume_loss_rejects_candidate(self):
         original = metrics(ROOT / 'scientific/fixtures/cgal/closed-tetra.obj')
         candidate = dict(original, signedVolume=original['signedVolume'] * 0.75)

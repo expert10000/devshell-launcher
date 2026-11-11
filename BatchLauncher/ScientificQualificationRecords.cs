@@ -771,6 +771,12 @@ public static partial class ScientificQualificationRecords
         var fingerprintSha256 = result["runFingerprintSha256"]?.GetValue<string>();
         if (runId == null || runtimeId == null || fingerprintSha256 == null) return null;
         ScientificRunFingerprint.Verify(directory, fingerprintSha256);
+        var sourceSnapshotSha256 = result["sourceSnapshotSha256"]?.GetValue<string>();
+        if (sourceSnapshotSha256 != null)
+        {
+            var snapshot = ScientificSourceSnapshot.Verify(directory, sourceSnapshotSha256);
+            if (ScientificSourceSnapshot.Assess(snapshot)["state"]?.GetValue<string>() != "current") return null;
+        }
         var fingerprint = JsonNode.Parse(File.ReadAllText(Path.Combine(directory, "fingerprint.json")));
         var components = fingerprint?["components"] as JsonObject;
         var suiteRevision = components?["suite"]?["revisionSha256"]?.GetValue<string>();
@@ -1198,6 +1204,7 @@ public static partial class ScientificQualificationRecords
             ["runFingerprintSha256"] = fingerprintSha256,
             ["records"] = new JsonArray(records.Select(item => (JsonNode?)item).ToArray())
         };
+        if (sourceSnapshotSha256 != null) document["sourceSnapshotSha256"] = sourceSnapshotSha256;
         var text = document.ToJsonString();
         var target = Path.Combine(directory, "qualifications.json");
         var temporary = Path.Combine(directory, $".qualifications-{Guid.NewGuid():N}.tmp");
@@ -1226,12 +1233,16 @@ public static partial class ScientificQualificationRecords
         var runId = result.GetProperty("runId").GetString();
         var runtimeId = result.GetProperty("runtimeId").GetString();
         var fingerprintSha256 = result.GetProperty("runFingerprintSha256").GetString();
+        var sourceSnapshotSha256 = result.TryGetProperty("sourceSnapshotSha256", out var sourceReference)
+            ? sourceReference.GetString() : null;
         if (document?["schemaVersion"]?.GetValue<int>() != 1 || records == null || records.Count == 0
             || document["runId"]?.GetValue<string>() != runId
             || document["runtimeId"]?.GetValue<string>() != runtimeId
             || document["runFingerprintSha256"]?.GetValue<string>() != fingerprintSha256
+            || document["sourceSnapshotSha256"]?.GetValue<string>() != sourceSnapshotSha256
             || result.GetProperty("state").GetString() != "succeeded")
             throw new InvalidDataException("Qualification identity is invalid.");
+        if (sourceSnapshotSha256 != null) ScientificSourceSnapshot.Verify(directory, sourceSnapshotSha256);
         var fingerprint = JsonNode.Parse(File.ReadAllText(Path.Combine(directory, "fingerprint.json")));
         var suiteRevision = fingerprint?["components"]?["suite"]?["revisionSha256"]?.GetValue<string>();
         var contract = fingerprint?["components"]?["contract"] as JsonObject;

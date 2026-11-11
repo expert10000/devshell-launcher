@@ -93,6 +93,9 @@ export interface ScientificRunResult {
   volumeProductReadiness?: { status: string; reason: string; sourceL8RunId: string; tetrahedra: number; sourceMshSha256: string; requiredConsumerContract: string; declaresTetrahedralDocument: boolean }
   qualifications?: { recordId: string; capabilityId: string; level: 'L0' | 'L1' | 'L2' | 'L3' | 'L4' | 'L5' | 'L6' | 'L7' | 'L8' | 'L9'; evidenceId: string; evidenceSha256?: string; status: 'current' | 'stale' | 'unknown'; staleReasons: string[] }[]
   sourceDrift?: { state: 'current' | 'stale' | 'unknown'; comparedFiles: number; unavailableFiles: number; reasons: string[] }
+  sourceSnapshotSha256?: string
+  sourceSnapshotReference?: string
+  gitSourceDrift?: { state: 'current' | 'stale'; reasons: string[] }
   environmentDrift?: { state: 'current' | 'stale' | 'unknown'; comparedComponents: number; unavailableComponents: number; reasons: string[] }
   state: 'succeeded' | 'failed' | 'cancelled' | 'timed-out'
   exitCode: number | null

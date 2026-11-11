@@ -29,6 +29,7 @@ public partial class Form1
         public string? CompilerVersion { get; set; }
         public string? EnvironmentFingerprint { get; set; }
         public JsonObject? FingerprintComponents { get; set; }
+        public JsonObject? SourceSnapshot { get; set; }
         public List<JsonObject> ExecutedFiles { get; } = new();
         public JsonElement? Request { get; set; }
         public JsonElement? Result { get; set; }

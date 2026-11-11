@@ -23,6 +23,8 @@ public partial class Form1
         var directory = Path.GetDirectoryName(path)!;
         if (result.TryGetProperty("runFingerprintSha256", out var fingerprint))
             ScientificRunFingerprint.Verify(directory, fingerprint.GetString() ?? "");
+        if (result.TryGetProperty("sourceSnapshotSha256", out var snapshot))
+            ScientificSourceSnapshot.Verify(directory, snapshot.GetString() ?? "");
         if (result.TryGetProperty("qualificationSha256", out _))
             ScientificQualificationRecords.Verify(directory, result);
         return (directory, ScientificArtifactFiles.RecoverLegacySmoke(directory, result.Clone()));
@@ -54,6 +56,12 @@ public partial class Form1
         if (!result.TryGetProperty("runFingerprintSha256", out _)) return result;
         var view = JsonNode.Parse(result.GetRawText())!.AsObject();
         var sourceDrift = ScientificRunFingerprint.AssessSourceDrift(directory, ScientificSourceRoot, AppContext.BaseDirectory);
+        if (result.TryGetProperty("sourceSnapshotSha256", out var sourceSnapshotHash))
+        {
+            var snapshot = ScientificSourceSnapshot.Verify(directory, sourceSnapshotHash.GetString() ?? "");
+            var gitDrift = ScientificSourceSnapshot.Assess(snapshot);
+            view["gitSourceDrift"] = gitDrift;
+        }
         view["sourceDrift"] = sourceDrift;
         var wsl = result.GetProperty("runtimeId").GetString() == "sage-wsl";
         var environmentDrift = ScientificRunFingerprint.AssessEnvironmentDrift(directory, AppContext.BaseDirectory,

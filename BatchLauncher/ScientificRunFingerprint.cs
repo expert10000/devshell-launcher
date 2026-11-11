@@ -40,6 +40,7 @@ public static class ScientificRunFingerprint
         var files = new JsonObject();
         var names = new List<string> { "tools/scientific_worker_contract.py", "tools/runtime-lab/Program.cs",
             "BatchLauncher/ScientificProviderRegistry.cs", "BatchLauncher/ScientificRunFingerprint.cs",
+            "BatchLauncher/ScientificSourceSnapshot.cs",
             "BatchLauncher/ScientificQualificationRecords.cs",
             $"runtimes/{runtimeId}/runtime.json" };
         if (runtimeId is "cgal-win-conda" or "vtk-win-conda" or "gmsh-win-conda") names.AddRange(new[] { "BatchLauncher/Form1.Scientific.L5.cs", "BatchLauncher/Form1.Scientific.L6.cs", "tools/scientific-artifact-roundtrip.py" });
@@ -130,6 +131,7 @@ public static class ScientificRunFingerprint
     private static JsonObject SuiteIdentity(string root, string runtimeId, string? recipeId)
     {
         var names = new List<string> { "BatchLauncher/Form1.Scientific.cs", "BatchLauncher/Form1.Scientific.Artifacts.cs",
+            "BatchLauncher/ScientificSourceSnapshot.cs",
             "BatchLauncher/ScientificArtifactFiles.cs", "BatchLauncher/ScientificQualificationRecords.cs",
             $"runtimes/{runtimeId}/runtime.json" };
         if (recipeId == "diagnostics") names.Add("tools/Inspect-ScientificRuntimes.ps1");

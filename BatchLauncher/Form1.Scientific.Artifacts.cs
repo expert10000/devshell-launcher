@@ -73,7 +73,7 @@ public partial class Form1
             ["sourceRoot"] = entry.TryGetProperty("sourceRoot", out var sourceRoot) ? sourceRoot.GetString() : null
         };
     }
-    private static void ScientificWriteRequest(ScientificJob job, JsonElement? parameters, JsonObject? input = null, string? output = null,
+    private void ScientificWriteRequest(ScientificJob job, JsonElement? parameters, JsonObject? input = null, string? output = null,
         JsonArray? additionalInputs = null, JsonArray? additionalOutputs = null, int timeoutSeconds = 120, string? rerunOf = null)
     {
         var inputs = input == null ? new JsonArray() : new JsonArray(input.DeepClone());
@@ -100,6 +100,9 @@ public partial class Form1
         job.FingerprintComponents ??= ScientificRunFingerprint.Capture(job.RuntimeId, job.ProfileId,
             ScientificSourceRoot, AppContext.BaseDirectory, reportPath,
             job.RuntimeId == "sage-wsl" ? ScientificSageDistro() : null, job.RecipeId);
+        job.SourceSnapshot ??= ScientificSourceSnapshot.Capture(ScientificSourceRoot,
+            job.RecipeId.StartsWith("l7.", StringComparison.Ordinal) || job.RecipeId.StartsWith("l9.", StringComparison.Ordinal)
+                ? ScientificL7Checkout() : null);
         job.Request = JsonSerializer.SerializeToElement(request, ScientificJson);
         File.WriteAllText(Path.Combine(job.Directory, "request.json"), json, new UTF8Encoding(false));
         File.WriteAllText(Path.Combine(job.Directory, "invocation.json"), json, new UTF8Encoding(false));
@@ -182,6 +185,20 @@ public partial class Form1
                 ScientificSourceRoot, AppContext.BaseDirectory, recipeId: job.RecipeId), job.ExecutedFiles);
         result["runFingerprintSha256"] = fingerprint;
         result["runFingerprintReference"] = "fingerprint.json";
+        var sourceSnapshot = job.SourceSnapshot ?? ScientificSourceSnapshot.Capture(ScientificSourceRoot);
+        var snapshotHash = ScientificSourceSnapshot.Save(job.Directory, sourceSnapshot);
+        result["sourceSnapshotSha256"] = snapshotHash;
+        result["sourceSnapshotReference"] = "source-snapshot.json";
+        var sourceState = ScientificSourceSnapshot.Assess(ScientificSourceSnapshot.Verify(job.Directory, snapshotHash));
+        if (job.State == "succeeded" && sourceState["state"]?.GetValue<string>() != "current")
+        {
+            job.State = "failed";
+            job.Error = "Git source changed while the managed run was executing.";
+            result["state"] = "failed";
+            result["exitCode"] = 1;
+            diagnostics.Add(new JsonObject { ["severity"] = "error", ["message"] = job.Error });
+            result["validatedCapabilities"] = new JsonArray();
+        }
         var qualification = ScientificQualificationRecords.Save(job.Directory, result, ScientificSourceRoot, AppContext.BaseDirectory);
         if (qualification != null)
         {

@@ -45,7 +45,7 @@ export function ScientificRuntimeMatrix({ profiles, report, native, onOpenRun, o
     <button disabled={native.pending} onClick={() => native.send('', 'history')}>Refresh saved evidence</button>
     <section aria-label="Selective requalification">
       <h4>Selective requalification</h4>
-      <p>Preview a sealed plan from the latest verified source snapshot. Selected managed suites run in dependency order and stop at the first failed qualification.</p>
+      <p>Preview a sealed plan from the oldest of the latest five L9 source snapshots. Selected managed suites run in dependency order and stop at the first failed qualification.</p>
       <button disabled={native.pending || native.busy} onClick={() => native.send('', 'retest-plan')}>Preview retest plan</button>
       {native.retestPlan && <><p>Plan <code>{native.retestPlan.planId}</code> / baseline <code>{native.retestPlan.baseline}</code> / {native.retestPlan.suites.length} selected suites. {native.retestPlan.execution?.state ?? 'Ready to run'}.</p>
         {native.retestPlan.unmappedChanges.length > 0 && <p role="status">Unmapped changes select all suites: {native.retestPlan.unmappedChanges.join(', ')}</p>}

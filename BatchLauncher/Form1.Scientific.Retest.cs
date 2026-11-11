@@ -38,8 +38,11 @@ public partial class Form1
         return plan;
     }
 
-    private static string ScientificRetestBase(string profileId)
+    private static IReadOnlyList<(DateTime At, string Commit, JsonObject Snapshot, string Directory, string RuntimeId)> ScientificRetestL9Snapshots(string profileId)
     {
+        var capabilities = new HashSet<string>(StringComparer.Ordinal)
+            { "mesh.orient", "mesh.remesh", "mesh.repair", "mesh.generate3d", "mesh.read" };
+        var latest = new Dictionary<string, (DateTime At, string Commit, JsonObject Snapshot, string Directory, string RuntimeId)>(StringComparer.Ordinal);
         var root = Path.Combine(ScientificDataRoot, "runs");
         if (Directory.Exists(root))
             foreach (var directory in new DirectoryInfo(root).EnumerateDirectories()
@@ -47,50 +50,58 @@ public partial class Form1
             {
                 try
                 {
-                    var resultPath = Path.Combine(directory.FullName, "results.json");
-                    if (!File.Exists(resultPath)) continue;
-                    var result = JsonNode.Parse(File.ReadAllText(resultPath));
-                    if (result?["profileId"]?.GetValue<string>() != profileId) continue;
-                    var hash = result["sourceSnapshotSha256"]?.GetValue<string>();
+                    var (savedDirectory, result) = ScientificHistoryReadDirectory(profileId, directory.Name);
+                    if (!result.TryGetProperty("sourceSnapshotSha256", out var reference)
+                        || !result.TryGetProperty("qualificationSha256", out _)) continue;
+                    var hash = reference.GetString();
                     if (hash == null) continue;
-                    var snapshot = ScientificSourceSnapshot.Verify(directory.FullName, hash);
+                    var snapshot = ScientificSourceSnapshot.Verify(savedDirectory, hash);
                     var commit = snapshot["repositories"]?["devshell"]?["commit"]?.GetValue<string>();
-                    if (commit != null && Regex.IsMatch(commit, "^[0-9a-f]{40}$")) return commit;
+                    if (commit == null || !Regex.IsMatch(commit, "^[0-9a-f]{40}$")) continue;
+                    var records = JsonNode.Parse(File.ReadAllText(Path.Combine(savedDirectory, "qualifications.json")))?["records"]?.AsArray();
+                    if (records == null) continue;
+                    foreach (var record in records.OfType<JsonObject>())
+                    {
+                        var capability = record["capabilityId"]?.GetValue<string>();
+                        if (capability != null && capabilities.Contains(capability)
+                            && record["level"]?.GetValue<string>() == "L9" && !latest.ContainsKey(capability))
+                            latest[capability] = (directory.LastWriteTimeUtc, commit, snapshot, savedDirectory,
+                                result.GetProperty("runtimeId").GetString() ?? "");
+                    }
+                    if (latest.Count == capabilities.Count) break;
                 }
                 catch (Exception error) when (error is IOException or JsonException or InvalidDataException
                     or InvalidOperationException or UnauthorizedAccessException) { }
             }
-        return "origin/main";
+        return latest.Values.ToArray();
     }
+
+    private static string ScientificRetestBase(string profileId) =>
+        ScientificRetestL9Snapshots(profileId).OrderBy(item => item.At).FirstOrDefault().Commit ?? "origin/main";
 
     private static IReadOnlyList<string> ScientificRetestEnvironmentChanges(string profileId)
     {
-        var changed = new List<string>();
-        var root = Path.Combine(ScientificDataRoot, "runs");
-        if (!Directory.Exists(root)) return changed;
-        foreach (var (runtimeId, key) in new[] { ("cgal-win-conda", "cgal.packages"),
-            ("vtk-win-conda", "vtk.packages"), ("gmsh-win-conda", "gmsh.packages") })
+        var changed = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (_, _, snapshot, directory, runtimeId) in ScientificRetestL9Snapshots(profileId))
         {
-            foreach (var directory in new DirectoryInfo(root).EnumerateDirectories()
-                .OrderByDescending(item => item.LastWriteTimeUtc))
+            var key = runtimeId.StartsWith("cgal", StringComparison.Ordinal) ? "cgal.packages"
+                : runtimeId.StartsWith("vtk", StringComparison.Ordinal) ? "vtk.packages" : "gmsh.packages";
+            try
             {
-                try
-                {
-                    var result = JsonNode.Parse(File.ReadAllText(Path.Combine(directory.FullName, "results.json")));
-                    if (result?["profileId"]?.GetValue<string>() != profileId
-                        || result["runtimeId"]?.GetValue<string>() != runtimeId
-                        || result["runFingerprintSha256"]?.GetValue<string>() is not { } hash) continue;
-                    ScientificRunFingerprint.Verify(directory.FullName, hash);
-                    var drift = ScientificRunFingerprint.AssessEnvironmentDrift(directory.FullName,
-                        AppContext.BaseDirectory, ScientificReportPath());
-                    if (drift["state"]?.GetValue<string>() != "current") changed.Add(key);
-                    break;
-                }
-                catch (Exception error) when (error is IOException or JsonException or InvalidDataException
-                    or InvalidOperationException or UnauthorizedAccessException) { }
+                var drift = ScientificRunFingerprint.AssessEnvironmentDrift(directory,
+                    AppContext.BaseDirectory, ScientificReportPath());
+                if (drift["state"]?.GetValue<string>() != "current") changed.Add(key);
             }
+            catch (Exception error) when (error is IOException or JsonException or InvalidDataException
+                or InvalidOperationException or UnauthorizedAccessException) { changed.Add(key); }
+            var math3d = snapshot["repositories"]?["math3d"];
+            var path = math3d?["worktree"]?.GetValue<string>();
+            if (path == null) continue;
+            var current = ScientificSourceSnapshot.Capture(path)["repositories"]?["devshell"];
+            if (current?["snapshotId"]?.GetValue<string>() != math3d?["snapshotId"]?.GetValue<string>())
+                changed.Add("math3d.consumer");
         }
-        return changed;
+        return changed.ToArray();
     }
 
     private JsonObject ScientificRetestPlan(string profileId, JsonElement request)
@@ -156,6 +167,23 @@ public partial class Form1
         return ScientificRetestStatus(profileId, id);
     }
 
+    private bool ScientificRetestCurrent(string profileId, string suiteId, ScientificJob job)
+    {
+        var level = Regex.Match(suiteId, @"\.l([5-9])$").Groups[1].Value;
+        if (level.Length == 0) return true;
+        var capability = suiteId.StartsWith("cgal.orient.", StringComparison.Ordinal) ? "mesh.orient"
+            : suiteId.StartsWith("cgal.remesh.", StringComparison.Ordinal) ? "mesh.remesh"
+            : suiteId.StartsWith("cgal.repair.", StringComparison.Ordinal) ? "mesh.repair"
+            : suiteId.StartsWith("gmsh.volume.", StringComparison.Ordinal) ? "mesh.generate3d"
+            : suiteId.StartsWith("gmsh.", StringComparison.Ordinal) ? "mesh.generate"
+            : suiteId.StartsWith("vtk.", StringComparison.Ordinal) ? "mesh.read" : "mesh.validate";
+        var summary = ScientificQualificationSummary(profileId, job.RuntimeId);
+        return summary["currentRecords"]?.AsArray().OfType<JsonObject>().Any(item =>
+            item["runId"]?.GetValue<string>() == job.Id
+            && item["capabilityId"]?.GetValue<string>() == capability
+            && item["level"]?.GetValue<string>() == "L" + level) == true;
+    }
+
     private async Task ScientificRetestRun(string profileId, JsonObject plan, ScientificRetestExecution execution)
     {
         var id = execution.PlanId;
@@ -209,8 +237,15 @@ public partial class Form1
                 outcome["state"] = job.State;
                 if (job.Result is { } result && result.TryGetProperty("qualificationSha256", out var qualification))
                     outcome["qualificationSha256"] = qualification.GetString();
+                var readiness = action == "gmsh-volume-product-readiness" && job.Result is { } readinessResult
+                    && readinessResult.TryGetProperty("volumeProductReadiness", out var readinessEvidence)
+                    && readinessEvidence.TryGetProperty("status", out var readinessStatus)
+                    && readinessStatus.GetString() == "ready-for-l9";
+                var current = job.State == "succeeded" && (readiness || outcome["qualificationSha256"] != null
+                    && ScientificRetestCurrent(profileId, suiteId, job));
+                if (!current && job.State == "succeeded") outcome["state"] = "stale-or-unqualified";
                 Save();
-                if (job.State != "succeeded" || outcome["qualificationSha256"] == null)
+                if (!current)
                 { state = execution.Cancellation.IsCancellationRequested ? "cancelled" : "failed"; break; }
             }
             if (state == "running") state = outcomes.Any(item => item?["state"]?.GetValue<string>() == "pending-external")

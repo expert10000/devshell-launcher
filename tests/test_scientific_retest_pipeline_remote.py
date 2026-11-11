@@ -67,6 +67,11 @@ class PlanningTests(unittest.TestCase):
                                  [item['id'] for item in scoped])
                 self.assertEqual(action, scoped[0]['managedAction'])
                 self.assertNotIn('sage.l0-l3', [item['id'] for item in selected])
+        for path, suite in (('tools/scientific_cgal_orientation_l9.py', 'cgal.orient.l9'),
+                            ('tools/scientific_cgal_remesh.py', 'cgal.remesh.l5'),
+                            ('tools/scientific-cgal-hole-repair-worker.py', 'cgal.repair.l5')):
+            self.assertIn(suite, [item['id'] for item in retest.plan([path])['suites']])
+            self.assertNotIn('sage.l0-l3', [item['id'] for item in retest.plan([path])['suites']])
 
 
 @unittest.skipUnless(os.environ.get('SCIENTIFIC_BROKER_CONFIG'), 'Local qualified broker config required')

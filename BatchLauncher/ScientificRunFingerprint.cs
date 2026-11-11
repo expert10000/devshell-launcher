@@ -191,6 +191,22 @@ public static class ScientificRunFingerprint
                 "tools/scientific_cgal_orientation_l9.py", "tools/scientific-vtk-interop.py",
                 "tools/math3d-vtk-import-handoff.mjs", "tools/math3d-cgal-orientation-product.mjs",
                 "tools/math3d-cgal-orientation-viewer.mjs", "tools/scientific-cgal-repair-m3dm-roundtrip.py" });
+        if (recipeId is "l5.vtk-read" or "l6.vtk-read" or "l7.vtk-read" or "l8.vtk-read" or "l9.vtk-read")
+            names.AddRange(new[] { "BatchLauncher/Form1.Scientific.VtkRead.cs",
+                "BatchLauncher/ScientificQualificationRecords.VtkRead.cs",
+                "scientific/fixtures/vtk/read/manifest.v2.json",
+                "scientific/fixtures/vtk/read/empty.obj", "scientific/fixtures/vtk/read/truncated.ply",
+                "scientific/fixtures/vtk/read/invalid.vtp", "scientific/fixtures/cgal/closed-tetra.obj",
+                "scientific/fixtures/cgal/orientation/outward-cube.obj",
+                "scientific/fixtures/cgal-remesh-qualification/octahedron.obj",
+                "scientific/fixtures/cgal-remesh-qualification/affine-tetra.obj",
+                "scientific/fixtures/cgal/open-square.obj",
+                "scientific/fixtures/cgal/orientation/disconnected-tetra.obj",
+                "tools/scientific-mesh-worker.py", "tools/scientific_worker_contract.py",
+                "tools/scientific_vtk_read_scope.py", "tools/scientific_vtk_read_qualification.py",
+                "tools/scientific-artifact-roundtrip.py", "tools/scientific-vtk-interop.py",
+                "tools/math3d-vtk-import-handoff.mjs", "tools/math3d-vtk-read-product.mjs",
+                "tools/math3d-vtk-read-viewer.mjs", "tools/scientific-cgal-repair-m3dm-roundtrip.py" });
         if (recipeId is "cgal.fill-one-hole" or "cgal.fill-quad-hole" or "cgal.fill-two-quad-holes" or "cgal.fill-bounded-holes")
             names.AddRange(new[] { "BatchLauncher/Form1.Scientific.Cgal.cs", "tools/scientific-cgal-hole-repair-worker.py",
                 "tools/scientific_cgal_mesh_metrics.py", "scientific/cgal-worker/hole_repair.cpp" });

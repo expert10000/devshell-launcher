@@ -97,6 +97,14 @@ public partial class Form1
                 ScientificQualificationRecords.AssessOrientationL9Consumer(assessed,
                     ScientificCurrentOrientationProductSources(checkout));
             }
+            if (assessed.OfType<JsonObject>().Any(item => item["evidenceId"]?.GetValue<string>() is "l7.vtk-read" or "l9.vtk-read"))
+            {
+                var checkout = ScientificL7Checkout();
+                var importer = Path.Combine(checkout, "renderer", "src", "mesh", "surfaceMesh.ts");
+                ScientificQualificationRecords.AssessVtkReadConsumers(assessed,
+                    File.Exists(importer) ? ScientificHash(importer) : null,
+                    ScientificCurrentVtkReadProductSources(checkout));
+            }
             view["qualifications"] = assessed;
         }
         return JsonSerializer.SerializeToElement(view, ScientificJson);
@@ -234,6 +242,14 @@ public partial class Form1
                         ? ScientificHash(Path.Combine(ScientificL7Checkout(), "renderer", "src", "mesh", "surfaceMesh.ts")) : null);
                 ScientificQualificationRecords.AssessOrientationL9Consumer(records,
                     runtimeId == "cgal-win-conda" ? ScientificCurrentOrientationProductSources(ScientificL7Checkout()) : null);
+                if (runtimeId == "vtk-win-conda")
+                {
+                    var checkout = ScientificL7Checkout();
+                    var importer = Path.Combine(checkout, "renderer", "src", "mesh", "surfaceMesh.ts");
+                    ScientificQualificationRecords.AssessVtkReadConsumers(records,
+                        File.Exists(importer) ? ScientificHash(importer) : null,
+                        ScientificCurrentVtkReadProductSources(checkout));
+                }
             }
         return ScientificQualificationRecords.Summarize(runtimeId, runs);
     }

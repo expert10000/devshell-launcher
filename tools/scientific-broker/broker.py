@@ -403,10 +403,19 @@ class Broker:
             case_id = body.get('caseId')
             remesh_case = next((case for case in self.capabilities[0]['referenceCases']
                                 if case['caseId'] == case_id), None)
-            if (remesh_case is None or set(body) != {'schemaVersion', 'runtimeId', 'capabilityId', 'caseId', 'input', 'timeoutSeconds'}
+            inspect = body.get('operation') == 'mesh.inspect'
+            allowed = {'schemaVersion', 'runtimeId', 'capabilityId', 'caseId', 'input', 'timeoutSeconds'}
+            if (remesh_case is None or set(body) != (allowed | {'operation'} if inspect else allowed)
                     or set(input_info) != {'path', 'sha256'}
                     or input_info['sha256'] != remesh_case['inputSha256']):
                 raise ValueError('Only an allowlisted remesh case and its pinned typed input are accepted.')
+            if inspect:
+                shared = json.loads((self.source_root / 'schemas/scientific-mesh-inspect.v1.json').read_text(encoding='utf-8'))
+                selected = next((tier for tier in shared['tiers'] if tier['cgalCase'] == case_id), None)
+                if (shared.get('schemaVersion') != 1 or shared.get('operation') != 'mesh.inspect'
+                        or selected is None or selected['cgalSha256'] != input_info['sha256']
+                        or remesh_case['expected'] != 'accepted'):
+                    raise ValueError('CGAL inspection input is outside the versioned shared scope.')
         elif self.orientation:
             orientation_case = next((case for case in self.capabilities[0]['referenceCases']
                                      if case['caseId'] == body.get('caseId')), None)
@@ -442,14 +451,15 @@ class Broker:
             with source_path.open('x', encoding='utf-8') as stream:
                 json.dump(source_snapshot, stream, separators=(',', ':'))
             source_sha = sha(source_path)
-            recipe = 'gmsh.volume3d.cube' if self.volume else 'gmsh.mesh2d' if self.gmsh else repair_case['recipeId'] if self.repair else 'cgal.remesh' if self.remesh else 'cgal.repair-orientation' if self.orientation else 'mesh.inspect' if self.vtk_read else 'cgal.validate'
-            output_name = 'cube.msh' if self.volume else 'l5-positive.msh' if self.gmsh else 'repaired.obj' if self.repair else 'remeshed.obj' if self.remesh else 'oriented.obj' if self.orientation else 'read.vtp' if self.vtk_read else 'l5-positive.obj'
+            inspecting = self.remesh and body.get('operation') == 'mesh.inspect'
+            recipe = 'gmsh.volume3d.cube' if self.volume else 'gmsh.mesh2d' if self.gmsh else repair_case['recipeId'] if self.repair else 'cgal.validate' if inspecting else 'cgal.remesh' if self.remesh else 'cgal.repair-orientation' if self.orientation else 'mesh.inspect' if self.vtk_read else 'cgal.validate'
+            output_name = 'cube.msh' if self.volume else 'l5-positive.msh' if self.gmsh else 'repaired.obj' if self.repair else 'inspected.obj' if inspecting else 'remeshed.obj' if self.remesh else 'oriented.obj' if self.orientation else 'read.vtp' if self.vtk_read else 'l5-positive.obj'
             dataset_id = hashlib.sha256((repair_case['caseId'] + ':' + repair_case['inputSha256']).encode()).hexdigest() if self.repair else None
             request = {'schemaVersion': 1, 'runId': job_id, 'runtimeId': self.runtime_id,
-                   'recipeId': recipe, 'operation': recipe,
+                   'recipeId': recipe, 'operation': 'mesh.inspect' if inspecting else recipe,
                    'parameters': {'meshSize': 0.35 if self.volume else 0.2} if self.gmsh else
                                  {'inputId': dataset_id, 'outputName': output_name} if self.repair else
-                                 {'targetEdge': remesh_case['targetEdge'], 'iterations': remesh_case['iterations'],
+                                 {} if inspecting else {'targetEdge': remesh_case['targetEdge'], 'iterations': remesh_case['iterations'],
                                   'preserveBoundary': False} if self.remesh else {},
                    'workingDirectory': str(directory), 'datasetRoot': str(dataset),
                    'timeoutSeconds': timeout, 'inputArtifacts': [{'path': str(copied), 'sha256': input_info['sha256'],
@@ -462,6 +472,7 @@ class Broker:
                'state': 'running', 'stage': 'queued', 'progress': 0, 'contractVersion': 1,
                'certificationRecordId': self.capabilities[0]['recordId'], 'artifacts': [], 'diagnostics': [],
                'directory': str(directory), 'sourceSnapshotSha256': source_sha,
+               **({'operation': 'mesh.inspect'} if inspecting else {}),
                **({'caseId': repair_case['caseId']} if self.repair else {'caseId': remesh_case['caseId']} if self.remesh else {'caseId': orientation_case['caseId']} if self.orientation else {'caseId': vtk_case['caseId']} if self.vtk_read else {}),
                'cancel': threading.Event(), 'process': None}
             self.jobs[job_id] = job
@@ -554,6 +565,35 @@ class Broker:
                      for name in names]
         with self.lock:
             job.update(pendingState='succeeded', stage='finalizing', progress=95, artifacts=artifacts)
+
+    def _finish_inspect(self, job, result, result_path, directory, exit_code):
+        self.verify()
+        entry = next((item for item in self.capabilities if item['recordId'] == job['certificationRecordId']), None)
+        reference = next((case for case in entry['referenceCases'] if case['caseId'] == job['caseId']), None) if entry else None
+        request = json.loads((directory / 'request.json').read_text(encoding='utf-8'))
+        output = directory / 'inspected.obj'
+        if (entry is None or reference is None or not isinstance(result, dict)
+                or request.get('recipeId') != 'cgal.validate' or request.get('operation') != 'mesh.inspect'
+                or result.get('recipeId') != 'cgal.validate' or result.get('operation') != 'mesh.inspect'
+                or result.get('runId') != job['jobId'] or result.get('state') != 'succeeded'
+                or exit_code != 0 or not output.is_file() or output.stat().st_size > MAX_INPUT
+                or sha(directory / 'dataset/input.obj') != reference['inputSha256']
+                or 'mesh.validate' not in result.get('validatedCapabilities', [])
+                or not any(item.get('path') == 'inspected.obj' and item.get('sha256') == sha(output)
+                           for item in result.get('artifacts', []))):
+            raise ValueError('CGAL shared inspection broker result changed.')
+        before, after = result.get('before', {}), result.get('after', {})
+        engine = result.get('engineDetails', {})
+        if (before.get('points', 0) < 4 or before.get('triangles', 0) < 4
+                or before.get('boundaryEdges') != 0 or before.get('closed') is not True
+                or before.get('points') != after.get('points')
+                or before.get('triangles') != after.get('triangles')
+                or after.get('boundaryEdges') != 0 or engine.get('degenerateTriangles') != 0
+                or engine.get('selfIntersections') is not False):
+            raise ValueError('CGAL inspection topology or nonmutation check failed.')
+        with self.lock:
+            job.update(pendingState='succeeded', stage='finalizing', progress=95,
+                       artifacts=[{'path': 'inspected.obj', 'sha256': sha(output), 'bytes': output.stat().st_size}])
 
     def _finish_orientation(self, job, result, result_path, directory, exit_code):
         self.verify()
@@ -754,6 +794,9 @@ class Broker:
             if result_path.is_file() and result_path.stat().st_size > 1048576:
                 raise ValueError('Worker result exceeds 1 MiB.')
             result = json.loads(result_path.read_text(encoding='utf-8')) if result_path.is_file() else None
+            if self.remesh and job.get('operation') == 'mesh.inspect':
+                self._finish_inspect(job, result, result_path, directory, process.returncode)
+                return
             if self.remesh:
                 self._finish_remesh(job, result, result_path, directory, process.returncode)
                 return
@@ -879,6 +922,7 @@ class Broker:
                 for name in (('cube.msh', 'volume.m3dt', 'exporter.json', 'handoff.json') if self.volume else
                              ('l5-positive.msh', 'l5-positive.obj', 'conversion.json', 'handoff.json') if self.gmsh else
                              ('repaired.obj', 'handoff.json') if self.repair else
+                             ('inspected.obj',) if self.remesh and job.get('operation') == 'mesh.inspect' else
                              ('l5-positive.obj', 'handoff.json')):
                     path = directory / name
                     if path.exists():

@@ -9,6 +9,7 @@ import uuid
 from benchmark import BENCHMARK_ID, TIERS, compare, digest, environment_fingerprint
 from broker import Broker, sha
 from telemetry import host_fingerprint
+from comparable_inspect import verify as verify_shared_inspect
 
 
 def benchmark_records(broker, entry, tier):
@@ -69,6 +70,8 @@ def rank(candidates):
 
 
 def advise(config, capability_id, tier, manual_provider, output_root):
+    if capability_id == 'mesh.inspect':
+        raise ValueError('Shared mesh.inspect ranking requires a current comparable-inspection record.')
     if tier not in TIERS:
         raise ValueError('Unknown benchmark tier.')
     broker = Broker(config)
@@ -99,6 +102,52 @@ def advise(config, capability_id, tier, manual_provider, output_root):
         json.dump(record, stream, separators=(',', ':'))
     Path(str(path) + '.sha256').write_text(sha(path), encoding='utf-8')
     return path, record
+
+
+def advise_shared(scope_record, tier, manual_provider, output_root):
+    scope = verify_shared_inspect(scope_record)
+    if tier not in scope['tiers']:
+        raise ValueError('Requested size tier is outside the qualified shared scope.')
+    providers = {'cgal': 'cgal-win-conda', 'vtk': 'vtk-win-conda'}
+    if manual_provider and manual_provider not in providers.values():
+        raise ValueError('Manual provider is outside the shared scope.')
+    measurements = scope['tiers'][tier]['measurements']
+    ranked = sorted((measurements[name]['statistics']['medianMs'], providers[name]) for name in providers)
+    record = {'schemaVersion': 1, 'kind': 'scientific.shared-inspect-advice',
+              'createdAtUtc': datetime.now(timezone.utc).isoformat(), 'operation': 'mesh.inspect',
+              'tier': tier, 'scopeRecord': str(Path(scope_record).resolve()),
+              'scopeRecordSha256': sha(scope_record), 'contractSha256': scope['contractSha256'],
+              'manualProvider': manual_provider, 'selectedProvider': manual_provider,
+              'recommendation': ranked[0][1],
+              'mediansMs': {providers[name]: measurements[name]['statistics']['medianMs'] for name in providers},
+              'state': 'ranked-within-qualified-shared-scope'}
+    root = Path(output_root).resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    path = root / (uuid.uuid4().hex + '.json')
+    path.write_text(json.dumps(record, separators=(',', ':')), encoding='utf-8')
+    Path(str(path) + '.sha256').write_text(sha(path), encoding='utf-8')
+    return path, record
+
+
+def verify_shared_advice(path):
+    path = Path(path).resolve(strict=True)
+    if sha(path) != Path(str(path) + '.sha256').read_text().strip():
+        raise ValueError('Shared advice seal changed.')
+    record = json.loads(path.read_text(encoding='utf-8'))
+    scope = verify_shared_inspect(record['scopeRecord'])
+    if (record['scopeRecordSha256'] != sha(record['scopeRecord'])
+            or record['contractSha256'] != scope['contractSha256']
+            or record['tier'] not in scope['tiers']):
+        raise ValueError('Shared advice scope drifted.')
+    providers = {'cgal': 'cgal-win-conda', 'vtk': 'vtk-win-conda'}
+    medians = {providers[name]: scope['tiers'][record['tier']]['measurements'][name]['statistics']['medianMs']
+               for name in providers}
+    expected = min(medians, key=medians.get)
+    if (record['mediansMs'] != medians or record['recommendation'] != expected
+            or record['state'] != 'ranked-within-qualified-shared-scope'
+            or record['selectedProvider'] != record['manualProvider']):
+        raise ValueError('Shared advice recommendation changed.')
+    return record
 
 
 def verify(path, config=None):
@@ -161,15 +210,25 @@ def verify(path, config=None):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=['advise', 'verify'])
+    parser.add_argument('command', choices=['advise', 'verify', 'advise-shared', 'verify-shared'])
     parser.add_argument('--config')
     parser.add_argument('--capability-id', default='mesh.interop.vtk-math3d')
     parser.add_argument('--tier', default='single')
     parser.add_argument('--manual-provider')
     parser.add_argument('--output-root')
     parser.add_argument('--record')
+    parser.add_argument('--shared-record')
     args = parser.parse_args()
-    if args.command == 'verify':
+    if args.command == 'advise-shared':
+        if not args.shared_record or not args.output_root:
+            parser.error('advise-shared requires --shared-record and --output-root')
+        path, report = advise_shared(args.shared_record, args.tier, args.manual_provider, args.output_root)
+        print(json.dumps({'record': str(path), 'recommendation': report['recommendation'],
+                          'selectedProvider': report['selectedProvider'], 'tier': report['tier']}))
+    elif args.command == 'verify-shared':
+        report = verify_shared_advice(args.record)
+        print(json.dumps({'state': report['state'], 'recommendation': report['recommendation']}))
+    elif args.command == 'verify':
         report = verify(args.record, args.config)
         print(json.dumps({'state': report['state'], 'selectedProvider': report['selectedProvider']}))
     else:

@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "operation": "mesh.inspect",
+  "kind": "scientific.comparable-operation",
+  "scope": "Closed outward triangular manifold OBJ; read and report topology and geometry without intentional mesh edits. The CGAL implementation validates extra invalid conditions; only the three listed accepted fixtures are interchangeable.",
+  "tolerance": 0.000001,
+  "warmups": 1,
+  "minimumSamples": 5,
+  "measuredQuantity": "broker workerDurationMs including Python adapter and native/VTK startup; no product UI time",
+  "tiers": [
+    {"id":"tetra-4", "points":4, "triangles":4, "cgalCase":"accepted", "vtkCase":"tetra", "cgalFixture":"scientific/fixtures/cgal/closed-tetra.obj", "vtkFixture":"scientific/fixtures/cgal/closed-tetra.obj", "cgalSha256":"21b1325a5d9f7ef43f04b923c7b469e6a8c73cc41eef436924801d37ac29113d", "vtkSha256":"21b1325a5d9f7ef43f04b923c7b469e6a8c73cc41eef436924801d37ac29113d"},
+    {"id":"octa-6", "points":6, "triangles":8, "cgalCase":"octa-accepted", "vtkCase":"octa", "cgalFixture":"scientific/fixtures/cgal-remesh-qualification/octahedron.obj", "vtkFixture":"scientific/fixtures/cgal-remesh-qualification/octahedron.obj", "cgalSha256":"72cff9d9e08a2ce0ba81932417e0c6351bc11174d394607e7041586ad59b1a5a", "vtkSha256":"72cff9d9e08a2ce0ba81932417e0c6351bc11174d394607e7041586ad59b1a5a"},
+    {"id":"cube-8", "points":8, "triangles":12, "cgalCase":"cube-accepted", "vtkCase":"cube", "cgalFixture":"scientific/fixtures/cgal-repair-quad/cube-closed.obj", "vtkFixture":"scientific/fixtures/cgal/orientation/outward-cube.obj", "cgalSha256":"70a95597b1464af10a197f4c0d6def7f51fbd77118d765fc735e807ec52ca504", "vtkSha256":"f192781cc0ded64a05a7d80c332a40aac278f6e5c9a439bdddb7d6c80b5287e3"}
+  ]
+}

@@ -25,13 +25,13 @@ def require_consumer_identity(matrix, release):
         raise ValueError('Five-capability matrix MATH3D consumer identity drifted.')
 
 
-def source_run(repo, dataset, root, name, python, worker=None):
+def source_run(repo, dataset, root, name, python, worker=None, operation=None):
     directory = root / (name + '-' + uuid.uuid4().hex)
     directory.mkdir(parents=True)
     output = 'mesh.obj' if name == 'cgal' else 'mesh.vtp'
     request = {'schemaVersion': 1, 'runId': uuid.uuid4().hex,
                'runtimeId': 'cgal-win-conda' if name == 'cgal' else 'vtk-win-conda',
-               'recipeId': OPERATIONS[name], 'operation': OPERATIONS[name],
+               'recipeId': OPERATIONS[name], 'operation': operation or OPERATIONS[name],
                'workingDirectory': str(directory), 'datasetRoot': str(dataset.parent),
                'timeoutSeconds': 120, 'parameters': {},
                'inputArtifacts': [{'path': str(dataset), 'sha256': sha(dataset),
@@ -55,13 +55,15 @@ def source_run(repo, dataset, root, name, python, worker=None):
     result = json.loads(result_path.read_text(encoding='utf-8'))
     if result.get('state') != 'succeeded' or result['inputArtifacts'][0]['sha256'] != sha(dataset):
         raise ValueError(name + ' diagnostic result changed.')
+    if result.get('operation') != (operation or OPERATIONS[name]):
+        raise ValueError(name + ' worker operation changed.')
     descriptor = load_saved_mesh(result_path, output)
     return {'resultPath': str(result_path), 'resultSha256': sha(result_path),
             'artifactPath': str(directory / output), 'artifactSha256': sha(directory / output),
             'runId': result['runId'], 'durationMs': result['durationMs'], 'descriptor': descriptor}
 
 
-def compare(record, output_root, repetitions=5):
+def compare(record, output_root, repetitions=5, shared_inspect_record=None):
     if repetitions < 3 or repetitions > 15:
         raise ValueError('Use 3–15 measured repetitions.')
     release = verify_release(record)
@@ -123,6 +125,16 @@ def compare(record, output_root, repetitions=5):
                        for name, identity in TARGETS.items()],
               'consumer': {'name': 'MATH3D', 'evidence': 'five broker/MATH3D smokes passed',
                            'releaseIdentity': release['math3dIdentity']}}
+    shared = None
+    if shared_inspect_record:
+        from comparable_inspect import verify as verify_shared
+        shared = verify_shared(shared_inspect_record)
+        if shared['releaseRecordSha256'] != sha(record) or shared['sourceCommit'] != release['sourceCommit']:
+            raise ValueError('Shared inspection scope is from another release.')
+        matrix['sharedInspect'] = {'record': str(Path(shared_inspect_record).resolve()),
+                                   'sha256': sha(shared_inspect_record),
+                                   'contractSha256': shared['contractSha256'],
+                                   'tiers': list(shared['tiers'])}
     lines = ['# Five-capability reproducibility report', '',
              f"Source commit: `{release['sourceCommit']}`. Five current L0–L9 chains and broker/MATH3D smokes verified.", '',
              f"Runtime inventory: **{inventory_state}**; SHA-256 `{matrix['inventorySha256'] or 'unavailable'}`.", '',
@@ -142,6 +154,16 @@ def compare(record, output_root, repetitions=5):
               '## Reproduce', '',
               f"`python tools/scientific-broker/five_capability_release.py verify --record \"{record}\"`",
               f"`python tools/scientific-broker/five_capability_report.py verify --record \"{root / 'report.json'}\"`", '']
+    if shared:
+        lines += ['## Qualified shared mesh.inspect scope', '',
+                  f"Contract SHA-256: `{shared['contractSha256']}`. Current desktop L0–L9 and broker job/promotion gates passed for three matched closed fixtures.",
+                  '| Tier | CGAL median ms | VTK median ms | Samples per provider |',
+                  '|---|---:|---:|---:|']
+        for tier, evidence in shared['tiers'].items():
+            left = evidence['measurements']['cgal']['statistics']
+            right = evidence['measurements']['vtk']['statistics']
+            lines.append(f"| {tier} | {left['medianMs']} | {right['medianMs']} | {left['samples']} |")
+        lines += ['', 'Advisor ranking is permitted only for these exact fixture and size tiers while the shared record remains current.', '']
     markdown = '\n'.join(lines)
     (root / 'comparison.json').write_text(json.dumps(comparison, separators=(',', ':')), encoding='utf-8')
     (root / 'matrix.json').write_text(json.dumps(matrix, separators=(',', ':')), encoding='utf-8')
@@ -172,6 +194,16 @@ def verify(path):
     matrix = json.loads((path.parent / 'matrix.json').read_text(encoding='utf-8'))
     comparison = json.loads((path.parent / 'comparison.json').read_text(encoding='utf-8'))
     require_consumer_identity(matrix, release)
+    if matrix.get('sharedInspect'):
+        from comparable_inspect import verify as verify_shared
+        shared_ref = matrix['sharedInspect']
+        if sha(shared_ref['record']) != shared_ref['sha256']:
+            raise ValueError('Shared inspection matrix record changed.')
+        shared = verify_shared(shared_ref['record'])
+        if (shared['contractSha256'] != shared_ref['contractSha256']
+                or shared['releaseRecordSha256'] != sha(report['releaseRecord'])
+                or list(shared['tiers']) != shared_ref['tiers']):
+            raise ValueError('Shared inspection matrix scope changed.')
     if (matrix['sourceCommit'] != release['sourceCommit'] or comparison['sourceCommit'] != release['sourceCommit']
             or len(matrix['rows']) != 5 or set((row['runtimeId'], row['capabilityId']) for row in matrix['rows']) != set(TARGETS.values())
             or comparison['operations'] != OPERATIONS or comparison['semanticVerdict'] != 'distinct-operations-no-backend-ranking'):
@@ -203,11 +235,12 @@ if __name__ == '__main__':
     parser.add_argument('--record', required=True)
     parser.add_argument('--output-root')
     parser.add_argument('--repetitions', type=int, default=5)
+    parser.add_argument('--shared-inspect-record')
     args = parser.parse_args()
     if args.command == 'build':
         if not args.output_root:
             parser.error('build requires --output-root')
-        path, report = compare(args.record, args.output_root, args.repetitions)
+        path, report = compare(args.record, args.output_root, args.repetitions, args.shared_inspect_record)
     else:
         path, report = args.record, verify(args.record)
     print(json.dumps({'record': str(path), 'sourceCommit': report['sourceCommit'], 'verdict': 'verified'}))

@@ -312,6 +312,7 @@ Check(new[] { "math.rational.add", "math.polynomial.factor", "math.matrix.solve"
 Reject(() => ScientificCapabilityRegistry.Get("mesh.unknown"), "unknown semantic capability is rejected");
 foreach(var name in new[]{"tools/scientific_worker_contract.py","tools/runtime-lab/Program.cs",
     "BatchLauncher/ScientificProviderRegistry.cs","BatchLauncher/ScientificRunFingerprint.cs",
+    "BatchLauncher/ScientificSourceSnapshot.cs",
     "BatchLauncher/ScientificQualificationRecords.cs",
     "BatchLauncher/Form1.Scientific.L5.cs",
     "BatchLauncher/Form1.Scientific.L6.cs",

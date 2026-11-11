@@ -9,6 +9,7 @@
     <Compile Include="../../BatchLauncher/ScientificMath3DPreparation.cs" Link="ScientificMath3DPreparation.cs" />
     <Compile Include="../../BatchLauncher/ScientificArtifactFiles.cs" Link="ScientificArtifactFiles.cs" />
     <Compile Include="../../BatchLauncher/ScientificRunFingerprint.cs" Link="ScientificRunFingerprint.cs" />
+    <Compile Include="../../BatchLauncher/ScientificSourceSnapshot.cs" Link="ScientificSourceSnapshot.cs" />
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.cs" Link="ScientificQualificationRecords.cs" />
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.Repair.cs" Link="ScientificQualificationRecords.Repair.cs" />
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.RepairInterop.cs" Link="ScientificQualificationRecords.RepairInterop.cs" />
@@ -16,6 +17,8 @@
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.RepairProduct.cs" Link="ScientificQualificationRecords.RepairProduct.cs" />
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.CgalRepair.cs" Link="ScientificQualificationRecords.CgalRepair.cs" />
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.Remesh.cs" Link="ScientificQualificationRecords.Remesh.cs" />
+    <Compile Include="../../BatchLauncher/ScientificQualificationRecords.Orientation.cs" Link="ScientificQualificationRecords.Orientation.cs" />
+    <Compile Include="../../BatchLauncher/ScientificQualificationRecords.VtkRead.cs" Link="ScientificQualificationRecords.VtkRead.cs" />
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.Sage.cs" Link="ScientificQualificationRecords.Sage.cs" />
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.Gmsh.cs" Link="ScientificQualificationRecords.Gmsh.cs" />
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.GmshVolume.cs" Link="ScientificQualificationRecords.GmshVolume.cs" />

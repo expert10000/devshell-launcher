@@ -105,7 +105,7 @@ static partial class BrokerManifest
             catch (Exception error) when (error is IOException or JsonException or InvalidDataException
                 or InvalidOperationException or UnauthorizedAccessException or KeyNotFoundException)
             {
-                if (rejected != null && recipeId is "l9.gmsh-volume" or "l9.cgal-repair" or "l9.cgal-remesh" or "l9.cgal-orient")
+                if (rejected != null && recipeId is "l9.gmsh-volume" or "l9.cgal-repair" or "l9.cgal-remesh" or "l9.cgal-orient" or "l9.vtk-read")
                     rejected.Add(new JsonObject { ["folderId"] = Path.GetFileName(directory),
                         ["reason"] = error.Message });
             }
@@ -488,6 +488,8 @@ static partial class BrokerManifest
         if (remesh != null) certified.Add(remesh);
         var orientation = ExportOrientation(repo, installed, math3d, profile);
         if (orientation != null) certified.Add(orientation);
+        var vtkRead = ExportVtkRead(repo, installed, math3d, profile);
+        if (vtkRead != null) certified.Add(vtkRead);
         return new JsonObject { ["schemaVersion"] = 1, ["kind"] = "scientific.certified-capabilities",
             ["issuedAtUtc"] = DateTimeOffset.UtcNow.ToString("O"), ["profileId"] = profile,
             ["providerRegistryVersion"] = ScientificProviderRegistry.ContractVersion,
@@ -510,10 +512,14 @@ static partial class BrokerManifest
         var manifest = JsonNode.Parse(bytes) as JsonObject ?? throw new InvalidDataException("Invalid certified manifest.");
         if (manifest["schemaVersion"]?.GetValue<int>() != 1 || manifest["kind"]?.GetValue<string>() != "scientific.certified-capabilities"
             || manifest["certifiedCapabilities"] is not JsonArray capabilities
-            || capabilities.Any(item => item?["runtimeId"]?.GetValue<string>() is not ("cgal-win-conda" or "gmsh-win-conda")
-                || item?["capabilityId"]?.GetValue<string>() is not ("mesh.interop.vtk-math3d" or "mesh.generate" or "mesh.generate3d" or "mesh.repair" or "mesh.remesh" or "mesh.orient")
+            || capabilities.Any(item => item?["runtimeId"]?.GetValue<string>() is not ("cgal-win-conda" or "gmsh-win-conda" or "vtk-win-conda")
+                || item?["capabilityId"]?.GetValue<string>() is not ("mesh.interop.vtk-math3d" or "mesh.generate" or "mesh.generate3d" or "mesh.repair" or "mesh.remesh" or "mesh.orient" or "mesh.read")
                 || (item?["runtimeId"]?.GetValue<string>() == "cgal-win-conda"
                     && item?["capabilityId"]?.GetValue<string>() is not ("mesh.interop.vtk-math3d" or "mesh.repair" or "mesh.remesh" or "mesh.orient"))
+                || (item?["runtimeId"]?.GetValue<string>() == "vtk-win-conda"
+                    && item?["capabilityId"]?.GetValue<string>() != "mesh.read")
+                || (item?["runtimeId"]?.GetValue<string>() == "gmsh-win-conda"
+                    && item?["capabilityId"]?.GetValue<string>() is not ("mesh.generate" or "mesh.generate3d"))
                 || !ScientificCapabilityRegistry.IsDeclared(item?["runtimeId"]?.GetValue<string>() ?? "",
                     item?["capabilityId"]?.GetValue<string>() ?? "")
                 || item?["level"]?.GetValue<string>() != "L9"))

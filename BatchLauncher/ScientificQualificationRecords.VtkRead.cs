@@ -172,11 +172,13 @@ public static partial class ScientificQualificationRecords
             or NullReferenceException or KeyNotFoundException) { return null; }
     }
 
-    public static void AssessVtkReadConsumers(JsonArray records, string? importerHash, string? productSourcesHash)
+    public static void AssessVtkReadConsumers(JsonArray records, string? importerHash, string? productSourcesHash,
+        bool includeProduct = true)
     {
         foreach (var record in records.OfType<JsonObject>().Where(item => item["evidenceId"]?.GetValue<string>() is "l7.vtk-read" or "l9.vtk-read"))
         {
             var product = record["evidenceId"]?.GetValue<string>() == "l9.vtk-read";
+            if (product && !includeProduct) continue;
             var current = product ? productSourcesHash : importerHash;
             if (record["consumerSourceSha256"]?.GetValue<string>() == current) continue;
             record["status"] = current == null ? "unknown" : "stale";

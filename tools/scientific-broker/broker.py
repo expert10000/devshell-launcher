@@ -59,6 +59,20 @@ REMESH_CONTRACT = dict(id='math3d.guarded-remesh-handoff', version=1,
 ORIENTATION_CONTRACT = dict(id='math3d.orientation-handoff', version=1,
                             inputFormat='obj', outputFormat='obj', scopeVersion=2,
                             viewer='MeshDocumentViewport')
+VTK_READ_CONTRACT = dict(id='math3d.vtk-mesh-read-handoff', version=1,
+                         inputFormat='obj-ply-vtp', outputFormat='vtp-and-obj', scopeVersion=2,
+                         viewer='MeshDocumentViewport')
+VTK_READ_CASES = ('tetra', 'cube', 'octa', 'affine', 'open', 'disconnected', 'empty', 'truncated', 'invalid')
+VTK_READ_SOURCES = ('tools/scientific-mesh-worker.py', 'tools/scientific_worker_contract.py',
+                    'tools/scientific_vtk_read_scope.py', 'tools/scientific_vtk_read_qualification.py',
+                    'tools/scientific-artifact-roundtrip.py', 'tools/scientific-vtk-interop.py',
+                    'tools/math3d-vtk-import-handoff.mjs', 'tools/math3d-vtk-read-product.mjs',
+                    'tools/math3d-vtk-read-viewer.mjs', 'tools/scientific-cgal-repair-m3dm-roundtrip.py',
+                    'BatchLauncher/Form1.Scientific.VtkRead.cs', 'BatchLauncher/ScientificQualificationRecords.VtkRead.cs',
+                    'BatchLauncher/ScientificRunFingerprint.cs', 'tools/runtime-lab/Program.cs',
+                    'tools/scientific-broker/Program.cs', 'tools/scientific-broker/Program.VtkRead.cs',
+                    'tools/scientific-broker/broker.py', 'tools/scientific-broker/vtk_read_adapter.py',
+                    'tools/scientific-broker/vtk_read_broker_smoke.py')
 ORIENTATION_CASES = ('tetra-inward', 'tetra-outward', 'cube-inward', 'cube-outward',
                      'octa-inward', 'octa-outward', 'affine-inward', 'affine-outward',
                      'open', 'disconnected', 'nonmanifold', 'degenerate')
@@ -121,17 +135,18 @@ class Broker:
         if config.get('schemaVersion') != 1:
             raise ValueError('Unsupported broker configuration.')
         self.runtime_id = config.get('runtimeId', 'cgal-win-conda')
-        if self.runtime_id not in ('cgal-win-conda', 'gmsh-win-conda'):
+        if self.runtime_id not in ('cgal-win-conda', 'gmsh-win-conda', 'vtk-win-conda'):
             raise ValueError('Unsupported broker runtime profile.')
         self.gmsh = self.runtime_id == 'gmsh-win-conda'
         self.capability_id = config.get('capabilityId', 'mesh.generate' if self.gmsh else 'mesh.interop.vtk-math3d')
-        if self.capability_id not in (('mesh.generate', 'mesh.generate3d') if self.gmsh else ('mesh.interop.vtk-math3d', 'mesh.repair', 'mesh.remesh', 'mesh.orient')):
+        if self.capability_id not in (('mesh.generate', 'mesh.generate3d') if self.gmsh else ('mesh.read',) if self.runtime_id == 'vtk-win-conda' else ('mesh.interop.vtk-math3d', 'mesh.repair', 'mesh.remesh', 'mesh.orient')):
             raise ValueError('Unsupported broker capability profile.')
         self.repair = self.capability_id == 'mesh.repair'
         self.remesh = self.capability_id == 'mesh.remesh'
         self.orientation = self.capability_id == 'mesh.orient'
+        self.vtk_read = self.runtime_id == 'vtk-win-conda' and self.capability_id == 'mesh.read'
         self.volume = self.capability_id == 'mesh.generate3d'
-        self.contract = VOLUME_CONTRACT if self.volume else REPAIR_CONTRACT if self.repair else REMESH_CONTRACT if self.remesh else ORIENTATION_CONTRACT if self.orientation else CONTRACT
+        self.contract = VOLUME_CONTRACT if self.volume else REPAIR_CONTRACT if self.repair else REMESH_CONTRACT if self.remesh else ORIENTATION_CONTRACT if self.orientation else VTK_READ_CONTRACT if self.vtk_read else CONTRACT
         self.paths = {name: Path(config[name]).resolve(strict=True) for name in
                       ('manifest', 'runtimeManifest', 'adapter', 'workerContract', 'python', 'worker', 'prefix', 'datasetRoot')}
         if self.volume:
@@ -181,7 +196,8 @@ class Broker:
                                 ('gmsh-win-conda', 'mesh.generate3d', 'L9'),
                                 ('cgal-win-conda', 'mesh.repair', 'L9'),
                                 ('cgal-win-conda', 'mesh.remesh', 'L9'),
-                                ('cgal-win-conda', 'mesh.orient', 'L9')):
+                                ('cgal-win-conda', 'mesh.orient', 'L9'),
+                                ('vtk-win-conda', 'mesh.read', 'L9')):
                 raise ValueError('Unqualified or unsupported provider in certified manifest.')
             if entry.get('runtimeId') != self.runtime_id or entry.get('capabilityId') != self.capability_id:
                 continue
@@ -263,6 +279,36 @@ class Broker:
                     require_hash(self.source_root / name, digest, 'Orientation source ' + name)
                 if hashlib.sha256(json.dumps(sources, separators=(',', ':')).encode()).hexdigest() != entry.get('orientationSourcesSha256'):
                     raise ValueError('Orientation qualification source digest changed.')
+            if self.vtk_read:
+                fixture_path = self.source_root / 'scientific/fixtures/vtk/read/manifest.v2.json'
+                require_hash(fixture_path, entry.get('fixtureManifestSha256'), 'VTK read fixture manifest')
+                fixtures = json.loads(fixture_path.read_text(encoding='utf-8'))
+                references = entry.get('referenceCases')
+                if (fixtures.get('schemaVersion') != 2 or fixtures.get('capabilityId') != 'mesh.read'
+                        or not isinstance(references, list)
+                        or [case.get('caseId') for case in references] != list(VTK_READ_CASES)
+                        or [case.get('caseId') for case in fixtures.get('cases', [])] != list(VTK_READ_CASES)):
+                    raise ValueError('The certified VTK read case profile is incomplete.')
+                for fixture, case in zip(fixtures['cases'], references):
+                    expected = fixture['expected']
+                    if (case.get('inputSha256') != fixture['sha256'] or case.get('expected') != expected
+                            or case.get('errorContains') != fixture.get('errorContains')
+                            or case.get('inputExtension') != Path(fixture['path']).suffix.lower()
+                            or (expected == 'accepted') != bool(re.fullmatch('[0-9a-f]{64}', case.get('outputSha256') or ''))
+                            or (expected == 'accepted') != bool(re.fullmatch('[0-9a-f]{64}', case.get('objSha256') or ''))
+                            or expected not in ('accepted', 'rejected')):
+                        raise ValueError('The certified VTK read case identity changed.')
+                    require_hash(self.source_root / fixture['path'], fixture['sha256'], 'VTK read fixture')
+                if (entry.get('referenceInputSha256') != references[0]['inputSha256']
+                        or entry.get('referenceArtifactSha256') != references[0]['outputSha256']):
+                    raise ValueError('The certified VTK read reference differs from its case pack.')
+                sources = entry.get('vtkReadSources')
+                if not isinstance(sources, dict) or set(sources) != set(VTK_READ_SOURCES):
+                    raise ValueError('VTK read qualification source identity is incomplete.')
+                for name, digest in sources.items():
+                    require_hash(self.source_root / name, digest, 'VTK read source ' + name)
+                if hashlib.sha256(json.dumps(sources, separators=(',', ':')).encode()).hexdigest() != entry.get('vtkReadSourcesSha256'):
+                    raise ValueError('VTK read qualification source digest changed.')
             for name, field in [('runtimeManifest', 'runtimeManifestSha256'), ('adapter', 'adapterSha256'),
                                 ('workerContract', 'workerContractSha256'), ('python', 'pythonSha256'),
                                 ('worker', 'workerBinarySha256')]:
@@ -299,10 +345,10 @@ class Broker:
                 raise ValueError('L9 qualification identity differs from its support chain.')
             if support[8]['recordId'] != entry['sourceL8RecordId'] or support[8]['runId'] != entry['sourceL8RunId']:
                 raise ValueError('L8 qualification identity differs from its support chain.')
-            expected_files = VOLUME_CONSUMER_FILES if self.volume else set(REPAIR_CONTRACT['consumerSources']) if self.repair else set(REMESH_CONSUMER_FILES) if self.remesh or self.orientation else CONSUMER_FILES
+            expected_files = VOLUME_CONSUMER_FILES if self.volume else set(REPAIR_CONTRACT['consumerSources']) if self.repair else set(REMESH_CONSUMER_FILES) if self.remesh or self.orientation or self.vtk_read else CONSUMER_FILES
             if not isinstance(entry.get('consumerSources'), dict) or set(entry['consumerSources']) != expected_files:
                 raise ValueError('MATH3D consumer source identity is missing.')
-            if (self.volume or self.repair or self.remesh or self.orientation) and self.math3d_root is not None:
+            if (self.volume or self.repair or self.remesh or self.orientation or self.vtk_read) and self.math3d_root is not None:
                 for name, expected in entry['consumerSources'].items():
                     require_hash(self.math3d_root / name, expected, 'MATH3D volume consumer ' + name)
                 source_hash = hashlib.sha256(json.dumps(entry['consumerSources'], separators=(',', ':')).encode()).hexdigest()
@@ -337,12 +383,14 @@ class Broker:
             raise ValueError('Input artifact is required.')
         source = Path(input_info['path']).resolve(strict=True)
         suffix = '.geo' if self.gmsh else '.obj'
-        if source.suffix.lower() != suffix or not source.is_relative_to(self.paths['datasetRoot']) or source.stat().st_size > MAX_INPUT:
+        allowed_suffix = source.suffix.lower() in ('.obj', '.ply', '.vtp') if self.vtk_read else source.suffix.lower() == suffix
+        if not allowed_suffix or not source.is_relative_to(self.paths['datasetRoot']) or source.stat().st_size > MAX_INPUT:
             raise ValueError(f'Input must be a bounded registered {suffix} dataset.')
         require_hash(source, input_info.get('sha256'), 'Input artifact')
         repair_case = None
         remesh_case = None
         orientation_case = None
+        vtk_case = None
         if self.repair:
             case_id = body.get('caseId')
             repair_case = next((case for case in self.capabilities[0]['referenceCases']
@@ -367,6 +415,15 @@ class Broker:
                     or set(input_info) != {'path', 'sha256'}
                     or input_info['sha256'] != orientation_case['inputSha256']):
                 raise ValueError('Only an allowlisted orientation case and its pinned typed input are accepted.')
+        elif self.vtk_read:
+            vtk_case = next((case for case in self.capabilities[0]['referenceCases']
+                             if case['caseId'] == body.get('caseId')), None)
+            if (vtk_case is None
+                    or set(body) != {'schemaVersion', 'runtimeId', 'capabilityId', 'caseId', 'input', 'timeoutSeconds'}
+                    or set(input_info) != {'path', 'sha256'}
+                    or input_info['sha256'] != vtk_case['inputSha256']
+                    or source.suffix.lower() != vtk_case['inputExtension']):
+                raise ValueError('Only an allowlisted VTK read case and its pinned typed input are accepted.')
         elif input_info['sha256'] != self.capabilities[0]['referenceInputSha256']:
             raise ValueError('Input is outside the fixed L9 qualification fixture.')
         with self.lock:
@@ -377,7 +434,7 @@ class Broker:
             directory = self.jobs_root / job_id
             dataset = directory / 'dataset'
             dataset.mkdir(parents=True)
-            copied = dataset / ('input.geo' if self.gmsh else 'input.obj')
+            copied = dataset / ('input.geo' if self.gmsh else 'input' + source.suffix.lower() if self.vtk_read else 'input.obj')
             shutil.copyfile(source, copied)
             require_hash(copied, input_info['sha256'], 'Copied input artifact')
             source_snapshot = capture_sources({'devshell': self.source_root, 'math3d': self.math3d_root})
@@ -385,8 +442,8 @@ class Broker:
             with source_path.open('x', encoding='utf-8') as stream:
                 json.dump(source_snapshot, stream, separators=(',', ':'))
             source_sha = sha(source_path)
-            recipe = 'gmsh.volume3d.cube' if self.volume else 'gmsh.mesh2d' if self.gmsh else repair_case['recipeId'] if self.repair else 'cgal.remesh' if self.remesh else 'cgal.repair-orientation' if self.orientation else 'cgal.validate'
-            output_name = 'cube.msh' if self.volume else 'l5-positive.msh' if self.gmsh else 'repaired.obj' if self.repair else 'remeshed.obj' if self.remesh else 'oriented.obj' if self.orientation else 'l5-positive.obj'
+            recipe = 'gmsh.volume3d.cube' if self.volume else 'gmsh.mesh2d' if self.gmsh else repair_case['recipeId'] if self.repair else 'cgal.remesh' if self.remesh else 'cgal.repair-orientation' if self.orientation else 'mesh.inspect' if self.vtk_read else 'cgal.validate'
+            output_name = 'cube.msh' if self.volume else 'l5-positive.msh' if self.gmsh else 'repaired.obj' if self.repair else 'remeshed.obj' if self.remesh else 'oriented.obj' if self.orientation else 'read.vtp' if self.vtk_read else 'l5-positive.obj'
             dataset_id = hashlib.sha256((repair_case['caseId'] + ':' + repair_case['inputSha256']).encode()).hexdigest() if self.repair else None
             request = {'schemaVersion': 1, 'runId': job_id, 'runtimeId': self.runtime_id,
                    'recipeId': recipe, 'operation': recipe,
@@ -397,7 +454,7 @@ class Broker:
                    'workingDirectory': str(directory), 'datasetRoot': str(dataset),
                    'timeoutSeconds': timeout, 'inputArtifacts': [{'path': str(copied), 'sha256': input_info['sha256'],
                                                                   **({'datasetId': dataset_id} if self.repair else {})}],
-                   'outputArtifacts': [{'path': output_name, 'mediaType': 'model/vnd.gmsh.msh' if self.gmsh else 'model/obj'}],
+                   'outputArtifacts': [{'path': output_name, 'mediaType': 'model/vnd.gmsh.msh' if self.gmsh else 'application/vnd.vtk.vtp' if self.vtk_read else 'model/obj'}],
                    'provenance': {'brokerContractVersion': 1, 'certificationRecordId': self.capabilities[0]['recordId'],
                                   'sourceSnapshotSha256': source_sha}}
             (directory / 'request.json').write_text(json.dumps(request, separators=(',', ':')), encoding='utf-8')
@@ -405,7 +462,7 @@ class Broker:
                'state': 'running', 'stage': 'queued', 'progress': 0, 'contractVersion': 1,
                'certificationRecordId': self.capabilities[0]['recordId'], 'artifacts': [], 'diagnostics': [],
                'directory': str(directory), 'sourceSnapshotSha256': source_sha,
-               **({'caseId': repair_case['caseId']} if self.repair else {'caseId': remesh_case['caseId']} if self.remesh else {'caseId': orientation_case['caseId']} if self.orientation else {}),
+               **({'caseId': repair_case['caseId']} if self.repair else {'caseId': remesh_case['caseId']} if self.remesh else {'caseId': orientation_case['caseId']} if self.orientation else {'caseId': vtk_case['caseId']} if self.vtk_read else {}),
                'cancel': threading.Event(), 'process': None}
             self.jobs[job_id] = job
         threading.Thread(target=self._run, args=(job, timeout), daemon=True).start()
@@ -559,6 +616,74 @@ class Broker:
         with self.lock:
             job.update(pendingState='succeeded', stage='finalizing', progress=95, artifacts=artifacts)
 
+    def _finish_vtk_read(self, job, result, result_path, directory, exit_code):
+        self.verify()
+        entry = next((item for item in self.capabilities if item['recordId'] == job['certificationRecordId']), None)
+        reference = next((case for case in entry['referenceCases'] if case['caseId'] == job['caseId']), None) if entry else None
+        if entry is None or reference is None or not isinstance(result, dict):
+            raise ValueError('Current VTK read qualification is unavailable.')
+        request_path = directory / 'request.json'
+        request = json.loads(request_path.read_text(encoding='utf-8'))
+        copied = directory / 'dataset' / ('input' + reference['inputExtension'])
+        output = directory / 'read.vtp'
+        if (request.get('recipeId') != 'mesh.inspect' or result.get('recipeId') != 'mesh.inspect'
+                or request.get('runId') != job['jobId'] or result.get('runId') != job['jobId']
+                or request.get('parameters') != {} or sha(copied) != reference['inputSha256']
+                or result.get('inputArtifacts', [{}])[0].get('sha256') != reference['inputSha256']
+                or result.get('versions', {}).get('vtk') != '9.6.1'):
+            raise ValueError('VTK read typed request or fixture identity changed.')
+        if reference['expected'] == 'rejected':
+            diagnostics = [item.get('message', '') for item in result.get('diagnostics', [])]
+            if (exit_code == 0 or result.get('state') != 'failed' or output.exists()
+                    or result.get('artifacts') or result.get('validatedCapabilities')
+                    or not any(reference['errorContains'] in message for message in diagnostics)):
+                raise ValueError('Adverse VTK read case published or changed its rejection.')
+            with self.lock:
+                job.update(pendingState='rejected', stage='finalizing', progress=95, diagnostics=diagnostics)
+            return
+        digest = reference['outputSha256']
+        if (exit_code != 0 or result.get('state') != 'succeeded'
+                or not output.is_file() or output.stat().st_size > MAX_INPUT or sha(output) != digest
+                or 'mesh.read' not in result.get('validatedCapabilities', [])
+                or not any(item.get('path') == 'read.vtp' and item.get('sha256') == digest
+                           for item in result.get('artifacts', []))):
+            raise ValueError('Accepted VTK read differs from its L9 VTP reference.')
+        parser = self.source_root / 'tools/scientific-artifact-roundtrip.py'
+        obj = directory / 'read.obj'
+        reload = directory / 'reload.json'
+        converted = subprocess.run([str(self.paths['python']), str(parser), '--input', str(output),
+                                    '--result', str(reload), '--export-obj', str(obj)],
+                                   cwd=directory, capture_output=True, text=True, timeout=60)
+        if converted.returncode or sha(obj) != reference['objSha256']:
+            raise ValueError('VTK read handoff OBJ differs from current L7 evidence.')
+        reload_result = json.loads(reload.read_text(encoding='utf-8'))
+        if reload_result.get('artifactSha256') != digest or reload_result.get('exportObjSha256') != reference['objSha256']:
+            raise ValueError('Independent VTK read reload changed.')
+        scope = {'schemaVersion': 2, 'kind': 'scientific.vtk-read-broker-guard',
+                 'capabilityId': 'mesh.read', 'caseId': job['caseId'], 'expected': 'accepted',
+                 'fixtureManifestSha256': entry['fixtureManifestSha256'],
+                 'vtkReadSourcesSha256': entry['vtkReadSourcesSha256'],
+                 'workerBinarySha256': entry['workerBinarySha256'],
+                 'inputSha256': reference['inputSha256'], 'outputSha256': digest,
+                 'objSha256': reference['objSha256']}
+        scope_path = directory / 'scope.json'
+        scope_path.write_text(json.dumps(scope, separators=(',', ':')), encoding='utf-8')
+        handoff = {'schemaVersion': 1, 'contract': self.contract, 'runtimeId': self.runtime_id,
+                   'capabilityId': self.capability_id, 'caseId': job['caseId'],
+                   'sourceL9RunId': entry['sourceRunId'], 'sourceL9RecordId': entry['recordId'],
+                   'sourceL8RunId': entry['sourceL8RunId'], 'sourceL8RecordId': entry['sourceL8RecordId'],
+                   'workerRequest': {'path': str(request_path), 'sha256': sha(request_path)},
+                   'workerResult': {'path': str(result_path), 'sha256': sha(result_path)},
+                   'scopeGuard': {'path': str(scope_path), 'sha256': sha(scope_path)},
+                   'vtp': {'path': str(output), 'sha256': digest},
+                   'artifact': {'path': str(obj), 'sha256': reference['objSha256']}}
+        (directory / 'handoff.json').write_text(json.dumps(handoff, separators=(',', ':')), encoding='utf-8')
+        names = ('read.vtp', 'read.obj', 'reload.json', 'scope.json', 'handoff.json')
+        artifacts = [{'path': name, 'sha256': sha(directory / name), 'bytes': (directory / name).stat().st_size}
+                     for name in names]
+        with self.lock:
+            job.update(pendingState='succeeded', stage='finalizing', progress=95, artifacts=artifacts)
+
     def _run(self, job, timeout):
         directory = Path(job['directory'])
         started = time.monotonic()
@@ -634,6 +759,9 @@ class Broker:
                 return
             if self.orientation:
                 self._finish_orientation(job, result, result_path, directory, process.returncode)
+                return
+            if self.vtk_read:
+                self._finish_vtk_read(job, result, result_path, directory, process.returncode)
                 return
             worker_name = 'cube.msh' if self.volume else 'l5-positive.msh' if self.gmsh else 'repaired.obj' if self.repair else 'l5-positive.obj'
             artifact = directory / worker_name
@@ -815,6 +943,8 @@ class Broker:
             return self._promote_remesh(job_id)
         if self.orientation:
             return self._promote_orientation(job_id)
+        if self.vtk_read:
+            return self._promote_vtk_read(job_id)
         with self.lock:
             job = self.jobs.get(job_id)
             if job is None:
@@ -1067,6 +1197,83 @@ class Broker:
             path.write_text(json.dumps(record, separators=(',', ':')), encoding='utf-8')
             return {**record, 'path': str(path), 'sha256': sha(path)}
 
+    def _promote_vtk_read(self, job_id):
+        with self.lock:
+            job = self.jobs.get(job_id)
+            if job is None:
+                raise KeyError(job_id)
+            reasons = []
+            entry = None
+            try:
+                self.verify()
+                entry = next((item for item in self.capabilities if item['recordId'] == job['certificationRecordId']), None)
+                if entry is None:
+                    reasons.append('The L0-L9 VTK read qualification is no longer certified.')
+            except (ValueError, OSError) as error:
+                reasons.append('Certified VTK read identity changed: ' + str(error))
+            if job['state'] != 'succeeded':
+                reasons.append(f"Source job is {job['state']}; only accepted VTK reads can be promoted.")
+            if self.math3d_root is None:
+                reasons.append('MATH3D consumer checkout is unavailable.')
+            elif entry is not None:
+                try:
+                    for name, digest in entry['consumerSources'].items():
+                        require_hash(self.math3d_root / name, digest, 'MATH3D VTK read consumer ' + name)
+                except (ValueError, OSError) as error:
+                    reasons.append(str(error))
+            if entry is not None and job['state'] == 'succeeded':
+                try:
+                    self.source(job_id)
+                    folder = Path(job['directory'])
+                    handoff = json.loads(self.artifact(job_id, 'handoff.json'))
+                    scope = json.loads(self.artifact(job_id, 'scope.json'))
+                    vtp = self.artifact(job_id, 'read.vtp')
+                    obj = self.artifact(job_id, 'read.obj')
+                    reload = json.loads(self.artifact(job_id, 'reload.json'))
+                    request = json.loads((folder / 'request.json').read_text(encoding='utf-8'))
+                    result = json.loads((folder / 'results.json').read_text(encoding='utf-8'))
+                    reference = next(case for case in entry['referenceCases'] if case['caseId'] == job['caseId'])
+                    vtp_hash, obj_hash = hashlib.sha256(vtp).hexdigest(), hashlib.sha256(obj).hexdigest()
+                    if (reference['expected'] != 'accepted' or vtp_hash != reference['outputSha256']
+                            or obj_hash != reference['objSha256'] or handoff.get('contract') != self.contract
+                            or handoff.get('caseId') != job['caseId']
+                            or handoff.get('sourceL9RecordId') != entry['recordId']
+                            or handoff.get('sourceL8RecordId') != entry['sourceL8RecordId']
+                            or handoff.get('workerRequest', {}).get('sha256') != sha(folder / 'request.json')
+                            or handoff.get('workerResult', {}).get('sha256') != sha(folder / 'results.json')
+                            or handoff.get('scopeGuard', {}).get('sha256') != sha(folder / 'scope.json')
+                            or handoff.get('vtp', {}).get('sha256') != vtp_hash
+                            or handoff.get('artifact', {}).get('sha256') != obj_hash
+                            or scope.get('fixtureManifestSha256') != entry['fixtureManifestSha256']
+                            or scope.get('vtkReadSourcesSha256') != entry['vtkReadSourcesSha256']
+                            or scope.get('workerBinarySha256') != entry['workerBinarySha256']
+                            or scope.get('inputSha256') != reference['inputSha256']
+                            or scope.get('outputSha256') != vtp_hash
+                            or scope.get('objSha256') != obj_hash
+                            or reload.get('artifactSha256') != vtp_hash
+                            or reload.get('exportObjSha256') != obj_hash
+                            or request.get('parameters') != {}
+                            or result.get('recipeId') != 'mesh.inspect'):
+                        reasons.append('Broker VTK read handoff or accepted artifact changed.')
+                except (ValueError, OSError, KeyError, json.JSONDecodeError) as error:
+                    reasons.append('Verified VTK read handoff is unavailable: ' + str(error))
+            decision = 'allowed' if not reasons else 'blocked'
+            promotion_id = uuid.uuid4().hex
+            record = {'schemaVersion': 1, 'kind': 'scientific.math3d-promotion', 'promotionId': promotion_id,
+                      'decision': decision, 'reasons': reasons, 'sourceJobId': job_id,
+                      'sourceJobState': job['state'], 'capabilityId': job['capabilityId'],
+                      'runtimeId': job['runtimeId'], 'certificationRecordId': job['certificationRecordId'],
+                      'manifestSha256': sha(self.paths['manifest']) if self.paths['manifest'].is_file() else None,
+                      'contractVersion': self.contract['version'],
+                      'sourceSnapshotSha256': job.get('sourceSnapshotSha256'),
+                      'handoffSha256': sha(Path(job['directory']) / 'handoff.json') if decision == 'allowed' else None,
+                      'artifactSha256': reference['objSha256'] if decision == 'allowed' else None}
+            folder = Path(job['directory']) / 'promotions'
+            folder.mkdir(exist_ok=True)
+            path = folder / (promotion_id + '.json')
+            path.write_text(json.dumps(record, separators=(',', ':')), encoding='utf-8')
+            return {**record, 'path': str(path), 'sha256': sha(path)}
+
 
 def handler_for(broker):
     class Handler(BaseHTTPRequestHandler):
@@ -1096,6 +1303,7 @@ def handler_for(broker):
                     raw = broker.artifact(parts[2], parts[4])
                     self.send_response(200)
                     media_type = ('model/obj' if parts[4].endswith('.obj') else
+                                  'application/vnd.vtk.vtp' if parts[4].endswith('.vtp') else
                                   'model/vnd.gmsh.msh' if parts[4].endswith('.msh') else
                                   'application/octet-stream' if parts[4].endswith('.m3dt') else 'application/json')
                     self.send_header('Content-Type', media_type)

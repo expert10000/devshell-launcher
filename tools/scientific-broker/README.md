@@ -60,6 +60,10 @@ For `mesh.remesh`, `POST /v1/jobs` also requires `caseId` and `timeoutSeconds`. 
 
 `four_capability_release.py run --math3d-root <checkout>` builds one isolated worktree at the current commit, runs the managed orientation, remesh, hole repair, and fixed-cube volume L0–L9 actions, exports one fresh certification manifest, and runs all four broker/MATH3D product smokes. It writes a SHA-256-sealed `scientific.four-capability-release` coexistence record under `.scientific/four-capability-release` in that worktree. `four_capability_release.py verify --record <coexistence.json>` re-exports from that same checkout and rejects changed source commit, missing or stale lower records, source and consumer drift, changed broker config, smoke, product, or artifacts. The earlier three-capability record remains historical and does not cover the merged orientation source.
 
+## VTK read broker profile
+
+The `vtk-win-conda` `mesh.read` profile requires the separate managed version 2 VTK L5–L9 chain. Its nine typed cases pin six accepted OBJ reads, including open and disconnected surfaces, and three malformed OBJ/PLY/VTP rejections. Accepted jobs transport the exact L9 VTP, independently reloaded OBJ, scope guard and handoff; rejected jobs transport no mesh. Promotion rechecks the current chain, worker and source hashes, both mesh artifacts, MATH3D consumers and the saved request/result. Run `vtk_read_broker_smoke.py run --config <config.json>` for all cases and MATH3D products, and set `DEVSHELL_VTK_READ_BROKER_CONFIG` for `python tests/test_scientific_vtk_read_broker.py` to exercise accepted, rejected, tampered and cancelled HTTP jobs.
+
 - `GET /v1/providers`: certified provider and capability discovery.
 - `POST /v1/jobs`: accept `schemaVersion`, `runtimeId`, `capabilityId`, `input: {path, sha256}`, and optional `timeoutSeconds` (1–120). The input must be a bounded registered dataset with the exact hash of the selected L9 fixture: OBJ for CGAL or `.geo` for Gmsh.
 - `GET /v1/jobs/{id}`: state (`running`, `succeeded`, `partial`, `failed`, `cancelled`, `timed-out`, `resource-exhausted`), stage, progress, diagnostics, and verified artifact metadata.

@@ -17,6 +17,7 @@ from gmsh_volume_smoke import run as volume_smoke, verify as verify_volume
 from remesh_broker_smoke import run as remesh_smoke, verify as verify_remesh
 from orientation_broker_smoke import run as orientation_smoke, verify as verify_orientation
 from vtk_read_broker_smoke import run as vtk_read_smoke, verify as verify_vtk_read
+from math3d_release_identity import capture as math3d_identity, verify as verify_math3d_identity
 
 SOURCE = Path(__file__).resolve()
 ROOT = SOURCE.parents[2]
@@ -114,6 +115,9 @@ def checked(record):
     math3d = Path(record['math3dRoot']).resolve(strict=True)
     if commit(repo) != record['sourceCommit']:
         raise ValueError('Five-capability release source commit changed.')
+    if not isinstance(record.get('math3dIdentity'), dict):
+        raise ValueError('Five-capability release has no MATH3D identity.')
+    verify_math3d_identity(math3d, record['math3dIdentity'])
     fresh_path = repo / '.scientific/five-capability-release' / ('fresh-verify-' + uuid.uuid4().hex + '.json')
     try:
         fresh = fresh_export(repo, installed, math3d, record['profileId'], fresh_path)
@@ -127,6 +131,14 @@ def checked(record):
         smoke = Path(item['smoke']).resolve(strict=True)
         if sha(config) != item['configSha256'] or sha(smoke) != item['smokeSha256']:
             raise ValueError(name + ' config or smoke seal changed.')
+        link_path = Path(item['math3dLink']).resolve(strict=True)
+        if sha(link_path) != item['math3dLinkSha256']:
+            raise ValueError(name + ' MATH3D identity link changed.')
+        link = json.loads(link_path.read_text(encoding='utf-8'))
+        if (link.get('name') != name or link.get('smokeSha256') != item['smokeSha256']
+                or link.get('math3dIdentitySha256') != record['math3dIdentity']['identitySha256']
+                or item['math3dIdentitySha256'] != record['math3dIdentity']['identitySha256']):
+            raise ValueError(name + ' product smoke MATH3D identity drifted.')
         broker = Broker(config)
         if (broker.runtime_id, broker.capability_id) != identity or len(broker.capabilities) != 1 or broker.capabilities[0] != entries[identity]:
             raise ValueError(name + ' broker profile differs from fresh support.')
@@ -146,6 +158,7 @@ def run(math3d, cgal_prefix, vtk_prefix, scientific_prefix, output_root=None, pr
                 'vtk_read': Path(vtk_prefix).resolve(strict=True)}
     if any(not (prefix / 'python.exe').is_file() for prefix in prefixes.values()):
         raise ValueError('Each configured runtime prefix must contain python.exe.')
+    consumer_identity = math3d_identity(math3d)
     worktree = Path(os.environ.get('SystemDrive', 'C:') + '\\ds5-' + uuid.uuid4().hex[:12])
     command(['git', 'worktree', 'add', '--detach', worktree, 'HEAD'])
     if commit(worktree) != commit(ROOT):
@@ -176,13 +189,21 @@ def run(math3d, cgal_prefix, vtk_prefix, scientific_prefix, output_root=None, pr
         config = config_for(worktree, math3d, manifest, name, entries[identity], prefixes[name])
         smoke, _ = (orientation_smoke if name == 'orientation' else remesh_smoke if name == 'remesh' else
                     repair_smoke if name == 'repair' else volume_smoke if name == 'volume' else vtk_read_smoke)(config)
+        verify_math3d_identity(math3d, consumer_identity)
+        link_path = release_root / (name + '-math3d-link.json')
+        link_path.write_text(json.dumps({'schemaVersion': 1, 'kind': 'scientific.product-smoke-math3d-link',
+                                         'name': name, 'smokeSha256': sha(smoke),
+                                         'math3dIdentitySha256': consumer_identity['identitySha256']},
+                                        separators=(',', ':')), encoding='utf-8')
         profiles[name] = {'recordId': entries[identity]['recordId'], 'config': str(config),
-                          'configSha256': sha(config), 'smoke': str(smoke), 'smokeSha256': sha(smoke)}
+                          'configSha256': sha(config), 'smoke': str(smoke), 'smokeSha256': sha(smoke),
+                          'math3dIdentitySha256': consumer_identity['identitySha256'],
+                          'math3dLink': str(link_path), 'math3dLinkSha256': sha(link_path)}
     record = {'schemaVersion': 1, 'kind': 'scientific.five-capability-release',
               'verifierSha256': verifier_sha(), 'sourceCommit': commit(worktree),
               'createdAtUtc': datetime.now(timezone.utc).isoformat(), 'repo': str(worktree),
               'installedRoot': str(installed), 'math3dRoot': str(math3d), 'profileId': profile,
-              'profiles': profiles}
+              'math3dIdentity': consumer_identity, 'profiles': profiles}
     checked(record)
     path = release_root / ('coexistence-' + uuid.uuid4().hex + '.json')
     path.write_text(json.dumps(record, separators=(',', ':')), encoding='utf-8')

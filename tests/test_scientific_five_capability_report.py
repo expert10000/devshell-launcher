@@ -8,7 +8,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools' / 'scientific-broker'))
-from five_capability_report import OPERATIONS, compare, verify
+from five_capability_report import OPERATIONS, compare, verify, require_consumer_identity
 
 
 class ReportPolicyTests(unittest.TestCase):
@@ -16,6 +16,12 @@ class ReportPolicyTests(unittest.TestCase):
         self.assertEqual({'cgal': 'cgal.validate', 'vtk': 'mesh.inspect'}, OPERATIONS)
         with self.assertRaisesRegex(ValueError, '3–15'):
             compare('missing.json', 'missing', repetitions=2)
+
+    def test_matrix_refuses_consumer_drift(self):
+        release = {'math3dIdentity': {'identitySha256': 'a' * 64}}
+        require_consumer_identity({'consumer': {'releaseIdentity': release['math3dIdentity']}}, release)
+        with self.assertRaisesRegex(ValueError, 'consumer identity drifted'):
+            require_consumer_identity({'consumer': {'releaseIdentity': {'identitySha256': 'b' * 64}}}, release)
 
 
 @unittest.skipUnless(os.environ.get('SCIENTIFIC_FIVE_RELEASE_RECORD'), 'A live five-capability release is required')

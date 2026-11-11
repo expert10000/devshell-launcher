@@ -192,6 +192,7 @@ def export(record_path, output, signing_key, key_id):
         profile = live['profiles'][name]
         index.append(json_file(files, f'profiles/{name}/config.json', profile['config']))
         index.append(json_file(files, f'profiles/{name}/smoke.json', profile['smoke']))
+        index.append(json_file(files, f'profiles/{name}/math3d-link.json', profile['math3dLink']))
     for run_id, directory in sorted(runs.items()):
         if not RUN.fullmatch(run_id):
             raise ValueError('Invalid support run ID.')
@@ -328,6 +329,14 @@ def verify(path, trust_store=None):
                 profile_file = files[f'profiles/{item["name"]}/{label}.json']
                 if profile_file['sourceSha256'] != release['profiles'][item['name']][label + 'Sha256']:
                     raise ValueError('Release profile source hash changed.')
+            if version == 2 and release.get('math3dIdentity'):
+                link_file = files[f'profiles/{item["name"]}/math3d-link.json']
+                if link_file['sourceSha256'] != release['profiles'][item['name']]['math3dLinkSha256']:
+                    raise ValueError('MATH3D product smoke link changed.')
+                link = json.loads(archive.read(link_file['path']))
+                if (link['smokeSha256'] != release['profiles'][item['name']]['smokeSha256']
+                        or link['math3dIdentitySha256'] != release['math3dIdentity']['identitySha256']):
+                    raise ValueError('MATH3D product smoke identity changed.')
             if entry['recordId'] != item['recordId'] or entry['level'] != 'L9' or len(entry['supportingRecords']) != 10:
                 raise ValueError('Certified support changed.')
             for level, support in enumerate(entry['supportingRecords']):

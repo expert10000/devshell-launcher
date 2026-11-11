@@ -1,5 +1,7 @@
 """A five-capability release refuses stale lower support and source drift."""
 from pathlib import Path
+import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -8,6 +10,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/scientific-broker'))
 from five_capability_release import TARGETS, checked, require_current_support, verifier_sha  # noqa: E402
+from math3d_release_identity import PACKAGE, CONSUMER, BUILD, capture as capture_math3d, verify as verify_math3d
 
 
 class FiveCapabilitySupport(unittest.TestCase):
@@ -70,6 +73,34 @@ class FiveCapabilitySupport(unittest.TestCase):
             lf.write_bytes(b'one\ntwo\n')
             crlf.write_bytes(b'one\r\ntwo\r\n')
             self.assertEqual(verifier_sha(lf), verifier_sha(crlf))
+
+    def test_math3d_identity_rejects_consumer_package_and_build_drift(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(['git', 'init', '-q'], cwd=root, check=True)
+            subprocess.run(['git', 'config', 'user.email', 'test@example.invalid'], cwd=root, check=True)
+            subprocess.run(['git', 'config', 'user.name', 'Test'], cwd=root, check=True)
+            for name in set(PACKAGE + CONSUMER + BUILD + ('renderer/dist/index.html',)):
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text('{}' if name.endswith('.json') else 'fixture', encoding='utf-8')
+            (root / 'package.json').write_text('{"version":"1.7.0"}')
+            subprocess.run(['git', 'add', '.'], cwd=root, check=True)
+            subprocess.run(['git', 'commit', '-qm', 'fixture'], cwd=root, check=True)
+            commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip()
+            import hashlib
+            renderer_hash = hashlib.sha256((root / 'renderer/dist/index.html').read_bytes()).hexdigest()
+            (root / 'dist/build-identity.json').write_text(json.dumps({
+                'commit': commit, 'version':'1.7.0', 'dirty':False, 'rendererHash':renderer_hash}))
+            identity = capture_math3d(root)
+            self.assertEqual(identity, verify_math3d(root, identity))
+            for name in (CONSUMER[0], PACKAGE[0], BUILD[1]):
+                path = root / name
+                before = path.read_bytes()
+                path.write_bytes(b'{"version":"1.7.1"}' if name == PACKAGE[0] else before + b'changed')
+                with self.assertRaisesRegex(ValueError, 'drifted|stale'):
+                    verify_math3d(root, identity)
+                path.write_bytes(before)
 
 
 if __name__ == '__main__':

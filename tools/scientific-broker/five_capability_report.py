@@ -20,6 +20,11 @@ FIXTURE = 'scientific/fixtures/cgal/closed-tetra.obj'
 OPERATIONS = {'cgal': 'cgal.validate', 'vtk': 'mesh.inspect'}
 
 
+def require_consumer_identity(matrix, release):
+    if matrix.get('consumer', {}).get('releaseIdentity') != release.get('math3dIdentity'):
+        raise ValueError('Five-capability matrix MATH3D consumer identity drifted.')
+
+
 def source_run(repo, dataset, root, name, python, worker=None):
     directory = root / (name + '-' + uuid.uuid4().hex)
     directory.mkdir(parents=True)
@@ -117,7 +122,7 @@ def compare(record, output_root, repetitions=5):
                         'supportingRecords': entries[identity]['supportingRecords']}
                        for name, identity in TARGETS.items()],
               'consumer': {'name': 'MATH3D', 'evidence': 'five broker/MATH3D smokes passed',
-                           'releaseIdentity': 'not-pinned-by-five-capability-record'}}
+                           'releaseIdentity': release['math3dIdentity']}}
     lines = ['# Five-capability reproducibility report', '',
              f"Source commit: `{release['sourceCommit']}`. Five current L0–L9 chains and broker/MATH3D smokes verified.", '',
              f"Runtime inventory: **{inventory_state}**; SHA-256 `{matrix['inventorySha256'] or 'unavailable'}`.", '',
@@ -132,7 +137,7 @@ def compare(record, output_root, repetitions=5):
               'These operations have different semantics. Timing is diagnostic and does not rank interchangeable backends.', '',
               '## Release scope', '',
               '- The five-capability release record verifies each current managed support chain and broker/MATH3D smoke.',
-              '- MATH3D consumer behavior is pinned by source hashes and product smoke evidence; a separate MATH3D release identity is not yet sealed.',
+              f"- MATH3D identity `{release['math3dIdentity']['identitySha256']}` pins commit, build, package and consumer contract to every product smoke.",
               '- Requalify after source, environment, worker, contract or consumer drift.', '',
               '## Reproduce', '',
               f"`python tools/scientific-broker/five_capability_release.py verify --record \"{record}\"`",
@@ -166,6 +171,7 @@ def verify(path):
         raise ValueError('Report artifact changed.')
     matrix = json.loads((path.parent / 'matrix.json').read_text(encoding='utf-8'))
     comparison = json.loads((path.parent / 'comparison.json').read_text(encoding='utf-8'))
+    require_consumer_identity(matrix, release)
     if (matrix['sourceCommit'] != release['sourceCommit'] or comparison['sourceCommit'] != release['sourceCommit']
             or len(matrix['rows']) != 5 or set((row['runtimeId'], row['capabilityId']) for row in matrix['rows']) != set(TARGETS.values())
             or comparison['operations'] != OPERATIONS or comparison['semanticVerdict'] != 'distinct-operations-no-backend-ranking'):

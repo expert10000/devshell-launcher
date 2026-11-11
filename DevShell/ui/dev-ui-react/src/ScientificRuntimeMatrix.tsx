@@ -43,6 +43,18 @@ export function ScientificRuntimeMatrix({ profiles, report, native, onOpenRun, o
     <h3>Runtime matrix</h3>
     <p className="scientific-runtime-note">Availability comes from the recorded local inventory. Qualification levels use verified, current runs. A failure after an earlier success is a review candidate, not a confirmed scientific regression.</p>
     <button disabled={native.pending} onClick={() => native.send('', 'history')}>Refresh saved evidence</button>
+    <section aria-label="Selective requalification">
+      <h4>Selective requalification</h4>
+      <p>Preview a sealed plan from the latest verified source snapshot. Selected managed suites run in dependency order and stop at the first failed qualification.</p>
+      <button disabled={native.pending || native.busy} onClick={() => native.send('', 'retest-plan')}>Preview retest plan</button>
+      {native.retestPlan && <><p>Plan <code>{native.retestPlan.planId}</code> / baseline <code>{native.retestPlan.baseline}</code> / {native.retestPlan.suites.length} selected suites. {native.retestPlan.execution?.state ?? 'Ready to run'}.</p>
+        {native.retestPlan.unmappedChanges.length > 0 && <p role="status">Unmapped changes select all suites: {native.retestPlan.unmappedChanges.join(', ')}</p>}
+        <button disabled={native.pending || native.busy || native.retestPlan.execution?.state === 'running'} onClick={() => native.send('', 'retest-start', { planId: native.retestPlan!.planId })}>Run managed suites</button>
+        <button disabled={native.pending || native.retestPlan.execution?.state !== 'running'} onClick={() => native.send('', 'retest-stop', { planId: native.retestPlan!.planId })}>Stop retest</button>
+        <button disabled={native.pending} onClick={() => native.send('', 'retest-status', { planId: native.retestPlan!.planId })}>Refresh plan status</button>
+        <div className="scientific-history-scroll"><table><thead><tr><th>Suite</th><th>Reason</th><th>Action and result</th></tr></thead><tbody>{native.retestPlan.suites.map(suite => { const result = native.retestPlan!.execution?.suites.find(item => item.id === suite.id); return <tr key={suite.id}><td><code>{suite.id}</code></td><td>{suite.reasons.join('; ')}</td><td>{suite.managedAction ?? suite.runner} / {result?.state ?? 'pending'} {result?.runId && <button onClick={() => onOpenRun(suite.provider, result.runId!)}>{result.runId.slice(0, 8)}</button>}</td></tr> })}</tbody></table></div>
+      </>}
+    </section>
     <div className="scientific-history-scroll"><table><thead><tr><th>Provider</th><th>Availability evidence</th><th>Current capabilities</th><th>Stale or unknown records</th></tr></thead><tbody>{profiles.map(profile => {
       const inventory = report?.runtimes.find(item => item.id === profile.id)
       const summary = native.qualificationSummaries[profile.id]

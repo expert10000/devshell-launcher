@@ -216,6 +216,10 @@ public partial class Form1
             else if(action=="qualification-summary")data=runtimeId=="sage-wsl"
                 ? await Task.Run(()=>ScientificQualificationSummary(profileId,runtimeId)) : ScientificQualificationSummary(profileId,runtimeId);
             else if(action=="ci-matrix")data=ScientificCiMatrix();
+            else if(action=="retest-plan")data=await Task.Run(()=>ScientificRetestPlan(profileId,request));
+            else if(action=="retest-status")data=ScientificRetestStatus(profileId,request.GetProperty("planId").GetString()??"");
+            else if(action=="retest-start")data=ScientificRetestStart(profileId,request.GetProperty("planId").GetString()??"");
+            else if(action=="retest-stop")data=ScientificRetestStop(profileId,request.GetProperty("planId").GetString()??"");
             else if(action=="capabilities")data=new{schemaVersion=ScientificCapabilityRegistry.SchemaVersion,capabilities=ScientificCapabilityRegistry.Discover(runtimeId)};
             else if(action=="history-result")data=runtimeId=="sage-wsl"
                 ? await Task.Run(()=>ScientificHistoryResult(profileId,request.GetProperty("jobId").GetString()??""))

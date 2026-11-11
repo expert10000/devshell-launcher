@@ -36,6 +36,11 @@ def load_graph(path=GRAPH):
         suite = suites[suite_id]
         if suite.get('runner') not in ('managed', 'managed-unqualified', 'local'):
             raise ValueError('Unknown suite runner.')
+        if suite.get('managedAction') is not None:
+            if suite['runner'] != 'managed' or not isinstance(suite['managedAction'], str) or not suite['managedAction']:
+                raise ValueError('Invalid managed action.')
+            if suite['managedAction'] == 'recipe' and suite.get('recipeId') not in ('compile-link', 'version'):
+                raise ValueError('Invalid managed recipe.')
         for dependency in suite.get('dependsOn', []):
             visit(dependency)
         visiting.remove(suite_id)
@@ -83,7 +88,8 @@ def plan(changed_paths, changed_environment=(), graph_path=GRAPH):
             'graphSha256': digest(graph_path), 'changedPaths': paths,
             'changedEnvironment': environment, 'unmappedChanges': unknown,
             'suites': [{'id': sid, 'provider': suites[sid]['provider'], 'runner': suites[sid]['runner'],
-                        'reasons': sorted(set(reasons[sid])), 'command': suites[sid].get('command')}
+                        'reasons': sorted(set(reasons[sid])), 'command': suites[sid].get('command'),
+                        'managedAction': suites[sid].get('managedAction'), 'recipeId': suites[sid].get('recipeId')}
                        for sid in order if reasons[sid]]}
 
 
@@ -114,12 +120,17 @@ def main():
     parser.add_argument('--environment-changed', action='append', default=[])
     parser.add_argument('--output-root', required=True)
     parser.add_argument('--execute-local', action='store_true')
+    parser.add_argument('--include-worktree', action='store_true',
+                        help='Include modified and untracked source paths without changing Git state.')
     args = parser.parse_args()
     if not args.base and not args.changed and not args.environment_changed:
         parser.error('Specify --base, --changed, or --environment-changed.')
     paths = list(args.changed)
     if args.base:
         paths += subprocess.check_output(['git', 'diff', '--name-only', args.base, args.head, '--'], cwd=ROOT, text=True).splitlines()
+    if args.include_worktree:
+        paths += subprocess.check_output(['git', 'diff', '--name-only', '--'], cwd=ROOT, text=True).splitlines()
+        paths += subprocess.check_output(['git', 'ls-files', '--others', '--exclude-standard'], cwd=ROOT, text=True).splitlines()
     report = plan(paths, args.environment_changed)
     report['source'] = {'base': subprocess.check_output(['git', 'rev-parse', args.base], cwd=ROOT, text=True).strip()
                          if args.base else None,

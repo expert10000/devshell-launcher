@@ -51,6 +51,23 @@ class PlanningTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'Cyclic'):
                 retest.load_graph(path)
 
+    def test_scoped_managed_chains_and_unaffected_records(self):
+        cases = {
+            'BatchLauncher/Form1.Scientific.CgalOrientation.cs': ('cgal.orient', 'l5-cgal-orient'),
+            'BatchLauncher/Form1.Scientific.CgalRemesh.cs': ('cgal.remesh', 'l5-cgal-remesh'),
+            'BatchLauncher/Form1.Scientific.CgalRepairL5.cs': ('cgal.repair', 'l5-cgal-repair'),
+            'BatchLauncher/Form1.Scientific.VtkRead.cs': ('vtk.read', 'l5-vtk-read'),
+            'tools/scientific-gmsh-volume-worker.py': ('gmsh.volume', 'l5-gmsh-volume'),
+        }
+        for path, (prefix, action) in cases.items():
+            with self.subTest(path=path):
+                selected = retest.plan([path])['suites']
+                scoped = [item for item in selected if item['id'] in {f'{prefix}.l{level}' for level in range(5, 10)}]
+                self.assertEqual([f'{prefix}.l{level}' for level in range(5, 10)],
+                                 [item['id'] for item in scoped])
+                self.assertEqual(action, scoped[0]['managedAction'])
+                self.assertNotIn('sage.l0-l3', [item['id'] for item in selected])
+
 
 @unittest.skipUnless(os.environ.get('SCIENTIFIC_BROKER_CONFIG'), 'Local qualified broker config required')
 class QualifiedTests(unittest.TestCase):

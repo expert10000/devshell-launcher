@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 2,
+  "kind": "scientific.vtk-mesh-read-scope",
+  "capabilityId": "mesh.read",
+  "suiteId": "vtk-mesh-read-v2",
+  "license": "CC0-1.0",
+  "cases": [
+    {
+      "caseId": "tetra",
+      "path": "scientific/fixtures/cgal/closed-tetra.obj",
+      "sha256": "21b1325a5d9f7ef43f04b923c7b469e6a8c73cc41eef436924801d37ac29113d",
+      "expected": "accepted",
+      "before": {
+        "points": 4,
+        "triangles": 4,
+        "boundaryEdges": 0,
+        "nonManifoldEdges": 0
+      },
+      "outputSha256": "216cc075352a651d2072e63f84a3149d574cb42a5cfe89cfec8ee74bb3f6f237"
+    },
+    {
+      "caseId": "cube",
+      "path": "scientific/fixtures/cgal/orientation/outward-cube.obj",
+      "sha256": "f192781cc0ded64a05a7d80c332a40aac278f6e5c9a439bdddb7d6c80b5287e3",
+      "expected": "accepted",
+      "before": {
+        "points": 8,
+        "triangles": 12,
+        "boundaryEdges": 0,
+        "nonManifoldEdges": 0
+      },
+      "outputSha256": "891a1c80e10f3e910d4b7210364fe1ee497a2f5a3f9c302dfbb8c199efaaa189"
+    },
+    {
+      "caseId": "octa",
+      "path": "scientific/fixtures/cgal-remesh-qualification/octahedron.obj",
+      "sha256": "72cff9d9e08a2ce0ba81932417e0c6351bc11174d394607e7041586ad59b1a5a",
+      "expected": "accepted",
+      "before": {
+        "points": 6,
+        "triangles": 8,
+        "boundaryEdges": 0,
+        "nonManifoldEdges": 0
+      },
+      "outputSha256": "a7f48b9c528cfe0214a4e6893077f27706e02191224db0c72bad5476d725d585"
+    },
+    {
+      "caseId": "affine",
+      "path": "scientific/fixtures/cgal-remesh-qualification/affine-tetra.obj",
+      "sha256": "bfdb09b4122479ac1997396c5273a89e9d8c6c7687ce7b885070372511d03bac",
+      "expected": "accepted",
+      "before": {
+        "points": 4,
+        "triangles": 4,
+        "boundaryEdges": 0,
+        "nonManifoldEdges": 0
+      },
+      "outputSha256": "1f6a3d4e35746aa4cf91817ee8e87996c7cd643e6c3b8ac3efd199c83b638c81"
+    },
+    {
+      "caseId": "open",
+      "path": "scientific/fixtures/cgal/open-square.obj",
+      "sha256": "4f597c42980410d32acc3ed609278030c26fff2e8155b3802756222df2d714cd",
+      "expected": "accepted",
+      "before": {
+        "points": 4,
+        "triangles": 2,
+        "boundaryEdges": 4,
+        "nonManifoldEdges": 0
+      },
+      "outputSha256": "fe8f2f0164cd38c164b147da8d86e64de8e8b2867698bd90ae3fe492a25d359d"
+    },
+    {
+      "caseId": "disconnected",
+      "path": "scientific/fixtures/cgal/orientation/disconnected-tetra.obj",
+      "sha256": "5d33347ff13c3617c34a11457850a632003ed2eaba066ccc429fb872a09d6323",
+      "expected": "accepted",
+      "before": {
+        "points": 8,
+        "triangles": 8,
+        "boundaryEdges": 0,
+        "nonManifoldEdges": 0
+      },
+      "outputSha256": "5dfb94dfc7b3ad2b90bb0f7cef7acef5ea343f5f6e35821f1e5f2b22c440f634"
+    },
+    {
+      "caseId": "empty",
+      "path": "scientific/fixtures/vtk/read/empty.obj",
+      "sha256": "9f83a9b0aa539045e036cf15a168d17f3723d08903d18d0901e635502330f874",
+      "expected": "rejected",
+      "errorContains": "Reader failed or surface is empty"
+    },
+    {
+      "caseId": "truncated",
+      "path": "scientific/fixtures/vtk/read/truncated.ply",
+      "sha256": "ad69667dc6949c6b1c8d4095f41b4b280a69e06ca8caf127878e2a5fa473cc4c",
+      "expected": "rejected",
+      "errorContains": "Operation failed or surface is empty"
+    },
+    {
+      "caseId": "invalid",
+      "path": "scientific/fixtures/vtk/read/invalid.vtp",
+      "sha256": "59e1bd95ed5558c623088bebc1fc06fb9fdf2921a2484870947c817710ef1e8c",
+      "expected": "rejected",
+      "errorContains": "Reader failed or surface is empty"
+    }
+  ],
+  "vtkVersion": "9.6.1"
+}

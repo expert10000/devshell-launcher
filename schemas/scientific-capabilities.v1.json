@@ -29,7 +29,7 @@
   "capabilities": [
     { "id": "mesh.read", "version": 1, "parametersSchema": "mesh-file.v1", "resultSchema": "mesh-diagnostics.v1", "providers": [
       { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Registered OBJ/STL/PLY/OFF fixtures; worker acceptance is separate from package discovery." },
-      { "runtimeId": "vtk-win-conda", "backend": "windows-native", "limitations": "Registered OBJ/STL/PLY/VTP fixtures; malformed PLY rejection is scoped." },
+      { "runtimeId": "vtk-win-conda", "backend": "windows-native", "limitations": "Version 2 VTK read scope pins six accepted closed, open and disconnected OBJ cases and three malformed OBJ/PLY/VTP rejections on VTK 9.6.1; managed L5-L9 and broker support require separate evidence." },
       { "runtimeId": "gmsh-win-conda", "backend": "windows-native", "limitations": "No standalone mesh.read recipe; the fixed GEO input is used by mesh.generate." }
     ] },
     { "id": "mesh.write", "version": 1, "parametersSchema": "mesh-operation.v1", "resultSchema": "mesh-artifact.v1", "providers": [

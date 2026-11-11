@@ -38,6 +38,28 @@ public partial class Form1
         return plan;
     }
 
+    private string ScientificRetestPython()
+    {
+        var python = Path.Combine(ScientificRuntimeRoot(), "devshell-cgal", "python.exe");
+        return File.Exists(python) ? python : ScientificExecutable("python.exe");
+    }
+
+    private void ScientificRetestVerifyPlan(string id)
+    {
+        var script = Path.Combine(ScientificSourceRoot, "tools", "scientific-broker", "retest.py");
+        var start = new ProcessStartInfo(ScientificRetestPython()) { WorkingDirectory = ScientificSourceRoot,
+            UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+        start.ArgumentList.Add(script);
+        start.ArgumentList.Add("--verify-plan");
+        start.ArgumentList.Add(Path.Combine(ScientificRetestRoot, id, "retest-plan.json"));
+        using var process = Process.Start(start) ?? throw new IOException("Could not verify retest plan.");
+        var output = process.StandardOutput.ReadToEndAsync();
+        var error = process.StandardError.ReadToEndAsync();
+        if (!process.WaitForExit(30000)) { process.Kill(entireProcessTree: true); throw new TimeoutException("Retest verification timed out."); }
+        if (process.ExitCode != 0) throw new InvalidDataException(error.GetAwaiter().GetResult());
+        _ = output.GetAwaiter().GetResult();
+    }
+
     private static IReadOnlyList<(DateTime At, string Commit, JsonObject Snapshot, string Directory, string RuntimeId)> ScientificRetestL9Snapshots(string profileId)
     {
         var capabilities = new HashSet<string>(StringComparer.Ordinal)
@@ -110,13 +132,21 @@ public partial class Form1
             ? baseline.GetString() ?? "" : ScientificRetestBase(profileId);
         if (baseRevision != "origin/main" && !Regex.IsMatch(baseRevision, "^[0-9a-f]{40}$"))
             throw new InvalidOperationException("Choose a saved 40-digit source commit or origin/main.");
-        var python = Path.Combine(ScientificRuntimeRoot(), "devshell-cgal", "python.exe");
-        if (!File.Exists(python)) python = ScientificExecutable("python.exe");
+        var python = ScientificRetestPython();
         var script = Path.Combine(ScientificSourceRoot, "tools", "scientific-broker", "retest.py");
         var start = new ProcessStartInfo(python) { WorkingDirectory = ScientificSourceRoot,
             UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
         foreach (var argument in new[] { script, "--base", baseRevision, "--output-root", ScientificRetestRoot,
             "--include-worktree" }) start.ArgumentList.Add(argument);
+        if (request.TryGetProperty("changedPaths", out var changedPaths) && changedPaths.ValueKind == JsonValueKind.Array)
+            foreach (var item in changedPaths.EnumerateArray())
+            {
+                var value = item.GetString()?.Replace('\\', '/') ?? "";
+                if (value.Length is < 3 or > 240 || value.StartsWith('/') || value.Contains("..", StringComparison.Ordinal)
+                    || !Regex.IsMatch(value, "^[a-zA-Z0-9_./-]+$"))
+                    throw new InvalidOperationException("Invalid relative source path.");
+                start.ArgumentList.Add("--changed"); start.ArgumentList.Add(value);
+            }
         foreach (var key in ScientificRetestEnvironmentChanges(profileId))
         { start.ArgumentList.Add("--environment-changed"); start.ArgumentList.Add(key); }
         if (request.TryGetProperty("changedEnvironment", out var environment) && environment.ValueKind == JsonValueKind.Array)
@@ -149,7 +179,16 @@ public partial class Form1
         if (plan["profileId"]?.GetValue<string>() != profileId)
             throw new InvalidOperationException("Retest plan belongs to another profile.");
         var state = Path.Combine(ScientificRetestRoot, id, "execution.json");
-        plan["execution"] = File.Exists(state) ? JsonNode.Parse(File.ReadAllText(state)) : null;
+        var saved = File.Exists(state) ? JsonNode.Parse(File.ReadAllText(state)) as JsonObject : null;
+        if (saved?["state"]?.GetValue<string>() == "running"
+            && (!_scientificRetests.TryGetValue(profileId, out var active) || active.PlanId != id))
+        {
+            saved["state"] = "interrupted";
+            saved["recoveredAtUtc"] = DateTimeOffset.UtcNow.ToString("O");
+            File.WriteAllText(state + ".tmp", saved.ToJsonString(), new UTF8Encoding(false));
+            File.Move(state + ".tmp", state, true);
+        }
+        plan["execution"] = saved;
         return plan;
     }
 
@@ -158,6 +197,7 @@ public partial class Form1
         var plan = ScientificRetestRead(id);
         if (plan["profileId"]?.GetValue<string>() != profileId)
             throw new InvalidOperationException("Retest plan belongs to another profile.");
+        ScientificRetestVerifyPlan(id);
         if (_scientificRetests.TryGetValue(profileId, out var existing)
             && !existing.Cancellation.IsCancellationRequested)
             throw new InvalidOperationException("A retest plan is already running.");
@@ -208,6 +248,36 @@ public partial class Form1
                 var suiteId = suite["id"]!.GetValue<string>();
                 var provider = suite["provider"]!.GetValue<string>();
                 var action = suite["managedAction"]?.GetValue<string>();
+                if (suite["runner"]?.GetValue<string>() == "local")
+                {
+                    var script = Path.Combine(ScientificSourceRoot, "tools", "scientific-broker", "retest.py");
+                    var start = new ProcessStartInfo(ScientificRetestPython()) { WorkingDirectory = ScientificSourceRoot,
+                        UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+                    start.ArgumentList.Add(script);
+                    start.ArgumentList.Add("--local-suite");
+                    start.ArgumentList.Add(suiteId);
+                    using var process = Process.Start(start) ?? throw new IOException("Could not start local retest suite.");
+                    outcomes.Add(new JsonObject { ["id"] = suiteId, ["state"] = "running" });
+                    Save();
+                    try { await process.WaitForExitAsync(execution.Cancellation.Token); }
+                    catch (OperationCanceledException) { process.Kill(entireProcessTree: true); await process.WaitForExitAsync(); }
+                    var output = await process.StandardOutput.ReadToEndAsync();
+                    var error = await process.StandardError.ReadToEndAsync();
+                    var localOutcome = outcomes.Last()!.AsObject();
+                    if (execution.Cancellation.IsCancellationRequested) localOutcome["state"] = "cancelled";
+                    else if (process.ExitCode != 0) { localOutcome["state"] = "failed"; localOutcome["output"] = error[^Math.Min(error.Length, 12000)..]; }
+                    else
+                    {
+                        var localResult = JsonNode.Parse(output)?.AsObject() ?? throw new InvalidDataException("Local suite result missing.");
+                        localOutcome["state"] = localResult["state"]?.GetValue<string>();
+                        if (localResult["reason"] != null) localOutcome["reason"] = localResult["reason"]!.DeepClone();
+                        if (localResult["output"] != null) localOutcome["output"] = localResult["output"]!.DeepClone();
+                    }
+                    Save();
+                    if (localOutcome["state"]?.GetValue<string>() == "failed" || execution.Cancellation.IsCancellationRequested)
+                    { state = execution.Cancellation.IsCancellationRequested ? "cancelled" : "failed"; break; }
+                    continue;
+                }
                 if (suite["runner"]?.GetValue<string>() != "managed" || action == null)
                 {
                     outcomes.Add(new JsonObject { ["id"] = suiteId, ["state"] = "pending-external" });
@@ -248,7 +318,7 @@ public partial class Form1
                 if (!current)
                 { state = execution.Cancellation.IsCancellationRequested ? "cancelled" : "failed"; break; }
             }
-            if (state == "running") state = outcomes.Any(item => item?["state"]?.GetValue<string>() == "pending-external")
+            if (state == "running") state = outcomes.Any(item => item?["state"]?.GetValue<string>() is "pending-external" or "pending-configuration")
                 ? "managed-complete-external-pending" : "passed";
         }
         catch (Exception error)

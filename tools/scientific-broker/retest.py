@@ -5,7 +5,9 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
+import sys
 import uuid
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -112,17 +114,69 @@ def run_local(report, root=ROOT):
     return report
 
 
+def verify_saved_plan(path, root=ROOT):
+    path = Path(path).resolve(strict=True)
+    body = path.read_bytes()
+    if hashlib.sha256(body).hexdigest() != Path(str(path) + '.sha256').read_text().strip():
+        raise ValueError('Retest plan hash changed.')
+    saved = json.loads(body)
+    expected = plan(saved['changedPaths'], saved['changedEnvironment'])
+    for field in ('schemaVersion', 'kind', 'graphSha256', 'changedPaths',
+                  'changedEnvironment', 'unmappedChanges', 'suites'):
+        if saved.get(field) != expected[field]:
+            raise ValueError('Retest plan selection or command changed: ' + field)
+    source = saved.get('source', {})
+    head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip()
+    if source.get('head') != head:
+        raise ValueError('Retest plan source HEAD is stale.')
+    if source.get('base') and saved.get('baseline'):
+        base = subprocess.check_output(['git', 'rev-parse', saved['baseline']], cwd=root, text=True).strip()
+        if source['base'] != base:
+            raise ValueError('Retest plan baseline changed.')
+    return saved
+
+
+def execute_local_suite(suite_id, root=ROOT):
+    _, suites, _ = load_graph()
+    suite = suites.get(suite_id)
+    if not suite or suite['runner'] != 'local':
+        raise ValueError('Suite is outside the local allowlist.')
+    command = suite.get('command')
+    if (not isinstance(command, list) or command[:4] != ['python', '-m', 'unittest', 'discover']
+            or len(command) != 8 or command[4] != '-s' or command[5] != 'tests'
+            or command[6] != '-p' or not re.fullmatch(r'test_scientific_[a-z0-9_]+\.py', command[7])):
+        raise ValueError('Local command is outside the fixed unittest allowlist.')
+    if suite_id in ('broker.tests', 'pipeline.remote.tests', 'ci.release.regression.tests',
+                    'environment.conformance.tests', 'advisor.cache.provenance.tests') \
+            and not os.environ.get('SCIENTIFIC_BROKER_CONFIG'):
+        return {'id': suite_id, 'state': 'pending-configuration', 'reason': 'SCIENTIFIC_BROKER_CONFIG is unset'}
+    completed = subprocess.run([sys.executable, *command[1:]], cwd=root,
+                               capture_output=True, text=True, timeout=180)
+    return {'id': suite_id, 'state': 'passed' if completed.returncode == 0 else 'failed',
+            'exitCode': completed.returncode, 'output': (completed.stdout + completed.stderr)[-12000:]}
+
+
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--verify-plan')
+    parser.add_argument('--local-suite')
     parser.add_argument('--base')
     parser.add_argument('--head', default='HEAD')
     parser.add_argument('--changed', action='append', default=[])
     parser.add_argument('--environment-changed', action='append', default=[])
-    parser.add_argument('--output-root', required=True)
+    parser.add_argument('--output-root')
     parser.add_argument('--execute-local', action='store_true')
     parser.add_argument('--include-worktree', action='store_true',
                         help='Include modified and untracked source paths without changing Git state.')
     args = parser.parse_args()
+    if args.verify_plan:
+        print(json.dumps({'verified': True, 'planId': verify_saved_plan(args.verify_plan).get('planId')}))
+        return
+    if args.local_suite:
+        print(json.dumps(execute_local_suite(args.local_suite)))
+        return
+    if not args.output_root:
+        parser.error('Planning requires --output-root.')
     if not args.base and not args.changed and not args.environment_changed:
         parser.error('Specify --base, --changed, or --environment-changed.')
     paths = list(args.changed)

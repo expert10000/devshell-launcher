@@ -73,6 +73,33 @@ class PlanningTests(unittest.TestCase):
             self.assertIn(suite, [item['id'] for item in retest.plan([path])['suites']])
             self.assertNotIn('sage.l0-l3', [item['id'] for item in retest.plan([path])['suites']])
 
+    def test_saved_plan_rejects_resealed_action_and_stale_head(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'retest-plan.json'
+            saved = retest.plan(['BatchLauncher/Form1.Scientific.CgalOrientation.cs'])
+            saved['source'] = {'base': None, 'head': subprocess.check_output(
+                ['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()}
+            path.write_text(json.dumps(saved))
+            Path(str(path) + '.sha256').write_text(hashlib.sha256(path.read_bytes()).hexdigest())
+            self.assertEqual(saved, retest.verify_saved_plan(path))
+            changed = copy.deepcopy(saved)
+            changed['suites'][-1]['managedAction'] = 'l9-cgal-repair'
+            path.write_text(json.dumps(changed))
+            Path(str(path) + '.sha256').write_text(hashlib.sha256(path.read_bytes()).hexdigest())
+            with self.assertRaisesRegex(ValueError, 'selection or command changed'):
+                retest.verify_saved_plan(path)
+            saved['source']['head'] = '0' * 40
+            path.write_text(json.dumps(saved))
+            Path(str(path) + '.sha256').write_text(hashlib.sha256(path.read_bytes()).hexdigest())
+            with self.assertRaisesRegex(ValueError, 'HEAD is stale'):
+                retest.verify_saved_plan(path)
+
+    def test_local_suite_allowlist_and_execution(self):
+        with self.assertRaisesRegex(ValueError, 'outside the local allowlist'):
+            retest.execute_local_suite('cgal.orient.l9')
+        result = retest.execute_local_suite('contract.release.matrix.tests')
+        self.assertEqual('passed', result['state'], result)
+
 
 @unittest.skipUnless(os.environ.get('SCIENTIFIC_BROKER_CONFIG'), 'Local qualified broker config required')
 class QualifiedTests(unittest.TestCase):

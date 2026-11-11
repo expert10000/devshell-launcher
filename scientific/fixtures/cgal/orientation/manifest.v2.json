@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 2,
+  "kind": "scientific.cgal-orientation-scope",
+  "capabilityId": "mesh.orient",
+  "suiteId": "cgal-orientation-v2",
+  "license": "CC0-1.0",
+  "cases": [
+    {
+      "caseId": "tetra-inward",
+      "path": "scientific/fixtures/cgal/orientation/inward-tetra.obj",
+      "sha256": "d5b87797f298bb0e230bd51832a0162ebc8a59cb16f33dd917487b5057faa857",
+      "expected": "accepted",
+      "shape": "tetra",
+      "orientation": "inward",
+      "vertices": 4,
+      "faces": 4,
+      "absoluteVolume": 0.166666666667
+    },
+    {
+      "caseId": "tetra-outward",
+      "path": "scientific/fixtures/cgal/closed-tetra.obj",
+      "sha256": "21b1325a5d9f7ef43f04b923c7b469e6a8c73cc41eef436924801d37ac29113d",
+      "expected": "accepted",
+      "shape": "tetra",
+      "orientation": "outward",
+      "vertices": 4,
+      "faces": 4,
+      "absoluteVolume": 0.166666666667
+    },
+    {
+      "caseId": "cube-inward",
+      "path": "scientific/fixtures/cgal/orientation/inward-cube.obj",
+      "sha256": "8124cdd6a8e84d7cce2c4103d332eba00f2c7315eabd6791d6b604afc9499856",
+      "expected": "accepted",
+      "shape": "cube",
+      "orientation": "inward",
+      "vertices": 8,
+      "faces": 12,
+      "absoluteVolume": 1.0
+    },
+    {
+      "caseId": "cube-outward",
+      "path": "scientific/fixtures/cgal/orientation/outward-cube.obj",
+      "sha256": "f192781cc0ded64a05a7d80c332a40aac278f6e5c9a439bdddb7d6c80b5287e3",
+      "expected": "accepted",
+      "shape": "cube",
+      "orientation": "outward",
+      "vertices": 8,
+      "faces": 12,
+      "absoluteVolume": 1.0
+    },
+    {
+      "caseId": "octa-inward",
+      "path": "scientific/fixtures/cgal/orientation/inward-octa.obj",
+      "sha256": "7917eedfdddedf80bb2e9d68f75b95a30049e4291b9e40016dcc2eb58699ba0c",
+      "expected": "accepted",
+      "shape": "octa",
+      "orientation": "inward",
+      "vertices": 6,
+      "faces": 8,
+      "absoluteVolume": 1.333333333333
+    },
+    {
+      "caseId": "octa-outward",
+      "path": "scientific/fixtures/cgal-remesh-qualification/octahedron.obj",
+      "sha256": "72cff9d9e08a2ce0ba81932417e0c6351bc11174d394607e7041586ad59b1a5a",
+      "expected": "accepted",
+      "shape": "octa",
+      "orientation": "outward",
+      "vertices": 6,
+      "faces": 8,
+      "absoluteVolume": 1.333333333333
+    },
+    {
+      "caseId": "affine-inward",
+      "path": "scientific/fixtures/cgal/orientation/inward-affine.obj",
+      "sha256": "2f39a33ef0eb0ef37135f8b8011c7e5fb45f50599a7f31e581ece64931a66956",
+      "expected": "accepted",
+      "shape": "affine",
+      "orientation": "inward",
+      "vertices": 4,
+      "faces": 4,
+      "absoluteVolume": 1.333333333333
+    },
+    {
+      "caseId": "affine-outward",
+      "path": "scientific/fixtures/cgal-remesh-qualification/affine-tetra.obj",
+      "sha256": "bfdb09b4122479ac1997396c5273a89e9d8c6c7687ce7b885070372511d03bac",
+      "expected": "accepted",
+      "shape": "affine",
+      "orientation": "outward",
+      "vertices": 4,
+      "faces": 4,
+      "absoluteVolume": 1.333333333333
+    },
+    {
+      "caseId": "open",
+      "path": "scientific/fixtures/cgal/open-square.obj",
+      "sha256": "4f597c42980410d32acc3ed609278030c26fff2e8155b3802756222df2d714cd",
+      "expected": "rejected",
+      "errorContains": "requires a closed mesh"
+    },
+    {
+      "caseId": "disconnected",
+      "path": "scientific/fixtures/cgal/orientation/disconnected-tetra.obj",
+      "sha256": "5d33347ff13c3617c34a11457850a632003ed2eaba066ccc429fb872a09d6323",
+      "expected": "rejected",
+      "errorContains": "connected component"
+    },
+    {
+      "caseId": "nonmanifold",
+      "path": "scientific/fixtures/cgal/nonmanifold-edge.obj",
+      "sha256": "becb55a2ad02dc0e3e1da288e730688f02969adc6b4c5a1d710fa3ae6bae24cb",
+      "expected": "rejected",
+      "errorContains": "triangle manifold"
+    },
+    {
+      "caseId": "degenerate",
+      "path": "scientific/fixtures/cgal/degenerate-triangle.obj",
+      "sha256": "422613a31164b447d6a7d796e74cc3c8a34e2b4689d6846a55d8912267126cf8",
+      "expected": "rejected",
+      "errorContains": "degenerate triangle"
+    }
+  ]
+}

@@ -78,7 +78,7 @@ if repair and process.returncode == 0 and (engine.get('operation') != 'orient'
     raise ValueError('CGAL repair did not establish an outward closed volume')
 contract.finish(state='succeeded' if process.returncode == 0 else 'failed', exit_code=process.returncode,
                 before=engine.get('before'), after=engine.get('after'), diagnostics=diagnostics,
-                capabilities=(['mesh.read', 'mesh.write', 'mesh.repair'] if repair else
+                capabilities=(['mesh.read', 'mesh.write', 'mesh.orient'] if repair else
                               ['mesh.read', 'mesh.write', 'mesh.validate'] + (['mesh.remesh'] if remesh else [])) if process.returncode == 0 else [],
                 scope=engine.get('scope', ''), extra={'engine': 'CGAL C++', 'engineDetails': engine})
 sys.exit(process.returncode)

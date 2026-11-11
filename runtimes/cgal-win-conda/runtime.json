@@ -46,7 +46,7 @@
     {
       "id": "cgal.repair-orientation",
       "adapter": "tools/scientific-cgal-worker.py",
-      "capability": "mesh.repair",
+      "capability": "mesh.orient",
       "timeoutSeconds": 120
     },
     {

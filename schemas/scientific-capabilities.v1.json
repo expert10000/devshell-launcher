@@ -41,7 +41,10 @@
       { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Fixed surface-mesh fixture and expected rejection; broader geometry is unqualified." }
     ] },
     { "id": "mesh.repair", "version": 1, "parametersSchema": "mesh-operation.v1", "resultSchema": "mesh-artifact.v1", "providers": [
-        { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Registered OBJ hole repair for exact small-hole choices or bounded 1-8 loops of 3-12 edges each (64 total) on a connected triangle manifold, plus separate orientation repair for one closed triangle volume. No general soup repair; each qualification is fixture scoped." }
+        { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Registered OBJ hole filling for exact small-hole choices or bounded 1-8 loops of 3-12 edges each (64 total) on a connected triangle manifold. No general soup repair; each qualification is fixture scoped." }
+    ] },
+    { "id": "mesh.orient", "version": 1, "parametersSchema": "mesh-operation.v1", "resultSchema": "mesh-artifact.v1", "providers": [
+        { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "Dedicated outward orientation of one connected closed triangle volume from the version 2 pinned fixture scope; no hole filling or soup repair." }
     ] },
     { "id": "mesh.boolean.union", "version": 1, "parametersSchema": "mesh-pair.v1", "resultSchema": "mesh-artifact.v1", "providers": [
       { "runtimeId": "cgal-win-conda", "backend": "windows-native", "limitations": "MATH3D native CGAL Boolean path; separate from the fixed broker mesh.validate path." }

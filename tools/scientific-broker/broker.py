@@ -327,7 +327,7 @@ class Broker:
                 require_hash(fixture_path, entry.get('fixtureManifestSha256'), 'VTK read fixture manifest')
                 fixtures = json.loads(fixture_path.read_text(encoding='utf-8'))
                 references = entry.get('referenceCases')
-                if (fixtures.get('schemaVersion') != 2 or fixtures.get('capabilityId') != 'mesh.read'
+                if (fixtures.get('schemaVersion') != 3 or fixtures.get('capabilityId') != 'mesh.read'
                         or not isinstance(references, list)
                         or [case.get('caseId') for case in references] != list(VTK_READ_CASES)
                         or [case.get('caseId') for case in fixtures.get('cases', [])] != list(VTK_READ_CASES)):

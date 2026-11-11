@@ -8,4 +8,5 @@ scientific/fixtures/cgal-repair-qualification/*.json text eol=lf
 scientific/fixtures/cgal-remesh-qualification/*.obj text eol=lf
 scientific/fixtures/cgal-remesh-qualification/*.json text eol=lf
 scientific/fixtures/inspect-shared/*.obj text eol=lf
+tools/scientific-broker/broker.py text eol=lf
 scientific/fixtures/vtk/read/* text eol=lf

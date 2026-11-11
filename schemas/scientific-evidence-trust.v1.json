@@ -7,6 +7,12 @@
       "publicKeyBase64": "yrvgqc1lFY/tkTjcW+ZrGRdQ/yecKgyFyy6GpUZ6cAE=",
       "validFromUtc": "2026-11-11T00:00:00+00:00",
       "validUntilUtc": "2027-11-11T00:00:00+00:00"
+    },
+    {
+      "keyId": "devshell-six-2026-11",
+      "publicKeyBase64": "G6k58pyrxKBQu/kAPSXORX+r3rtKTRHE8GbvSRi5TdY=",
+      "validFromUtc": "2026-11-11T00:00:00+00:00",
+      "validUntilUtc": "2027-11-11T00:00:00+00:00"
     }
   ]
 }

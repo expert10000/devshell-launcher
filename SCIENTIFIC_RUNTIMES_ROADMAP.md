@@ -1,6 +1,14 @@
 # Scientific-runtime laboratory for MATH3D
 
-Updated: 2026-10-09
+Updated: 2026-11-11
+
+## Current six-capability release target
+
+The current release target is six separately qualified capabilities: CGAL `mesh.inspect`, `mesh.orient`, `mesh.remesh`, `mesh.repair`; Gmsh `mesh.generate3d`; and VTK `mesh.read`. `six_capability_release.py` requalifies all six through desktop L0–L9 in one isolated worktree, then runs each broker and MATH3D product smoke. Earlier five-capability records remain historical.
+
+Shared inspection scope v2 pins six matched tiers: tetra, octa, cube, and closed spheres with 128, 512, and 2,048 triangles. Both provider case packs and their L5–L9 evidence must be current before broker measurements. The shared benchmark randomizes provider order and reports medians, p10/p90, MAD and bootstrap intervals for worker time including startup. The advisor ranks only exact pinned inputs while this evidence verifies. The MATH3D product bridge records the recommendation, manual provider choice, and direct-import fallback when evidence is stale or the input is outside scope.
+
+The release deliverables are a current six-capability coexistence record, shared benchmark, advisor and MATH3D selection evidence, matrix/report, and an Ed25519-signed portable bundle. The offline verifier checks the trusted signature, content-addressed supporting artifacts and benchmark samples, and links between those records. Requalify and rebuild these deliverables after source, environment, or MATH3D consumer drift.
 
 ## Execution-contract principle
 

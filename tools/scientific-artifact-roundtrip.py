@@ -53,20 +53,31 @@ def vtk_array(piece, appended, section, name=None):
     following = next((value for value in all_offsets if value > offset), len(appended))
     segment = appended[offset:following]
     blocks = struct.unpack("<I", base64.b64decode(segment[:8])[:4])[0]
-    if blocks != 1:
-        raise ValueError("VTP fixed fixture requires one compressed block")
+    if blocks < 1 or blocks > 512:
+        raise ValueError("VTP compressed block count is outside the reload budget")
     header_chars = 4 * math.ceil((3 + blocks) * 4 / 3)
     header = base64.b64decode(segment[:header_chars], validate=True)
-    _, _, uncompressed_bytes, compressed_bytes = struct.unpack("<IIII", header)
-    if uncompressed_bytes > MAX_BYTES or compressed_bytes > MAX_BYTES:
+    values = struct.unpack("<" + "I" * (3 + blocks), header)
+    _, block_size, last_size, *compressed_sizes = values
+    uncompressed_bytes = (blocks - 1) * block_size + last_size
+    compressed_bytes = sum(compressed_sizes)
+    if (block_size < 1 or last_size < 1 or last_size > block_size
+            or uncompressed_bytes > MAX_BYTES or compressed_bytes > MAX_BYTES):
         raise ValueError("VTP array exceeds the reload budget")
     compressed = base64.b64decode(segment[header_chars:], validate=True)
     if len(compressed) != compressed_bytes:
         raise ValueError("VTP compressed array length changed")
-    decoder = zlib.decompressobj()
-    raw = decoder.decompress(compressed, uncompressed_bytes + 1)
-    if len(raw) != uncompressed_bytes or not decoder.eof or decoder.unused_data or decoder.unconsumed_tail:
-        raise ValueError("VTP uncompressed array length changed")
+    chunks = []
+    cursor = 0
+    for index, size in enumerate(compressed_sizes):
+        decoder = zlib.decompressobj()
+        expected = last_size if index == blocks - 1 else block_size
+        chunk = decoder.decompress(compressed[cursor:cursor + size], expected + 1)
+        if len(chunk) != expected or not decoder.eof or decoder.unused_data or decoder.unconsumed_tail:
+            raise ValueError("VTP uncompressed block length changed")
+        chunks.append(chunk)
+        cursor += size
+    raw = b"".join(chunks)
     return array.get("type"), raw
 
 

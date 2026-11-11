@@ -13,7 +13,7 @@ import time
 import uuid
 
 from broker import Broker, sha
-from differential import compare_descriptors, load_saved_mesh
+from differential import compare_descriptors, load_saved_mesh, reader, topology, close
 
 
 def verify_release(path):
@@ -110,6 +110,30 @@ def summary(values):
             'median95PctBootstrapMs': [medians[49], medians[1949]]}
 
 
+def compare_tier(left, right, tier, tolerance):
+    if tier['triangles'] <= 500:
+        return compare_descriptors(left, right, tolerance)
+    left_info, lp, lf = reader.inspect(Path(left['artifactPath']))
+    right_info, rp, rf = reader.inspect(Path(right['artifactPath']))
+    left_topology, right_topology = topology(lp, lf), topology(rp, rf)
+
+    def faces(points, triangles):
+        vertices = [tuple(round(coordinate, 6) for coordinate in point) for point in points]
+        return sorted(min((vertices[a], vertices[b], vertices[c]),
+                          (vertices[b], vertices[c], vertices[a]),
+                          (vertices[c], vertices[a], vertices[b])) for a, b, c in triangles)
+
+    checks = {'topology': left_topology == right_topology,
+              'orientedFaces': faces(lp, lf) == faces(rp, rf),
+              'bounds': all(close(a, b, tolerance) for a, b in zip(left_info['bounds'], right_info['bounds'])),
+              'area': close(left_info['surfaceArea'], right_info['surfaceArea'], tolerance),
+              'signedVolume': close(left_info['signedVolume'], right_info['signedVolume'], tolerance)}
+    return {'verdict': 'equivalent' if all(checks.values()) else 'different',
+            'checks': checks, 'tolerance': tolerance, 'left': left_info, 'right': right_info,
+            'leftTopology': left_topology, 'rightTopology': right_topology,
+            'method': 'all oriented quantized triangle coordinates plus topology, bounds, area and volume'}
+
+
 def run(release_path, output_root, repetitions=7):
     release_path = Path(release_path).resolve(strict=True)
     release = verify_release(release_path)
@@ -153,7 +177,7 @@ def run(release_path, output_root, repetitions=7):
                 observations[name].append(inspect_sample(active[name], tier[name + 'Case'], staged[name],
                                                          tier[name + 'Sha256'], name))
         left, right = (observations[name][0]['descriptor'] for name in ('cgal', 'vtk'))
-        geometry = compare_descriptors(left, right, contract['tolerance'])
+        geometry = compare_tier(left, right, tier, contract['tolerance'])
         if geometry['verdict'] != 'equivalent':
             raise ValueError('Shared inspection geometry differs: ' + tier['id'])
         for name in active:
@@ -244,7 +268,7 @@ def verify(path):
                 raise ValueError('Shared inspection statistics changed.')
         left = load_saved_mesh(saved['measurements']['cgal']['runs'][0]['resultPath'], 'inspected.obj')
         right = load_saved_mesh(saved['measurements']['vtk']['runs'][0]['resultPath'], 'read.vtp')
-        geometry = compare_descriptors(left, right, contract['tolerance'])
+        geometry = compare_tier(left, right, tier, contract['tolerance'])
         if geometry != saved['geometry'] or geometry['verdict'] != 'equivalent':
             raise ValueError('Shared inspection geometry changed.')
     return record

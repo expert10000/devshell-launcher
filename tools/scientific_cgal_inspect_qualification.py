@@ -280,7 +280,7 @@ def verify(path):
                     (item['state'], item['outputSha256']) for item in previous['cases']]:
                 raise ValueError('Inspection L6 reproduction changed.')
         elif level == 7:
-            if (len(report['cases']) != 4 or sha(report['vtkPythonPath']) != report['vtkPythonSha256']
+            if (len(report['cases']) != 7 or sha(report['vtkPythonPath']) != report['vtkPythonSha256']
                     or sha(report['nodePath']) != report['nodeSha256']
                     or sha(Path(report['math3dCheckout']) / 'renderer/src/mesh/surfaceMesh.ts') != report['importerSha256']
                     or sha(VTK) != report['vtkConsumerSha256'] or sha(MATH3D) != report['math3dConsumerSha256']):
@@ -302,7 +302,7 @@ def verify(path):
                 if probe['state'] != state or not probe['outputAbsent']:
                     raise ValueError('Inspection resilience probe changed.')
         else:
-            if (len(report['cases']) != 4 or sha(PRODUCT) != report['productSourceSha256']
+            if (len(report['cases']) != 7 or sha(PRODUCT) != report['productSourceSha256']
                     or sha(VIEWER) != report['viewerSourceSha256']):
                 raise ValueError('Inspection L9 product changed.')
             for name, digest in report['consumerSources'].items():

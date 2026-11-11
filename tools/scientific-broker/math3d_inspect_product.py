@@ -89,6 +89,7 @@ def run(shared_record, input_path, math3d_checkout, output, manual_provider=None
         raise ValueError('Advised MATH3D product output already exists.')
     output.mkdir(parents=True)
     selection = choose(shared_record, input_path, manual_provider)
+    selection['inputPath'] = str(input_path)
     source = input_path
     if selection['state'] != 'fallback':
         scope = verify_shared(shared_record)
@@ -141,6 +142,8 @@ def verify(path, shared_record, input_path):
     expected = choose(shared_record, input_path, value['manualProvider'])
     if any(value.get(key) != data for key, data in expected.items()):
         raise ValueError('Advised selection or current evidence changed.')
+    if Path(value['inputPath']).resolve(strict=True) != Path(input_path).resolve(strict=True):
+        raise ValueError('Advised input path changed.')
     if sha(path.parent / 'selection.html') != value['selectionHtmlSha256'] \
             or (path.parent / 'selection.html').read_text(encoding='utf-8') != render_html(value):
         raise ValueError('Visible selection rationale changed.')

@@ -19,6 +19,7 @@
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.Remesh.cs" Link="ScientificQualificationRecords.Remesh.cs" />
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.Orientation.cs" Link="ScientificQualificationRecords.Orientation.cs" />
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.VtkRead.cs" Link="ScientificQualificationRecords.VtkRead.cs" />
+    <Compile Include="../../BatchLauncher/ScientificQualificationRecords.Inspect.cs" Link="ScientificQualificationRecords.Inspect.cs" />
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.Sage.cs" Link="ScientificQualificationRecords.Sage.cs" />
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.Gmsh.cs" Link="ScientificQualificationRecords.Gmsh.cs" />
     <Compile Include="../../BatchLauncher/ScientificQualificationRecords.GmshVolume.cs" Link="ScientificQualificationRecords.GmshVolume.cs" />

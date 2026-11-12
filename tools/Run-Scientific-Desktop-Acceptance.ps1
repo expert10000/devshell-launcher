@@ -6,7 +6,12 @@ param(
     [ValidateSet('L0', 'L5', 'L6', 'L7', 'L8', 'L9')][string]$ResumeFrom = 'L0',
     [switch]$UseRunningApp,
     [switch]$SkipBuild,
-    [switch]$BootOnly
+    [switch]$BootOnly,
+    [switch]$ProductJourney,
+    [string]$ClassRecord,
+    [string]$InspectInput,
+    [string]$FallbackInput,
+    [string]$JourneyRunsOutput
 )
 
 $ErrorActionPreference = 'Stop'
@@ -19,12 +24,20 @@ $previousResume = [Environment]::GetEnvironmentVariable('DEVSHELL_REPAIR_RESUME_
 $previousScientificResume = [Environment]::GetEnvironmentVariable('DEVSHELL_SCIENTIFIC_RESUME_FROM', 'Process')
 $previousVolumeOnly = [Environment]::GetEnvironmentVariable('DEVSHELL_GMSH_VOLUME_ONLY', 'Process')
 $previousVolumeResume = [Environment]::GetEnvironmentVariable('DEVSHELL_GMSH_VOLUME_RESUME', 'Process')
+$journeyVariables = @('DEVSHELL_DESKTOP_CLASS_RECORD', 'DEVSHELL_DESKTOP_INSPECT_INPUT',
+    'DEVSHELL_DESKTOP_FALLBACK_INPUT', 'DEVSHELL_DESKTOP_JOURNEY_RUNS')
+$previousJourney = @{}
+foreach ($name in $journeyVariables) { $previousJourney[$name] = [Environment]::GetEnvironmentVariable($name, 'Process') }
 $ownedApp = $null
 $worktree = $root
 $cdpUrl = "http://127.0.0.1:$CdpPort"
 
 try {
     if ($UseRunningApp -and !$SkipBuild) { throw 'UseRunningApp requires SkipBuild.' }
+    if ($ProductJourney -and ($Scenario -ne 'CgalInspect' -or
+        @(@($ClassRecord, $InspectInput, $FallbackInput, $JourneyRunsOutput) | Where-Object { !$_ }).Count -gt 0)) {
+        throw 'ProductJourney requires CgalInspect, class record, accepted and fallback inputs, and output path.'
+    }
     if ($ExistingWorktree -and !$SkipBuild) {
         throw 'ExistingWorktree requires SkipBuild; rebuilding changes runtime-lab identity and stales saved support.'
     }
@@ -102,6 +115,12 @@ try {
         $(if ($Scenario -eq 'GmshVolume' -and $ResumeFrom -eq 'L0') { '1' } else { $null }), 'Process')
     [Environment]::SetEnvironmentVariable('DEVSHELL_GMSH_VOLUME_RESUME',
         $(if ($Scenario -eq 'GmshVolume' -and $ResumeFrom -eq 'L7') { '1' } else { $null }), 'Process')
+    if ($ProductJourney) {
+        [Environment]::SetEnvironmentVariable('DEVSHELL_DESKTOP_CLASS_RECORD', $ClassRecord, 'Process')
+        [Environment]::SetEnvironmentVariable('DEVSHELL_DESKTOP_INSPECT_INPUT', $InspectInput, 'Process')
+        [Environment]::SetEnvironmentVariable('DEVSHELL_DESKTOP_FALLBACK_INPUT', $FallbackInput, 'Process')
+        [Environment]::SetEnvironmentVariable('DEVSHELL_DESKTOP_JOURNEY_RUNS', $JourneyRunsOutput, 'Process')
+    }
     $ready = $false
     for ($attempt = 0; $attempt -lt 60; $attempt++) {
         if ($ownedApp -and $ownedApp.HasExited) { throw 'Isolated DevShell exited before WebView2 was ready.' }
@@ -116,7 +135,8 @@ try {
     }
     if (!$ready) { throw "Isolated DevShell WebView2 did not appear at $cdpUrl." }
     if (!$BootOnly) {
-        $script = if ($Scenario -eq 'Repair') { 'scientific-cgal-repair-managed-ui-checks.mjs' }
+        $script = if ($ProductJourney) { 'scientific-inspect-selection-managed-ui-checks.mjs' }
+            elseif ($Scenario -eq 'Repair') { 'scientific-cgal-repair-managed-ui-checks.mjs' }
             elseif ($Scenario -eq 'Remesh') { 'scientific-cgal-remesh-managed-ui-checks.mjs' }
             elseif ($Scenario -eq 'CgalInspect') { 'scientific-cgal-inspect-managed-ui-checks.mjs' }
             elseif ($Scenario -eq 'Orientation') { 'scientific-cgal-orientation-managed-ui-checks.mjs' }
@@ -136,6 +156,9 @@ finally {
     [Environment]::SetEnvironmentVariable('DEVSHELL_SCIENTIFIC_RESUME_FROM', $previousScientificResume, 'Process')
     [Environment]::SetEnvironmentVariable('DEVSHELL_GMSH_VOLUME_ONLY', $previousVolumeOnly, 'Process')
     [Environment]::SetEnvironmentVariable('DEVSHELL_GMSH_VOLUME_RESUME', $previousVolumeResume, 'Process')
+    foreach ($name in $journeyVariables) {
+        [Environment]::SetEnvironmentVariable($name, $previousJourney[$name], 'Process')
+    }
     if ($ownedApp -and !$ownedApp.HasExited) {
         $null = $ownedApp.CloseMainWindow()
         if (!$ownedApp.WaitForExit(10000)) { Stop-Process -Id $ownedApp.Id -Force }

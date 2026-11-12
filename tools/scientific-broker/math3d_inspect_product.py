@@ -13,6 +13,7 @@ from advisor import advise_shared, verify_shared_advice, advise_class, verify_cl
 from broker import Broker, sha
 from comparable_inspect import policy, verify as verify_shared, verify_release
 from inspect_ranking import decide as decide_class, policy as ranking_policy, rank_class
+from math3d_release_identity import capture as capture_math3d, verify as verify_math3d
 
 ROOT = Path(__file__).resolve().parents[2]
 PROVIDERS = {'cgal-win-conda': 'cgal', 'vtk-win-conda': 'vtk'}
@@ -120,8 +121,11 @@ def run(shared_record, input_path, math3d_checkout, output, manual_provider=None
     output = Path(output).resolve()
     if output.exists():
         raise ValueError('Advised MATH3D product output already exists.')
+    consumer = capture_math3d(checkout)
     output.mkdir(parents=True)
     selection = choose(shared_record, input_path, manual_provider, class_record)
+    selection['math3dRoot'] = str(checkout)
+    selection['math3dIdentity'] = consumer
     selection['inputPath'] = str(input_path)
     source = input_path
     if selection['state'] != 'fallback':
@@ -185,6 +189,9 @@ def verify(path, shared_record, input_path, class_record=None):
     expected = choose(shared_record, input_path, value['manualProvider'], class_record)
     if any(value.get(key) != data for key, data in expected.items()):
         raise ValueError('Advised selection or current evidence changed.')
+    if not isinstance(value.get('math3dIdentity'), dict):
+        raise ValueError('Advised MATH3D identity is missing.')
+    verify_math3d(value['math3dRoot'], value['math3dIdentity'])
     if Path(value['inputPath']).resolve(strict=True) != Path(input_path).resolve(strict=True):
         raise ValueError('Advised input path changed.')
     if sha(path.parent / 'selection.html') != value['selectionHtmlSha256'] \

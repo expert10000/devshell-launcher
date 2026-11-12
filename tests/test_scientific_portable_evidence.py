@@ -13,11 +13,18 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools' / 'scientific-broker'))
 from portable_evidence import digest, path_free, redact, verify, verify_signature, portable_artifact
+from portable_six_evidence import portable_artifact as portable_six_artifact
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives import serialization
 
 
 class RedactionTests(unittest.TestCase):
+    def test_static_product_rationale_only(self):
+        data, policy = portable_six_artifact('selection.html', b'<!doctype html><html><p>Selected CGAL</p></html>')
+        self.assertEqual('static-redacted-html', policy)
+        self.assertIn(b'Selected CGAL', data)
+        with self.assertRaisesRegex(ValueError, 'static'):
+            portable_six_artifact('selection.html', b'<!doctype html><script>alert(1)</script>')
     def test_nested_paths_are_redacted(self):
         source = {'command': 'open C:\\private\\workspace\\run.json',
                   'items': ['G:\\master\\Math3D\\mesh.obj', {'path': 'C:/isolated/release.json'}]}

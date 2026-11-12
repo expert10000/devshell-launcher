@@ -86,15 +86,26 @@ def inspect_sample(broker, case_id, fixture, digest, provider):
     artifact = directory / ('inspected.obj' if provider == 'cgal' else 'read.vtp')
     request_path = directory / 'request.json'
     result = json.loads(result_path.read_text(encoding='utf-8'))
+    telemetry = broker.telemetry(job_id)
+    warm = (result.get('engineDetails', {}).get('durationMs') if provider == 'cgal'
+            else result.get('durationMs'))
     if (result.get('operation') != 'mesh.inspect' or result.get('state') != 'succeeded'
             or result.get('runId') != job_id or result['inputArtifacts'][0]['sha256'] != digest
-            or not isinstance(job.get('workerDurationMs'), (int, float))):
+            or not isinstance(job.get('workerDurationMs'), (int, float))
+            or not isinstance(warm, (int, float)) or warm < 0 or warm > job['workerDurationMs']
+            or telemetry.get('ram', {}).get('state') != 'recorded'
+            or not isinstance(telemetry['ram'].get('value'), int)):
         raise ValueError('Typed shared inspect result changed.')
+    telemetry_path = directory / 'telemetry.json'
     return {'jobId': job_id, 'requestPath': str(request_path), 'requestSha256': sha(request_path),
             'resultPath': str(result_path), 'resultSha256': sha(result_path),
             'brokerResultPath': str(broker_result), 'brokerResultSha256': sha(broker_result),
             'artifactPath': str(artifact), 'artifactSha256': sha(artifact),
+            'telemetryPath': str(telemetry_path), 'telemetrySha256': sha(telemetry_path),
             'runId': result['runId'], 'durationMs': job['workerDurationMs'],
+            'coldInvocationMs': job['workerDurationMs'], 'warmExecutionMs': warm,
+            'startupOverheadMs': job['workerDurationMs'] - warm,
+            'peakRssBytes': telemetry['ram']['value'],
             'descriptor': load_saved_mesh(result_path, artifact.name)}
 
 
@@ -193,9 +204,13 @@ def run(release_path, output_root, repetitions=7):
                         for name, run in warmups.items()},
             'measurements': {name: {'runs': [{key: value for key, value in run.items() if key != 'descriptor'}
                                              for run in observations[name]],
-                                    'statistics': summary([run['durationMs'] for run in observations[name]])}
+                                    'statistics': summary([run['durationMs'] for run in observations[name]]),
+                                    'phases': {'coldInvocation': summary([run['coldInvocationMs'] for run in observations[name]]),
+                                               'warmExecution': summary([run['warmExecutionMs'] for run in observations[name]]),
+                                               'startupOverhead': summary([run['startupOverheadMs'] for run in observations[name]]),
+                                               'peakRssBytes': max(run['peakRssBytes'] for run in observations[name])}}
                              for name in active}}
-    record = {'schemaVersion': 2, 'kind': 'scientific.comparable-mesh-inspect',
+    record = {'schemaVersion': 3, 'kind': 'scientific.comparable-mesh-inspect',
               'state': 'qualified-shared-scope', 'operation': 'mesh.inspect',
               'createdAtUtc': datetime.now(timezone.utc).isoformat(),
               'sourceCommit': release['sourceCommit'], 'releaseRecord': str(release_path),
@@ -216,7 +231,7 @@ def verify(path):
     if sha(path) != Path(str(path) + '.sha256').read_text().strip():
         raise ValueError('Shared inspection record seal changed.')
     record = json.loads(path.read_text(encoding='utf-8'))
-    if (record.get('schemaVersion') != 2 or record.get('kind') != 'scientific.comparable-mesh-inspect'
+    if (record.get('schemaVersion') != 3 or record.get('kind') != 'scientific.comparable-mesh-inspect'
             or record.get('state') != 'qualified-shared-scope' or record.get('operation') != 'mesh.inspect'):
         raise ValueError('Shared inspection qualification changed.')
     release = verify_release(record['releaseRecord'])
@@ -252,20 +267,35 @@ def verify(path):
                 if (sha(run['requestPath']) != run['requestSha256']
                         or sha(run['resultPath']) != run['resultSha256']
                         or sha(run['brokerResultPath']) != run['brokerResultSha256']
-                        or sha(run['artifactPath']) != run['artifactSha256']):
+                        or sha(run['artifactPath']) != run['artifactSha256']
+                        or sha(run['telemetryPath']) != run['telemetrySha256']):
                     raise ValueError('Shared inspection broker evidence changed.')
                 request = json.loads(Path(run['requestPath']).read_text(encoding='utf-8'))
                 result = json.loads(Path(run['resultPath']).read_text(encoding='utf-8'))
                 broker_result = json.loads(Path(run['brokerResultPath']).read_text(encoding='utf-8'))
+                telemetry = json.loads(Path(run['telemetryPath']).read_text(encoding='utf-8'))
                 if (request.get('operation') != 'mesh.inspect' or result.get('operation') != 'mesh.inspect'
                         or result.get('state') != 'succeeded' or result.get('runId') != run['jobId']
                         or broker_result.get('state') != 'succeeded'
                         or broker_result.get('jobId') != run['jobId']
                         or broker_result.get('workerDurationMs') != run['durationMs']
+                        or broker_result.get('telemetrySha256') != run['telemetrySha256']
+                        or run['coldInvocationMs'] != run['durationMs']
+                        or (result.get('engineDetails', {}).get('durationMs') if name == 'cgal'
+                            else result.get('durationMs')) != run['warmExecutionMs']
+                        or run['startupOverheadMs'] != run['coldInvocationMs'] - run['warmExecutionMs']
+                        or telemetry.get('ram', {}).get('state') != 'recorded'
+                        or telemetry['ram'].get('value') != run['peakRssBytes']
                         or result.get('inputArtifacts', [{}])[0].get('sha256') != tier[name + 'Sha256']):
                     raise ValueError('Shared operation evidence changed.')
             if summary([run['durationMs'] for run in runs]) != measurements['statistics']:
                 raise ValueError('Shared inspection statistics changed.')
+            phases = {'coldInvocation': summary([run['coldInvocationMs'] for run in runs]),
+                      'warmExecution': summary([run['warmExecutionMs'] for run in runs]),
+                      'startupOverhead': summary([run['startupOverheadMs'] for run in runs]),
+                      'peakRssBytes': max(run['peakRssBytes'] for run in runs)}
+            if phases != measurements['phases']:
+                raise ValueError('Shared inspection cold, warm or resource evidence changed.')
         left = load_saved_mesh(saved['measurements']['cgal']['runs'][0]['resultPath'], 'inspected.obj')
         right = load_saved_mesh(saved['measurements']['vtk']['runs'][0]['resultPath'], 'read.vtp')
         geometry = compare_tier(left, right, tier, contract['tolerance'])

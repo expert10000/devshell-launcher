@@ -27,11 +27,18 @@ class SharedInspectPolicy(unittest.TestCase):
     def test_ranking_requires_verified_scope_and_exact_tier(self):
         with self.assertRaisesRegex(ValueError, 'requires a current comparable-inspection'):
             advise('unused', 'mesh.inspect', 'single', None, 'unused')
-        scope = {'contractSha256': 'a' * 64, 'tiers': {'tetra-4': {'measurements': {
-            'cgal': {'statistics': {'medianMs': 15}}, 'vtk': {'statistics': {'medianMs': 100}}}}}}
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / 'scope.json'
             source.write_text('{}')
+            release = Path(directory) / 'release.json'
+            release.write_text(json.dumps({'repo': str(ROOT)}))
+            scope = {'contractSha256': 'a' * 64, 'releaseRecord': str(release),
+                     'tiers': {'tetra-4': {'measurements': {
+                         name: {'statistics': {'medianMs': cold},
+                                'runs': [{'coldInvocationMs': cold, 'warmExecutionMs': warm,
+                                          'peakRssBytes': 40 * 1048576}] * 5,
+                                'phases': {'peakRssBytes': 40 * 1048576}}
+                         for name, cold, warm in (('cgal', 100, 10), ('vtk', 200, 30))}}}}
             with patch('advisor.verify_shared_inspect', return_value=scope):
                 with self.assertRaisesRegex(ValueError, 'outside the qualified shared scope'):
                     advise_shared(source, 'large', None, directory)
@@ -39,6 +46,14 @@ class SharedInspectPolicy(unittest.TestCase):
                 self.assertEqual('cgal-win-conda', result['recommendation'])
                 self.assertEqual('vtk-win-conda', result['selectedProvider'])
                 self.assertEqual('ranked-within-qualified-shared-scope', json.loads(path.read_text())['state'])
+                close = json.loads(json.dumps(scope))
+                close['tiers']['tetra-4']['measurements']['vtk']['runs'] = [
+                    {'coldInvocationMs': 101, 'warmExecutionMs': 11,
+                     'peakRssBytes': 40 * 1048576}] * 5
+                with patch('advisor.verify_shared_inspect', return_value=close):
+                    _, abstained = advise_shared(source, 'tetra-4', None, directory)
+                self.assertIsNone(abstained['recommendation'])
+                self.assertEqual('abstained', abstained['state'])
 
 
 @unittest.skipUnless(os.environ.get('SCIENTIFIC_SHARED_INSPECT_RECORD'), 'Live comparable scope required')

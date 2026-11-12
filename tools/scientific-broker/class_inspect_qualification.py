@@ -3,6 +3,7 @@ import argparse
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+import random
 import shutil
 import time
 import uuid
@@ -27,12 +28,23 @@ def wait(broker, request):
     obj = folder / ('inspected.obj' if broker.inspect else 'read.obj')
     if not equivalent(folder / 'dataset/input.obj', obj):
         raise ValueError('Bounded inspection changed input geometry.')
+    result = json.loads((folder / 'results.json').read_text(encoding='utf-8'))
+    telemetry = broker.telemetry(job_id)
+    warm = (result.get('engineDetails', {}).get('durationMs') if broker.inspect
+            else result.get('durationMs'))
+    if (not isinstance(warm, (int, float)) or warm < 0 or warm > job['workerDurationMs']
+            or telemetry.get('ram', {}).get('state') != 'recorded'
+            or not isinstance(telemetry['ram'].get('value'), int)):
+        raise ValueError('Cold/warm timing or attributed RAM telemetry is unavailable.')
     files = {name: {'path': str(folder / name), 'sha256': sha(folder / name)}
-             for name in ('request.json', 'results.json', 'broker-result.json', obj.name)}
+             for name in ('request.json', 'results.json', 'broker-result.json', 'telemetry.json', obj.name)}
     files['promotion.json'] = {'path': promotion['path'], 'sha256': promotion['sha256']}
     if broker.vtk_read:
         files['read.vtp'] = {'path': str(folder / 'read.vtp'), 'sha256': sha(folder / 'read.vtp')}
-    return {'jobId': job_id, 'durationMs': job['workerDurationMs'], 'files': files}
+    return {'jobId': job_id, 'coldInvocationMs': job['workerDurationMs'],
+            'warmExecutionMs': warm,
+            'startupOverheadMs': job['workerDurationMs'] - warm,
+            'peakRssBytes': telemetry['ram']['value'], 'files': files}
 
 
 def request(broker, class_id, path):
@@ -70,17 +82,26 @@ def run(release_path, output_root, samples=5):
             shutil.copyfile(source, target)
             staged[name] = target
         runs = {name: [] for name in brokers}
+        order_rng = random.Random(int(policy_hash[:16], 16) ^ int.from_bytes(entry['id'].encode(), 'big'))
+        order = []
         for index in range(samples):
-            for name in (('cgal', 'vtk') if index % 2 == 0 else ('vtk', 'cgal')):
+            pair = ['cgal', 'vtk']
+            order_rng.shuffle(pair)
+            order.append(pair)
+            for name in pair:
                 runs[name].append(wait(brokers[name], request(brokers[name], entry['id'], staged[name])))
         left = Path(runs['cgal'][0]['files']['inspected.obj']['path'])
         right = Path(runs['vtk'][0]['files']['read.obj']['path'])
         if not equivalent(left, right):
             raise ValueError('Holdout providers disagree: ' + entry['id'])
         accepted[entry['id']] = {'holdoutSha256': entry['holdoutSha256'],
-                                 'tier': entry['tier'], 'runs': runs,
-                                 'statistics': {name: summary([item['durationMs'] for item in items])
-                                                for name, items in runs.items()}}
+                                 'tier': entry['tier'], 'sampleOrder': order, 'runs': runs,
+                                 'statistics': {name: {
+                                     'coldInvocation': summary([item['coldInvocationMs'] for item in items]),
+                                     'warmExecution': summary([item['warmExecutionMs'] for item in items]),
+                                     'startupOverhead': summary([item['startupOverheadMs'] for item in items]),
+                                     'peakRssBytes': max(item['peakRssBytes'] for item in items)}
+                                     for name, items in runs.items()}}
     for adverse in classes['rejectedFixtures']:
         source = repo / adverse['path']
         for name, broker in brokers.items():
@@ -93,7 +114,7 @@ def run(release_path, output_root, samples=5):
                                  'provider': name, 'reason': str(error)[:240]})
             else:
                 raise ValueError('Adverse class input was accepted: ' + adverse['path'])
-    record = {'schemaVersion': 1, 'kind': 'scientific.bounded-inspect-class-qualification',
+    record = {'schemaVersion': 2, 'kind': 'scientific.bounded-inspect-class-qualification',
               'createdAtUtc': datetime.now(timezone.utc).isoformat(),
               'sourceCommit': release['sourceCommit'], 'releaseRecord': str(release_path),
               'releaseRecordSha256': sha(release_path), 'policySha256': policy_hash,
@@ -115,7 +136,7 @@ def verify(path):
     if sha(path) != Path(str(path) + '.sha256').read_text(encoding='utf-8').strip():
         raise ValueError('Bounded class record seal changed.')
     record = json.loads(path.read_text(encoding='utf-8'))
-    if record.get('schemaVersion') != 1 or record.get('kind') != 'scientific.bounded-inspect-class-qualification':
+    if record.get('schemaVersion') != 2 or record.get('kind') != 'scientific.bounded-inspect-class-qualification':
         raise ValueError('Bounded class record contract changed.')
     release = verify_release(record['releaseRecord'])
     repo = Path(release['repo'])
@@ -142,6 +163,14 @@ def verify(path):
         if (saved['holdoutSha256'] != entry['holdoutSha256'] or saved['tier'] != entry['tier']
                 or classify(source, repo)['classId'] != entry['id']):
             raise ValueError('Bounded class holdout changed.')
+        rng = random.Random(int(policy_hash[:16], 16) ^ int.from_bytes(entry['id'].encode(), 'big'))
+        expected_order = []
+        for _ in range(record['samples']):
+            pair = ['cgal', 'vtk']
+            rng.shuffle(pair)
+            expected_order.append(pair)
+        if saved['sampleOrder'] != expected_order:
+            raise ValueError('Bounded class paired sample order changed.')
         for name in ('cgal', 'vtk'):
             runs = saved['runs'][name]
             if len(runs) != record['samples']:
@@ -152,6 +181,8 @@ def verify(path):
                         raise ValueError('Bounded class broker artifact changed.')
                 request_value = json.loads(Path(run['files']['request.json']['path']).read_text(encoding='utf-8'))
                 result_value = json.loads(Path(run['files']['results.json']['path']).read_text(encoding='utf-8'))
+                broker_value = json.loads(Path(run['files']['broker-result.json']['path']).read_text(encoding='utf-8'))
+                telemetry = json.loads(Path(run['files']['telemetry.json']['path']).read_text(encoding='utf-8'))
                 promotion = json.loads(Path(run['files']['promotion.json']['path']).read_text(encoding='utf-8'))
                 obj = run['files']['inspected.obj' if name == 'cgal' else 'read.obj']['path']
                 if (request_value['provenance'].get('inspectionClassId') != entry['id']
@@ -159,6 +190,13 @@ def verify(path):
                         or request_value['inputArtifacts'][0]['sha256'] != entry['holdoutSha256']
                         or result_value.get('state') != 'succeeded'
                         or result_value.get('runId') != run['jobId']
+                        or broker_value.get('workerDurationMs') != run['coldInvocationMs']
+                        or broker_value.get('telemetrySha256') != run['files']['telemetry.json']['sha256']
+                        or (result_value.get('engineDetails', {}).get('durationMs') if name == 'cgal'
+                            else result_value.get('durationMs')) != run['warmExecutionMs']
+                        or run['startupOverheadMs'] != run['coldInvocationMs'] - run['warmExecutionMs']
+                        or telemetry.get('ram', {}).get('state') != 'recorded'
+                        or telemetry['ram'].get('value') != run['peakRssBytes']
                         or promotion.get('decision') != 'allowed'
                         or promotion.get('sourceJobId') != run['jobId']
                         or not equivalent(source, obj)):
@@ -166,7 +204,11 @@ def verify(path):
                 fresh = brokers[name].promote(run['jobId'])
                 if fresh['decision'] != 'allowed':
                     raise ValueError('Bounded class broker promotion no longer passes.')
-            if saved['statistics'][name] != summary([item['durationMs'] for item in runs]):
+            expected = {'coldInvocation': summary([item['coldInvocationMs'] for item in runs]),
+                        'warmExecution': summary([item['warmExecutionMs'] for item in runs]),
+                        'startupOverhead': summary([item['startupOverheadMs'] for item in runs]),
+                        'peakRssBytes': max(item['peakRssBytes'] for item in runs)}
+            if saved['statistics'][name] != expected:
                 raise ValueError('Bounded class statistics changed.')
         if not equivalent(saved['runs']['cgal'][0]['files']['inspected.obj']['path'],
                           saved['runs']['vtk'][0]['files']['read.obj']['path']):

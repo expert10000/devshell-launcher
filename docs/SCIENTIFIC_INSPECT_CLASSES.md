@@ -17,9 +17,15 @@ overscale, and flipped faces.
 
 After a current six-capability release, run
 `python tools/scientific-broker/class_inspect_qualification.py run --release <release.json> --output-root <directory>`.
-The record contains five or more alternating-order, promoted broker runs per
+The record contains five or more randomized paired, promoted broker runs per
 provider and class, plus rejection evidence for both providers. `verify
 --record <classes.json>` rechecks the release, source, host, desktop L9 IDs,
-policy, artifacts, geometry, statistics, and current broker promotion. The
-advisor may admit a class only while this record verifies. This scope does not
-claim arbitrary closed meshes or the larger exact fixture tiers.
+policy, artifacts, geometry, statistics, resource telemetry, and current broker
+promotion. The advisor may admit a class only while this record verifies.
+`schemas/scientific-inspect-ranking.v1.json` requires matching paired cold and
+warm results, 95% confidence intervals excluding a tie, at least 10% median
+advantage, and bounded time and memory. `advisor.py advise-class --class-record
+<classes.json> --input <mesh.obj> --output-root <directory>` abstains on close,
+inconsistent, stale, or unqualified evidence. Manual provider choice remains
+available only within a qualified class. This scope does not claim arbitrary
+closed meshes or the larger exact fixture tiers.

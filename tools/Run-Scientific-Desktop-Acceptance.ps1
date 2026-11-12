@@ -16,6 +16,7 @@ $previousUrl = [Environment]::GetEnvironmentVariable('DEVSHELL_CDP_URL', 'Proces
 $previousCheckout = [Environment]::GetEnvironmentVariable('MATH3D_CHECKOUT', 'Process')
 $previousRuns = [Environment]::GetEnvironmentVariable('DEVSHELL_SCIENTIFIC_RUNS_ROOT', 'Process')
 $previousResume = [Environment]::GetEnvironmentVariable('DEVSHELL_REPAIR_RESUME_FROM', 'Process')
+$previousScientificResume = [Environment]::GetEnvironmentVariable('DEVSHELL_SCIENTIFIC_RESUME_FROM', 'Process')
 $previousVolumeOnly = [Environment]::GetEnvironmentVariable('DEVSHELL_GMSH_VOLUME_ONLY', 'Process')
 $previousVolumeResume = [Environment]::GetEnvironmentVariable('DEVSHELL_GMSH_VOLUME_RESUME', 'Process')
 $ownedApp = $null
@@ -87,6 +88,7 @@ try {
     [Environment]::SetEnvironmentVariable('DEVSHELL_SCIENTIFIC_RUNS_ROOT',
         (Join-Path $worktree '.scientific\runs'), 'Process')
     [Environment]::SetEnvironmentVariable('DEVSHELL_REPAIR_RESUME_FROM', $ResumeFrom, 'Process')
+    [Environment]::SetEnvironmentVariable('DEVSHELL_SCIENTIFIC_RESUME_FROM', $ResumeFrom, 'Process')
     [Environment]::SetEnvironmentVariable('DEVSHELL_GMSH_VOLUME_ONLY',
         $(if ($Scenario -eq 'GmshVolume' -and $ResumeFrom -eq 'L0') { '1' } else { $null }), 'Process')
     [Environment]::SetEnvironmentVariable('DEVSHELL_GMSH_VOLUME_RESUME',
@@ -122,6 +124,7 @@ finally {
     [Environment]::SetEnvironmentVariable('MATH3D_CHECKOUT', $previousCheckout, 'Process')
     [Environment]::SetEnvironmentVariable('DEVSHELL_SCIENTIFIC_RUNS_ROOT', $previousRuns, 'Process')
     [Environment]::SetEnvironmentVariable('DEVSHELL_REPAIR_RESUME_FROM', $previousResume, 'Process')
+    [Environment]::SetEnvironmentVariable('DEVSHELL_SCIENTIFIC_RESUME_FROM', $previousScientificResume, 'Process')
     [Environment]::SetEnvironmentVariable('DEVSHELL_GMSH_VOLUME_ONLY', $previousVolumeOnly, 'Process')
     [Environment]::SetEnvironmentVariable('DEVSHELL_GMSH_VOLUME_RESUME', $previousVolumeResume, 'Process')
     if ($ownedApp -and !$ownedApp.HasExited) {

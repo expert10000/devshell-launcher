@@ -149,7 +149,7 @@ def checked(record):
     return record
 
 
-def run(math3d, cgal_prefix, vtk_prefix, scientific_prefix, output_root=None, profile='desktop-five', port=9270):
+def _run_uncheckpointed(math3d, cgal_prefix, vtk_prefix, scientific_prefix, output_root=None, profile='desktop-five', port=9270):
     math3d = Path(math3d).resolve(strict=True)
     if not (math3d / 'renderer/src/mesh/surfaceMesh.ts').is_file():
         raise ValueError('MATH3D consumer checkout is unavailable.')
@@ -214,6 +214,11 @@ def run(math3d, cgal_prefix, vtk_prefix, scientific_prefix, output_root=None, pr
     return path, record
 
 
+def run(math3d, cgal_prefix, vtk_prefix, scientific_prefix, output_root=None, profile='desktop-five', port=9270):
+    from six_release_resume import start
+    return start(math3d, cgal_prefix, vtk_prefix, scientific_prefix, output_root, profile, port)
+
+
 def verify(path):
     path = Path(path).resolve(strict=True)
     if sha(path) != Path(str(path) + '.sha256').read_text(encoding='utf-8').strip():
@@ -223,7 +228,7 @@ def verify(path):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=('run', 'verify'))
+    parser.add_argument('command', choices=('run', 'resume', 'verify'))
     parser.add_argument('--math3d-root')
     parser.add_argument('--cgal-prefix', default=os.environ.get('DEVSHELL_CGAL_PREFIX'))
     parser.add_argument('--vtk-prefix', default=os.environ.get('DEVSHELL_VTK_PREFIX'))
@@ -232,12 +237,18 @@ if __name__ == '__main__':
     parser.add_argument('--profile-id', default='desktop-five')
     parser.add_argument('--port', type=int, default=9270)
     parser.add_argument('--record')
+    parser.add_argument('--checkpoint')
     options = parser.parse_args()
     if options.command == 'run':
         if not all((options.math3d_root, options.cgal_prefix, options.vtk_prefix, options.scientific_prefix)):
             parser.error('run requires --math3d-root, --cgal-prefix, --vtk-prefix and --scientific-prefix')
         path, result = run(options.math3d_root, options.cgal_prefix, options.vtk_prefix,
                            options.scientific_prefix, options.output_root, options.profile_id, options.port)
+    elif options.command == 'resume':
+        if not options.checkpoint:
+            parser.error('resume requires --checkpoint')
+        from six_release_resume import execute
+        path, result = execute(options.checkpoint)
     else:
         if not options.record:
             parser.error('verify requires --record')

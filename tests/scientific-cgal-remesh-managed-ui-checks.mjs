@@ -8,6 +8,8 @@ import { setTimeout as delay } from 'node:timers/promises'
 const require = createRequire(import.meta.url)
 const { chromium } = require(join(import.meta.dirname, '..', 'DevShell', 'ui', 'dev-ui-react', 'node_modules', 'playwright-core'))
 const runs = process.env.DEVSHELL_SCIENTIFIC_RUNS_ROOT || join(import.meta.dirname, '..', '.scientific', 'runs')
+const resumeFrom = process.env.DEVSHELL_SCIENTIFIC_RESUME_FROM || 'L0'
+assert.ok(['L0', 'L9'].includes(resumeFrom), 'Remesh acceptance supports L0 or L9 resume')
 assert.ok(process.env.DEVSHELL_CDP_URL, 'Set DEVSHELL_CDP_URL')
 
 async function completed(before, recipe, level, page, oldAlerts) {
@@ -50,7 +52,7 @@ try {
   await main.locator('.scientific-runtime-item').filter({ hasText: 'CGAL' }).first().click()
   await main.getByRole('navigation', { name: 'Scientific runtime sections' }).getByRole('button', { name: 'Commands', exact: true }).click()
   const detail = main.getByRole('region', { name: /runtime details/ })
-  for (const [button, recipe, level, capability] of [['Probe in runtime-lab', 'lab.probe', 'L0', 'runtime.inventory'], ['Compile & link', 'compile-link', 'L4', 'cgal.cpp.compile-link']]) {
+  for (const [button, recipe, level, capability] of resumeFrom === 'L9' ? [] : [['Probe in runtime-lab', 'lab.probe', 'L0', 'runtime.inventory'], ['Compile & link', 'compile-link', 'L4', 'cgal.cpp.compile-link']]) {
     const before = new Set(readdirSync(runs))
     const oldAlerts = await page.getByRole('alert').allTextContents()
     await detail.getByRole('button', { name: button, exact: true }).click()
@@ -79,7 +81,7 @@ try {
     assert.ok(done, `${recipe} timed out`)
   }
   await detail.getByRole('button', { name: 'Isotropic Remesh', exact: true }).click()
-  for (const level of [5, 6, 7, 8, 9]) {
+  for (const level of resumeFrom === 'L9' ? [9] : [5, 6, 7, 8, 9]) {
     const before = new Set(readdirSync(runs))
     const oldAlerts = await page.getByRole('alert').allTextContents()
     await detail.getByRole('button', { name: `Run remesh L${level}`, exact: true }).click()

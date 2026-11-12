@@ -4,7 +4,7 @@ Updated: 2026-11-11
 
 ## Current six-capability release target
 
-The current release target is six separately qualified capabilities: CGAL `mesh.inspect`, `mesh.orient`, `mesh.remesh`, `mesh.repair`; Gmsh `mesh.generate3d`; and VTK `mesh.read`. `six_capability_release.py` requalifies all six through desktop L0–L9 in one isolated worktree, then runs each broker and MATH3D product smoke. Earlier five-capability records remain historical.
+The current release target is six separately qualified capabilities: CGAL `mesh.inspect`, `mesh.orient`, `mesh.remesh`, `mesh.repair`; Gmsh `mesh.generate3d`; and VTK `mesh.read`. `six_capability_release.py` requalifies all six through desktop L0–L9 in one isolated worktree, then runs each broker and MATH3D product smoke. Its sealed checkpoint permits restart only after source, build, consumer, prior support and completed-smoke checks. A failed remesh L9 consumer process can be retried from L9. Earlier five-capability records remain historical.
 
 Shared inspection scope v2 pins six matched tiers: tetra, octa, cube, and closed spheres with 128, 512, and 2,048 triangles. Both provider case packs and their L5–L9 evidence must be current before broker measurements. The shared benchmark randomizes provider order and reports medians, p10/p90, MAD and bootstrap intervals for worker time including startup. The advisor ranks only exact pinned inputs while this evidence verifies. The MATH3D product bridge records the recommendation, manual provider choice, and direct-import fallback when evidence is stale or the input is outside scope.
 

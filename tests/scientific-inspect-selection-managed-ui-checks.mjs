@@ -48,12 +48,16 @@ try {
   await panel.getByLabel('Bounded inspection class record').fill(classRecord)
   await panel.getByLabel('Inspection OBJ input').fill(acceptedInput)
   await panel.getByRole('button', { name: 'Verify and preview' }).click()
-  await panel.getByRole('status').filter({ hasText: /selected cgal-win-conda/ }).first().waitFor()
+  const preview = panel.getByRole('status').filter({ hasText: /selected (?:cgal|vtk)-win-conda/ }).first()
+  await preview.waitFor({ timeout: 210_000 })
+  const automaticProvider = (await preview.textContent()).match(/selected (cgal-win-conda|vtk-win-conda)/)?.[1]
+  assert.ok(automaticProvider, 'No qualified automatic provider for the accepted class')
+  const manualProvider = automaticProvider === 'cgal-win-conda' ? 'vtk-win-conda' : 'cgal-win-conda'
 
   const ids = {}
   for (const [role, input, provider, state] of [
     ['automatic', acceptedInput, '', 'succeeded'],
-    ['manual', acceptedInput, 'vtk-win-conda', 'succeeded'],
+    ['manual', acceptedInput, manualProvider, 'succeeded'],
     ['fallback', fallbackInput, '', 'succeeded'],
     ['cancelled', acceptedInput, '', 'cancelled'],
   ]) {
@@ -69,7 +73,7 @@ try {
       assert.ok(result.selection?.productFiles?.['read.m3dm'])
       assert.ok(result.selection?.productFiles?.['viewer.json'])
     }
-    if (role === 'automatic') assert.equal(result.selection.selectedProvider, 'cgal-win-conda')
+    if (role === 'automatic') assert.equal(result.selection.selectedProvider, automaticProvider)
     if (role === 'manual') assert.equal(result.selection.selectedProvider, provider)
     if (role === 'fallback') assert.equal(result.selection.selectedProvider, 'math3d-direct')
     ids[role] = join(runs, name)

@@ -464,6 +464,11 @@ def verify(path, trust_store=None):
             if version == 3 and product.get('math3dIdentity') != json.loads(
                     archive.read('release/coexistence.json'))['math3dIdentity']:
                 raise ValueError('Offline exact product MATH3D identity changed.')
+            if version == 3 and (matrix.get('schemaVersion') != 2
+                    or report.get('schemaVersion') != 2
+                    or matrix.get('boundedInspect', {}).get('sha256') != manifest['evidenceHashes']['classes']
+                    or matrix.get('desktopJourney', {}).get('sha256') != manifest['evidenceHashes']['desktopJourney']):
+                raise ValueError('Offline matrix bounded class or desktop journey link changed.')
             if 'classes' in manifest['evidenceHashes']:
                 classes = json.loads(archive.read('evidence/classes.json'))
                 if (classes['sourceCommit'] != manifest['sourceCommit']

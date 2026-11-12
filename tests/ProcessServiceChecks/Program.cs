@@ -5,6 +5,11 @@ using System.Text;
 using System.Diagnostics;
 
 static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
+if (args.Length == 1 && args[0] == "--short-lived")
+{
+    await Task.Delay(150);
+    return;
+}
 if (args.Length == 2 && args[0] == "--serve")
 {
     var listener = new TcpListener(IPAddress.Loopback, int.Parse(args[1]));
@@ -79,4 +84,15 @@ runner.Stop("profile:http:service");
 Check((await runner.Completion("profile:http:service").WaitAsync(TimeSpan.FromSeconds(20))).State == "stopped", "HTTP worker did not stop");
 using (var probe = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp) { ExclusiveAddressUse = true })
     probe.Bind(new IPEndPoint(IPAddress.Loopback, port));
+for (var i = 0; i < 24; i++)
+{
+    using var process = Process.Start(new ProcessStartInfo(Environment.ProcessPath!)
+    {
+        UseShellExecute = false, ArgumentList = { "--short-lived" }
+    }) ?? throw new Exception("Could not start short-lived worker.");
+    using var owner = new OwnedProcessJob();
+    owner.Add(process);
+    await process.WaitForExitAsync();
+    owner.Stop();
+}
 Console.WriteLine("PASS: declared worker command, environment, status, logs, duplicate-start guard, Stop, Restart, HTTP readiness without auto-open");

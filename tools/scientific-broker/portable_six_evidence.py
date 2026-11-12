@@ -19,6 +19,7 @@ from comparable_inspect import verify as verify_shared
 from six_capability_report import verify as verify_report
 from advisor import verify_shared_advice
 from math3d_inspect_product import verify as verify_product
+from class_inspect_qualification import verify as verify_classes
 
 PATH = re.compile(r'(?i)(?:[a-z]:[\\/]|\\\\)[^\s\"\'<>;,]*')
 HASH = re.compile(r'^[0-9a-f]{64}$')
@@ -176,7 +177,7 @@ def find_runs(repo, needed):
 
 
 def export(record_path, output, signing_key, key_id, shared_path, report_path,
-           advisor_path, product_path):
+           advisor_path, product_path, class_path=None):
     record_path = Path(record_path).resolve(strict=True)
     live = verify_live(record_path)
     repo = Path(live['repo']).resolve(strict=True)
@@ -198,6 +199,10 @@ def export(record_path, output, signing_key, key_id, shared_path, report_path,
             or advice['scopeRecordSha256'] != digest(Path(shared_path).read_bytes())
             or product['scopeRecordSha256'] != digest(Path(shared_path).read_bytes())):
         raise ValueError('Six-capability evidence sources are not linked.')
+    classes = verify_classes(class_path) if class_path else None
+    if classes and (classes['releaseRecordSha256'] != digest(record_path.read_bytes())
+                    or classes['sourceCommit'] != live['sourceCommit']):
+        raise ValueError('Bounded class evidence belongs to another release.')
     files, index, payloads = {}, [], []
     index.append(json_file(files, 'release/coexistence.json', record_path))
     index.append(json_file(files, 'release/certified.json', certified))
@@ -212,6 +217,10 @@ def export(record_path, output, signing_key, key_id, shared_path, report_path,
                       'matrix': Path(report_path).parent / 'matrix.json',
                       'comparison': Path(report_path).parent / 'comparison.json',
                       'advisor': advisor_path, 'product': product_path}
+    if classes:
+        evidence_paths.update({'classes': class_path,
+                               'classPolicy': repo / 'schemas/scientific-mesh-inspect-classes.v1.json',
+                               'rankingPolicy': repo / 'schemas/scientific-inspect-ranking.v1.json'})
     evidence_hashes = {}
     for name, source_path in evidence_paths.items():
         entry = json_file(files, f'evidence/{name}.json', source_path)
@@ -242,9 +251,26 @@ def export(record_path, output, signing_key, key_id, shared_path, report_path,
             samples += [(str(index), item) for index, item in
                         enumerate(evidence['measurements'][provider]['runs'])]
             for sample, item in samples:
-                for kind in ('request', 'result', 'brokerResult', 'artifact'):
+                for kind in ('request', 'result', 'brokerResult', 'telemetry', 'artifact'):
                     benchmark_file(tier, provider, sample, kind,
                                    item[kind + 'Path'], item[kind + 'Sha256'])
+    class_payloads = []
+    if classes:
+        for class_id, evidence in classes['classes'].items():
+            for provider in ('cgal', 'vtk'):
+                for sample, run in enumerate(evidence['runs'][provider]):
+                    for kind, item in run['files'].items():
+                        data, format_policy = portable_artifact(kind, Path(item['path']).read_bytes())
+                        object_path = 'objects/sha256/' + digest(data)
+                        if object_path not in files:
+                            add(files, object_path, data, binary=not format_policy.startswith('redacted'))
+                            index.append({'path': object_path, 'sha256': digest(data),
+                                          'sourceSha256': item['sha256'], 'bytes': len(data),
+                                          'formatPolicy': format_policy})
+                        class_payloads.append({'classId': class_id, 'provider': provider,
+                                               'sample': sample, 'kind': kind,
+                                               'sourceSha256': item['sha256'], 'object': object_path,
+                                               'formatPolicy': format_policy})
     product_payloads = []
     for name, source_hash in product['productFiles'].items():
         source_path = Path(product_path).parent / 'product' / name
@@ -305,6 +331,7 @@ def export(record_path, output, signing_key, key_id, shared_path, report_path,
                 'artifactPayloads': payloads, 'omittedArtifacts': [],
                 'evidenceHashes': evidence_hashes,
                 'benchmarkPayloads': benchmark_payloads,
+                'classPayloads': class_payloads,
                 'productPayloads': product_payloads,
                 'files': sorted(index, key=lambda item: item['path'])}
     body = compact(manifest)
@@ -380,6 +407,8 @@ def verify(path, trust_store=None):
                     raise ValueError('Native artifact source hash changed.')
                 referenced.add(name)
             evidence_names = ('shared', 'report', 'matrix', 'comparison', 'advisor', 'product')
+            if 'classes' in manifest.get('evidenceHashes', {}):
+                evidence_names += ('classes', 'classPolicy', 'rankingPolicy')
             if set(manifest.get('evidenceHashes', {})) != set(evidence_names):
                 raise ValueError('Six-capability evidence inventory changed.')
             for name in evidence_names:
@@ -402,6 +431,34 @@ def verify(path, trust_store=None):
                     or advisor['scopeRecordSha256'] != manifest['evidenceHashes']['shared']
                     or product['scopeRecordSha256'] != manifest['evidenceHashes']['shared']):
                 raise ValueError('Offline release, benchmark, matrix or advisor link changed.')
+            if 'classes' in manifest['evidenceHashes']:
+                classes = json.loads(archive.read('evidence/classes.json'))
+                if (classes['sourceCommit'] != manifest['sourceCommit']
+                        or classes['releaseRecordSha256'] != manifest['liveRecordSha256']
+                        or classes['policySha256'] != manifest['evidenceHashes']['classPolicy']
+                        or advisor.get('rankingPolicySha256') != manifest['evidenceHashes']['rankingPolicy']):
+                    raise ValueError('Offline bounded class or ranking policy link changed.')
+                expected_classes = {}
+                for class_id, evidence in classes['classes'].items():
+                    for provider in ('cgal', 'vtk'):
+                        for sample, run in enumerate(evidence['runs'][provider]):
+                            for kind, item in run['files'].items():
+                                expected_classes[(class_id, provider, sample, kind)] = item['sha256']
+                observed_classes = {}
+                for item in manifest.get('classPayloads', []):
+                    key = (item['classId'], item['provider'], item['sample'], item['kind'])
+                    if key in observed_classes:
+                        raise ValueError('Duplicate bounded class payload.')
+                    observed_classes[key] = item['sourceSha256']
+                    data = archive.read(item['object'])
+                    checked, policy = portable_artifact(item['kind'], data)
+                    if checked != data or policy != item['formatPolicy']:
+                        raise ValueError('Bounded class payload format changed.')
+                    referenced.add(item['object'])
+                if observed_classes != expected_classes:
+                    raise ValueError('Bounded class broker payloads are incomplete or changed.')
+            elif manifest.get('classPayloads'):
+                raise ValueError('Bounded class payloads lack a signed class record.')
             expected_benchmark = {}
             for tier, evidence in shared['tiers'].items():
                 for provider in ('cgal', 'vtk'):
@@ -411,7 +468,7 @@ def verify(path, trust_store=None):
                     samples = [('warmup', evidence['warmups'][provider])]
                     samples += [(str(i), item) for i, item in enumerate(evidence['measurements'][provider]['runs'])]
                     for sample, item in samples:
-                        for kind in ('request', 'result', 'brokerResult', 'artifact'):
+                        for kind in ('request', 'result', 'brokerResult', 'telemetry', 'artifact'):
                             expected_benchmark[(tier, provider, sample, kind)] = item[kind + 'Sha256']
             observed_benchmark = {}
             for item in manifest.get('benchmarkPayloads', []):
@@ -508,6 +565,7 @@ if __name__ == '__main__':
     parser.add_argument('--report-record')
     parser.add_argument('--advisor-record')
     parser.add_argument('--product-record')
+    parser.add_argument('--class-record')
     parser.add_argument('--output')
     parser.add_argument('--bundle')
     parser.add_argument('--signing-key')
@@ -536,7 +594,7 @@ if __name__ == '__main__':
             parser.error('export requires release, shared, report, advisor and product records plus signing key')
         report = export(options.record, options.output, options.signing_key, options.key_id,
                         options.shared_record, options.report_record, options.advisor_record,
-                        options.product_record)
+                        options.product_record, options.class_record)
     else:
         if not options.bundle:
             parser.error('verify requires --bundle')

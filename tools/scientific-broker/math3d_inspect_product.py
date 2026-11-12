@@ -9,9 +9,10 @@ import subprocess
 import sys
 import time
 
-from advisor import advise_shared, verify_shared_advice
+from advisor import advise_shared, verify_shared_advice, advise_class, verify_class_advice
 from broker import Broker, sha
 from comparable_inspect import policy, verify as verify_shared, verify_release
+from inspect_ranking import decide as decide_class, policy as ranking_policy, rank_class
 
 ROOT = Path(__file__).resolve().parents[2]
 PROVIDERS = {'cgal-win-conda': 'cgal', 'vtk-win-conda': 'vtk'}
@@ -19,11 +20,33 @@ PRODUCT_FILES = ('vtk-mesh-document.json', 'vtk-mesh-resource.bin', 'read.m3dm',
                  'product.json', 'viewer.png', 'viewer.json')
 
 
-def choose(shared_record, input_path, manual_provider=None):
+def choose(shared_record, input_path, manual_provider=None, class_record=None):
     """Fail closed to the MATH3D importer when measured scope cannot be verified."""
     if manual_provider and manual_provider not in PROVIDERS:
         raise ValueError('Unknown manual inspection provider.')
     digest = sha(input_path)
+    if class_record:
+        try:
+            advice = decide_class(class_record, input_path, manual_provider)
+        except (ValueError, OSError, KeyError, TypeError) as error:
+            return {'state': 'fallback', 'selectedProvider': 'math3d-direct',
+                    'manualProvider': manual_provider, 'reason': 'Bounded class evidence is stale: ' + str(error)[:240],
+                    'inputSha256': digest}
+        if advice['selectedProvider'] is None:
+            return {'state': 'fallback', 'selectedProvider': 'math3d-direct',
+                    'manualProvider': manual_provider, 'reason': advice['reason'],
+                    'inputSha256': digest, 'classRecordSha256': sha(class_record)}
+        phase = advice['evidence'].get('phases', {})
+        return {'state': advice['state'], 'selectedProvider': advice['selectedProvider'],
+                'recommendedProvider': advice['recommendation'], 'manualProvider': manual_provider,
+                'reason': advice['reason'] or 'Paired cold and warm evidence clears the ranking policy.',
+                'inputSha256': digest, 'classId': advice['classId'],
+                'classRecordSha256': sha(class_record),
+                'rankingPolicySha256': advice['rankingPolicySha256'],
+                'rankingEvidence': advice['evidence'], 'configPaths': advice['configPaths'],
+                'mediansMs': phase.get('coldInvocationMs', {}).get('mediansMs', {}),
+                'median95PctBootstrapMs': {name: phase.get('coldInvocationMs', {}).get('pairedCgalMinusVtk95PctMs', [])
+                                           for name in PROVIDERS}}
     if not shared_record:
         return {'state': 'fallback', 'selectedProvider': 'math3d-direct',
                 'manualProvider': manual_provider, 'reason': 'No shared evidence was supplied.',
@@ -43,22 +66,32 @@ def choose(shared_record, input_path, manual_provider=None):
                 'reason': 'Input hash is outside the qualified shared fixtures.',
                 'inputSha256': digest, 'scopeRecordSha256': sha(shared_record)}
     measurements = scope['tiers'][tier['id']]['measurements']
+    release = verify_release(scope['releaseRecord'])
+    ranking, ranking_sha = ranking_policy(release['repo'])
+    ranking_evidence = rank_class({'runs': {name: measurements[name]['runs'] for name in ('cgal', 'vtk')},
+                                   'statistics': {name: measurements[name]['phases'] for name in ('cgal', 'vtk')}},
+                                  tier['id'], ranking)
     medians = {name: measurements[provider]['statistics']['medianMs']
                for name, provider in PROVIDERS.items()}
     intervals = {name: measurements[provider]['statistics']['median95PctBootstrapMs']
                  for name, provider in PROVIDERS.items()}
-    ranked = min(medians, key=medians.get)
+    ranked = ranking_evidence['recommendation']
     selected = manual_provider or ranked
+    if selected is None:
+        return {'state': 'fallback', 'selectedProvider': 'math3d-direct',
+                'manualProvider': manual_provider, 'reason': ranking_evidence['reason'],
+                'inputSha256': digest, 'scopeRecordSha256': sha(shared_record),
+                'rankingPolicySha256': ranking_sha, 'rankingEvidence': ranking_evidence}
     return {'state': 'qualified' if not manual_provider else 'manual',
             'selectedProvider': selected, 'recommendedProvider': ranked,
             'manualProvider': manual_provider, 'tier': tier['id'], 'tierCases':
             {name: tier[provider + 'Case'] for name, provider in PROVIDERS.items()},
             'fixturePaths': {name: tier[provider + 'Fixture'] for name, provider in PROVIDERS.items()},
             'fixtureSha256': {name: tier[provider + 'Sha256'] for name, provider in PROVIDERS.items()},
-            'reason': ('Manual provider choice retained. ' if manual_provider else '') +
-            'Qualified same-host broker worker medians include adapter and engine startup; '
-            'the lowest measured median is recommended.',
+            'reason': 'Manual qualified provider retained.' if manual_provider else
+            'Paired cold and warm evidence clears the ranking policy.',
             'mediansMs': medians, 'median95PctBootstrapMs': intervals,
+            'rankingPolicySha256': ranking_sha, 'rankingEvidence': ranking_evidence,
             'inputSha256': digest, 'scopeRecordSha256': sha(shared_record),
             'configPaths': scope['configPaths']}
 
@@ -81,37 +114,47 @@ def wait(broker, request):
     return job, promotion, artifact
 
 
-def run(shared_record, input_path, math3d_checkout, output, manual_provider=None, node='node'):
+def run(shared_record, input_path, math3d_checkout, output, manual_provider=None, node='node', class_record=None):
     input_path = Path(input_path).resolve(strict=True)
     checkout = Path(math3d_checkout).resolve(strict=True)
     output = Path(output).resolve()
     if output.exists():
         raise ValueError('Advised MATH3D product output already exists.')
     output.mkdir(parents=True)
-    selection = choose(shared_record, input_path, manual_provider)
+    selection = choose(shared_record, input_path, manual_provider, class_record)
     selection['inputPath'] = str(input_path)
     source = input_path
     if selection['state'] != 'fallback':
-        scope = verify_shared(shared_record)
         provider = selection['selectedProvider']
         side = PROVIDERS[provider]
-        broker = Broker(scope['configPaths'][side])
-        source = Path(verify_release(scope['releaseRecord'])['repo']) / selection['fixturePaths'][provider]
-        source = source.resolve(strict=True)
-        if sha(source) != selection['fixtureSha256'][provider]:
-            raise ValueError('Selected provider fixture changed.')
-        target = broker.paths['datasetRoot'] / ('advised-' + selection['tier'] + '-' + side + '.obj')
+        if class_record:
+            source = input_path
+            broker = Broker(selection['configPaths'][side])
+            request_scope = {'classId': selection['classId']}
+            target_name = selection['classId']
+        else:
+            scope = verify_shared(shared_record)
+            broker = Broker(scope['configPaths'][side])
+            source = Path(verify_release(scope['releaseRecord'])['repo']) / selection['fixturePaths'][provider]
+            source = source.resolve(strict=True)
+            if sha(source) != selection['fixtureSha256'][provider]:
+                raise ValueError('Selected provider fixture changed.')
+            request_scope = {'caseId': selection['tierCases'][provider]}
+            target_name = selection['tier']
+        target = broker.paths['datasetRoot'] / ('advised-' + target_name + '-' + side + '.obj')
         shutil.copyfile(source, target)
         job, promotion, artifact = wait(broker, {'schemaVersion': 1,
             'runtimeId': broker.runtime_id, 'capabilityId': broker.capability_id,
-            'caseId': selection['tierCases'][provider],
+            **request_scope,
             'input': {'path': str(target), 'sha256': sha(target)}, 'timeoutSeconds': 120})
         source = artifact
+        advice_path = (advise_class(class_record, input_path, manual_provider, output / 'advice')[0]
+                       if class_record else advise_shared(shared_record, selection['tier'], manual_provider,
+                                                          output / 'advice')[0])
         selection.update(jobId=job['jobId'], brokerResultSha256=sha(Path(job['directory']) / 'broker-result.json'),
                          promotionSha256=promotion['sha256'], promotedArtifactSha256=sha(source),
-                         adviceRecord=str(advise_shared(shared_record, selection['tier'], manual_provider,
-                                                        output / 'advice')[0]))
-        verify_shared_advice(selection['adviceRecord'])
+                         adviceRecord=str(advice_path))
+        (verify_class_advice if class_record else verify_shared_advice)(selection['adviceRecord'])
     product = output / 'product'
     for command in ([node, str(ROOT / 'tools/math3d-vtk-read-product.mjs'), '--checkout', str(checkout),
                      '--source', str(source), '--expected-sha', sha(source), '--output', str(product)],
@@ -130,16 +173,16 @@ def run(shared_record, input_path, math3d_checkout, output, manual_provider=None
     record = output / 'selection.json'
     record.write_text(json.dumps(selection, indent=2), encoding='utf-8')
     Path(str(record) + '.sha256').write_text(sha(record), encoding='utf-8')
-    verify(record, shared_record, input_path)
+    verify(record, shared_record, input_path, class_record)
     return record, selection
 
 
-def verify(path, shared_record, input_path):
+def verify(path, shared_record, input_path, class_record=None):
     path = Path(path).resolve(strict=True)
     if sha(path) != Path(str(path) + '.sha256').read_text().strip():
         raise ValueError('Advised product seal changed.')
     value = json.loads(path.read_text(encoding='utf-8'))
-    expected = choose(shared_record, input_path, value['manualProvider'])
+    expected = choose(shared_record, input_path, value['manualProvider'], class_record)
     if any(value.get(key) != data for key, data in expected.items()):
         raise ValueError('Advised selection or current evidence changed.')
     if Path(value['inputPath']).resolve(strict=True) != Path(input_path).resolve(strict=True):
@@ -158,7 +201,7 @@ def verify(path, shared_record, input_path):
             or viewer.get('verdict') != 'passed' or viewer.get('documentSha256') != product.get('documentSha256')):
         raise ValueError('MATH3D saved document or viewport evidence changed.')
     if value['state'] != 'fallback':
-        verify_shared_advice(value['adviceRecord'])
+        (verify_class_advice if class_record else verify_shared_advice)(value['adviceRecord'])
         broker = Broker(value['configPaths'][PROVIDERS[value['selectedProvider']]])
         job = broker.jobs.get(value['jobId'])
         if job is None or sha(Path(job['directory']) / 'broker-result.json') != value['brokerResultSha256']:
@@ -177,35 +220,43 @@ def render_html(value):
     selected = escape(value['selectedProvider'])
     recommended = escape(value.get('recommendedProvider', 'unavailable'))
     reason = escape(value['reason'])
-    tier = escape(value.get('tier', 'outside qualified scope'))
-    rows = ''.join('<tr><td>' + escape(name) + '</td><td>' + str(median) +
-                   ' ms</td><td>' + escape(str(value['median95PctBootstrapMs'][name])) + ' ms</td></tr>'
-                   for name, median in value.get('mediansMs', {}).items())
+    tier = escape(value.get('classId') or value.get('tier') or 'outside qualified scope')
+    phases = value.get('rankingEvidence', {}).get('phases', {})
+    rows = ''.join('<tr><td>' + escape(name) + '</td><td>' +
+                   escape(str(phase['mediansMs'].get('cgal-win-conda'))) + ' ms</td><td>' +
+                   escape(str(phase['mediansMs'].get('vtk-win-conda'))) + ' ms</td><td>' +
+                   escape(str(phase['pairedCgalMinusVtk95PctMs'])) + ' ms</td></tr>'
+                   for name, phase in phases.items())
     return ('<!doctype html><html lang="en"><meta charset="utf-8"><title>MATH3D inspection choice</title>'
             '<style>body{font:16px system-ui;max-width:950px;margin:2rem auto;color:#17212f}'
             'table{border-collapse:collapse}td,th{padding:.5rem;border:1px solid #bbb}'
             'img{max-width:100%;border:1px solid #ddd}</style><h1>MATH3D mesh inspection</h1>'
             '<p><strong>Selected:</strong> ' + selected + '</p><p><strong>Recommended:</strong> ' +
             recommended + '</p><p><strong>Qualified tier:</strong> ' + tier + '</p><p>' + reason + '</p>'
-            '<table><tr><th>Provider</th><th>Median worker time</th><th>95% bootstrap interval</th></tr>' +
+            '<table><tr><th>Phase</th><th>CGAL median</th><th>VTK median</th><th>Paired CGAL−VTK 95% interval</th></tr>' +
             rows + '</table><h2>Saved MATH3D viewport</h2><img src="product/viewer.png" alt="Reopened mesh"></html>')
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=('run', 'verify'))
+    parser.add_argument('command', choices=('preview', 'run', 'verify'))
     parser.add_argument('--shared-record')
+    parser.add_argument('--class-record')
     parser.add_argument('--input', required=True)
     parser.add_argument('--math3d-checkout')
     parser.add_argument('--output')
     parser.add_argument('--record')
     parser.add_argument('--manual-provider')
     options = parser.parse_args()
+    if options.command == 'preview':
+        print(json.dumps(choose(options.shared_record, options.input, options.manual_provider,
+                                options.class_record)))
+        raise SystemExit(0)
     if options.command == 'run':
         path, value = run(options.shared_record, options.input, options.math3d_checkout,
-                          options.output, options.manual_provider)
+                          options.output, options.manual_provider, class_record=options.class_record)
     else:
         path = options.record
-        value = verify(path, options.shared_record, options.input)
+        value = verify(path, options.shared_record, options.input, options.class_record)
     print(json.dumps({'record': str(path), 'selectedProvider': value['selectedProvider'],
                       'reason': value['reason']}))

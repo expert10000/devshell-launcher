@@ -18,6 +18,7 @@ export interface ScientificMatrixCase { id: string; datasetId: string; name: str
 export interface ScientificCiImport { bundleId: string; importedAtUtc: string; applicability: string; reasons: string[]; executionLocation: 'ci'; agentId: string; hostFingerprintSha256: string; gpuAgent: boolean; gpuQualification: boolean; runtimeId: string; capabilityId: string; jobState: string; sourceJobId: string; certificationRecordId: string; suiteRevisionSha256: string; environmentFingerprintSha256: string }
 export interface ScientificDriftDiagnosis { runId: string; runtimeId: string; state: 'current' | 'stale' | 'unknown'; sourceState?: string; environmentState?: string; findings: { id: string; state: string; detail: string; nextStep: string }[] }
 export interface ScientificRetestPlan { planId: string; baseline: string; changedPaths: string[]; changedEnvironment: string[]; unmappedChanges: string[]; suites: { id: string; provider: string; runner: string; reasons: string[]; managedAction?: string | null; recipeId?: string | null }[]; execution?: { state: string; suites: { id: string; state: string; runId?: string; qualificationSha256?: string; reason?: string }[] } }
+export interface InspectSelection { state: string; selectedProvider: string; recommendedProvider?: string | null; manualProvider?: string | null; reason: string; tier?: string; classId?: string; mediansMs?: Record<string, number>; rankingEvidence?: { phases?: Record<string, { pairedCgalMinusVtk95PctMs: number[]; mediansMs: Record<string, number> }> }; productFiles?: Record<string, string> }
 
 export function useScientificRuntime(bridge: ScientificBridge | null, profileId: string | null, refreshReport: () => void) {
   const [jobs, setJobs] = useState<Record<string, ScientificJob>>({})
@@ -37,6 +38,7 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
   const [booleanDraft, setBooleanDraft] = useState<BooleanDraft | null>(null)
   const [math3dReadiness, setMath3dReadiness] = useState<Math3DReadiness | null>(null)
   const [retestPlan, setRetestPlan] = useState<ScientificRetestPlan | null>(null)
+  const [inspectSelection, setInspectSelection] = useState<InspectSelection | null>(null)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -64,7 +66,7 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
     bridge.postMessage({ type: 'scientific.runtime', profileId, runtimeId, requestId, action, ...extra })
   }
   useEffect(() => {
-    setJobs({}); setEnvironments({}); setPreviews({}); setDatasets(null); setHistory(null); setHistoryResult(null); setHistoryResults({}); setQualificationSummaries({}); setHistoryPreviews({}); setHistoryImages({}); setHistoryThumbnails({}); setTestMatrix(null); setCiMatrix(null); setDriftDiagnosis(null); setRetestPlan(null); setMath3dReadiness(null); setBooleanDraft(null); setError(''); setNotice(''); setPending(false); completed.current.clear()
+    setJobs({}); setEnvironments({}); setPreviews({}); setDatasets(null); setHistory(null); setHistoryResult(null); setHistoryResults({}); setQualificationSummaries({}); setHistoryPreviews({}); setHistoryImages({}); setHistoryThumbnails({}); setTestMatrix(null); setCiMatrix(null); setDriftDiagnosis(null); setRetestPlan(null); setInspectSelection(null); setMath3dReadiness(null); setBooleanDraft(null); setError(''); setNotice(''); setPending(false); completed.current.clear()
     if (!bridge || !profileId) return
     const receive = (event: MessageEvent) => {
       let message: { type?: string; profileId?: string; runtimeId?: string; requestId?: string; action?: string; error?: string; job?: ScientificJob; data?: unknown }
@@ -101,6 +103,8 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
       else if (message.action === 'ci-matrix' && Array.isArray(message.data)) setCiMatrix(message.data as ScientificCiImport[])
       else if ((message.action === 'retest-plan' || message.action === 'retest-status' || message.action === 'retest-start' || message.action === 'retest-stop') && message.data) setRetestPlan(message.data as ScientificRetestPlan)
       else if (message.action === 'history-drift-diagnose' && message.data) setDriftDiagnosis(message.data as ScientificDriftDiagnosis)
+      else if (message.action === 'inspect-selection-preview' && message.data) setInspectSelection(message.data as InspectSelection)
+      else if (message.action === 'inspect-selection-run' && message.data) mergeJob(message.data as ScientificJob)
       else if ((message.action === 'run-matrix' || message.action === 'vtk-rejections' || message.action === 'real-mesh-suite') && message.data) mergeJob(message.data as ScientificJob)
       else if (message.action === 'export') { const result = message.data as { path?: string; cancelled?: boolean }; setNotice(result.cancelled ? 'Profile export cancelled.' : `Profile exported: ${result.path ?? ''}`) }
       else if (message.action === 'terminal') setNotice('External scientific PowerShell opened; not a VS developer shell.')
@@ -111,5 +115,5 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
     // Callback refs keep completed diagnostics from restarting subscriptions.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bridge, profileId])
-  return { profileId, jobs, environments, previews, datasets, history, historyResult, historyResults, qualificationSummaries, historyPreviews, historyImages, historyThumbnails, testMatrix, ciMatrix, driftDiagnosis, retestPlan, math3dReadiness, booleanDraft, pending, error, notice, send, busy: Object.values(jobs).some(job => job.state === 'running') }
+  return { profileId, jobs, environments, previews, datasets, history, historyResult, historyResults, qualificationSummaries, historyPreviews, historyImages, historyThumbnails, testMatrix, ciMatrix, driftDiagnosis, retestPlan, inspectSelection, math3dReadiness, booleanDraft, pending, error, notice, send, busy: Object.values(jobs).some(job => job.state === 'running') }
 }

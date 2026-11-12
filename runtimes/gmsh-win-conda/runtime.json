@@ -50,6 +50,12 @@
       "arguments": ["-I", "-c", "import sys; print(sys.version.split()[0]); print(sys.executable)"]
     },
     {
+      "id": "scientific.psutil",
+      "readinessLevel": "L2",
+      "timeoutSeconds": 15,
+      "arguments": ["-I", "-c", "import psutil; print(psutil.__version__)"]
+    },
+    {
       "id": "gmsh.version",
       "readinessLevel": "L2",
       "timeoutSeconds": 20,

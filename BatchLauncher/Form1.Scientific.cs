@@ -239,6 +239,8 @@ public partial class Form1
             else if(action=="install-runtime")data=ScientificInstallStart(profileId,runtimeId);
             else if(action=="sage-recipe"){ScientificProviderRegistry.RequireAction(runtimeId,action);data=ScientificSageStart(profileId,runtimeId,request);}
             else if(action=="math3d-readiness"){ScientificProviderRegistry.RequireAction(runtimeId,action);data=ScientificMath3DReadiness(profileId);}
+            else if(action=="inspect-selection-preview")data=await ScientificInspectSelectionPreviewAsync(request);
+            else if(action=="inspect-selection-run")data=ScientificInspectSelectionStart(profileId,request);
             else if(action=="datasets")
             {
                 data=ScientificMeshImports.ReadManifest(ScientificDataRoot);

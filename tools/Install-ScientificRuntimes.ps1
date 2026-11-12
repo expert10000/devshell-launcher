@@ -17,7 +17,7 @@ foreach ($runtimeKind in $kinds) {
     $packages = switch ($runtimeKind) {
         'cgal' { @('python=3.11', 'cgal', 'cgal-cpp', 'cmake', 'ninja', 'eigen', 'numpy', 'scipy') }
         'vtk' { @('python=3.11', 'vtk', 'cmake', 'ninja', 'numpy', 'scipy') }
-        'gmsh' { @('python=3.11', 'gmsh', 'python-gmsh', 'cmake', 'ninja', 'numpy', 'scipy') }
+        'gmsh' { @('python=3.11', 'gmsh', 'python-gmsh', 'cmake', 'ninja', 'numpy', 'scipy', 'psutil') }
     }
     $exists = Test-Path -LiteralPath (Join-Path $prefix 'conda-meta/history') -PathType Leaf
     if ((Test-Path -LiteralPath $prefix) -and -not $exists) { throw "Refusing to modify non-Conda directory: $prefix" }

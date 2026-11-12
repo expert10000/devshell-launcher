@@ -9,11 +9,17 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/scientific-broker'))
-from comparable_inspect import policy, summary, verify
+from comparable_inspect import host_fingerprint, policy, summary, verify
 from advisor import advise, advise_shared
 
 
 class SharedInspectPolicy(unittest.TestCase):
+    def test_host_identity_uses_stable_windows_build(self):
+        with patch('comparable_inspect.platform.release', return_value='10'):
+            first = host_fingerprint()
+        with patch('comparable_inspect.platform.release', return_value='11'):
+            self.assertEqual(first, host_fingerprint())
+
     def test_versioned_matched_tiers(self):
         contract, digest = policy(ROOT)
         self.assertEqual('mesh.inspect', contract['operation'])

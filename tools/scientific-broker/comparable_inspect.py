@@ -31,7 +31,7 @@ CONTRACT = ROOT / 'schemas/scientific-mesh-inspect.v2.json'
 def host_fingerprint():
     """Stable across qualified Python runtimes with different optional telemetry packages."""
     identity = {'node': platform.node(), 'system': platform.system(),
-                'release': platform.release(), 'machine': platform.machine(),
+                'windowsBuild': platform.version(), 'machine': platform.machine(),
                 'processor': platform.processor(), 'logicalCpus': os.cpu_count()}
     return hashlib.sha256(json.dumps(identity, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 

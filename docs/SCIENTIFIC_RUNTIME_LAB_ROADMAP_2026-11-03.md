@@ -1927,6 +1927,30 @@ Verify a saved execution report against its sealed plan, ordered gates, linked e
 
 ---
 
+## Current six-capability inspection release work (2026-11-12)
+
+The six-capability release runner now checkpoints build, each managed desktop
+L0–L9 chain, certified export, each broker/MATH3D smoke, and finalization.
+Resume verifies the original Git commit, consumer identity, source snapshot,
+saved qualifications, broker artifacts, and prior checkpoints. A remesh L9
+consumer launch failure can retry that level without repeating L0–L8.
+
+CGAL inspection suite v3 and VTK read suite v4 include independent tetra,
+octahedron, and cube holdouts. A versioned class policy admits bounded
+positive uniform scale and translation with fixed oriented topology. Typed
+broker class requests verify the actual input and output geometry, and
+promotion rechecks both. Rejection fixtures include mirror, nonuniform scale,
+overscale, and face orientation changes. Class admission requires a current
+desktop release and live promoted broker runs for both providers.
+
+Shared inspection records now separate broker cold invocation, execution
+inside the initialized worker, startup overhead, and peak process memory.
+Ranking requires paired uncertainty to clear a 10% advantage in both cold and
+warm timings, plus resource limits; otherwise the advisor abstains. The
+Scientific Runtimes Integration panel presents preview, recommendation,
+uncertainty, manual provider choice, fallback reason, managed cancellation,
+and saved MATH3D document/viewport evidence.
+
 ## 32. Final architecture rule
 
 The success criterion is **not** the number of installed scientific libraries or the number of tabs in DevShell. It is whether an operation is:

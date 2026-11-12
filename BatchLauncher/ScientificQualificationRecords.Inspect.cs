@@ -5,7 +5,8 @@ namespace BatchLauncher;
 
 public static partial class ScientificQualificationRecords
 {
-    private static readonly string[] InspectCases = ["tetra", "octa", "cube", "affine", "sphere-128", "sphere-512", "sphere-2048", "open", "nonmanifold", "degenerate"];
+    private static readonly string[] InspectCases = ["tetra", "octa", "cube", "affine", "sphere-128", "sphere-512", "sphere-2048",
+        "tetra-holdout", "octa-holdout", "cube-holdout", "open", "nonmanifold", "degenerate"];
     private static readonly string[] InspectProductFiles = ["vtk-mesh-document.json", "vtk-mesh-resource.bin",
         "read.m3dm", "product.json", "viewer.png", "viewer.json"];
 
@@ -114,7 +115,7 @@ public static partial class ScientificQualificationRecords
                         && report["comparison"]?.GetValue<string>() == "state-and-output-sha256";
                 else if (index == 7)
                 {
-                    valid &= report["cases"] is JsonArray consumers && consumers.Count == 7
+                    valid &= report["cases"] is JsonArray consumers && consumers.Count == 10
                         && report["importerSha256"]?.GetValue<string>() == evidence["consumerSourceSha256"]?.GetValue<string>();
                     if (valid) foreach (var item in report["cases"]!.AsArray())
                         foreach (var name in new[] { "source", "vtk", "math3d" })
@@ -123,7 +124,7 @@ public static partial class ScientificQualificationRecords
                 else if (index == 8)
                 {
                     valid &= report["repeatCount"]?.GetValue<int>() == 3
-                        && report["repeats"] is JsonArray repeats && repeats.Count == 21;
+                        && report["repeats"] is JsonArray repeats && repeats.Count == 30;
                     if (valid) foreach (var item in report["repeats"]!.AsArray())
                     {
                         var fixture = manifest["cases"]?.AsArray().OfType<JsonObject>()
@@ -141,7 +142,7 @@ public static partial class ScientificQualificationRecords
                 }
                 else
                 {
-                    valid &= report["cases"] is JsonArray products && products.Count == 7
+                    valid &= report["cases"] is JsonArray products && products.Count == 10
                         && evidence["consumerSourceSha256"]?.GetValue<string>() is { Length: 64 };
                     if (valid) foreach (var item in report["cases"]!.AsArray())
                     {

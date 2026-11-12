@@ -281,7 +281,7 @@ def verify(path):
                     (item['state'], item['outputSha256']) for item in previous['cases']]:
                 raise ValueError('Inspection L6 reproduction changed.')
         elif level == 7:
-            if (len(report['cases']) != 7 or sha(report['vtkPythonPath']) != report['vtkPythonSha256']
+            if (len(report['cases']) != 10 or sha(report['vtkPythonPath']) != report['vtkPythonSha256']
                     or sha(report['nodePath']) != report['nodeSha256']
                     or sha(Path(report['math3dCheckout']) / 'renderer/src/mesh/surfaceMesh.ts') != report['importerSha256']
                     or sha(VTK) != report['vtkConsumerSha256'] or sha(MATH3D) != report['math3dConsumerSha256']):
@@ -292,7 +292,7 @@ def verify(path):
                 comparable(json.loads(Path(item['vtkPath']).read_text()),
                            json.loads(Path(item['math3dPath']).read_text()), 'MATH3D')
         elif level == 8:
-            if (report['repeatCount'] != 3 or len(report['repeats']) != 21
+            if (report['repeatCount'] != 3 or len(report['repeats']) != 30
                     or report['memoryLimitBytes'] != 128 * 1024 * 1024):
                 raise ValueError('Inspection L8 stress changed.')
             for item in report['repeats']:
@@ -303,7 +303,7 @@ def verify(path):
                 if probe['state'] != state or not probe['outputAbsent']:
                     raise ValueError('Inspection resilience probe changed.')
         else:
-            if (len(report['cases']) != 7 or sha(PRODUCT) != report['productSourceSha256']
+            if (len(report['cases']) != 10 or sha(PRODUCT) != report['productSourceSha256']
                     or sha(VIEWER) != report['viewerSourceSha256']):
                 raise ValueError('Inspection L9 product changed.')
             for name, digest in report['consumerSources'].items():

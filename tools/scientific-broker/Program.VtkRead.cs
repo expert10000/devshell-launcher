@@ -16,7 +16,7 @@ static partial class BrokerManifest
         "tools/scientific-broker/Program.cs", "tools/scientific-broker/Program.VtkRead.cs",
         "tools/scientific-broker/broker.py", "tools/scientific-broker/vtk_read_adapter.py",
         "tools/scientific-broker/vtk_read_broker_smoke.py",
-        "schemas/scientific-mesh-inspect-classes.v1.json", "tools/scientific-broker/inspect_classes.py",
+        "schemas/scientific-mesh-inspect-classes.v2.json", "tools/scientific-broker/inspect_classes.py",
         "scientific/fixtures/inspect-shared/tetra-holdout.obj",
         "scientific/fixtures/inspect-shared/octa-holdout.obj",
         "scientific/fixtures/inspect-shared/cube-holdout.obj"];

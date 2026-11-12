@@ -197,7 +197,7 @@ public static class ScientificRunFingerprint
             names.AddRange(new[] { "BatchLauncher/Form1.Scientific.VtkRead.cs",
                 "BatchLauncher/ScientificQualificationRecords.VtkRead.cs",
                 "scientific/fixtures/vtk/read/manifest.v4.json",
-                "schemas/scientific-mesh-inspect-classes.v1.json",
+                "schemas/scientific-mesh-inspect-classes.v2.json",
                 "tools/scientific-broker/inspect_classes.py",
                 "scientific/fixtures/inspect-shared/tetra-holdout.obj",
                 "scientific/fixtures/inspect-shared/octa-holdout.obj",
@@ -221,7 +221,7 @@ public static class ScientificRunFingerprint
             names.AddRange(new[] { "BatchLauncher/Form1.Scientific.CgalInspect.cs",
                 "BatchLauncher/ScientificQualificationRecords.Inspect.cs",
                 "scientific/fixtures/cgal-inspect/manifest.v3.json",
-                "schemas/scientific-mesh-inspect-classes.v1.json",
+                "schemas/scientific-mesh-inspect-classes.v2.json",
                 "tools/scientific-broker/inspect_classes.py",
                 "scientific/fixtures/inspect-shared/tetra-holdout.obj",
                 "scientific/fixtures/inspect-shared/octa-holdout.obj",
@@ -243,6 +243,18 @@ public static class ScientificRunFingerprint
                 "tools/math3d-vtk-import-handoff.mjs", "tools/math3d-vtk-read-product.mjs",
                 "tools/math3d-vtk-read-viewer.mjs", "tools/scientific-broker/Program.Inspect.cs",
                 "tools/scientific-broker/broker.py", "tools/scientific-broker/inspect_broker_smoke.py" });
+        if (recipeId is "l5.cgal-inspect" or "l6.cgal-inspect" or "l7.cgal-inspect" or "l8.cgal-inspect" or "l9.cgal-inspect"
+            or "l5.vtk-read" or "l6.vtk-read" or "l7.vtk-read" or "l8.vtk-read" or "l9.vtk-read"
+            or "l9.math3d-inspect-selection")
+            names.AddRange(new[] { "scientific/fixtures/inspect-classes/ico-80-holdout.obj",
+                "scientific/fixtures/inspect-classes/ico-320-holdout.obj",
+                "scientific/fixtures/inspect-classes/ico-1280-holdout.obj",
+                "scientific/fixtures/inspect-classes/ico-open.obj",
+                "scientific/fixtures/inspect-classes/ico-flipped.obj",
+                "scientific/fixtures/inspect-classes/ico-collapsed.obj",
+                "scientific/fixtures/inspect-classes/ico-disconnected.obj",
+                "scientific/fixtures/inspect-classes/ico-nonfinite.obj",
+                "scientific/fixtures/inspect-classes/ico-oversize.obj" });
         if (recipeId == "l9.math3d-inspect-selection")
             names.AddRange(new[] { "BatchLauncher/Form1.Scientific.InspectSelection.cs",
                 "tools/scientific-broker/math3d_inspect_product.py", "tools/scientific-broker/advisor.py",
@@ -250,7 +262,7 @@ public static class ScientificRunFingerprint
                 "tools/scientific-broker/class_inspect_qualification.py",
                 "tools/scientific-broker/comparable_inspect.py",
                 "schemas/scientific-inspect-ranking.v1.json",
-                "schemas/scientific-mesh-inspect-classes.v1.json" });
+                "schemas/scientific-mesh-inspect-classes.v2.json" });
         if (recipeId is "cgal.fill-one-hole" or "cgal.fill-quad-hole" or "cgal.fill-two-quad-holes" or "cgal.fill-bounded-holes")
             names.AddRange(new[] { "BatchLauncher/Form1.Scientific.Cgal.cs", "tools/scientific-cgal-hole-repair-worker.py",
                 "tools/scientific_cgal_mesh_metrics.py", "scientific/cgal-worker/hole_repair.cpp" });

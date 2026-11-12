@@ -1,19 +1,20 @@
-"""Fail-closed uniform-transform classes for shared, nonmutating mesh inspection."""
+"""Fail-closed tiny-transform and bounded closed-mesh inspection classes."""
 import hashlib
 import json
 import math
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-POLICY = 'schemas/scientific-mesh-inspect-classes.v1.json'
-IDS = ('tetra-uniform-4', 'octa-uniform-8', 'cube-uniform-12')
+POLICY = 'schemas/scientific-mesh-inspect-classes.v2.json'
+IDS = ('tetra-uniform-4', 'octa-uniform-8', 'cube-uniform-12',
+       'star-closed-64-128', 'star-closed-256-512', 'star-closed-1024-2048')
 
 
 def sha(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
-def mesh(path, maximum_bytes=65536):
+def mesh(path, maximum_bytes=131072):
     path = Path(path).resolve(strict=True)
     if path.suffix.lower() != '.obj' or path.stat().st_size > maximum_bytes:
         raise ValueError('Input class requires a bounded OBJ file.')
@@ -60,32 +61,108 @@ def _match(vertices, faces, base, value):
     return {'scale': scale, 'translation': translation, 'points': len(points), 'triangles': len(faces)}
 
 
+def _star_closed(vertices, faces, item, value):
+    if not item['minimumTriangles'] <= len(faces) <= item['maximumTriangles']:
+        return None
+    if len(vertices) != len(faces) // 2 + 2 or len(faces) % 2:
+        return None  # A connected closed orientable genus-zero surface has V = F/2 + 2.
+    bounds = value['starBounds']
+    if (any(abs(axis) > bounds['maximumAbsoluteCoordinate'] for point in vertices for axis in point)
+            or len({tuple(round(axis, 7) for axis in point) for point in vertices}) != len(vertices)):
+        return None
+    center = tuple(sum(point[axis] for point in vertices) / len(vertices) for axis in range(3))
+    if any(abs(axis) > bounds['maximumAbsoluteCenter'] for axis in center):
+        return None
+    radii = [math.dist(point, center) for point in vertices]
+    if min(radii) < bounds['minimumRadius'] or max(radii) > bounds['maximumRadius']:
+        return None
+    edges, neighbors, used, volume = {}, [set() for _ in vertices], set(), 0.0
+    for a, b, c in faces:
+        used.update((a, b, c))
+        for start, end in ((a, b), (b, c), (c, a)):
+            key = tuple(sorted((start, end)))
+            edges.setdefault(key, []).append((start, end))
+            neighbors[start].add(end)
+            neighbors[end].add(start)
+        va, vb, vc = vertices[a], vertices[b], vertices[c]
+        ab = tuple(vb[axis] - va[axis] for axis in range(3))
+        ac = tuple(vc[axis] - va[axis] for axis in range(3))
+        normal = (ab[1] * ac[2] - ab[2] * ac[1],
+                  ab[2] * ac[0] - ab[0] * ac[2],
+                  ab[0] * ac[1] - ab[1] * ac[0])
+        area = math.sqrt(sum(axis * axis for axis in normal)) / 2
+        outward = sum(normal[axis] * ((va[axis] + vb[axis] + vc[axis]) / 3 - center[axis])
+                      for axis in range(3))
+        if area < bounds['minimumFaceArea'] or outward <= 0:
+            return None
+        volume += sum(va[axis] * normal[axis] for axis in range(3)) / 6
+    if len(used) != len(vertices) or len(vertices) - len(edges) + len(faces) != 2:
+        return None
+    if any(len(incidents) != 2 or incidents[0] != tuple(reversed(incidents[1]))
+           for incidents in edges.values()):
+        return None
+    reached, pending = {0}, [0]
+    while pending:
+        for neighbor in neighbors[pending.pop()]:
+            if neighbor not in reached:
+                reached.add(neighbor)
+                pending.append(neighbor)
+    if len(reached) != len(vertices) or volume < bounds['minimumVolume']:
+        return None
+    return {'points': len(vertices), 'triangles': len(faces), 'center': center,
+            'radiusRange': [min(radii), max(radii)], 'signedVolume': volume}
+
+
+def _matches(vertices, faces, item, repo, value):
+    if item['mode'] == 'uniform':
+        return _match(vertices, faces, repo / item['baseFixture'], value)
+    if item['mode'] == 'star-closed':
+        return _star_closed(vertices, faces, item, value)
+    raise ValueError('Unsupported inspection class mode.')
+
+
 def policy(repo=ROOT):
     repo = Path(repo).resolve(strict=True)
     path = repo / POLICY
     value = json.loads(path.read_text(encoding='utf-8'))
-    if (value.get('schemaVersion') != 1 or value.get('kind') != 'scientific.mesh-inspect-input-classes'
+    if (value.get('schemaVersion') != 2 or value.get('kind') != 'scientific.mesh-inspect-input-classes'
             or value.get('operation') != 'mesh.inspect'
             or [item.get('id') for item in value.get('classes', [])] != list(IDS)
             or value.get('minimumScale') != .5 or value.get('maximumScale') != 2
             or value.get('maximumAbsoluteTranslation') != 2
             or value.get('coordinateTolerance') != 1e-6
-            or value.get('maximumInputBytes') != 65536):
+            or value.get('maximumInputBytes') != 131072
+            or value.get('starBounds') != {'minimumRadius': .6, 'maximumRadius': 1.4,
+                'maximumAbsoluteCenter': 2., 'maximumAbsoluteCoordinate': 3.5,
+                'minimumFaceArea': 1e-8, 'minimumVolume': .1}):
         raise ValueError('Shared inspection class policy changed.')
     for item in value['classes']:
+        expected_ranges = {'star-closed-64-128': (64, 128),
+                           'star-closed-256-512': (256, 512),
+                           'star-closed-1024-2048': (1024, 2048)}
+        if item['id'] in expected_ranges:
+            if (item.get('mode') != 'star-closed' or
+                    (item.get('minimumTriangles'), item.get('maximumTriangles')) != expected_ranges[item['id']]):
+                raise ValueError('Shared inspection class tier changed.')
+        elif item.get('mode') != 'uniform':
+            raise ValueError('Shared inspection tiny class mode changed.')
         base = (repo / item['baseFixture']).resolve(strict=True)
         holdout = (repo / item['holdoutFixture']).resolve(strict=True)
         if (not base.is_relative_to(repo) or not holdout.is_relative_to(repo)
                 or sha(base) != item['baseSha256'] or sha(holdout) != item['holdoutSha256']
-                or not _match(*mesh(holdout), base, value)):
+                or not _matches(*mesh(base), item, repo, value)
+                or not _matches(*mesh(holdout), item, repo, value)
+                or item['mode'] == 'star-closed' and mesh(base)[1] == mesh(holdout)[1]):
             raise ValueError('Shared inspection class holdout changed: ' + item['id'])
     for item in value['rejectedFixtures']:
         path = (repo / item['path']).resolve(strict=True)
         if not path.is_relative_to(repo) or sha(path) != item['sha256']:
             raise ValueError('Shared inspection class rejection fixture changed.')
-        vertices, faces = mesh(path)
-        if any(_match(vertices, faces, repo / entry['baseFixture'], value)
-               for entry in value['classes']):
+        try:
+            vertices, faces = mesh(path)
+        except ValueError:
+            continue
+        if any(_matches(vertices, faces, entry, repo, value) for entry in value['classes']):
             raise ValueError('Adverse inspection fixture entered a class.')
     return value, sha(repo / POLICY)
 
@@ -94,7 +171,7 @@ def classify(path, repo=ROOT):
     value, policy_hash = policy(repo)
     vertices, faces = mesh(path, value['maximumInputBytes'])
     for item in value['classes']:
-        transform = _match(vertices, faces, Path(repo) / item['baseFixture'], value)
+        transform = _matches(vertices, faces, item, Path(repo), value)
         if transform:
             return {'classId': item['id'], 'tier': item['tier'], 'inputSha256': sha(path),
                     'policySha256': policy_hash, **transform}

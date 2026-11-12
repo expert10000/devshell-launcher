@@ -6,7 +6,8 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/scientific-broker'))
-from inspect_classes import classify, equivalent, policy  # noqa: E402
+from inspect_classes import classify, equivalent, mesh, policy  # noqa: E402
+from generate_inspect_holdouts import render, sphere  # noqa: E402
 
 
 class InspectClassesTests(unittest.TestCase):
@@ -48,6 +49,40 @@ class InspectClassesTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 classify(path, ROOT)
             self.assertFalse(equivalent(source, path))
+
+    def test_independent_closed_topology_and_size_tiers(self):
+        value, _ = policy(ROOT)
+        self.assertEqual(2, value['schemaVersion'])
+        tiers = [item for item in value['classes'] if item['mode'] == 'star-closed']
+        self.assertEqual([(64, 128), (256, 512), (1024, 2048)],
+                         [(item['minimumTriangles'], item['maximumTriangles']) for item in tiers])
+        for item in tiers:
+            base, holdout = ROOT / item['baseFixture'], ROOT / item['holdoutFixture']
+            self.assertNotEqual(mesh(base)[1], mesh(holdout)[1])
+            self.assertEqual(item['id'], classify(holdout, ROOT)['classId'])
+        for level, triangles in ((1, 80), (2, 320), (3, 1280)):
+            committed = ROOT / f'scientific/fixtures/inspect-classes/ico-{triangles}-holdout.obj'
+            self.assertEqual(committed.read_text(), render(*sphere(level)))
+
+    def test_large_class_accepts_new_geometry_but_rejects_broken_topology(self):
+        value, _ = policy(ROOT)
+        item = next(entry for entry in value['classes'] if entry['id'] == 'star-closed-1024-2048')
+        source = ROOT / item['holdoutFixture']
+        with tempfile.TemporaryDirectory() as folder:
+            translated = Path(folder) / 'independent.obj'
+            lines = source.read_text().splitlines()
+            for index, line in enumerate(lines):
+                if line.startswith('v '):
+                    point = [float(number) for number in line.split()[1:]]
+                    lines[index] = 'v ' + ' '.join(str(axis + (.05 if number == 0 else 0))
+                                                     for number, axis in enumerate(point))
+            translated.write_text('\n'.join(lines) + '\n')
+            self.assertNotEqual(item['holdoutSha256'], classify(translated, ROOT)['inputSha256'])
+            self.assertEqual(item['id'], classify(translated, ROOT)['classId'])
+            broken = Path(folder) / 'broken.obj'
+            broken.write_text('\n'.join(lines[:-1]) + '\n')
+            with self.assertRaises(ValueError):
+                classify(broken, ROOT)
 
 
 if __name__ == '__main__':

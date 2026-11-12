@@ -114,7 +114,7 @@ def run(release_path, output_root, samples=5):
                                  'provider': name, 'reason': str(error)[:240]})
             else:
                 raise ValueError('Adverse class input was accepted: ' + adverse['path'])
-    record = {'schemaVersion': 2, 'kind': 'scientific.bounded-inspect-class-qualification',
+    record = {'schemaVersion': 3, 'kind': 'scientific.bounded-inspect-class-qualification',
               'createdAtUtc': datetime.now(timezone.utc).isoformat(),
               'sourceCommit': release['sourceCommit'], 'releaseRecord': str(release_path),
               'releaseRecordSha256': sha(release_path), 'policySha256': policy_hash,
@@ -136,7 +136,7 @@ def verify(path):
     if sha(path) != Path(str(path) + '.sha256').read_text(encoding='utf-8').strip():
         raise ValueError('Bounded class record seal changed.')
     record = json.loads(path.read_text(encoding='utf-8'))
-    if record.get('schemaVersion') != 2 or record.get('kind') != 'scientific.bounded-inspect-class-qualification':
+    if record.get('schemaVersion') != 3 or record.get('kind') != 'scientific.bounded-inspect-class-qualification':
         raise ValueError('Bounded class record contract changed.')
     release = verify_release(record['releaseRecord'])
     repo = Path(release['repo'])
@@ -219,12 +219,11 @@ def verify(path):
     if observed != expected_rejections or len(record['rejections']) != len(expected_rejections):
         raise ValueError('Bounded class rejection evidence is incomplete.')
     for item in record['rejections']:
-        if not item['reason'] or not item['reason'].startswith('Input is outside'):
-            raise ValueError('Bounded class rejection reason changed.')
         try:
             classify(repo / item['fixture'], repo)
-        except ValueError:
-            pass
+        except ValueError as error:
+            if item['reason'] != str(error)[:240]:
+                raise ValueError('Bounded class rejection reason changed.') from error
         else:
             raise ValueError('Adverse inspection input became accepted.')
     return record

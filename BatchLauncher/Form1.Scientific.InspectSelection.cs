@@ -23,8 +23,8 @@ public partial class Form1
         var text = request.GetProperty("inputPath").GetString() ?? "";
         var path = Path.GetFullPath(text);
         if (!Path.IsPathFullyQualified(path) || Path.GetExtension(path).ToLowerInvariant() != ".obj"
-            || !File.Exists(path) || new FileInfo(path).Length is <= 0 or > 65536)
-            throw new InvalidOperationException("Select a local bounded OBJ input (up to 64 KiB).");
+            || !File.Exists(path) || new FileInfo(path).Length is <= 0 or > 131072)
+            throw new InvalidOperationException("Select a local bounded OBJ input (up to 128 KiB).");
         return path;
     }
 

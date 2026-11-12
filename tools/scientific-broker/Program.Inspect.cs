@@ -9,7 +9,7 @@ static partial class BrokerManifest
         "tools/scientific_worker_contract.py", "tools/scientific_cgal_inspect_qualification.py",
         "scientific/fixtures/cgal-inspect/manifest.v3.json",
         "schemas/scientific-mesh-inspect.v2.json",
-        "schemas/scientific-mesh-inspect-classes.v1.json", "tools/scientific-broker/inspect_classes.py",
+        "schemas/scientific-mesh-inspect-classes.v2.json", "tools/scientific-broker/inspect_classes.py",
         "scientific/fixtures/inspect-shared/tetra-holdout.obj",
         "scientific/fixtures/inspect-shared/octa-holdout.obj",
         "scientific/fixtures/inspect-shared/cube-holdout.obj",

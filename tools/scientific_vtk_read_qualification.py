@@ -35,7 +35,7 @@ def base(level):
     manifest()
     return {'schemaVersion': 1, 'kind': f'scientific.vtk-read-L{level}', 'verdict': 'passed',
             'createdAtUtc': datetime.now(timezone.utc).isoformat(), 'capabilityId': 'mesh.read',
-            'suiteId': 'vtk-mesh-read-v3', 'manifestSha256': sha(MANIFEST),
+            'suiteId': 'vtk-mesh-read-v4', 'manifestSha256': sha(MANIFEST),
             'workerSourceSha256': sha(WORKER), 'contractSha256': sha(CONTRACT),
             'scopeSourceSha256': sha(ROOT / 'tools/scientific_vtk_read_scope.py'),
             'qualificationSourceSha256': sha(SOURCE)}

@@ -14,7 +14,7 @@ from scientific_vtk_read_qualification import comparable, controlled_probe
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = Path(__file__).resolve()
-MANIFEST = ROOT / 'scientific/fixtures/cgal-inspect/manifest.v2.json'
+MANIFEST = ROOT / 'scientific/fixtures/cgal-inspect/manifest.v3.json'
 ADAPTER = ROOT / 'tools/scientific-cgal-worker.py'
 CONTRACT = ROOT / 'tools/scientific_worker_contract.py'
 VTK = ROOT / 'tools/scientific-vtk-interop.py'
@@ -23,7 +23,8 @@ PRODUCT = ROOT / 'tools/math3d-vtk-read-product.mjs'
 VIEWER = ROOT / 'tools/math3d-vtk-read-viewer.mjs'
 PRODUCT_FILES = ('vtk-mesh-document.json', 'vtk-mesh-resource.bin', 'read.m3dm',
                  'product.json', 'viewer.png', 'viewer.json')
-CASES = ('tetra', 'octa', 'cube', 'affine', 'sphere-128', 'sphere-512', 'sphere-2048', 'open', 'nonmanifold', 'degenerate')
+CASES = ('tetra', 'octa', 'cube', 'affine', 'sphere-128', 'sphere-512', 'sphere-2048',
+         'tetra-holdout', 'octa-holdout', 'cube-holdout', 'open', 'nonmanifold', 'degenerate')
 
 
 def sha(path):
@@ -32,7 +33,7 @@ def sha(path):
 
 def manifest():
     value = json.loads(MANIFEST.read_text(encoding='utf-8'))
-    if (value.get('schemaVersion') != 2 or value.get('suiteId') != 'cgal-mesh-inspect-v2'
+    if (value.get('schemaVersion') != 3 or value.get('suiteId') != 'cgal-mesh-inspect-v3'
             or value.get('capabilityId') != 'mesh.inspect'
             or tuple(item['caseId'] for item in value['cases']) != CASES):
         raise ValueError('CGAL inspection manifest identity changed.')
@@ -46,7 +47,7 @@ def manifest():
 def base(level):
     manifest()
     return {'schemaVersion': 1, 'kind': f'scientific.cgal-inspect-L{level}',
-            'suiteId': 'cgal-mesh-inspect-v2', 'capabilityId': 'mesh.inspect',
+            'suiteId': 'cgal-mesh-inspect-v3', 'capabilityId': 'mesh.inspect',
             'verdict': 'passed', 'createdAtUtc': datetime.now(timezone.utc).isoformat(),
             'manifestSha256': sha(MANIFEST), 'adapterSha256': sha(ADAPTER),
             'contractSha256': sha(CONTRACT), 'qualificationSourceSha256': sha(SOURCE)}

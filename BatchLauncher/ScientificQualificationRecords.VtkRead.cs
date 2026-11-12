@@ -66,7 +66,7 @@ public static partial class ScientificQualificationRecords
         var files = components["suite"]?["files"];
         return scope?["kind"]?.GetValue<string>() == "scientific.vtk-mesh-read-scope"
             && scope["verdict"]?.GetValue<string>() == "passed"
-            && scope["manifestSha256"]?.GetValue<string>() == files?["scientific/fixtures/vtk/read/manifest.v3.json"]?["sha256"]?.GetValue<string>()
+            && scope["manifestSha256"]?.GetValue<string>() == files?["scientific/fixtures/vtk/read/manifest.v4.json"]?["sha256"]?.GetValue<string>()
             && scope["workerSourceSha256"]?.GetValue<string>() == files?["tools/scientific-mesh-worker.py"]?["sha256"]?.GetValue<string>()
             && scope["scopeSourceSha256"]?.GetValue<string>() == files?["tools/scientific_vtk_read_scope.py"]?["sha256"]?.GetValue<string>()
             && VtkReadScopeCases(path, scope, fixture);
@@ -81,10 +81,10 @@ public static partial class ScientificQualificationRecords
             var index = int.Parse(level[1..]);
             if (result["recipeId"]?.GetValue<string>() != $"l{index}.vtk-read"
                 || result["state"]?.GetValue<string>() != "succeeded"
-                || evidence?["suiteId"]?.GetValue<string>() != "vtk-mesh-read-v3"
+                || evidence?["suiteId"]?.GetValue<string>() != "vtk-mesh-read-v4"
                 || evidence["level"]?.GetValue<string>() != level
                 || evidence["capabilityId"]?.GetValue<string>() != "mesh.read"
-                || evidence["manifestSha256"]?.GetValue<string>() != suite?["scientific/fixtures/vtk/read/manifest.v3.json"]?["sha256"]?.GetValue<string>()
+                || evidence["manifestSha256"]?.GetValue<string>() != suite?["scientific/fixtures/vtk/read/manifest.v4.json"]?["sha256"]?.GetValue<string>()
                 || result["validatedCapabilities"] is not JsonArray capabilities
                 || !capabilities.Any(item => item?.GetValue<string>() == "mesh.read")
                 || evidence["lowerQualification"]?["records"] is not JsonArray lower || lower.Count != index

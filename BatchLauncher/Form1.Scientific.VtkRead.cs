@@ -7,7 +7,7 @@ namespace BatchLauncher;
 
 public partial class Form1
 {
-    private const string VtkReadSuiteId = "vtk-mesh-read-v3";
+    private const string VtkReadSuiteId = "vtk-mesh-read-v4";
 
     private JsonObject ScientificCurrentVtkReadLevel(string profileId, int level)
     {
@@ -37,7 +37,7 @@ public partial class Form1
             || (level == 5 && declaration["suiteId"]?.GetValue<string>() != VtkReadSuiteId)
             || (level > 5 && declaration["referenceRecipe"]?.GetValue<string>() != $"l{level - 1}.vtk-read"))
             throw new InvalidOperationException("VTK read qualification is not declared.");
-        var manifest = Path.Combine(ScientificSourceRoot, "scientific", "fixtures", "vtk", "read", "manifest.v3.json");
+        var manifest = Path.Combine(ScientificSourceRoot, "scientific", "fixtures", "vtk", "read", "manifest.v4.json");
         if (!File.Exists(manifest) || new FileInfo(manifest).Length > 65536
             || JsonNode.Parse(File.ReadAllText(manifest))?["suiteId"]?.GetValue<string>() != VtkReadSuiteId)
             throw new InvalidDataException("Pinned VTK read fixture manifest is unavailable.");
@@ -100,7 +100,7 @@ public partial class Form1
         var timer = Stopwatch.StartNew();
         try
         {
-            File.Copy(Path.Combine(ScientificSourceRoot, "scientific", "fixtures", "vtk", "read", "manifest.v3.json"),
+            File.Copy(Path.Combine(ScientificSourceRoot, "scientific", "fixtures", "vtk", "read", "manifest.v4.json"),
                 Path.Combine(job.Directory, "fixture-manifest.json"));
             var script = Path.Combine(ScientificSourceRoot, "tools", "scientific_vtk_read_qualification.py");
             var arguments = new List<string> { script, $"l{level}" };

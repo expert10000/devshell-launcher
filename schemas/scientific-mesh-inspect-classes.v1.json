@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "kind": "scientific.mesh-inspect-input-classes",
+  "operation": "mesh.inspect",
+  "scope": "Strict triangular OBJ with the exact oriented face indices of one registered convex base mesh, transformed only by positive uniform scale and translation. No materials, normals, texture coordinates, nonuniform scale, mirrors, topology edits or arbitrary meshes.",
+  "minimumScale": 0.5,
+  "maximumScale": 2.0,
+  "maximumAbsoluteTranslation": 2.0,
+  "coordinateTolerance": 1e-6,
+  "maximumInputBytes": 65536,
+  "classes": [
+    {
+      "id": "tetra-uniform-4",
+      "tier": "tetra-4",
+      "baseFixture": "scientific/fixtures/cgal/closed-tetra.obj",
+      "baseSha256": "21b1325a5d9f7ef43f04b923c7b469e6a8c73cc41eef436924801d37ac29113d",
+      "holdoutFixture": "scientific/fixtures/inspect-shared/tetra-holdout.obj",
+      "holdoutSha256": "e07cd4385a67311d149689fa636bb4528f7c301ef555c3d387ef9e0f236198d5"
+    },
+    {
+      "id": "octa-uniform-8",
+      "tier": "octa-6",
+      "baseFixture": "scientific/fixtures/cgal-remesh-qualification/octahedron.obj",
+      "baseSha256": "72cff9d9e08a2ce0ba81932417e0c6351bc11174d394607e7041586ad59b1a5a",
+      "holdoutFixture": "scientific/fixtures/inspect-shared/octa-holdout.obj",
+      "holdoutSha256": "7bce2b04074fdc62af4e6dc05196e8832e8ce8c43063bb12a772ca05f77864ef"
+    },
+    {
+      "id": "cube-uniform-12",
+      "tier": "cube-8",
+      "baseFixture": "scientific/fixtures/cgal-repair-quad/cube-closed.obj",
+      "baseSha256": "70a95597b1464af10a197f4c0d6def7f51fbd77118d765fc735e807ec52ca504",
+      "holdoutFixture": "scientific/fixtures/inspect-shared/cube-holdout.obj",
+      "holdoutSha256": "e7e90a80697ff7b720b7d17cbaea10d602383e3ddd4d6e92675ce5d16c3f9495"
+    }
+  ],
+  "rejectedFixtures": [
+    {"path": "scientific/fixtures/inspect-shared/tetra-nonuniform.obj", "sha256": "863da5dc5df705c0271a7de850b8003fccdab3e0156acb4f0631babeb70e73d0", "reason": "nonuniform"},
+    {"path": "scientific/fixtures/inspect-shared/tetra-mirrored.obj", "sha256": "617a745bef6c80dfef63759b602ae453669b1211892825909a1c310d9beac46b", "reason": "mirror"},
+    {"path": "scientific/fixtures/inspect-shared/tetra-overscale.obj", "sha256": "c0a6b722114da36ed7906f3f1943ee8331ed351bcce4c75c0930c831b81e1b24", "reason": "scale"},
+    {"path": "scientific/fixtures/inspect-shared/tetra-flipped-face.obj", "sha256": "3d75d3001e784ac98f23ea19f84255abd5437663eb1d13820a7826bb7f8a8cfb", "reason": "face"}
+  ]
+}

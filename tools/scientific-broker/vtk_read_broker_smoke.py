@@ -21,7 +21,7 @@ def run(config):
     node = shutil.which('node')
     if node is None:
         raise ValueError('Node.js is required for VTK read product smoke.')
-    fixture_path = broker.source_root / 'scientific/fixtures/vtk/read/manifest.v3.json'
+    fixture_path = broker.source_root / 'scientific/fixtures/vtk/read/manifest.v4.json'
     fixtures = {item['caseId']: item for item in json.loads(fixture_path.read_text())['cases']}
     references = {item['caseId']: item for item in broker.capabilities[0]['referenceCases']}
     outcomes = []

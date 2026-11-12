@@ -15,10 +15,14 @@ static partial class BrokerManifest
         "BatchLauncher/ScientificRunFingerprint.cs", "tools/runtime-lab/Program.cs",
         "tools/scientific-broker/Program.cs", "tools/scientific-broker/Program.VtkRead.cs",
         "tools/scientific-broker/broker.py", "tools/scientific-broker/vtk_read_adapter.py",
-        "tools/scientific-broker/vtk_read_broker_smoke.py"];
+        "tools/scientific-broker/vtk_read_broker_smoke.py",
+        "schemas/scientific-mesh-inspect-classes.v1.json", "tools/scientific-broker/inspect_classes.py",
+        "scientific/fixtures/inspect-shared/tetra-holdout.obj",
+        "scientific/fixtures/inspect-shared/octa-holdout.obj",
+        "scientific/fixtures/inspect-shared/cube-holdout.obj"];
 
     static JsonObject VtkReadContract() => new() { ["id"] = "math3d.vtk-mesh-read-handoff", ["version"] = 1,
-        ["inputFormat"] = "obj-ply-vtp", ["outputFormat"] = "vtp-and-obj", ["scopeVersion"] = 3,
+        ["inputFormat"] = "obj-ply-vtp", ["outputFormat"] = "vtp-and-obj", ["scopeVersion"] = 4,
         ["viewer"] = "MeshDocumentViewport" };
 
     static JsonObject? VtkReadFiles(string root, IEnumerable<string> names)
@@ -73,9 +77,9 @@ static partial class BrokerManifest
         var runs = VtkReadRuns(repo, installed, math3d, profile);
         var ids = CurrentIds(runs, "L0", "L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9");
         var summary = ScientificQualificationRecords.Summarize("vtk-win-conda", runs);
-        var fixturePath = Path.Combine(repo, "scientific", "fixtures", "vtk", "read", "manifest.v3.json");
+        var fixturePath = Path.Combine(repo, "scientific", "fixtures", "vtk", "read", "manifest.v4.json");
         var fixtures = JsonNode.Parse(File.ReadAllText(fixturePath))?["cases"] as JsonArray;
-        if (fixtures is not { Count: 12 }) return null;
+        if (fixtures is not { Count: 15 }) return null;
         foreach (var current in summary["currentRecords"]!.AsArray().OfType<JsonObject>()
             .Where(item => item["level"]?.GetValue<string>() == "L9" && item["capabilityId"]?.GetValue<string>() == "mesh.read"
                 && item["evidenceId"]?.GetValue<string>() == "l9.vtk-read")
@@ -117,7 +121,7 @@ static partial class BrokerManifest
                     ["expected"] = fixture["expected"]?.DeepClone(), ["errorContains"] = fixture["errorContains"]?.DeepClone(),
                     ["inputExtension"] = Path.GetExtension(input).ToLowerInvariant() });
             }
-            if (!valid || references.Count != 12) continue;
+            if (!valid || references.Count != 15) continue;
             var fingerprint = JsonNode.Parse(File.ReadAllText(Path.Combine(directory, "fingerprint.json")))!;
             var support = new JsonArray(lower.Select(item => item!.DeepClone()).ToArray());
             support.Add(new JsonObject { ["level"] = "L9", ["capabilityId"] = "mesh.read",

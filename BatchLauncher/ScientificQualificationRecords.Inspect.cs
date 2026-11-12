@@ -66,10 +66,10 @@ public static partial class ScientificQualificationRecords
             var index = int.Parse(level[1..]);
             var evidence = result["inspectQualificationEvidence"] as JsonObject;
             var files = components["suite"]?["files"];
-            const string manifestName = "scientific/fixtures/cgal-inspect/manifest.v2.json";
+            const string manifestName = "scientific/fixtures/cgal-inspect/manifest.v3.json";
             if (result["recipeId"]?.GetValue<string>() != $"l{index}.cgal-inspect"
                 || result["state"]?.GetValue<string>() != "succeeded"
-                || evidence?["suiteId"]?.GetValue<string>() != "cgal-mesh-inspect-v2"
+                || evidence?["suiteId"]?.GetValue<string>() != "cgal-mesh-inspect-v3"
                 || evidence["level"]?.GetValue<string>() != level
                 || evidence["capabilityId"]?.GetValue<string>() != "mesh.inspect"
                 || evidence["manifestSha256"]?.GetValue<string>() != files?[manifestName]?["sha256"]?.GetValue<string>()

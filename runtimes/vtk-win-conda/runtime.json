@@ -11,7 +11,7 @@
       "rejection": { "recipeId": "mesh.inspect", "datasetId": "math3d/import/truncated-ascii.ply", "outputName": "l5-rejected.vtp", "expectedReason": "surface is empty" } },
     { "id": "l6.reproduce", "readinessLevel": "L6", "capability": "mesh.read", "referenceRecipe": "l5.worker", "comparison": "sha256-exact" },
     { "id": "l7.math3d-import", "readinessLevel": "L7", "capability": "mesh.interop.math3d", "referenceRecipe": "l6.reproduce", "consumer": "MATH3D desktop loadSurfaceMeshFromFile" }
-    ,{ "id": "l5.vtk-read", "readinessLevel": "L5", "capability": "mesh.read", "suiteId": "vtk-mesh-read-v3", "positiveCases": 9, "rejectionCases": 3, "fixtureManifest": "scientific/fixtures/vtk/read/manifest.v3.json" }
+    ,{ "id": "l5.vtk-read", "readinessLevel": "L5", "capability": "mesh.read", "suiteId": "vtk-mesh-read-v4", "positiveCases": 12, "rejectionCases": 3, "fixtureManifest": "scientific/fixtures/vtk/read/manifest.v4.json" }
     ,{ "id": "l6.vtk-read", "readinessLevel": "L6", "capability": "mesh.read", "referenceRecipe": "l5.vtk-read", "comparison": "state-and-output-sha256" }
     ,{ "id": "l7.vtk-read", "readinessLevel": "L7", "capability": "mesh.read", "referenceRecipe": "l6.vtk-read", "consumer": "VTK and MATH3D desktop mesh import" }
     ,{ "id": "l8.vtk-read", "readinessLevel": "L8", "capability": "mesh.read", "referenceRecipe": "l7.vtk-read", "checks": ["repeat", "cancel", "timeout", "memory"] }

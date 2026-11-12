@@ -18,6 +18,7 @@ from urllib.parse import urlsplit
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from telemetry import ResourceSampler, active_processes, stop_observed
 from source_snapshot import capture_sources
+from inspect_classes import classify as classify_inspect, equivalent as equivalent_inspect, policy as inspect_class_policy
 
 
 CONTRACT = dict(id='math3d.mesh-product-handoff', version=1, workerResultSchemaVersion=1,
@@ -57,15 +58,21 @@ REMESH_CONTRACT = dict(id='math3d.guarded-remesh-handoff', version=1,
                        inputFormat='obj', outputFormat='obj', policyVersion=2,
                        viewer='MeshDocumentViewport')
 INSPECT_CONTRACT = dict(id='math3d.mesh-inspect-handoff', version=1,
-                        inputFormat='obj', outputFormat='obj', scopeVersion=2,
+                        inputFormat='obj', outputFormat='obj', scopeVersion=3,
                         viewer='MeshDocumentViewport')
-INSPECT_CASES = ('tetra', 'octa', 'cube', 'affine', 'sphere-128', 'sphere-512', 'sphere-2048', 'open', 'nonmanifold', 'degenerate')
+INSPECT_CASES = ('tetra', 'octa', 'cube', 'affine', 'sphere-128', 'sphere-512', 'sphere-2048',
+                 'tetra-holdout', 'octa-holdout', 'cube-holdout', 'open', 'nonmanifold', 'degenerate')
 INSPECT_CONSUMERS = ('renderer/src/mesh/surfaceMesh.ts',
                      'renderer/src/workspace/MeshDocumentViewport.tsx', 'packages/core/src/meshDocument.ts')
 INSPECT_SOURCES = ('tools/scientific-cgal-worker.py', 'tools/scientific_worker_contract.py',
                    'tools/scientific_cgal_inspect_qualification.py',
-                   'scientific/fixtures/cgal-inspect/manifest.v2.json',
+                   'scientific/fixtures/cgal-inspect/manifest.v3.json',
                    'schemas/scientific-mesh-inspect.v2.json',
+                   'schemas/scientific-mesh-inspect-classes.v1.json',
+                   'tools/scientific-broker/inspect_classes.py',
+                   'scientific/fixtures/inspect-shared/tetra-holdout.obj',
+                   'scientific/fixtures/inspect-shared/octa-holdout.obj',
+                   'scientific/fixtures/inspect-shared/cube-holdout.obj',
                    'scientific/fixtures/inspect-shared/sphere-128.obj',
                    'scientific/fixtures/inspect-shared/sphere-512.obj',
                    'scientific/fixtures/inspect-shared/sphere-2048.obj',
@@ -77,9 +84,10 @@ ORIENTATION_CONTRACT = dict(id='math3d.orientation-handoff', version=1,
                             inputFormat='obj', outputFormat='obj', scopeVersion=2,
                             viewer='MeshDocumentViewport')
 VTK_READ_CONTRACT = dict(id='math3d.vtk-mesh-read-handoff', version=1,
-                         inputFormat='obj-ply-vtp', outputFormat='vtp-and-obj', scopeVersion=3,
+                         inputFormat='obj-ply-vtp', outputFormat='vtp-and-obj', scopeVersion=4,
                          viewer='MeshDocumentViewport')
-VTK_READ_CASES = ('tetra', 'cube', 'octa', 'affine', 'sphere-128', 'sphere-512', 'sphere-2048', 'open', 'disconnected', 'empty', 'truncated', 'invalid')
+VTK_READ_CASES = ('tetra', 'cube', 'octa', 'affine', 'sphere-128', 'sphere-512', 'sphere-2048',
+                  'tetra-holdout', 'octa-holdout', 'cube-holdout', 'open', 'disconnected', 'empty', 'truncated', 'invalid')
 VTK_READ_SOURCES = ('tools/scientific-mesh-worker.py', 'tools/scientific_worker_contract.py',
                     'tools/scientific_vtk_read_scope.py', 'tools/scientific_vtk_read_qualification.py',
                     'tools/scientific-artifact-roundtrip.py', 'tools/scientific-vtk-interop.py',
@@ -89,7 +97,12 @@ VTK_READ_SOURCES = ('tools/scientific-mesh-worker.py', 'tools/scientific_worker_
                     'BatchLauncher/ScientificRunFingerprint.cs', 'tools/runtime-lab/Program.cs',
                     'tools/scientific-broker/Program.cs', 'tools/scientific-broker/Program.VtkRead.cs',
                     'tools/scientific-broker/broker.py', 'tools/scientific-broker/vtk_read_adapter.py',
-                    'tools/scientific-broker/vtk_read_broker_smoke.py')
+                    'tools/scientific-broker/vtk_read_broker_smoke.py',
+                    'schemas/scientific-mesh-inspect-classes.v1.json',
+                    'tools/scientific-broker/inspect_classes.py',
+                    'scientific/fixtures/inspect-shared/tetra-holdout.obj',
+                    'scientific/fixtures/inspect-shared/octa-holdout.obj',
+                    'scientific/fixtures/inspect-shared/cube-holdout.obj')
 ORIENTATION_CASES = ('tetra-inward', 'tetra-outward', 'cube-inward', 'cube-outward',
                      'octa-inward', 'octa-outward', 'affine-inward', 'affine-outward',
                      'open', 'disconnected', 'nonmanifold', 'degenerate')
@@ -247,7 +260,7 @@ class Broker:
                         or entry.get('referenceArtifactSha256') != references[0]['outputSha256']):
                     raise ValueError('The certified repair reference differs from its case pack.')
             if self.inspect:
-                fixture_path = self.source_root / 'scientific/fixtures/cgal-inspect/manifest.v2.json'
+                fixture_path = self.source_root / 'scientific/fixtures/cgal-inspect/manifest.v3.json'
                 require_hash(fixture_path, entry.get('fixtureManifestSha256'), 'Inspection fixture manifest')
                 fixtures = json.loads(fixture_path.read_text(encoding='utf-8'))
                 references = entry.get('referenceCases')
@@ -323,11 +336,11 @@ class Broker:
                 if hashlib.sha256(json.dumps(sources, separators=(',', ':')).encode()).hexdigest() != entry.get('orientationSourcesSha256'):
                     raise ValueError('Orientation qualification source digest changed.')
             if self.vtk_read:
-                fixture_path = self.source_root / 'scientific/fixtures/vtk/read/manifest.v3.json'
+                fixture_path = self.source_root / 'scientific/fixtures/vtk/read/manifest.v4.json'
                 require_hash(fixture_path, entry.get('fixtureManifestSha256'), 'VTK read fixture manifest')
                 fixtures = json.loads(fixture_path.read_text(encoding='utf-8'))
                 references = entry.get('referenceCases')
-                if (fixtures.get('schemaVersion') != 3 or fixtures.get('capabilityId') != 'mesh.read'
+                if (fixtures.get('schemaVersion') != 4 or fixtures.get('capabilityId') != 'mesh.read'
                         or not isinstance(references, list)
                         or [case.get('caseId') for case in references] != list(VTK_READ_CASES)
                         or [case.get('caseId') for case in fixtures.get('cases', [])] != list(VTK_READ_CASES)):
@@ -433,6 +446,7 @@ class Broker:
         repair_case = None
         remesh_case = None
         inspect_case = None
+        class_scope = None
         orientation_case = None
         vtk_case = None
         if self.repair:
@@ -444,15 +458,25 @@ class Broker:
             if input_info['sha256'] != repair_case['inputSha256']:
                 raise ValueError('Input is outside the certified repair case fixture.')
         elif self.inspect:
-            inspect_case = next((case for case in self.capabilities[0]['referenceCases']
-                                 if case['caseId'] == body.get('caseId')), None)
-            if (inspect_case is None
-                    or set(body) != {'schemaVersion', 'runtimeId', 'capabilityId', 'caseId', 'input', 'timeoutSeconds'}
-                    or set(input_info) != {'path', 'sha256'}
-                    or input_info['sha256'] != inspect_case['inputSha256']):
-                raise ValueError('Only a pinned typed inspection case is allowed.')
-            if inspect_case['caseId'] == 'open':
-                raise ValueError('Open mesh is outside the closed inspection scope.')
+            if 'classId' in body:
+                if (set(body) != {'schemaVersion', 'runtimeId', 'capabilityId', 'classId', 'input', 'timeoutSeconds'}
+                        or set(input_info) != {'path', 'sha256'} or source.suffix.lower() != '.obj'):
+                    raise ValueError('Only a typed bounded inspection class is allowed.')
+                class_scope = classify_inspect(source, self.source_root)
+                if class_scope['classId'] != body['classId']:
+                    raise ValueError('Inspection input does not match the requested class.')
+                inspect_case = {'caseId': body['classId'], 'inputSha256': input_info['sha256'],
+                                'expected': 'accepted'}
+            else:
+                inspect_case = next((case for case in self.capabilities[0]['referenceCases']
+                                     if case['caseId'] == body.get('caseId')), None)
+                if (inspect_case is None
+                        or set(body) != {'schemaVersion', 'runtimeId', 'capabilityId', 'caseId', 'input', 'timeoutSeconds'}
+                        or set(input_info) != {'path', 'sha256'}
+                        or input_info['sha256'] != inspect_case['inputSha256']):
+                    raise ValueError('Only a pinned typed inspection case is allowed.')
+                if inspect_case['caseId'] == 'open':
+                    raise ValueError('Open mesh is outside the closed inspection scope.')
         elif self.remesh:
             case_id = body.get('caseId')
             remesh_case = next((case for case in self.capabilities[0]['referenceCases']
@@ -471,14 +495,24 @@ class Broker:
                     or input_info['sha256'] != orientation_case['inputSha256']):
                 raise ValueError('Only an allowlisted orientation case and its pinned typed input are accepted.')
         elif self.vtk_read:
-            vtk_case = next((case for case in self.capabilities[0]['referenceCases']
-                             if case['caseId'] == body.get('caseId')), None)
-            if (vtk_case is None
-                    or set(body) != {'schemaVersion', 'runtimeId', 'capabilityId', 'caseId', 'input', 'timeoutSeconds'}
-                    or set(input_info) != {'path', 'sha256'}
-                    or input_info['sha256'] != vtk_case['inputSha256']
-                    or source.suffix.lower() != vtk_case['inputExtension']):
-                raise ValueError('Only an allowlisted VTK read case and its pinned typed input are accepted.')
+            if 'classId' in body:
+                if (set(body) != {'schemaVersion', 'runtimeId', 'capabilityId', 'classId', 'input', 'timeoutSeconds'}
+                        or set(input_info) != {'path', 'sha256'} or source.suffix.lower() != '.obj'):
+                    raise ValueError('Only a typed bounded inspection class is allowed.')
+                class_scope = classify_inspect(source, self.source_root)
+                if class_scope['classId'] != body['classId']:
+                    raise ValueError('Inspection input does not match the requested class.')
+                vtk_case = {'caseId': body['classId'], 'inputSha256': input_info['sha256'],
+                            'inputExtension': '.obj', 'expected': 'accepted'}
+            else:
+                vtk_case = next((case for case in self.capabilities[0]['referenceCases']
+                                 if case['caseId'] == body.get('caseId')), None)
+                if (vtk_case is None
+                        or set(body) != {'schemaVersion', 'runtimeId', 'capabilityId', 'caseId', 'input', 'timeoutSeconds'}
+                        or set(input_info) != {'path', 'sha256'}
+                        or input_info['sha256'] != vtk_case['inputSha256']
+                        or source.suffix.lower() != vtk_case['inputExtension']):
+                    raise ValueError('Only an allowlisted VTK read case and its pinned typed input are accepted.')
         elif input_info['sha256'] != self.capabilities[0]['referenceInputSha256']:
             raise ValueError('Input is outside the fixed L9 qualification fixture.')
         with self.lock:
@@ -512,13 +546,17 @@ class Broker:
                                                                   **({'datasetId': dataset_id} if self.repair else {})}],
                    'outputArtifacts': [{'path': output_name, 'mediaType': 'model/vnd.gmsh.msh' if self.gmsh else 'application/vnd.vtk.vtp' if self.vtk_read else 'model/obj'}],
                    'provenance': {'brokerContractVersion': 1, 'certificationRecordId': self.capabilities[0]['recordId'],
-                                  'sourceSnapshotSha256': source_sha}}
+                                  'sourceSnapshotSha256': source_sha,
+                                  **({'inspectionClassId': class_scope['classId'],
+                                      'inspectionClassPolicySha256': class_scope['policySha256']} if class_scope else {})}}
             (directory / 'request.json').write_text(json.dumps(request, separators=(',', ':')), encoding='utf-8')
             job = {'jobId': job_id, 'runtimeId': self.runtime_id, 'capabilityId': self.capability_id,
                'state': 'running', 'stage': 'queued', 'progress': 0, 'contractVersion': 1,
                'certificationRecordId': self.capabilities[0]['recordId'], 'artifacts': [], 'diagnostics': [],
                'directory': str(directory), 'sourceSnapshotSha256': source_sha,
                **({'operation': 'mesh.inspect'} if inspecting else {}),
+               **({'classId': class_scope['classId'], 'classPolicySha256': class_scope['policySha256'],
+                   'classInputSha256': class_scope['inputSha256']} if class_scope else {}),
                **({'caseId': repair_case['caseId']} if self.repair else {'caseId': inspect_case['caseId']} if self.inspect else {'caseId': remesh_case['caseId']} if self.remesh else {'caseId': orientation_case['caseId']} if self.orientation else {'caseId': vtk_case['caseId']} if self.vtk_read else {}),
                'cancel': threading.Event(), 'process': None}
             self.jobs[job_id] = job
@@ -618,6 +656,9 @@ class Broker:
         reference = next((case for case in entry['referenceCases'] if case['caseId'] == job['caseId']), None) if entry else None
         request = json.loads((directory / 'request.json').read_text(encoding='utf-8'))
         output = directory / 'inspected.obj'
+        if job.get('classId'):
+            reference = {'expected': 'accepted', 'inputSha256': job['classInputSha256'],
+                         'outputSha256': sha(output) if output.is_file() else None}
         if self.inspect and reference is not None and reference['expected'] == 'rejected':
             if (not isinstance(result, dict) or result.get('state') != 'failed' or exit_code == 0
                     or output.exists() or result.get('artifacts') or result.get('validatedCapabilities')):
@@ -646,12 +687,21 @@ class Broker:
                 or after.get('boundaryEdges') != 0 or engine.get('degenerateTriangles') != 0
                 or engine.get('selfIntersections') is not False):
             raise ValueError('CGAL inspection topology or nonmutation check failed.')
+        if job.get('classId'):
+            source = directory / 'dataset/input.obj'
+            scope = classify_inspect(source, self.source_root)
+            if (scope['classId'] != job['classId'] or scope['policySha256'] != job['classPolicySha256']
+                    or not equivalent_inspect(source, output)):
+                raise ValueError('Bounded inspection class output differs from input geometry.')
+            job['classOutputSha256'] = sha(output)
         names = ['inspected.obj']
         if self.inspect:
             handoff = {'schemaVersion': 1, 'contract': self.contract,
                        'runtimeId': self.runtime_id, 'capabilityId': self.capability_id,
                        'caseId': job['caseId'], 'sourceL9RecordId': entry['recordId'],
                        'sourceL8RecordId': entry['sourceL8RecordId'],
+                       **({'classId': job['classId'], 'classPolicySha256': job['classPolicySha256']}
+                          if job.get('classId') else {}),
                        'workerRequestSha256': sha(directory / 'request.json'),
                        'workerResultSha256': sha(result_path), 'artifactSha256': sha(output)}
             (directory / 'handoff.json').write_text(json.dumps(handoff, separators=(',', ':')), encoding='utf-8')
@@ -726,6 +776,11 @@ class Broker:
         self.verify()
         entry = next((item for item in self.capabilities if item['recordId'] == job['certificationRecordId']), None)
         reference = next((case for case in entry['referenceCases'] if case['caseId'] == job['caseId']), None) if entry else None
+        if job.get('classId'):
+            output = directory / 'read.vtp'
+            reference = {'expected': 'accepted', 'inputSha256': job['classInputSha256'],
+                         'inputExtension': '.obj', 'outputSha256': sha(output) if output.is_file() else None,
+                         'objSha256': None}
         if entry is None or reference is None or not isinstance(result, dict):
             raise ValueError('Current VTK read qualification is unavailable.')
         request_path = directory / 'request.json'
@@ -760,13 +815,25 @@ class Broker:
         converted = subprocess.run([str(self.paths['python']), str(parser), '--input', str(output),
                                     '--result', str(reload), '--export-obj', str(obj)],
                                    cwd=directory, capture_output=True, text=True, timeout=60)
+        if job.get('classId') and converted.returncode == 0 and obj.is_file():
+            reference['objSha256'] = sha(obj)
         if converted.returncode or sha(obj) != reference['objSha256']:
             raise ValueError('VTK read handoff OBJ differs from current L7 evidence.')
         reload_result = json.loads(reload.read_text(encoding='utf-8'))
         if reload_result.get('artifactSha256') != digest or reload_result.get('exportObjSha256') != reference['objSha256']:
             raise ValueError('Independent VTK read reload changed.')
+        if job.get('classId'):
+            class_scope = classify_inspect(copied, self.source_root)
+            if (class_scope['classId'] != job['classId']
+                    or class_scope['policySha256'] != job['classPolicySha256']
+                    or not equivalent_inspect(copied, obj)):
+                raise ValueError('Bounded VTK inspection class output differs from input geometry.')
+            job['classOutputSha256'] = digest
+            job['classObjSha256'] = sha(obj)
         scope = {'schemaVersion': 2, 'kind': 'scientific.vtk-read-broker-guard',
                  'capabilityId': 'mesh.read', 'caseId': job['caseId'], 'expected': 'accepted',
+                 **({'classId': job['classId'], 'classPolicySha256': job['classPolicySha256']}
+                    if job.get('classId') else {}),
                  'fixtureManifestSha256': entry['fixtureManifestSha256'],
                  'vtkReadSourcesSha256': entry['vtkReadSourcesSha256'],
                  'workerBinarySha256': entry['workerBinarySha256'],
@@ -776,6 +843,8 @@ class Broker:
         scope_path.write_text(json.dumps(scope, separators=(',', ':')), encoding='utf-8')
         handoff = {'schemaVersion': 1, 'contract': self.contract, 'runtimeId': self.runtime_id,
                    'capabilityId': self.capability_id, 'caseId': job['caseId'],
+                   **({'classId': job['classId'], 'classPolicySha256': job['classPolicySha256']}
+                      if job.get('classId') else {}),
                    'sourceL9RunId': entry['sourceRunId'], 'sourceL9RecordId': entry['recordId'],
                    'sourceL8RunId': entry['sourceL8RunId'], 'sourceL8RecordId': entry['sourceL8RecordId'],
                    'workerRequest': {'path': str(request_path), 'sha256': sha(request_path)},
@@ -1199,8 +1268,20 @@ class Broker:
                     result = json.loads((directory / 'results.json').read_text(encoding='utf-8'))
                     handoff = json.loads(self.artifact(job_id, 'handoff.json'))
                     output = self.artifact(job_id, 'inspected.obj')
-                    reference = next(item for item in entry['referenceCases'] if item['caseId'] == job['caseId'])
+                    reference = next((item for item in entry['referenceCases'] if item['caseId'] == job['caseId']), None)
                     digest = hashlib.sha256(output).hexdigest()
+                    if job.get('classId'):
+                        reference = {'expected': 'accepted', 'outputSha256': job.get('classOutputSha256')}
+                        source = directory / 'dataset/input.obj'
+                        class_scope = classify_inspect(source, self.source_root)
+                        if (class_scope['classId'] != job['classId']
+                                or class_scope['policySha256'] != job['classPolicySha256']
+                                or handoff.get('classId') != job['classId']
+                                or handoff.get('classPolicySha256') != job['classPolicySha256']
+                                or not equivalent_inspect(source, directory / 'inspected.obj')):
+                            reasons.append('Bounded inspection class changed before promotion.')
+                    if reference is None:
+                        raise ValueError('Inspection reference disappeared.')
                     if (reference['expected'] != 'accepted' or digest != reference['outputSha256']
                             or request.get('operation') != 'mesh.inspect'
                             or result.get('operation') != 'mesh.inspect'
@@ -1407,7 +1488,23 @@ class Broker:
                     reload = json.loads(self.artifact(job_id, 'reload.json'))
                     request = json.loads((folder / 'request.json').read_text(encoding='utf-8'))
                     result = json.loads((folder / 'results.json').read_text(encoding='utf-8'))
-                    reference = next(case for case in entry['referenceCases'] if case['caseId'] == job['caseId'])
+                    reference = next((case for case in entry['referenceCases'] if case['caseId'] == job['caseId']), None)
+                    if job.get('classId'):
+                        reference = {'expected': 'accepted', 'inputSha256': job['classInputSha256'],
+                                     'outputSha256': job.get('classOutputSha256'),
+                                     'objSha256': job.get('classObjSha256')}
+                        source = folder / 'dataset/input.obj'
+                        class_scope = classify_inspect(source, self.source_root)
+                        if (class_scope['classId'] != job['classId']
+                                or class_scope['policySha256'] != job['classPolicySha256']
+                                or handoff.get('classId') != job['classId']
+                                or handoff.get('classPolicySha256') != job['classPolicySha256']
+                                or scope.get('classId') != job['classId']
+                                or scope.get('classPolicySha256') != job['classPolicySha256']
+                                or not equivalent_inspect(source, folder / 'read.obj')):
+                            reasons.append('Bounded VTK inspection class changed before promotion.')
+                    if reference is None:
+                        raise ValueError('VTK read reference disappeared.')
                     vtp_hash, obj_hash = hashlib.sha256(vtp).hexdigest(), hashlib.sha256(obj).hexdigest()
                     if (reference['expected'] != 'accepted' or vtp_hash != reference['outputSha256']
                             or obj_hash != reference['objSha256'] or handoff.get('contract') != self.contract

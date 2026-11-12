@@ -95,15 +95,16 @@ try {
     [Environment]::SetEnvironmentVariable('DEVSHELL_GMSH_VOLUME_RESUME',
         $(if ($Scenario -eq 'GmshVolume' -and $ResumeFrom -eq 'L7') { '1' } else { $null }), 'Process')
     $ready = $false
+    $consecutivePages = 0
     for ($attempt = 0; $attempt -lt 60; $attempt++) {
         if ($ownedApp -and $ownedApp.HasExited) { throw 'Isolated DevShell exited before WebView2 was ready.' }
         try {
             $targets = Invoke-RestMethod "$cdpUrl/json/list" -TimeoutSec 2
             if (@($targets | Where-Object { $_.url -like '*app.local*' }).Count -gt 0) {
-                $ready = $true
-                break
-            }
-        } catch { }
+                $consecutivePages++
+                if ($consecutivePages -ge 3) { $ready = $true; break }
+            } else { $consecutivePages = 0 }
+        } catch { $consecutivePages = 0 }
         Start-Sleep -Seconds 1
     }
     if (!$ready) { throw "Isolated DevShell WebView2 did not appear at $cdpUrl." }

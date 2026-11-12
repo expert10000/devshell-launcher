@@ -6,6 +6,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
+import { waitForScientificPage } from './scientific-desktop-page.mjs'
 
 const require = createRequire(import.meta.url)
 const { chromium } = require(join(import.meta.dirname, '..', 'DevShell', 'ui', 'dev-ui-react', 'node_modules', 'playwright-core'))
@@ -41,8 +42,7 @@ async function finished(before, expectedState) {
 
 const browser = await chromium.connectOverCDP(process.env.DEVSHELL_CDP_URL)
 try {
-  const page = browser.contexts().flatMap(context => context.pages()).find(item => item.url().includes('app.local'))
-  assert.ok(page, 'DevShell app page is unavailable')
+  const page = await waitForScientificPage(browser)
   page.setDefaultTimeout(120_000)
   await page.getByText('RUNTIMES / Scientific', { exact: true }).click()
   const main = page.getByRole('main', { name: 'Scientific Runtimes' })

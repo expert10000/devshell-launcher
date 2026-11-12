@@ -78,6 +78,15 @@ try {
     if (!(Test-Path -LiteralPath $app)) { throw "Desktop executable is unavailable: $app" }
     [Environment]::SetEnvironmentVariable('MATH3D_CHECKOUT', $Math3DCheckout, 'Process')
     if (!$UseRunningApp) {
+        # A reused CDP port can attach Playwright to another DevShell process.
+        # Reject it before launching any qualification actions.
+        $portProbe = [System.Net.Sockets.TcpClient]::new()
+        try {
+            $pending = $portProbe.BeginConnect('127.0.0.1', $CdpPort, $null, $null)
+            if ($pending.AsyncWaitHandle.WaitOne(500) -and $portProbe.Connected) {
+                throw "CDP port $CdpPort is already in use."
+            }
+        } finally { $portProbe.Dispose() }
         [Environment]::SetEnvironmentVariable('WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS',
             "--remote-debugging-port=$CdpPort", 'Process')
         $ownedApp = Start-Process -FilePath $app -WorkingDirectory (Split-Path -Parent $app) `

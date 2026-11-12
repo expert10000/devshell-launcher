@@ -1,5 +1,6 @@
 """Checkpointed, restartable six-capability desktop and broker release run."""
 import argparse
+from copy import deepcopy
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -160,9 +161,14 @@ def stage(checkpoint, state, name, callback):
     state['status'] = 'running'
     state['attempts'].append({'stage': name, 'startedAtUtc': now(), 'result': 'running'})
     save(checkpoint, state)
+    # A callback may fill a release field before a later verification fails.
+    # Never checkpoint that partial promotion as a completed gate.
+    promotion = {key: deepcopy(state[key]) for key in
+                 ('build', 'desktop', 'broker', 'manifestSha256', 'releaseRecord')}
     try:
         result = callback()
     except BaseException as error:
+        state.update(promotion)
         state['status'] = 'interrupted'
         state['attempts'][-1].update(result='interrupted', endedAtUtc=now(),
                                      error=str(error)[-500:])
@@ -193,23 +199,24 @@ def build(state):
 
 def desktop(checkpoint, state, name):
     worktree = Path(state['worktree'])
-    retry_l9 = name == 'remesh' and state['retryL9']
     attempt = sum(item['stage'] == 'desktop:' + name for item in state['attempts'])
     log = checkpoint.parent / f'desktop-{name}-{attempt}.log'
     args = ['powershell', '-NoProfile', '-File',
             str(worktree / 'tools/Run-Scientific-Desktop-Acceptance.ps1'),
             '-Scenario', SCENARIOS[name], '-ExistingWorktree', str(worktree), '-SkipBuild',
             '-Math3DCheckout', state['math3dRoot'], '-CdpPort', str(state['port'] + list(release.TARGETS).index(name))]
-    if retry_l9:
-        args += ['-ResumeFrom', 'L9']
     with log.open('w', encoding='utf-8') as stream:
-        completed = subprocess.run(args, cwd=worktree, stdout=stream, stderr=subprocess.STDOUT,
-                                   text=True, timeout=2400)
-    if completed.returncode:
-        output = log.read_text(encoding='utf-8', errors='replace')
-        state['retryL9'] = name == 'remesh' and 'l9.cgal-remesh' in output and (
-            'process' in output.lower() and 'exited' in output.lower())
-        save(checkpoint, state)
+        process = subprocess.Popen(args, cwd=worktree, stdout=stream, stderr=subprocess.STDOUT,
+                                   text=True)
+        try:
+            result_code = process.wait(timeout=2400)
+        except BaseException:
+            if process.poll() is None:
+                subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+                process.wait(timeout=10)
+            raise
+    if result_code:
         raise ValueError(f'{name} desktop acceptance failed; see {log}')
     probe = checkpoint.parent / ('desktop-' + name + '-support.json')
     fresh = current_entries(state, probe)
@@ -264,6 +271,14 @@ def execute(checkpoint, state=None):
     if state is None:
         checkpoint, state = load(checkpoint)
     validate(checkpoint, state)
+    if state['activeStage']:
+        if (not state['attempts'] or state['attempts'][-1]['stage'] != state['activeStage']
+                or state['attempts'][-1]['result'] != 'running'):
+            raise ValueError('Incomplete stage checkpoint is inconsistent.')
+        state['attempts'][-1].update(result='interrupted', endedAtUtc=now(),
+                                     error='Process ended before stage completion')
+        state['status'] = 'interrupted'
+        save(checkpoint, state)
     if state['status'] == 'complete':
         return Path(state['releaseRecord']), release.verify(state['releaseRecord'])
     if not state['build']:

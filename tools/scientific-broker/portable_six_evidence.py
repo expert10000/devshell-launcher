@@ -176,8 +176,56 @@ def find_runs(repo, needed):
     return found
 
 
+def verify_desktop(path, release_path, class_path):
+    """Check the live UI transcript against finalized managed run and product records."""
+    path = Path(path).resolve(strict=True)
+    if digest(path.read_bytes()) != Path(str(path) + '.sha256').read_text().strip():
+        raise ValueError('Live desktop record seal changed.')
+    value = json.loads(path.read_text(encoding='utf-8'))
+    release = json.loads(Path(release_path).read_text(encoding='utf-8'))
+    if (value.get('schemaVersion') != 1 or value.get('kind') != 'scientific.live-desktop-inspect-selection'
+            or value.get('sourceCommit') != release['sourceCommit']
+            or value.get('releaseRecordSha256') != digest(Path(release_path).read_bytes())
+            or value.get('classRecordSha256') != digest(Path(class_path).read_bytes())
+            or not HASH.fullmatch(value.get('inputSha256', ''))
+            or not re.search(r'selected (?:cgal|vtk)-win-conda', value.get('automaticText', ''))
+            or 'selected vtk-win-conda' not in value.get('manualText', '')
+            or 'manual' not in value.get('manualText', '').lower()):
+        raise ValueError('Live desktop selection identity changed.')
+    results = {}
+    for label, state in (('success', 'succeeded'), ('cancellation', 'cancelled')):
+        entry = value[label]
+        if not RUN.fullmatch(entry['runId']):
+            raise ValueError('Invalid live desktop run ID.')
+        result_path = Path(entry['resultPath']).resolve(strict=True)
+        if (result_path.name != 'results.json' or result_path.parent.name != entry['runId']
+                or digest(result_path.read_bytes()) != entry['resultSha256']):
+            raise ValueError('Live desktop managed result changed.')
+        result = json.loads(result_path.read_text(encoding='utf-8'))
+        if (result.get('runId') != entry['runId'] or result.get('state') != state
+                or result.get('recipeId') != 'l9.math3d-inspect-selection'):
+            raise ValueError('Live desktop managed outcome changed.')
+        results[label] = result
+    selection_entry = value['success']
+    selection_path = Path(selection_entry['selectionPath']).resolve(strict=True)
+    if (selection_path.name != 'selection.json' or selection_path.parent.parent != Path(selection_entry['resultPath']).parent
+            or digest(selection_path.read_bytes()) != selection_entry['selectionSha256']):
+        raise ValueError('Live desktop MATH3D selection changed.')
+    selection = json.loads(selection_path.read_text(encoding='utf-8'))
+    if (selection.get('classRecordSha256') != value['classRecordSha256']
+            or selection.get('inputSha256') != value['inputSha256']
+            or selection.get('classId') not in ('tetra-uniform-4', 'octa-uniform-8', 'cube-uniform-12')
+            or selection.get('state') not in ('qualified', 'manual')
+            or not {'read.m3dm', 'viewer.png'} <= set(selection.get('productFiles', {}))
+            or results['success'].get('selection') != selection
+            or results['cancellation'].get('artifacts') != []
+            or results['cancellation'].get('validatedCapabilities') != []):
+        raise ValueError('Live desktop product or cancellation evidence changed.')
+    return value
+
+
 def export(record_path, output, signing_key, key_id, shared_path, report_path,
-           advisor_path, product_path, class_path=None):
+           advisor_path, product_path, class_path=None, desktop_path=None):
     record_path = Path(record_path).resolve(strict=True)
     live = verify_live(record_path)
     repo = Path(live['repo']).resolve(strict=True)
@@ -203,6 +251,9 @@ def export(record_path, output, signing_key, key_id, shared_path, report_path,
     if classes and (classes['releaseRecordSha256'] != digest(record_path.read_bytes())
                     or classes['sourceCommit'] != live['sourceCommit']):
         raise ValueError('Bounded class evidence belongs to another release.')
+    if desktop_path and not classes:
+        raise ValueError('Live desktop class evidence requires a bounded class record.')
+    desktop = verify_desktop(desktop_path, record_path, class_path) if desktop_path else None
     files, index, payloads = {}, [], []
     index.append(json_file(files, 'release/coexistence.json', record_path))
     index.append(json_file(files, 'release/certified.json', certified))
@@ -221,6 +272,8 @@ def export(record_path, output, signing_key, key_id, shared_path, report_path,
         evidence_paths.update({'classes': class_path,
                                'classPolicy': repo / 'schemas/scientific-mesh-inspect-classes.v1.json',
                                'rankingPolicy': repo / 'schemas/scientific-inspect-ranking.v1.json'})
+    if desktop:
+        evidence_paths['desktop'] = desktop_path
     evidence_hashes = {}
     for name, source_path in evidence_paths.items():
         entry = json_file(files, f'evidence/{name}.json', source_path)
@@ -283,6 +336,21 @@ def export(record_path, output, signing_key, key_id, shared_path, report_path,
                           'formatPolicy': format_policy})
         product_payloads.append({'name': name, 'sourceSha256': source_hash,
                                  'object': object_path, 'formatPolicy': format_policy})
+    desktop_payloads = []
+    if desktop:
+        for label, source_path, source_hash in (
+                ('success', desktop['success']['resultPath'], desktop['success']['resultSha256']),
+                ('selection', desktop['success']['selectionPath'], desktop['success']['selectionSha256']),
+                ('cancellation', desktop['cancellation']['resultPath'], desktop['cancellation']['resultSha256'])):
+            data, format_policy = portable_artifact(source_path, Path(source_path).read_bytes())
+            object_path = 'objects/sha256/' + digest(data)
+            if object_path not in files:
+                add(files, object_path, data)
+                index.append({'path': object_path, 'sha256': digest(data),
+                              'sourceSha256': source_hash, 'bytes': len(data),
+                              'formatPolicy': format_policy})
+            desktop_payloads.append({'name': label, 'sourceSha256': source_hash,
+                                     'object': object_path, 'formatPolicy': format_policy})
     for run_id, directory in sorted(runs.items()):
         if not RUN.fullmatch(run_id):
             raise ValueError('Invalid support run ID.')
@@ -333,6 +401,7 @@ def export(record_path, output, signing_key, key_id, shared_path, report_path,
                 'benchmarkPayloads': benchmark_payloads,
                 'classPayloads': class_payloads,
                 'productPayloads': product_payloads,
+                'desktopPayloads': desktop_payloads,
                 'files': sorted(index, key=lambda item: item['path'])}
     body = compact(manifest)
     path_free(body)
@@ -409,6 +478,8 @@ def verify(path, trust_store=None):
             evidence_names = ('shared', 'report', 'matrix', 'comparison', 'advisor', 'product')
             if 'classes' in manifest.get('evidenceHashes', {}):
                 evidence_names += ('classes', 'classPolicy', 'rankingPolicy')
+            if 'desktop' in manifest.get('evidenceHashes', {}):
+                evidence_names += ('desktop',)
             if set(manifest.get('evidenceHashes', {})) != set(evidence_names):
                 raise ValueError('Six-capability evidence inventory changed.')
             for name in evidence_names:
@@ -496,6 +567,52 @@ def verify(path, trust_store=None):
                 referenced.add(item['object'])
             if observed_product != product['productFiles']:
                 raise ValueError('MATH3D product payloads are incomplete or changed.')
+            if 'desktop' in manifest['evidenceHashes']:
+                if 'classes' not in manifest['evidenceHashes']:
+                    raise ValueError('Live desktop class evidence has no class record.')
+                desktop = json.loads(archive.read('evidence/desktop.json'))
+                if (desktop.get('kind') != 'scientific.live-desktop-inspect-selection'
+                        or desktop.get('sourceCommit') != manifest['sourceCommit']
+                        or desktop.get('releaseRecordSha256') != manifest['liveRecordSha256']
+                        or desktop.get('classRecordSha256') != manifest['evidenceHashes']['classes']
+                        or not re.search(r'selected (?:cgal|vtk)-win-conda', desktop.get('automaticText', ''))
+                        or 'selected vtk-win-conda' not in desktop.get('manualText', '')
+                        or 'manual' not in desktop.get('manualText', '').lower()):
+                    raise ValueError('Offline live desktop selection link changed.')
+                expected_desktop = {'success': desktop['success']['resultSha256'],
+                                    'selection': desktop['success']['selectionSha256'],
+                                    'cancellation': desktop['cancellation']['resultSha256']}
+                observed_desktop = {}
+                desktop_data = {}
+                for item in manifest.get('desktopPayloads', []):
+                    name = item['name']
+                    if name in observed_desktop or name not in expected_desktop:
+                        raise ValueError('Duplicate or unknown live desktop payload.')
+                    observed_desktop[name] = item['sourceSha256']
+                    data = archive.read(item['object'])
+                    checked, policy = portable_artifact(name + '.json', data)
+                    if checked != data or policy != item['formatPolicy']:
+                        raise ValueError('Live desktop payload format changed.')
+                    desktop_data[name] = json.loads(data)
+                    referenced.add(item['object'])
+                if observed_desktop != expected_desktop:
+                    raise ValueError('Live desktop payloads are incomplete or changed.')
+                success, selection, cancellation = (desktop_data[name] for name in ('success', 'selection', 'cancellation'))
+                if (success.get('runId') != desktop['success']['runId'] or success.get('state') != 'succeeded'
+                        or cancellation.get('runId') != desktop['cancellation']['runId']
+                        or cancellation.get('state') != 'cancelled'
+                        or success.get('recipeId') != 'l9.math3d-inspect-selection'
+                        or cancellation.get('recipeId') != 'l9.math3d-inspect-selection'
+                        or selection.get('classRecordSha256') != desktop['classRecordSha256']
+                        or selection.get('inputSha256') != desktop['inputSha256']
+                        or selection.get('classId') not in classes['classes']
+                        or not {'read.m3dm', 'viewer.png'} <= set(selection.get('productFiles', {}))
+                        or success.get('selection') != selection
+                        or cancellation.get('artifacts') != []
+                        or cancellation.get('validatedCapabilities') != []):
+                    raise ValueError('Offline live desktop outcome changed.')
+            elif manifest.get('desktopPayloads'):
+                raise ValueError('Live desktop payloads lack a signed desktop record.')
             if referenced != {name for name in files if name.startswith('objects/sha256/')}:
                 raise ValueError('Unreferenced artifact object.')
         release = json.loads(archive.read('release/coexistence.json'))
@@ -566,6 +683,7 @@ if __name__ == '__main__':
     parser.add_argument('--advisor-record')
     parser.add_argument('--product-record')
     parser.add_argument('--class-record')
+    parser.add_argument('--desktop-record')
     parser.add_argument('--output')
     parser.add_argument('--bundle')
     parser.add_argument('--signing-key')
@@ -594,7 +712,7 @@ if __name__ == '__main__':
             parser.error('export requires release, shared, report, advisor and product records plus signing key')
         report = export(options.record, options.output, options.signing_key, options.key_id,
                         options.shared_record, options.report_record, options.advisor_record,
-                        options.product_record, options.class_record)
+                        options.product_record, options.class_record, options.desktop_record)
     else:
         if not options.bundle:
             parser.error('verify requires --bundle')

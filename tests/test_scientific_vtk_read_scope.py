@@ -14,7 +14,7 @@ class VtkReadScopeChecks(unittest.TestCase):
     def test_pinned_case_set(self):
         cases = manifest()['cases']
         self.assertEqual(tuple(item['caseId'] for item in cases), CASES)
-        self.assertEqual(sum(item['expected'] == 'accepted' for item in cases), 6)
+        self.assertEqual(sum(item['expected'] == 'accepted' for item in cases), 12)
         self.assertEqual(sum(item['expected'] == 'rejected' for item in cases), 3)
 
     @unittest.skipUnless(os.environ.get('DEVSHELL_VTK_PYTHON'), 'Set DEVSHELL_VTK_PYTHON for live worker test')

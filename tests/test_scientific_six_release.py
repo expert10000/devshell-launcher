@@ -10,10 +10,52 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/scientific-broker'))
 from six_capability_release import TARGETS, require_current_support, verify as verify_release
-from portable_six_evidence import verify as verify_bundle
+from portable_six_evidence import verify as verify_bundle, verify_desktop
 
 
 class SixSupport(unittest.TestCase):
+    def test_desktop_selection_and_cancellation_are_bound_to_results(self):
+        import hashlib
+        def sha(path):
+            return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            release = root / 'release.json'
+            classes = root / 'classes.json'
+            release.write_text(json.dumps({'sourceCommit': 'a' * 40}), encoding='utf-8')
+            classes.write_text('{}', encoding='utf-8')
+            selection_path = root / ('a' * 32) / 'product-selection' / 'selection.json'
+            selection_path.parent.mkdir(parents=True)
+            selection = {'classRecordSha256': sha(classes), 'inputSha256': 'b' * 64,
+                         'classId': 'tetra-uniform-4', 'state': 'qualified',
+                         'productFiles': {'read.m3dm': 'c' * 64, 'viewer.png': 'd' * 64}}
+            selection_path.write_text(json.dumps(selection), encoding='utf-8')
+            success = selection_path.parent.parent / 'results.json'
+            success.write_text(json.dumps({'runId': 'a' * 32, 'recipeId': 'l9.math3d-inspect-selection',
+                                           'state': 'succeeded', 'selection': selection}), encoding='utf-8')
+            cancel = root / ('e' * 32) / 'results.json'
+            cancel.parent.mkdir()
+            cancel.write_text(json.dumps({'runId': 'e' * 32, 'recipeId': 'l9.math3d-inspect-selection',
+                                          'state': 'cancelled', 'artifacts': [],
+                                          'validatedCapabilities': []}), encoding='utf-8')
+            record = root / 'desktop.json'
+            record.write_text(json.dumps({'schemaVersion': 1,
+                'kind': 'scientific.live-desktop-inspect-selection', 'sourceCommit': 'a' * 40,
+                'releaseRecordSha256': sha(release), 'classRecordSha256': sha(classes),
+                'inputSha256': 'b' * 64, 'automaticText': 'qualified / selected cgal-win-conda',
+                'manualText': 'manual / selected vtk-win-conda',
+                'success': {'runId': 'a' * 32, 'resultPath': str(success),
+                            'resultSha256': sha(success), 'selectionPath': str(selection_path),
+                            'selectionSha256': sha(selection_path)},
+                'cancellation': {'runId': 'e' * 32, 'resultPath': str(cancel),
+                                 'resultSha256': sha(cancel)}}), encoding='utf-8')
+            Path(str(record) + '.sha256').write_text(sha(record), encoding='utf-8')
+            self.assertEqual('cancelled', json.loads(cancel.read_text())['state'])
+            verify_desktop(record, release, classes)
+            cancel.write_text(cancel.read_text().replace('cancelled', 'succeeded'), encoding='utf-8')
+            with self.assertRaisesRegex(ValueError, 'managed result changed'):
+                verify_desktop(record, release, classes)
+
     def test_missing_or_stale_support_is_rejected(self):
         fresh = {'certifiedCapabilities': []}
         ids = {}

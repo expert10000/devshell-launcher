@@ -1,5 +1,5 @@
 param(
-    [Parameter(Mandatory=$true)][ValidateSet('Repair', 'GmshVolume', 'Remesh', 'CgalInspect', 'Orientation', 'VtkRead')][string]$Scenario,
+    [Parameter(Mandatory=$true)][ValidateSet('Repair', 'GmshVolume', 'Remesh', 'CgalInspect', 'Orientation', 'VtkRead', 'InspectSelection')][string]$Scenario,
     [int]$CdpPort = 9244,
     [string]$Math3DCheckout = $env:MATH3D_CHECKOUT,
     [string]$ExistingWorktree,
@@ -80,8 +80,9 @@ try {
     if (!$UseRunningApp) {
         [Environment]::SetEnvironmentVariable('WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS',
             "--remote-debugging-port=$CdpPort", 'Process')
+        # The WebView2 page is initialized by Form1.Shown; a hidden launch can leave CDP without an app page.
         $ownedApp = Start-Process -FilePath $app -WorkingDirectory (Split-Path -Parent $app) `
-            -WindowStyle Hidden -PassThru
+            -WindowStyle Normal -PassThru
     }
     [Environment]::SetEnvironmentVariable('DEVSHELL_CDP_URL', $cdpUrl, 'Process')
     [Environment]::SetEnvironmentVariable('MATH3D_CHECKOUT', $Math3DCheckout, 'Process')
@@ -107,7 +108,8 @@ try {
     }
     if (!$ready) { throw "Isolated DevShell WebView2 did not appear at $cdpUrl." }
     if (!$BootOnly) {
-        $script = if ($Scenario -eq 'Repair') { 'scientific-cgal-repair-managed-ui-checks.mjs' }
+        $script = if ($Scenario -eq 'InspectSelection') { 'scientific-inspect-selection-live-ui-checks.mjs' }
+            elseif ($Scenario -eq 'Repair') { 'scientific-cgal-repair-managed-ui-checks.mjs' }
             elseif ($Scenario -eq 'Remesh') { 'scientific-cgal-remesh-managed-ui-checks.mjs' }
             elseif ($Scenario -eq 'CgalInspect') { 'scientific-cgal-inspect-managed-ui-checks.mjs' }
             elseif ($Scenario -eq 'Orientation') { 'scientific-cgal-orientation-managed-ui-checks.mjs' }

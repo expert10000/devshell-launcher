@@ -1,14 +1,16 @@
 # Scientific-runtime laboratory for MATH3D
 
-Updated: 2026-11-11
+Updated: 2026-11-12
 
-## Current six-capability release target
+## Current six-capability release
 
-The current release target is six separately qualified capabilities: CGAL `mesh.inspect`, `mesh.orient`, `mesh.remesh`, `mesh.repair`; Gmsh `mesh.generate3d`; and VTK `mesh.read`. `six_capability_release.py` requalifies all six through desktop L0–L9 in one isolated worktree, then runs each broker and MATH3D product smoke. Its sealed checkpoint permits restart only after source, build, consumer, prior support and completed-smoke checks. A failed remesh L9 consumer process can be retried from L9. Earlier five-capability records remain historical.
+At `44031e6`, six separately qualified capabilities have a verified same-HEAD coexistence release: CGAL `mesh.inspect`, `mesh.orient`, `mesh.remesh`, `mesh.repair`; Gmsh `mesh.generate3d`; and VTK `mesh.read`. The resumable runner completed all six managed desktop L0–L9 chains, certified export, and all six broker/MATH3D smokes in one isolated worktree. Its sealed checkpoint verified source, build, MATH3D consumer identity, prior support, and completed smokes before resume. Three transient desktop browser launches were recorded as interrupted and recovered without repeating passed gates. The managed scientific Conda environment now includes an isolated `psutil` probe for broker process-tree cleanup. Earlier release records remain historical.
 
-Shared inspection scope v2 pins six matched tiers: tetra, octa, cube, and closed spheres with 128, 512, and 2,048 triangles. Both provider case packs and their L5–L9 evidence must be current before broker measurements. The shared benchmark randomizes provider order and reports medians, p10/p90, MAD and bootstrap intervals for worker time including startup. The advisor ranks only exact pinned inputs while this evidence verifies. The MATH3D product bridge records the recommendation, manual provider choice, and direct-import fallback when evidence is stale or the input is outside scope.
+Shared inspection scope v2 pins six exact matched tiers: tetra, octa, cube, and closed spheres with 128, 512, and 2,048 triangles. A separate versioned class policy admits bounded uniform transforms of three oriented closed topologies only after independent holdout and current desktop/broker evidence for both providers. The final class record has 30 promoted positive jobs and eight explicit rejections. The seven-pair same-host benchmark separates cold broker invocation, warm worker execution, startup overhead, and peak memory. Ranking requires paired uncertainty, a minimum 10% advantage in both timing phases, and resource limits; it abstains when evidence is stale, out of scope, or inconclusive.
 
-The release deliverables are a current six-capability coexistence record, shared benchmark, advisor and MATH3D selection evidence, matrix/report, and an Ed25519-signed portable bundle. The offline verifier checks the trusted signature, content-addressed supporting artifacts and benchmark samples, and links between those records. Requalify and rebuild these deliverables after source, environment, or MATH3D consumer drift.
+DevShell's Scientific Runtimes Integration panel now shows the verified recommendation, paired uncertainty, manual provider choice, and fallback reason, and runs the selected broker artifact through MATH3D saved-document and viewport reload. Live desktop checks passed automatic selection, manual override, cancellation, stale-evidence fallback, and reload. The current release deliverables include the coexistence record, class and shared benchmark records, advisor and product evidence, matrix/report, and a portable Ed25519-signed bundle. The offline verifier trusted key `devshell-six-2026-11` and verified all 163 included supporting artifacts with no omissions. Requalify and rebuild after source, environment, or MATH3D consumer drift.
+
+Next: fix intermittent DevShell browser-page startup during managed qualification; include the live desktop class-selection run and cancellation evidence in the portable bundle; then expand bounded inspection classes and size tiers only with new holdouts, paired measurements, and desktop/broker promotion evidence. Keep the advisor abstaining outside that proven scope.
 
 ## Execution-contract principle
 

@@ -1951,6 +1951,25 @@ Scientific Runtimes Integration panel presents preview, recommendation,
 uncertainty, manual provider choice, fallback reason, managed cancellation,
 and saved MATH3D document/viewport evidence.
 
+Verified at `44031e6`: all six managed L0–L9 desktop chains and broker/MATH3D
+smokes passed in the resumed isolated release. The checkpoint preserved passed
+gates across three transient browser-page launch failures. The managed
+scientific runtime's isolated `psutil` probe passed before broker process-tree
+cleanup and promotion. Three bounded classes passed 30 promoted positive jobs
+and eight rejections. Six exact tiers have seven randomized paired repetitions
+with separate cold and warm uncertainty. Live DevShell checks passed preview,
+manual override, selected CGAL broker transport, saved-document reload,
+cancellation, and stale-evidence fallback. The current six-capability matrix
+and reproducibility report verified; the Ed25519 portable bundle passed the
+independent offline verifier with 42 support runs, 163 content-addressed
+artifacts, no omissions, and trusted key `devshell-six-2026-11`.
+
+Next: eliminate the intermittent desktop browser-page startup failure; carry
+the live desktop class-selection and cancellation records into the portable
+bundle; broaden classes and size tiers only after new holdouts and matched
+desktop/broker evidence. A portable bundle verifies historical evidence; live
+support still requires current source, environment, and MATH3D consumer checks.
+
 ## 32. Final architecture rule
 
 The success criterion is **not** the number of installed scientific libraries or the number of tabs in DevShell. It is whether an operation is:

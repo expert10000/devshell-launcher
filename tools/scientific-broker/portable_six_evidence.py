@@ -233,7 +233,7 @@ def export(record_path, output, signing_key, key_id, shared_path, report_path,
     if classes:
         evidence_paths.update({'classes': class_path,
                                'classPolicy': repo / 'schemas/scientific-mesh-inspect-classes.v2.json',
-                               'rankingPolicy': repo / 'schemas/scientific-inspect-ranking.v1.json'})
+                               'rankingPolicy': repo / 'schemas/scientific-inspect-ranking.v2.json'})
     evidence_hashes = {}
     for name, source_path in evidence_paths.items():
         entry = json_file(files, f'evidence/{name}.json', source_path)

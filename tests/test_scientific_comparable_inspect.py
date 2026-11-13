@@ -42,6 +42,7 @@ class SharedInspectPolicy(unittest.TestCase):
                      'tiers': {'tetra-4': {'measurements': {
                          name: {'statistics': {'medianMs': cold},
                                 'runs': [{'coldInvocationMs': cold, 'warmExecutionMs': warm,
+                                          'warmExecutionUs': warm * 1000,
                                           'peakRssBytes': 40 * 1048576}] * 5,
                                 'phases': {'peakRssBytes': 40 * 1048576}}
                          for name, cold, warm in (('cgal', 100, 10), ('vtk', 200, 30))}}}}
@@ -54,7 +55,7 @@ class SharedInspectPolicy(unittest.TestCase):
                 self.assertEqual('ranked-within-qualified-shared-scope', json.loads(path.read_text())['state'])
                 close = json.loads(json.dumps(scope))
                 close['tiers']['tetra-4']['measurements']['vtk']['runs'] = [
-                    {'coldInvocationMs': 101, 'warmExecutionMs': 11,
+                    {'coldInvocationMs': 101, 'warmExecutionMs': 11, 'warmExecutionUs': 11000,
                      'peakRssBytes': 40 * 1048576}] * 5
                 with patch('advisor.verify_shared_inspect', return_value=close):
                     _, abstained = advise_shared(source, 'tetra-4', None, directory)

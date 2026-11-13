@@ -19,6 +19,7 @@ class ProductSelection(unittest.TestCase):
             'tiers': {'sphere-128': {'measurements': {
                 name: {'statistics': {'medianMs': cold, 'median95PctBootstrapMs': [cold, cold]},
                        'runs': [{'coldInvocationMs': cold, 'warmExecutionMs': warm,
+                                 'warmExecutionUs': warm * 1000,
                                  'peakRssBytes': 40 * 1048576}] * 5,
                        'phases': {'peakRssBytes': 40 * 1048576}}
                 for name, cold, warm in (('cgal', 100, 10), ('vtk', 200, 30))}}}}
@@ -50,6 +51,7 @@ class ProductSelection(unittest.TestCase):
         for item in self.scope['tiers']['sphere-128']['measurements']['vtk']['runs']:
             item['coldInvocationMs'] = 101
             item['warmExecutionMs'] = 11
+            item['warmExecutionUs'] = 11000
         with patch('math3d_inspect_product.verify_shared', return_value=self.scope), \
              patch('math3d_inspect_product.verify_release', return_value={'repo': str(ROOT)}):
             self.assertEqual('fallback', choose(self.shared, self.input)['state'])

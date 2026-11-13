@@ -30,9 +30,10 @@ def wait(broker, request):
         raise ValueError('Bounded inspection changed input geometry.')
     result = json.loads((folder / 'results.json').read_text(encoding='utf-8'))
     telemetry = broker.telemetry(job_id)
-    warm = (result.get('engineDetails', {}).get('durationMs') if broker.inspect
-            else result.get('durationMs'))
-    if (not isinstance(warm, (int, float)) or warm < 0 or warm > job['workerDurationMs']
+    warm_us = (result.get('engineDetails', {}).get('durationUs') if broker.inspect
+               else result.get('operationDurationUs'))
+    warm = warm_us / 1000 if isinstance(warm_us, int) else None
+    if (not isinstance(warm_us, int) or warm_us <= 0 or warm > job['workerDurationMs']
             or telemetry.get('ram', {}).get('state') != 'recorded'
             or not isinstance(telemetry['ram'].get('value'), int)):
         raise ValueError('Cold/warm timing or attributed RAM telemetry is unavailable.')
@@ -42,7 +43,7 @@ def wait(broker, request):
     if broker.vtk_read:
         files['read.vtp'] = {'path': str(folder / 'read.vtp'), 'sha256': sha(folder / 'read.vtp')}
     return {'jobId': job_id, 'coldInvocationMs': job['workerDurationMs'],
-            'warmExecutionMs': warm,
+            'warmExecutionMs': warm, 'warmExecutionUs': warm_us,
             'startupOverheadMs': job['workerDurationMs'] - warm,
             'peakRssBytes': telemetry['ram']['value'], 'files': files}
 
@@ -114,7 +115,8 @@ def run(release_path, output_root, samples=5):
                                  'provider': name, 'reason': str(error)[:240]})
             else:
                 raise ValueError('Adverse class input was accepted: ' + adverse['path'])
-    record = {'schemaVersion': 3, 'kind': 'scientific.bounded-inspect-class-qualification',
+    record = {'schemaVersion': 4, 'kind': 'scientific.bounded-inspect-class-qualification',
+              'measurementVersion': 2, 'warmTimingBoundary': 'worker-read-inspect-write-microseconds',
               'createdAtUtc': datetime.now(timezone.utc).isoformat(),
               'sourceCommit': release['sourceCommit'], 'releaseRecord': str(release_path),
               'releaseRecordSha256': sha(release_path), 'policySha256': policy_hash,
@@ -136,7 +138,9 @@ def verify(path):
     if sha(path) != Path(str(path) + '.sha256').read_text(encoding='utf-8').strip():
         raise ValueError('Bounded class record seal changed.')
     record = json.loads(path.read_text(encoding='utf-8'))
-    if record.get('schemaVersion') != 3 or record.get('kind') != 'scientific.bounded-inspect-class-qualification':
+    if (record.get('schemaVersion') != 4 or record.get('measurementVersion') != 2
+            or record.get('warmTimingBoundary') != 'worker-read-inspect-write-microseconds'
+            or record.get('kind') != 'scientific.bounded-inspect-class-qualification'):
         raise ValueError('Bounded class record contract changed.')
     release = verify_release(record['releaseRecord'])
     repo = Path(release['repo'])
@@ -192,8 +196,9 @@ def verify(path):
                         or result_value.get('runId') != run['jobId']
                         or broker_value.get('workerDurationMs') != run['coldInvocationMs']
                         or broker_value.get('telemetrySha256') != run['files']['telemetry.json']['sha256']
-                        or (result_value.get('engineDetails', {}).get('durationMs') if name == 'cgal'
-                            else result_value.get('durationMs')) != run['warmExecutionMs']
+                        or (result_value.get('engineDetails', {}).get('durationUs') if name == 'cgal'
+                            else result_value.get('operationDurationUs')) != run['warmExecutionUs']
+                        or run['warmExecutionMs'] != run['warmExecutionUs'] / 1000
                         or run['startupOverheadMs'] != run['coldInvocationMs'] - run['warmExecutionMs']
                         or telemetry.get('ram', {}).get('state') != 'recorded'
                         or telemetry['ram'].get('value') != run['peakRssBytes']

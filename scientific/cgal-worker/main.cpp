@@ -107,10 +107,11 @@ int main(int argc, char** argv) {
       throw std::runtime_error("Could not write output mesh");
   } catch (const std::exception& exception) { error = exception.what(); }
   const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()-started).count();
+  const auto duration_us = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-started).count();
   std::ostringstream result;
   result << "{\"schemaVersion\":1,\"runtimeId\":\"cgal-win-conda\",\"recipeId\":" << quote("cgal."+operation)
          << ",\"state\":" << quote(error.empty()?"succeeded":"failed") << ",\"exitCode\":" << (error.empty()?0:2)
-         << ",\"durationMs\":" << duration << ",\"versions\":{\"cgal\":" << quote(CGAL_VERSION_STR)
+         << ",\"durationMs\":" << duration << ",\"durationUs\":" << duration_us << ",\"versions\":{\"cgal\":" << quote(CGAL_VERSION_STR)
          << "},\"before\":" << before << ",\"after\":" << after << ",\"triangulated\":" << (triangulated?"true":"false")
          << ",\"degenerateTriangles\":" << degenerates << ",\"selfIntersections\":" << (degenerates?"null":(self_intersection?"true":"false"))
          << ",\"error\":" << quote(error) << ",\"scope\":\"Manifold importer, triangulation, degenerate triangles and self-intersections; no soup repair or Boolean operation. Boundary protection may insert vertices.\"}";

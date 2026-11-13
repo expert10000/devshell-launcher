@@ -172,6 +172,7 @@ def stage(checkpoint, state, name, callback):
         state['status'] = 'interrupted'
         state['attempts'][-1].update(result='interrupted', endedAtUtc=now(),
                                      error=str(error)[-500:])
+        state['activeStage'] = None
         save(checkpoint, state)
         raise
     state['attempts'][-1].update(result='passed', endedAtUtc=now())
@@ -272,11 +273,14 @@ def execute(checkpoint, state=None):
         checkpoint, state = load(checkpoint)
     validate(checkpoint, state)
     if state['activeStage']:
-        if (not state['attempts'] or state['attempts'][-1]['stage'] != state['activeStage']
-                or state['attempts'][-1]['result'] != 'running'):
+        if not state['attempts'] or state['attempts'][-1]['stage'] != state['activeStage']:
             raise ValueError('Incomplete stage checkpoint is inconsistent.')
-        state['attempts'][-1].update(result='interrupted', endedAtUtc=now(),
-                                     error='Process ended before stage completion')
+        if state['attempts'][-1]['result'] == 'running':
+            state['attempts'][-1].update(result='interrupted', endedAtUtc=now(),
+                                         error='Process ended before stage completion')
+        elif state['attempts'][-1]['result'] != 'interrupted' or state['status'] != 'interrupted':
+            raise ValueError('Incomplete stage checkpoint is inconsistent.')
+        state['activeStage'] = None
         state['status'] = 'interrupted'
         save(checkpoint, state)
     if state['status'] == 'complete':

@@ -232,7 +232,7 @@ def export(record_path, output, signing_key, key_id, shared_path, report_path,
                       'desktopJourney': desktop_path}
     if classes:
         evidence_paths.update({'classes': class_path,
-                               'classPolicy': repo / 'schemas/scientific-mesh-inspect-classes.v2.json',
+                               'classPolicy': repo / 'schemas/scientific-mesh-inspect-classes.v3.json',
                                'rankingPolicy': repo / 'schemas/scientific-inspect-ranking.v2.json'})
     evidence_hashes = {}
     for name, source_path in evidence_paths.items():

@@ -5,8 +5,9 @@ import math
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-POLICY = 'schemas/scientific-mesh-inspect-classes.v2.json'
-IDS = ('tetra-uniform-4', 'octa-uniform-8', 'cube-uniform-12',
+POLICY = 'schemas/scientific-mesh-inspect-classes.v3.json'
+IDS = ('tetra-uniform-4', 'concave-closed-256-512', 'torus-grid-256-400',
+       'octa-uniform-8', 'cube-uniform-12',
        'star-closed-64-128', 'star-closed-256-512', 'star-closed-1024-2048')
 
 
@@ -113,11 +114,84 @@ def _star_closed(vertices, faces, item, value):
             'radiusRange': [min(radii), max(radii)], 'signedVolume': volume}
 
 
+def _concave_star(vertices, faces, item, value):
+    proof = _star_closed(vertices, faces, item, value)
+    if proof is None:
+        return None
+    center = proof['center']
+    radii = [math.dist(point, center) for point in vertices]
+    neighbors = [set() for _ in vertices]
+    for a, b, c in faces:
+        neighbors[a].update((b, c))
+        neighbors[b].update((a, c))
+        neighbors[c].update((a, b))
+    gap = max(sum(radii[j] for j in adjacent) / len(adjacent) - radii[i]
+              for i, adjacent in enumerate(neighbors) if adjacent)
+    if gap < value['minimumConcavityRadialGap']:
+        return None
+    return {**proof, 'concavityRadialGap': gap}
+
+
+def _torus_grid(vertices, faces, item, value):
+    shapes = ((16, 8), (20, 10))
+    shape = next(((u, v) for u, v in shapes if len(vertices) == u * v and len(faces) == u * v * 2), None)
+    if shape is None:
+        return None
+    u_count, v_count = shape
+    candidates = []
+    for diagonal in (0, 1):
+        expected = []
+        for i in range(u_count):
+            for j in range(v_count):
+                a, b = i * v_count + j, ((i + 1) % u_count) * v_count + j
+                c, d = ((i + 1) % u_count) * v_count + (j + 1) % v_count, i * v_count + (j + 1) % v_count
+                expected.extend(((a, b, c), (a, c, d)) if diagonal == 0 else ((a, b, d), (b, c, d)))
+        candidates.append(expected)
+    if faces not in candidates:
+        return None
+    bounds = value['torusBounds']
+    center = tuple((max(point[axis] for point in vertices) + min(point[axis] for point in vertices)) / 2
+                   for axis in range(3))
+    if any(abs(axis) > bounds['maximumAbsoluteCenter'] for axis in center):
+        return None
+    shifted = [tuple(point[axis] - center[axis] for axis in range(3)) for point in vertices]
+    radial = [math.hypot(point[0], point[1]) for point in shifted]
+    major = sum(radial) / len(radial)
+    minor = sum(math.hypot(radius - major, point[2]) for radius, point in zip(radial, shifted)) / len(radial)
+    if not (bounds['minimumMajorRadius'] <= major <= bounds['maximumMajorRadius']
+            and bounds['minimumMinorRadius'] <= minor <= bounds['maximumMinorRadius']):
+        return None
+    phase_u = math.atan2(shifted[0][1], shifted[0][0])
+    phase_v = math.atan2(shifted[0][2], radial[0] - major)
+    for i in range(u_count):
+        u = phase_u + 2 * math.pi * i / u_count
+        for j in range(v_count):
+            v = phase_v + 2 * math.pi * j / v_count
+            radius = major + minor * math.cos(v)
+            expected = (radius * math.cos(u), radius * math.sin(u), minor * math.sin(v))
+            if math.dist(shifted[i * v_count + j], expected) > bounds['maximumParametricDeviation']:
+                return None
+    volume = 0.0
+    for a, b, c in faces:
+        va, vb, vc = shifted[a], shifted[b], shifted[c]
+        cross = (vb[1] * vc[2] - vb[2] * vc[1], vb[2] * vc[0] - vb[0] * vc[2],
+                 vb[0] * vc[1] - vb[1] * vc[0])
+        volume += sum(va[axis] * cross[axis] for axis in range(3)) / 6
+    if volume < bounds['minimumVolume']:
+        return None
+    return {'points': len(vertices), 'triangles': len(faces), 'genus': 1,
+            'majorRadius': major, 'minorRadius': minor, 'signedVolume': volume}
+
+
 def _matches(vertices, faces, item, repo, value):
     if item['mode'] == 'uniform':
         return _match(vertices, faces, repo / item['baseFixture'], value)
     if item['mode'] == 'star-closed':
         return _star_closed(vertices, faces, item, value)
+    if item['mode'] == 'concave-star':
+        return _concave_star(vertices, faces, item, value)
+    if item['mode'] == 'torus-grid':
+        return _torus_grid(vertices, faces, item, value)
     raise ValueError('Unsupported inspection class mode.')
 
 
@@ -125,7 +199,7 @@ def policy(repo=ROOT):
     repo = Path(repo).resolve(strict=True)
     path = repo / POLICY
     value = json.loads(path.read_text(encoding='utf-8'))
-    if (value.get('schemaVersion') != 2 or value.get('kind') != 'scientific.mesh-inspect-input-classes'
+    if (value.get('schemaVersion') != 3 or value.get('kind') != 'scientific.mesh-inspect-input-classes'
             or value.get('operation') != 'mesh.inspect'
             or [item.get('id') for item in value.get('classes', [])] != list(IDS)
             or value.get('minimumScale') != .5 or value.get('maximumScale') != 2
@@ -134,14 +208,23 @@ def policy(repo=ROOT):
             or value.get('maximumInputBytes') != 131072
             or value.get('starBounds') != {'minimumRadius': .6, 'maximumRadius': 1.4,
                 'maximumAbsoluteCenter': 2., 'maximumAbsoluteCoordinate': 3.5,
-                'minimumFaceArea': 1e-8, 'minimumVolume': .1}):
+                'minimumFaceArea': 1e-8, 'minimumVolume': .1}
+            or value.get('minimumConcavityRadialGap') != .03
+            or value.get('torusBounds') != {'minimumMajorRadius': .9, 'maximumMajorRadius': 1.2,
+                'minimumMinorRadius': .3, 'maximumMinorRadius': .5,
+                'maximumAbsoluteCenter': .2, 'maximumParametricDeviation': .02,
+                'minimumVolume': .5}):
         raise ValueError('Shared inspection class policy changed.')
     for item in value['classes']:
         expected_ranges = {'star-closed-64-128': (64, 128),
                            'star-closed-256-512': (256, 512),
-                           'star-closed-1024-2048': (1024, 2048)}
+                           'star-closed-1024-2048': (1024, 2048),
+                           'concave-closed-256-512': (256, 512),
+                           'torus-grid-256-400': (256, 400)}
         if item['id'] in expected_ranges:
-            if (item.get('mode') != 'star-closed' or
+            expected_mode = {'concave-closed-256-512': 'concave-star',
+                             'torus-grid-256-400': 'torus-grid'}.get(item['id'], 'star-closed')
+            if (item.get('mode') != expected_mode or
                     (item.get('minimumTriangles'), item.get('maximumTriangles')) != expected_ranges[item['id']]):
                 raise ValueError('Shared inspection class tier changed.')
         elif item.get('mode') != 'uniform':
@@ -152,7 +235,7 @@ def policy(repo=ROOT):
                 or sha(base) != item['baseSha256'] or sha(holdout) != item['holdoutSha256']
                 or not _matches(*mesh(base), item, repo, value)
                 or not _matches(*mesh(holdout), item, repo, value)
-                or item['mode'] == 'star-closed' and mesh(base)[1] == mesh(holdout)[1]):
+                or item['mode'] != 'uniform' and mesh(base)[1] == mesh(holdout)[1]):
             raise ValueError('Shared inspection class holdout changed: ' + item['id'])
     for item in value['rejectedFixtures']:
         path = (repo / item['path']).resolve(strict=True)

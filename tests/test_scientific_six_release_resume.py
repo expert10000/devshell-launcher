@@ -50,6 +50,7 @@ class ReleaseResume(unittest.TestCase):
                 resume.stage(path, value, 'desktop:remesh', lambda: (_ for _ in ()).throw(KeyboardInterrupt()))
             saved = resume.load(path)[1]
             self.assertEqual('interrupted', saved['status'])
+            self.assertIsNone(saved['activeStage'])
             self.assertEqual('current', saved['desktop']['inspect']['recordId'])
             self.assertEqual('interrupted', saved['attempts'][0]['result'])
             resume.stage(path, saved, 'desktop:remesh', lambda: saved['desktop'].update(remesh={'recordId': 'new'}))
@@ -107,6 +108,34 @@ class ReleaseResume(unittest.TestCase):
             saved = resume.load(path)[1]
             self.assertEqual('interrupted', saved['status'])
             self.assertEqual('interrupted', saved['attempts'][-1]['result'])
+
+    def test_failed_stage_checkpoint_can_resume(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'release/checkpoint.json'
+            value = state(path.parent)
+            resume.save(path, value)
+            with self.assertRaisesRegex(ValueError, 'desktop failure'):
+                resume.stage(path, value, 'build', lambda: (_ for _ in ()).throw(ValueError('desktop failure')))
+            saved = resume.load(path)[1]
+            self.assertIsNone(saved['activeStage'])
+            with patch.object(resume, 'validate'), \
+                 patch.object(resume, 'stage', side_effect=RuntimeError('retry started')):
+                with self.assertRaisesRegex(RuntimeError, 'retry started'):
+                    resume.execute(path)
+
+    def test_legacy_failed_stage_checkpoint_can_resume(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'release/checkpoint.json'
+            value = state(path.parent)
+            value['activeStage'] = 'build'
+            value['status'] = 'interrupted'
+            value['attempts'] = [{'stage': 'build', 'result': 'interrupted'}]
+            resume.save(path, value)
+            with patch.object(resume, 'validate'), \
+                 patch.object(resume, 'stage', side_effect=RuntimeError('retry started')):
+                with self.assertRaisesRegex(RuntimeError, 'retry started'):
+                    resume.execute(path)
+            self.assertIsNone(resume.load(path)[1]['activeStage'])
 
     def test_stale_saved_desktop_support_blocks_resume(self):
         value = state(Path('release'))

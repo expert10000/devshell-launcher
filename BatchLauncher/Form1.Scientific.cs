@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -10,7 +11,7 @@ namespace BatchLauncher;
 
 public partial class Form1
 {
-    private readonly Dictionary<string, ScientificJob> _scientificJobs = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, ScientificJob> _scientificJobs = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim _scientificGate = new(1, 1);
     private bool _scientificCloseHook;
     private sealed class ScientificJob
@@ -98,7 +99,10 @@ public partial class Form1
             if(compiler.Success)job.CompilerVersion=compiler.Groups["version"].Value;
             var path=Path.Combine(job.Directory,"full.log");if(!File.Exists(path)||new FileInfo(path).Length<16777216)File.AppendAllText(path,text,Encoding.UTF8);
         }
-        ScientificSend(new{type="scientific.runtime.job",job=ScientificJobSnapshot(job)});
+        // Internal resilience probes own processes but do not replace the managed parent in the UI.
+        if (_scientificJobs.TryGetValue(job.ProfileId + ":" + job.RuntimeId, out var current)
+            && ReferenceEquals(current, job))
+            ScientificSend(new{type="scientific.runtime.job",job=ScientificJobSnapshot(job)});
     }
     private async Task ScientificProcessAsync(ScientificJob job,string prefix,string executable,string[] arguments,string directory,int timeoutSeconds,string? extraPath=null,long? memoryLimitBytes=null,Action<long>? peakMemory=null,Action<string>? stdoutCapture=null)
     {

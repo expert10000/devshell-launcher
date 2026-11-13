@@ -197,7 +197,7 @@ public static class ScientificRunFingerprint
             names.AddRange(new[] { "BatchLauncher/Form1.Scientific.VtkRead.cs",
                 "BatchLauncher/ScientificQualificationRecords.VtkRead.cs",
                 "scientific/fixtures/vtk/read/manifest.v4.json",
-                "schemas/scientific-mesh-inspect-classes.v2.json",
+                "schemas/scientific-mesh-inspect-classes.v3.json",
                 "tools/scientific-broker/inspect_classes.py",
                 "scientific/fixtures/inspect-shared/tetra-holdout.obj",
                 "scientific/fixtures/inspect-shared/octa-holdout.obj",
@@ -221,7 +221,7 @@ public static class ScientificRunFingerprint
             names.AddRange(new[] { "BatchLauncher/Form1.Scientific.CgalInspect.cs",
                 "BatchLauncher/ScientificQualificationRecords.Inspect.cs",
                 "scientific/fixtures/cgal-inspect/manifest.v3.json",
-                "schemas/scientific-mesh-inspect-classes.v2.json",
+                "schemas/scientific-mesh-inspect-classes.v3.json",
                 "tools/scientific-broker/inspect_classes.py",
                 "scientific/fixtures/inspect-shared/tetra-holdout.obj",
                 "scientific/fixtures/inspect-shared/octa-holdout.obj",
@@ -254,7 +254,14 @@ public static class ScientificRunFingerprint
                 "scientific/fixtures/inspect-classes/ico-collapsed.obj",
                 "scientific/fixtures/inspect-classes/ico-disconnected.obj",
                 "scientific/fixtures/inspect-classes/ico-nonfinite.obj",
-                "scientific/fixtures/inspect-classes/ico-oversize.obj" });
+                "scientific/fixtures/inspect-classes/ico-oversize.obj",
+                "scientific/fixtures/inspect-topology/concave-uv-512.obj",
+                "scientific/fixtures/inspect-topology/concave-ico-320-holdout.obj",
+                "scientific/fixtures/inspect-topology/torus-grid-256.obj",
+                "scientific/fixtures/inspect-topology/torus-grid-400-holdout.obj",
+                "scientific/fixtures/inspect-topology/torus-flipped.obj",
+                "scientific/fixtures/inspect-topology/torus-scrambled.obj",
+                "tools/scientific-broker/generate_inspect_topology.py" });
         if (recipeId is "l9.math3d-inspect-selection" or "l9.math3d-inspect-preview")
             names.AddRange(new[] { "BatchLauncher/Form1.Scientific.InspectSelection.cs",
                 "tools/scientific-broker/math3d_inspect_product.py", "tools/scientific-broker/advisor.py",
@@ -262,7 +269,7 @@ public static class ScientificRunFingerprint
                 "tools/scientific-broker/class_inspect_qualification.py",
                 "tools/scientific-broker/comparable_inspect.py",
                 "schemas/scientific-inspect-ranking.v2.json",
-                "schemas/scientific-mesh-inspect-classes.v2.json" });
+                "schemas/scientific-mesh-inspect-classes.v3.json" });
         if (recipeId is "cgal.fill-one-hole" or "cgal.fill-quad-hole" or "cgal.fill-two-quad-holes" or "cgal.fill-bounded-holes")
             names.AddRange(new[] { "BatchLauncher/Form1.Scientific.Cgal.cs", "tools/scientific-cgal-hole-repair-worker.py",
                 "tools/scientific_cgal_mesh_metrics.py", "scientific/cgal-worker/hole_repair.cpp" });

@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/scientific-broker'))
 from inspect_classes import classify, equivalent, mesh, policy  # noqa: E402
 from generate_inspect_holdouts import render, sphere  # noqa: E402
+from generate_inspect_topology import fixtures as topology_fixtures  # noqa: E402
 
 
 class InspectClassesTests(unittest.TestCase):
@@ -52,7 +53,7 @@ class InspectClassesTests(unittest.TestCase):
 
     def test_independent_closed_topology_and_size_tiers(self):
         value, _ = policy(ROOT)
-        self.assertEqual(2, value['schemaVersion'])
+        self.assertEqual(3, value['schemaVersion'])
         tiers = [item for item in value['classes'] if item['mode'] == 'star-closed']
         self.assertEqual([(64, 128), (256, 512), (1024, 2048)],
                          [(item['minimumTriangles'], item['maximumTriangles']) for item in tiers])
@@ -63,6 +64,27 @@ class InspectClassesTests(unittest.TestCase):
         for level, triangles in ((1, 80), (2, 320), (3, 1280)):
             committed = ROOT / f'scientific/fixtures/inspect-classes/ico-{triangles}-holdout.obj'
             self.assertEqual(committed.read_text(), render(*sphere(level)))
+
+    def test_nonconvex_and_torus_classes(self):
+        value, _ = policy(ROOT)
+        self.assertEqual(2, len([item for item in value['classes']
+                                 if item['mode'] in ('concave-star', 'torus-grid')]))
+        for relative, contents in topology_fixtures().items():
+            self.assertEqual((ROOT / relative).read_text(), contents)
+        for class_id in ('concave-closed-256-512', 'torus-grid-256-400'):
+            item = next(entry for entry in value['classes'] if entry['id'] == class_id)
+            self.assertNotEqual(mesh(ROOT / item['baseFixture'])[1],
+                                mesh(ROOT / item['holdoutFixture'])[1])
+            with tempfile.TemporaryDirectory() as folder:
+                translated = Path(folder) / 'translated.obj'
+                lines = (ROOT / item['holdoutFixture']).read_text().splitlines()
+                for index, line in enumerate(lines):
+                    if line.startswith('v '):
+                        point = [float(number) for number in line.split()[1:]]
+                        lines[index] = 'v ' + ' '.join(str(axis + (.05 if number == 0 else 0))
+                                                         for number, axis in enumerate(point))
+                translated.write_text('\n'.join(lines) + '\n')
+                self.assertEqual(class_id, classify(translated, ROOT)['classId'])
 
     def test_large_class_accepts_new_geometry_but_rejects_broken_topology(self):
         value, _ = policy(ROOT)

@@ -16,7 +16,7 @@ const output = process.env.DEVSHELL_DESKTOP_JOURNEY_RUNS
 for (const [name, value] of Object.entries({ runs, classRecord, acceptedInput, fallbackInput, output }))
   assert.ok(value, `Set ${name} for the managed inspection journey`)
 
-async function completed(before, expectedState, timeoutMs = 600_000) {
+async function completed(before, expectedState, recipeId = 'l9.math3d-inspect-selection', timeoutMs = 600_000) {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     for (const name of readdirSync(runs)) {
@@ -25,7 +25,7 @@ async function completed(before, expectedState, timeoutMs = 600_000) {
       if (!existsSync(path)) continue
       let result
       try { result = JSON.parse(readFileSync(path, 'utf8')) } catch { continue }
-      if (result.recipeId !== 'l9.math3d-inspect-selection') continue
+      if (result.recipeId !== recipeId) continue
       assert.equal(result.state, expectedState, `${name}: ${result.state} / ${JSON.stringify(result.diagnostics)}`)
       return { name, result }
     }
@@ -47,11 +47,21 @@ try {
   const panel = main.getByRole('region', { name: 'MATH3D inspection backend selection' })
   await panel.getByLabel('Bounded inspection class record').fill(classRecord)
   await panel.getByLabel('Inspection OBJ input').fill(acceptedInput)
+  const cancelledPreviewBefore = new Set(readdirSync(runs))
   await panel.getByRole('button', { name: 'Verify and preview' }).click()
+  await panel.getByRole('button', { name: 'Stop', exact: true }).click()
+  await completed(cancelledPreviewBefore, 'cancelled', 'l9.math3d-inspect-preview')
+  const previewBefore = new Set(readdirSync(runs))
+  await panel.getByRole('button', { name: 'Verify and preview' }).click()
+  const previewRun = await completed(previewBefore, 'succeeded', 'l9.math3d-inspect-preview')
+  assert.ok(previewRun.result.selection?.selectedProvider)
   const preview = panel.getByRole('status').filter({ hasText: /selected (?:cgal|vtk)-win-conda/ }).first()
   await preview.waitFor({ timeout: 210_000 })
   const automaticProvider = (await preview.textContent()).match(/selected (cgal-win-conda|vtk-win-conda)/)?.[1]
   assert.ok(automaticProvider, 'No qualified automatic provider for the accepted class')
+  await panel.getByLabel('Inspection OBJ input').fill(fallbackInput)
+  assert.equal(await preview.count(), 0, 'Changing input retained an older recommendation')
+  await panel.getByLabel('Inspection OBJ input').fill(acceptedInput)
   const manualProvider = automaticProvider === 'cgal-win-conda' ? 'vtk-win-conda' : 'cgal-win-conda'
 
   const ids = {}

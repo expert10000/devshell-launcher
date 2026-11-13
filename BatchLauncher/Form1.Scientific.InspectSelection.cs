@@ -50,32 +50,62 @@ public partial class Form1
         return args.ToArray();
     }
 
-    private async Task<object> ScientificInspectSelectionPreviewAsync(JsonElement request)
+    private object ScientificInspectPreviewStart(string profileId, JsonElement request)
     {
         var input = InspectSelectionInput(request);
         var shared = InspectSelectionPath(request, "sharedRecord");
         var classes = InspectSelectionPath(request, "classRecord");
         if (shared == null && classes == null) throw new InvalidOperationException("Supply a shared or bounded class evidence record.");
         var manual = InspectSelectionManual(request);
-        var script = Path.Combine(ScientificSourceRoot, "tools", "scientific-broker", "math3d_inspect_product.py");
-        // The scientific environment includes psutil for broker process-tree cleanup checks.
-        var python = Path.Combine(ScientificPrefix("gmsh-win-conda"), "python.exe");
-        var start = new ProcessStartInfo(python) { WorkingDirectory = ScientificSourceRoot,
-            UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true,
-            RedirectStandardError = true };
-        foreach (var argument in InspectSelectionArguments("preview", script, input, shared, classes, manual)) start.ArgumentList.Add(argument);
-        start.Environment["PYTHONNOUSERSITE"] = "1";
-        start.Environment.Remove("PYTHONPATH");
-        using var process = Process.Start(start) ?? throw new InvalidOperationException("Could not start inspection selector.");
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(3));
-        var stdout = process.StandardOutput.ReadToEndAsync(timeout.Token);
-        var stderr = process.StandardError.ReadToEndAsync(timeout.Token);
-        try { await process.WaitForExitAsync(timeout.Token); }
-        catch (OperationCanceledException) { process.Kill(entireProcessTree: true); throw new TimeoutException("Inspection evidence preview timed out."); }
-        var output = await stdout;
-        var errors = await stderr;
-        if (process.ExitCode != 0) throw new InvalidOperationException("Inspection evidence preview failed: " + errors[^Math.Min(errors.Length, 600)..]);
-        return JsonNode.Parse(output) ?? throw new InvalidOperationException("Inspection selector returned no decision.");
+        if (!_scientificGate.Wait(0)) throw new InvalidOperationException("Another Scientific job is running; stop or wait for it.");
+        try
+        {
+            var runId = Guid.NewGuid().ToString("N");
+            var directory = Path.Combine(ScientificDataRoot, "runs", runId);
+            Directory.CreateDirectory(directory);
+            var job = new ScientificJob { Id = runId, ProfileId = profileId, RuntimeId = "cgal-win-conda",
+                RecipeId = "l9.math3d-inspect-preview", Directory = directory };
+            var inputArtifact = new JsonObject { ["path"] = input, ["sha256"] = ScientificHash(input),
+                ["mediaType"] = "model/obj", ["bytes"] = new FileInfo(input).Length };
+            ScientificWriteRequest(job, JsonSerializer.SerializeToElement(new { sharedRecord = shared,
+                classRecord = classes, manualProvider = manual }), inputArtifact, "preview.json", timeoutSeconds: 180);
+            _scientificJobs[profileId + ":cgal-win-conda"] = job;
+            ScientificSend(new { type = "scientific.runtime.job", job = ScientificJobSnapshot(job) });
+            _ = ScientificInspectPreviewRunAsync(job, input, shared, classes, manual);
+            return ScientificJobSnapshot(job);
+        }
+        catch { _scientificGate.Release(); throw; }
+    }
+
+    private async Task ScientificInspectPreviewRunAsync(ScientificJob job, string input, string? shared,
+        string? classes, string? manual)
+    {
+        await Task.Yield();
+        var timer = Stopwatch.StartNew();
+        try
+        {
+            var prefix = ScientificPrefix("gmsh-win-conda");
+            var script = Path.Combine(ScientificSourceRoot, "tools", "scientific-broker", "math3d_inspect_product.py");
+            var output = new System.Text.StringBuilder();
+            await ScientificProcessAsync(job, prefix, Path.Combine(prefix, "python.exe"),
+                InspectSelectionArguments("preview", script, input, shared, classes, manual),
+                job.Directory, 180, stdoutCapture: chunk => output.Append(chunk));
+            var selection = JsonNode.Parse(output.ToString()) ?? throw new InvalidDataException("Inspection preview returned no selection.");
+            File.WriteAllText(Path.Combine(job.Directory, "preview.json"), selection.ToJsonString());
+            File.WriteAllText(Path.Combine(job.Directory, "results.json"),
+                new JsonObject { ["selection"] = selection.DeepClone(), ["validatedCapabilities"] = new JsonArray() }.ToJsonString());
+            job.State = "succeeded"; job.Stage = "completed";
+        }
+        catch (OperationCanceledException) { job.State = "cancelled"; job.Stage = "stopped"; job.Error = "Inspection preview was stopped."; }
+        catch (TimeoutException exception) { job.State = "timed-out"; job.Stage = "timed-out"; job.Error = exception.Message; }
+        catch (Exception exception) { job.State = "failed"; job.Stage = "failed"; job.Error = exception.Message; }
+        finally
+        {
+            job.DurationMs = timer.ElapsedMilliseconds;
+            try { ScientificFinish(job); ScientificLog(job, $"\n[{job.State}] {job.DurationMs} ms {job.Error}\n"); }
+            catch (Exception exception) { Debug.WriteLine($"Inspection preview finalization failed: {exception}"); }
+            finally { ScientificSend(new { type = "scientific.runtime.job", job = ScientificJobSnapshot(job) }); _scientificGate.Release(); }
+        }
     }
 
     private object ScientificInspectSelectionStart(string profileId, JsonElement request)

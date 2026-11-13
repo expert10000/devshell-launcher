@@ -100,7 +100,7 @@ public partial class Form1
         }
         ScientificSend(new{type="scientific.runtime.job",job=ScientificJobSnapshot(job)});
     }
-    private async Task ScientificProcessAsync(ScientificJob job,string prefix,string executable,string[] arguments,string directory,int timeoutSeconds,string? extraPath=null,long? memoryLimitBytes=null,Action<long>? peakMemory=null)
+    private async Task ScientificProcessAsync(ScientificJob job,string prefix,string executable,string[] arguments,string directory,int timeoutSeconds,string? extraPath=null,long? memoryLimitBytes=null,Action<long>? peakMemory=null,Action<string>? stdoutCapture=null)
     {
         job.Cancellation.Token.ThrowIfCancellationRequested();
         job.Stage=arguments.Contains("--build")?"build":arguments.Contains("-S")?"configure":executable.EndsWith("python.exe",StringComparison.OrdinalIgnoreCase)?"worker":"run";
@@ -122,8 +122,8 @@ public partial class Form1
         try
         {
             owner.Add(process);
-            async Task Drain(StreamReader reader){var buffer=new char[4096];int count;while((count=await reader.ReadAsync(buffer.AsMemory()))>0)ScientificLog(job,new string(buffer,0,count));}
-            var output=Drain(process.StandardOutput);var errors=Drain(process.StandardError);
+            async Task Drain(StreamReader reader,Action<string>? capture){var buffer=new char[4096];int count;while((count=await reader.ReadAsync(buffer.AsMemory()))>0){var chunk=new string(buffer,0,count);capture?.Invoke(chunk);ScientificLog(job,chunk);}}
+            var output=Drain(process.StandardOutput,stdoutCapture);var errors=Drain(process.StandardError,null);
             try{await process.WaitForExitAsync(cancellation.Token);}
             catch(OperationCanceledException){owner.Stop();await process.WaitForExitAsync();await Task.WhenAll(output,errors);if(job.Cancellation.IsCancellationRequested)throw;throw new TimeoutException($"Step exceeded {timeoutSeconds} seconds.");}
             await Task.WhenAll(output,errors);job.ExitCode=process.ExitCode;
@@ -239,7 +239,7 @@ public partial class Form1
             else if(action=="install-runtime")data=ScientificInstallStart(profileId,runtimeId);
             else if(action=="sage-recipe"){ScientificProviderRegistry.RequireAction(runtimeId,action);data=ScientificSageStart(profileId,runtimeId,request);}
             else if(action=="math3d-readiness"){ScientificProviderRegistry.RequireAction(runtimeId,action);data=ScientificMath3DReadiness(profileId);}
-            else if(action=="inspect-selection-preview")data=await ScientificInspectSelectionPreviewAsync(request);
+            else if(action=="inspect-selection-preview")data=ScientificInspectPreviewStart(profileId,request);
             else if(action=="inspect-selection-run")data=ScientificInspectSelectionStart(profileId,request);
             else if(action=="datasets")
             {

@@ -50,6 +50,7 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
     setJobs(previous => {
       const existing = previous[job.runtimeId]
       if (existing?.jobId === job.jobId && existing.state !== 'running' && job.state === 'running') return previous
+      if (existing?.jobId !== job.jobId && existing?.startedAtUtc && job.startedAtUtc && existing.startedAtUtc > job.startedAtUtc) return previous
       return { ...previous, [job.runtimeId]: job }
     })
     if (job.state === 'succeeded' && (job.recipeId === 'diagnostics' || job.recipeId === 'setup.install') && !completed.current.has(job.jobId)) { completed.current.add(job.jobId); refresh.current() }
@@ -103,7 +104,7 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
       else if (message.action === 'ci-matrix' && Array.isArray(message.data)) setCiMatrix(message.data as ScientificCiImport[])
       else if ((message.action === 'retest-plan' || message.action === 'retest-status' || message.action === 'retest-start' || message.action === 'retest-stop') && message.data) setRetestPlan(message.data as ScientificRetestPlan)
       else if (message.action === 'history-drift-diagnose' && message.data) setDriftDiagnosis(message.data as ScientificDriftDiagnosis)
-      else if (message.action === 'inspect-selection-preview' && message.data) setInspectSelection(message.data as InspectSelection)
+      else if (message.action === 'inspect-selection-preview' && message.data) mergeJob(message.data as ScientificJob)
       else if (message.action === 'inspect-selection-run' && message.data) mergeJob(message.data as ScientificJob)
       else if ((message.action === 'run-matrix' || message.action === 'vtk-rejections' || message.action === 'real-mesh-suite') && message.data) mergeJob(message.data as ScientificJob)
       else if (message.action === 'export') { const result = message.data as { path?: string; cancelled?: boolean }; setNotice(result.cancelled ? 'Profile export cancelled.' : `Profile exported: ${result.path ?? ''}`) }

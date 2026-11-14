@@ -1,15 +1,17 @@
 """Fail-closed tiny-transform and bounded closed-mesh inspection classes."""
 import hashlib
+from copy import deepcopy
 import json
 import math
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-POLICY = 'schemas/scientific-mesh-inspect-classes.v4.json'
+POLICY = 'schemas/scientific-mesh-inspect-classes.v5.json'
 IDS = ('tetra-uniform-4', 'concave-closed-256-512', 'torus-grid-256-400',
        'torus-surface-1024-1600',
        'octa-uniform-8', 'cube-uniform-12',
        'star-closed-64-128', 'star-closed-256-512', 'star-closed-1024-2048')
+_POLICY_CACHE = {}
 
 
 def sha(path):
@@ -210,6 +212,20 @@ def _torus_surface(vertices, faces, item, value):
         angles.append((math.atan2(point[1], point[0]), math.atan2(point[2], radius - major)))
     def delta(left, right):
         return abs((left - right + math.pi) % (2 * math.pi) - math.pi)
+    def unwrap(left, right):
+        return left + (right - left + math.pi) % (2 * math.pi) - math.pi
+    uv_faces = []
+    for face in faces:
+        first = angles[face[0]]
+        uv = (first, tuple(unwrap(first[axis], angles[face[1]][axis]) for axis in (0, 1)),
+              tuple(unwrap(first[axis], angles[face[2]][axis]) for axis in (0, 1)))
+        area = ((uv[1][0] - uv[0][0]) * (uv[2][1] - uv[0][1])
+                - (uv[1][1] - uv[0][1]) * (uv[2][0] - uv[0][0]))
+        if area < bounds['minimumParametricFaceArea']:
+            return None
+        uv_faces.append(uv)
+    if _overlapping_uv_faces(faces, uv_faces):
+        return None
     edges, neighbors, used, volume = {}, [set() for _ in vertices], set(), 0.
     for a, b, c in faces:
         used.update((a, b, c))
@@ -250,6 +266,48 @@ def _torus_surface(vertices, faces, item, value):
             'majorRadius': major, 'minorRadius': minor, 'signedVolume': volume}
 
 
+def _overlapping_uv_faces(faces, uv_faces):
+    """Reject a torus whose surface folds over itself in periodic parameter space."""
+    period = 2 * math.pi
+    cells = {}
+    for index, triangle in enumerate(uv_faces):
+        for u_shift in (-period, 0, period):
+            for v_shift in (-period, 0, period):
+                shifted = tuple((point[0] + u_shift, point[1] + v_shift) for point in triangle)
+                u0, u1 = min(point[0] for point in shifted), max(point[0] for point in shifted)
+                v0, v1 = min(point[1] for point in shifted), max(point[1] for point in shifted)
+                if u1 < 0 or u0 > period or v1 < 0 or v0 > period:
+                    continue
+                for u_cell in range(max(0, int(u0 * 8 / math.pi)), min(16, int(u1 * 8 / math.pi)) + 1):
+                    for v_cell in range(max(0, int(v0 * 4 / math.pi)), min(8, int(v1 * 4 / math.pi)) + 1):
+                        bucket = cells.setdefault((u_cell, v_cell), [])
+                        for other, prior in bucket:
+                            if index == other or len(set(faces[index]) & set(faces[other])) >= 2:
+                                continue
+                            if _triangles_overlap(shifted, prior):
+                                return True
+                        bucket.append((index, shifted))
+    return False
+
+
+def _triangles_overlap(left, right):
+    def orient(a, b, c):
+        return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+    epsilon = 1e-9
+    for triangle, other in ((left, right), (right, left)):
+        for point in triangle:
+            if all(orient(other[i], other[(i + 1) % 3], point) > epsilon for i in range(3)):
+                return True
+    for i in range(3):
+        a, b = left[i], left[(i + 1) % 3]
+        for j in range(3):
+            c, d = right[j], right[(j + 1) % 3]
+            if (orient(a, b, c) * orient(a, b, d) < -epsilon
+                    and orient(c, d, a) * orient(c, d, b) < -epsilon):
+                return True
+    return False
+
+
 def _matches(vertices, faces, item, repo, value):
     if item['mode'] == 'uniform':
         return _match(vertices, faces, repo / item['baseFixture'], value)
@@ -268,7 +326,19 @@ def policy(repo=ROOT):
     repo = Path(repo).resolve(strict=True)
     path = repo / POLICY
     value = json.loads(path.read_text(encoding='utf-8'))
-    if (value.get('schemaVersion') != 4 or value.get('kind') != 'scientific.mesh-inspect-input-classes'
+    checked_paths = [item[key] for item in value.get('classes', [])
+                     for key in ('baseFixture', 'holdoutFixture') if key in item]
+    checked_paths += [extra['path'] for item in value.get('classes', [])
+                      for extra in item.get('independentHoldouts', [])]
+    checked_paths += [item['path'] for item in value.get('rejectedFixtures', [])]
+    paths = [((repo / relative).resolve(strict=True), relative) for relative in checked_paths]
+    if any(not actual.is_relative_to(repo) for actual, _ in paths):
+        raise ValueError('Shared inspection fixture escaped its checkout.')
+    policy_hash = sha(path)
+    cache_key = (str(repo), policy_hash, tuple((relative, sha(actual)) for actual, relative in paths))
+    if cache_key in _POLICY_CACHE:
+        return deepcopy(_POLICY_CACHE[cache_key]), policy_hash
+    if (value.get('schemaVersion') != 5 or value.get('kind') != 'scientific.mesh-inspect-input-classes'
             or value.get('operation') != 'mesh.inspect'
             or [item.get('id') for item in value.get('classes', [])] != list(IDS)
             or value.get('minimumScale') != .5 or value.get('maximumScale') != 2
@@ -287,6 +357,7 @@ def policy(repo=ROOT):
                 'minimumMinorRadius': .3, 'maximumMinorRadius': .5, 'maximumAbsoluteCenter': .2,
                 'maximumTubeDeviation': .025, 'maximumMajorAngularEdge': .35,
                 'maximumMinorAngularEdge': .5, 'minimumFaceArea': 1e-5,
+                'minimumParametricFaceArea': .001,
                 'minimumVolume': .5}):
         raise ValueError('Shared inspection class policy changed.')
     for item in value['classes']:
@@ -313,6 +384,18 @@ def policy(repo=ROOT):
                 or not _matches(*mesh(holdout), item, repo, value)
                 or item['mode'] != 'uniform' and mesh(base)[1] == mesh(holdout)[1]):
             raise ValueError('Shared inspection class holdout changed: ' + item['id'])
+        independent = item.get('independentHoldouts', [])
+        if item['id'] == 'torus-surface-1024-1600':
+            if len(independent) != 2:
+                raise ValueError('Medium torus requires two independent holdouts.')
+        elif independent:
+            raise ValueError('Unexpected independent class holdout.')
+        for extra in independent:
+            path = (repo / extra['path']).resolve(strict=True)
+            if (not path.is_relative_to(repo) or sha(path) != extra['sha256']
+                    or not _matches(*mesh(path), item, repo, value)
+                    or mesh(path)[1] in (mesh(base)[1], mesh(holdout)[1])):
+                raise ValueError('Independent inspection holdout changed.')
     for item in value['rejectedFixtures']:
         path = (repo / item['path']).resolve(strict=True)
         if not path.is_relative_to(repo) or sha(path) != item['sha256']:
@@ -323,7 +406,9 @@ def policy(repo=ROOT):
             continue
         if any(_matches(vertices, faces, entry, repo, value) for entry in value['classes']):
             raise ValueError('Adverse inspection fixture entered a class.')
-    return value, sha(repo / POLICY)
+    _POLICY_CACHE.clear()
+    _POLICY_CACHE[cache_key] = deepcopy(value)
+    return value, policy_hash
 
 
 def classify(path, repo=ROOT):

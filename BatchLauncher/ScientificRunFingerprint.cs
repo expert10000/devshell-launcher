@@ -197,7 +197,7 @@ public static class ScientificRunFingerprint
             names.AddRange(new[] { "BatchLauncher/Form1.Scientific.VtkRead.cs",
                 "BatchLauncher/ScientificQualificationRecords.VtkRead.cs",
                 "scientific/fixtures/vtk/read/manifest.v4.json",
-                "schemas/scientific-mesh-inspect-classes.v4.json",
+                "schemas/scientific-mesh-inspect-classes.v5.json",
                 "tools/scientific-broker/inspect_classes.py",
                 "scientific/fixtures/inspect-shared/tetra-holdout.obj",
                 "scientific/fixtures/inspect-shared/octa-holdout.obj",
@@ -221,7 +221,7 @@ public static class ScientificRunFingerprint
             names.AddRange(new[] { "BatchLauncher/Form1.Scientific.CgalInspect.cs",
                 "BatchLauncher/ScientificQualificationRecords.Inspect.cs",
                 "scientific/fixtures/cgal-inspect/manifest.v3.json",
-                "schemas/scientific-mesh-inspect-classes.v4.json",
+                "schemas/scientific-mesh-inspect-classes.v5.json",
                 "tools/scientific-broker/inspect_classes.py",
                 "scientific/fixtures/inspect-shared/tetra-holdout.obj",
                 "scientific/fixtures/inspect-shared/octa-holdout.obj",
@@ -263,6 +263,10 @@ public static class ScientificRunFingerprint
                 "scientific/fixtures/inspect-topology/torus-scrambled.obj",
                 "scientific/fixtures/inspect-topology/torus-surface-1024.obj",
                 "scientific/fixtures/inspect-topology/torus-surface-1600-holdout.obj",
+                "scientific/fixtures/inspect-topology/torus-surface-1024-irregular-holdout.obj",
+                "scientific/fixtures/inspect-topology/torus-surface-1296-irregular-holdout.obj",
+                "scientific/fixtures/inspect-topology/torus-surface-folded.obj",
+                "scientific/fixtures/inspect-topology/torus-surface-crossing.obj",
                 "scientific/fixtures/inspect-topology/torus-surface-open.obj",
                 "scientific/fixtures/inspect-topology/torus-surface-inverted.obj",
                 "scientific/fixtures/inspect-topology/torus-surface-pinched.obj",
@@ -275,7 +279,7 @@ public static class ScientificRunFingerprint
                 "tools/scientific-broker/class_inspect_qualification.py",
                 "tools/scientific-broker/comparable_inspect.py",
                 "schemas/scientific-inspect-ranking.v2.json",
-                "schemas/scientific-mesh-inspect-classes.v4.json" });
+                "schemas/scientific-mesh-inspect-classes.v5.json" });
         if (recipeId is "cgal.fill-one-hole" or "cgal.fill-quad-hole" or "cgal.fill-two-quad-holes" or "cgal.fill-bounded-holes")
             names.AddRange(new[] { "BatchLauncher/Form1.Scientific.Cgal.cs", "tools/scientific-cgal-hole-repair-worker.py",
                 "tools/scientific_cgal_mesh_metrics.py", "scientific/cgal-worker/hole_repair.cpp" });

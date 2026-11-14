@@ -53,7 +53,7 @@ class InspectClassesTests(unittest.TestCase):
 
     def test_independent_closed_topology_and_size_tiers(self):
         value, _ = policy(ROOT)
-        self.assertEqual(4, value['schemaVersion'])
+        self.assertEqual(5, value['schemaVersion'])
         tiers = [item for item in value['classes'] if item['mode'] == 'star-closed']
         self.assertEqual([(64, 128), (256, 512), (1024, 2048)],
                          [(item['minimumTriangles'], item['maximumTriangles']) for item in tiers])
@@ -85,6 +85,17 @@ class InspectClassesTests(unittest.TestCase):
                                                          for number, axis in enumerate(point))
                 translated.write_text('\n'.join(lines) + '\n')
                 self.assertEqual(class_id, classify(translated, ROOT)['classId'])
+
+    def test_irregular_torus_holdouts_and_crossing_adversaries(self):
+        value, _ = policy(ROOT)
+        torus = next(item for item in value['classes'] if item['id'] == 'torus-surface-1024-1600')
+        self.assertEqual(2, len(torus['independentHoldouts']))
+        for extra in torus['independentHoldouts']:
+            self.assertEqual(torus['id'], classify(ROOT / extra['path'], ROOT)['classId'])
+            self.assertNotEqual(extra['sha256'], torus['holdoutSha256'])
+        for name in ('torus-surface-folded.obj', 'torus-surface-crossing.obj'):
+            with self.assertRaises(ValueError):
+                classify(ROOT / 'scientific/fixtures/inspect-topology' / name, ROOT)
 
     def test_large_class_accepts_new_geometry_but_rejects_broken_topology(self):
         value, _ = policy(ROOT)

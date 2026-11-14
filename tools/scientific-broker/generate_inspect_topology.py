@@ -51,6 +51,29 @@ def reordered(vertices, faces):
     return [vertices[index] for index in order], [tuple(inverse[index] for index in face) for face in faces]
 
 
+def irregular_torus(u_count, v_count, major, minor, phase):
+    """Independently perturb both angular coordinates and mixed triangulations."""
+    vertices = []
+    for i in range(u_count):
+        for j in range(v_count):
+            jitter_u = (((i * 17 + j * 29 + 7) % 31) / 30 - .5) * .035
+            jitter_v = (((i * 23 + j * 11 + 3) % 37) / 36 - .5) * .055
+            u = phase + 2 * math.pi * i / u_count + jitter_u
+            v = phase / 2 + 2 * math.pi * j / v_count + jitter_v
+            radius = major + minor * math.cos(v)
+            vertices.append((radius * math.cos(u), radius * math.sin(u), minor * math.sin(v)))
+    faces = []
+    for i in range(u_count):
+        for j in range(v_count):
+            a = i * v_count + j
+            b = ((i + 1) % u_count) * v_count + j
+            c = ((i + 1) % u_count) * v_count + (j + 1) % v_count
+            d = i * v_count + (j + 1) % v_count
+            faces.extend(((a, b, c), (a, c, d)) if (i * 7 + j * 11) % 3 else
+                         ((a, b, d), (b, c, d)))
+    return reordered(vertices, faces)
+
+
 def fixtures():
     uv_vertices, uv_faces = mesh(ROOT / 'scientific/fixtures/inspect-shared/sphere-512.obj')
     ico_vertices, ico_faces = sphere(2)
@@ -75,6 +98,9 @@ def fixtures():
     result['scientific/fixtures/inspect-topology/torus-surface-1024.obj'] = render(*medium)
     medium_holdout = reordered(*torus(40, 20, 2, 1.06, .36, (.04, -.03, .02), .31, .23))
     result['scientific/fixtures/inspect-topology/torus-surface-1600-holdout.obj'] = render(*medium_holdout)
+    for u, v, phase in ((32, 16, .27), (36, 18, .41)):
+        irregular = irregular_torus(u, v, 1.04, .37, phase)
+        result[f'scientific/fixtures/inspect-topology/torus-surface-{2*u*v}-irregular-holdout.obj'] = render(*irregular)
     vertices, faces = medium_holdout
     result['scientific/fixtures/inspect-topology/torus-surface-open.obj'] = render(vertices, faces[:-1])
     inverted = [tuple(reversed(face)) for face in faces]
@@ -86,6 +112,14 @@ def fixtures():
     a, b, _ = jumped[0]
     jumped[0] = (a, b, (a + len(vertices) // 2) % len(vertices))
     result['scientific/fixtures/inspect-topology/torus-surface-jumped.obj'] = render(vertices, jumped)
+    folded, _ = irregular_torus(32, 16, 1.04, .37, .27)
+    fold_faces = irregular_torus(32, 16, 1.04, .37, .27)[1]
+    folded[fold_faces[0][0]], folded[fold_faces[0][2]] = folded[fold_faces[0][2]], folded[fold_faces[0][0]]
+    result['scientific/fixtures/inspect-topology/torus-surface-folded.obj'] = render(folded, fold_faces)
+    crossed = vertices.copy()
+    a, b, c = faces[3]
+    crossed[b], crossed[c] = crossed[c], crossed[b]
+    result['scientific/fixtures/inspect-topology/torus-surface-crossing.obj'] = render(crossed, faces)
     return result
 
 

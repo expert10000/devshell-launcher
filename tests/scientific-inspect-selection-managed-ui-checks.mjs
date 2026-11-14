@@ -1,10 +1,12 @@
 // Live four-role product journey in DevShell's managed Scientific Integration panel.
 import assert from 'node:assert/strict'
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { scientificDesktopPage } from './scientific-desktop-page.mjs'
+import { open as openCheckpoint, readAction, record as recordAction } from '../tools/scientific-broker/desktop_journey_checkpoint.mjs'
 
 const require = createRequire(import.meta.url)
 const { chromium } = require(join(import.meta.dirname, '..', 'DevShell', 'ui', 'dev-ui-react', 'node_modules', 'playwright-core'))
@@ -15,6 +17,15 @@ const fallbackInput = process.env.DEVSHELL_DESKTOP_FALLBACK_INPUT
 const output = process.env.DEVSHELL_DESKTOP_JOURNEY_RUNS
 for (const [name, value] of Object.entries({ runs, classRecord, acceptedInput, fallbackInput, output }))
   assert.ok(value, `Set ${name} for the managed inspection journey`)
+const sourceCommit = process.env.DEVSHELL_DESKTOP_SOURCE_COMMIT
+const math3dCommit = process.env.DEVSHELL_DESKTOP_MATH3D_COMMIT
+assert.ok(sourceCommit && math3dCommit, 'Pass release source and MATH3D identities to the desktop journey')
+const sha = path => createHash('sha256').update(readFileSync(path)).digest('hex')
+const checkpointPath = `${output}.checkpoint.json`
+const checkpoint = openCheckpoint(checkpointPath, {
+  runs, classRecord, classRecordSha256: sha(classRecord), acceptedSha256: sha(acceptedInput),
+  fallbackSha256: sha(fallbackInput), sourceCommit, math3dCommit,
+})
 
 async function completed(before, expectedState, recipeId = 'l9.math3d-inspect-selection', timeoutMs = 600_000) {
   const deadline = Date.now() + timeoutMs
@@ -47,19 +58,27 @@ try {
   const panel = main.getByRole('region', { name: 'MATH3D inspection backend selection' })
   await panel.getByLabel('Bounded inspection class record').fill(classRecord)
   await panel.getByLabel('Inspection OBJ input').fill(acceptedInput)
-  const cancelledPreviewBefore = new Set(readdirSync(runs))
-  await panel.getByRole('button', { name: 'Verify and preview' }).click()
-  await panel.getByRole('button', { name: 'Stop', exact: true }).click()
-  await completed(cancelledPreviewBefore, 'cancelled', 'l9.math3d-inspect-preview')
-  const previewBefore = new Set(readdirSync(runs))
-  await panel.getByRole('button', { name: 'Verify and preview' }).click()
-  const previewRun = await completed(previewBefore, 'succeeded', 'l9.math3d-inspect-preview')
+  if (!readAction(checkpoint, 'previewCancelled')) {
+    const before = new Set(readdirSync(runs))
+    await panel.getByRole('button', { name: 'Verify and preview' }).click()
+    await panel.getByRole('button', { name: 'Stop', exact: true }).click()
+    const saved = await completed(before, 'cancelled', 'l9.math3d-inspect-preview')
+    recordAction(checkpointPath, checkpoint, 'previewCancelled', saved.name)
+  }
+  let previewRun = readAction(checkpoint, 'previewSucceeded')
+  if (!previewRun) {
+    const before = new Set(readdirSync(runs))
+    await panel.getByRole('button', { name: 'Verify and preview' }).click()
+    const saved = await completed(before, 'succeeded', 'l9.math3d-inspect-preview')
+    previewRun = recordAction(checkpointPath, checkpoint, 'previewSucceeded', saved.name)
+    const preview = panel.getByRole('status').filter({ hasText: /selected (?:cgal|vtk)-win-conda/ }).first()
+    await preview.waitFor({ timeout: 210_000 })
+  }
   assert.ok(previewRun.result.selection?.selectedProvider)
-  const preview = panel.getByRole('status').filter({ hasText: /selected (?:cgal|vtk)-win-conda/ }).first()
-  await preview.waitFor({ timeout: 210_000 })
-  const automaticProvider = (await preview.textContent()).match(/selected (cgal-win-conda|vtk-win-conda)/)?.[1]
+  const automaticProvider = previewRun.result.selection.selectedProvider
   assert.ok(automaticProvider, 'No qualified automatic provider for the accepted class')
   await panel.getByLabel('Inspection OBJ input').fill(fallbackInput)
+  const preview = panel.getByRole('status').filter({ hasText: /selected (?:cgal|vtk)-win-conda/ }).first()
   assert.equal(await preview.count(), 0, 'Changing input retained an older recommendation')
   await panel.getByLabel('Inspection OBJ input').fill(acceptedInput)
   const manualProvider = automaticProvider === 'cgal-win-conda' ? 'vtk-win-conda' : 'cgal-win-conda'
@@ -71,6 +90,12 @@ try {
     ['fallback', fallbackInput, '', 'succeeded'],
     ['cancelled', acceptedInput, '', 'cancelled'],
   ]) {
+    const prior = readAction(checkpoint, role)
+    if (prior) {
+      ids[role] = join(runs, prior.name)
+      console.log(`${role}: ${prior.name} (verified checkpoint)`)
+      continue
+    }
     await panel.getByLabel('Inspection OBJ input').fill(input)
     await panel.getByLabel('Inspection provider override').selectOption(provider)
     const before = new Set(readdirSync(runs))
@@ -86,10 +111,12 @@ try {
     if (role === 'automatic') assert.equal(result.selection.selectedProvider, automaticProvider)
     if (role === 'manual') assert.equal(result.selection.selectedProvider, provider)
     if (role === 'fallback') assert.equal(result.selection.selectedProvider, 'math3d-direct')
+    recordAction(checkpointPath, checkpoint, role, name)
     ids[role] = join(runs, name)
     console.log(`${role}: ${name}`)
   }
-  writeFileSync(output, JSON.stringify(ids, null, 2))
+  writeFileSync(`${output}.tmp`, JSON.stringify(ids, null, 2))
+  renameSync(`${output}.tmp`, output)
 } finally {
   await browser.close()
 }

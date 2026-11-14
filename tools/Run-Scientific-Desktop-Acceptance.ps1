@@ -11,7 +11,8 @@ param(
     [string]$ClassRecord,
     [string]$InspectInput,
     [string]$FallbackInput,
-    [string]$JourneyRunsOutput
+    [string]$JourneyRunsOutput,
+    [string]$LaunchDiagnosticsPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -31,6 +32,15 @@ foreach ($name in $journeyVariables) { $previousJourney[$name] = [Environment]::
 $ownedApp = $null
 $worktree = $root
 $cdpUrl = "http://127.0.0.1:$CdpPort"
+$launch = @{ schemaVersion = 1; scenario = $Scenario; port = $CdpPort;
+    startedAtUtc = [DateTime]::UtcNow.ToString('o'); stage = 'starting'; appPid = $null;
+    appExitCode = $null; error = $null }
+function Save-LaunchDiagnostics {
+    if ($LaunchDiagnosticsPath) {
+        $launch | ConvertTo-Json -Compress | Set-Content -LiteralPath $LaunchDiagnosticsPath -Encoding utf8
+    }
+}
+Save-LaunchDiagnostics
 
 try {
     if ($UseRunningApp -and !$SkipBuild) { throw 'UseRunningApp requires SkipBuild.' }
@@ -104,6 +114,9 @@ try {
             "--remote-debugging-port=$CdpPort", 'Process')
         $ownedApp = Start-Process -FilePath $app -WorkingDirectory (Split-Path -Parent $app) `
             -WindowStyle Hidden -PassThru
+        $launch.appPid = $ownedApp.Id
+        $launch.stage = 'process-started'
+        Save-LaunchDiagnostics
     }
     [Environment]::SetEnvironmentVariable('DEVSHELL_CDP_URL', $cdpUrl, 'Process')
     [Environment]::SetEnvironmentVariable('MATH3D_CHECKOUT', $Math3DCheckout, 'Process')
@@ -134,6 +147,8 @@ try {
         Start-Sleep -Seconds 1
     }
     if (!$ready) { throw "Isolated DevShell WebView2 did not appear at $cdpUrl." }
+    $launch.stage = 'page-ready'
+    Save-LaunchDiagnostics
     if (!$BootOnly) {
         $script = if ($ProductJourney) { 'scientific-inspect-selection-managed-ui-checks.mjs' }
             elseif ($Scenario -eq 'Repair') { 'scientific-cgal-repair-managed-ui-checks.mjs' }
@@ -146,6 +161,14 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "Managed $Scenario acceptance failed." }
     }
     Write-Host "PASS: isolated $Scenario acceptance session"
+    $launch.stage = 'passed'
+    Save-LaunchDiagnostics
+}
+catch {
+    $launch.stage = 'failed'
+    $launch.error = $_.Exception.Message
+    Save-LaunchDiagnostics
+    throw
 }
 finally {
     [Environment]::SetEnvironmentVariable('WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS', $previousArgs, 'Process')
@@ -161,6 +184,11 @@ finally {
     }
     if ($ownedApp -and !$ownedApp.HasExited) {
         $null = $ownedApp.CloseMainWindow()
-        if (!$ownedApp.WaitForExit(10000)) { Stop-Process -Id $ownedApp.Id -Force }
+        if (!$ownedApp.WaitForExit(10000)) {
+            & taskkill /PID $ownedApp.Id /T /F | Out-Null
+            $ownedApp.WaitForExit(10000) | Out-Null
+        }
     }
+    if ($ownedApp -and $ownedApp.HasExited) { $launch.appExitCode = $ownedApp.ExitCode }
+    Save-LaunchDiagnostics
 }

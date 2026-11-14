@@ -1,5 +1,6 @@
 """Publication refuses unpaired evidence and consumer checkout drift before running jobs."""
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -7,12 +8,30 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/scientific-broker'))
-from publish_six_inspect import publish, save_checkpoint, load_checkpoint, sha
+from publish_six_inspect import publish, run_owned, save_checkpoint, load_checkpoint, sha
 from publish_inspection_asset import publish as publish_asset
 from six_capability_report import compare
 
 
 class PublicationGates(unittest.TestCase):
+    def test_desktop_timeout_kills_only_owned_process_tree(self):
+        with tempfile.TemporaryDirectory() as folder:
+            class Stuck:
+                pid = 12345
+                calls = 0
+                def wait(self, timeout):
+                    self.calls += 1
+                    if self.calls == 1:
+                        raise subprocess.TimeoutExpired('desktop', timeout)
+                    return 1
+                def poll(self):
+                    return None
+            with patch('publish_six_inspect.subprocess.Popen', return_value=Stuck()), \
+                 patch('publish_six_inspect.subprocess.run') as kill:
+                with self.assertRaises(subprocess.TimeoutExpired):
+                    run_owned(['desktop'], folder, {}, Path(folder) / 'desktop.log', 1)
+            self.assertEqual(['taskkill', '/PID', '12345', '/T', '/F'], kill.call_args.args[0])
+
     def test_remote_asset_refuses_unpushed_source(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

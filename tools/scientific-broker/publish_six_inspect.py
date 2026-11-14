@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 import uuid
@@ -22,6 +23,20 @@ from advisor import verify_shared_advice
 
 def sha(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def run_owned(command, cwd, environment, log, timeout=2400):
+    with Path(log).open('w', encoding='utf-8') as stream:
+        process = subprocess.Popen(command, cwd=cwd, env=environment, stdout=stream,
+                                   stderr=subprocess.STDOUT, text=True)
+        try:
+            return process.wait(timeout=timeout)
+        except BaseException:
+            if process.poll() is None:
+                subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+                process.wait(timeout=10)
+            raise
 
 
 def save_checkpoint(path, value):
@@ -115,10 +130,17 @@ def publish(release_path, math3d_root, signing_key, key_id, output_root, port=93
         '-JourneyRunsOutput', str(runs_path), '-CdpPort', str(port)]
     def desktop():
         if not runs_path.is_file():
-            completed = subprocess.run(command, cwd=repo, text=True, capture_output=True, timeout=2400)
-            (root / 'desktop-journey.log').write_text(completed.stdout + completed.stderr, encoding='utf-8')
-            if completed.returncode or not runs_path.is_file():
-                raise ValueError('Managed desktop product journey failed; see ' + str(root / 'desktop-journey.log'))
+            attempt = 1 + len(list(root.glob('desktop-journey-*.log')))
+            log = root / f'desktop-journey-{attempt}.log'
+            launch = root / f'desktop-launch-{attempt}.json'
+            environment = dict(os.environ)
+            environment['DEVSHELL_DESKTOP_SOURCE_COMMIT'] = release['sourceCommit']
+            environment['DEVSHELL_DESKTOP_MATH3D_COMMIT'] = release['math3dIdentity']['commit']
+            returncode = run_owned(command + ['-LaunchDiagnosticsPath', str(launch)],
+                                   repo, environment, log)
+            if returncode or not runs_path.is_file():
+                raise ValueError('Managed desktop product journey failed; see ' + str(log)
+                                 + ' and ' + str(launch))
         return seal_desktop(release_path, class_path,
             json.loads(runs_path.read_text(encoding='utf-8')), root / 'desktop-journey.json')
     journey_path, _ = stage('desktop', desktop, lambda path: verify_desktop(path, release_path, class_path))

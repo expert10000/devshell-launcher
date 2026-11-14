@@ -68,7 +68,8 @@ class PublicationGates(unittest.TestCase):
             with patch('publish_six_inspect.verify_release', return_value={
                     'repo': str(root), 'sourceCommit': 'b' * 40,
                     'math3dRoot': str(math3d), 'math3dIdentity': identity}), \
-                 patch('publish_six_inspect.verify_math3d'):
+                 patch('publish_six_inspect.verify_math3d'), \
+                 patch('publish_six_inspect.VerifiedEvidenceCache.bind_source'):
                 with self.assertRaisesRegex(ValueError, 'checkpoint artifact changed'):
                     publish(release, math3d, 'key.pem', 'test', root, checkpoint=checkpoint)
             saved['sourceCommit'] = 'c' * 40
@@ -76,7 +77,8 @@ class PublicationGates(unittest.TestCase):
             with patch('publish_six_inspect.verify_release', return_value={
                     'repo': str(root), 'sourceCommit': 'b' * 40,
                     'math3dRoot': str(math3d), 'math3dIdentity': identity}), \
-                 patch('publish_six_inspect.verify_math3d'):
+                 patch('publish_six_inspect.verify_math3d'), \
+                 patch('publish_six_inspect.VerifiedEvidenceCache.bind_source'):
                 with self.assertRaisesRegex(ValueError, 'source, release, consumer or policy drifted'):
                     publish(release, math3d, 'key.pem', 'test', root, checkpoint=checkpoint)
             checkpoint.write_text(checkpoint.read_text().replace('"samples": 7', '"samples": 8'))

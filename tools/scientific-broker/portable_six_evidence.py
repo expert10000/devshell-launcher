@@ -22,6 +22,8 @@ from math3d_inspect_product import verify as verify_product
 from class_inspect_qualification import verify as verify_classes
 from desktop_inspect_journey import (RECIPE as RECIPE_DESKTOP, ROLES as DESKTOP_ROLES,
                                      verify as verify_desktop_journey)
+from math3d_release_identity import verify as verify_math3d_identity
+from verified_evidence_cache import VerifiedEvidenceCache
 
 PATH = re.compile(r'(?i)(?:[a-z]:[\\/]|\\\\)[^\s\"\'<>;,]*')
 HASH = re.compile(r'^[0-9a-f]{64}$')
@@ -185,10 +187,15 @@ def find_runs(repo, needed):
 
 
 def export(record_path, output, signing_key, key_id, shared_path, report_path,
-           advisor_path, product_path, class_path=None, desktop_path=None):
+           advisor_path, product_path, class_path=None, desktop_path=None, verified=None):
     record_path = Path(record_path).resolve(strict=True)
-    live = verify_live(record_path)
+    if verified is not None and not isinstance(verified, VerifiedEvidenceCache):
+        raise ValueError('Publication verification cache is invalid.')
+    live = verified.get('release', record_path) if verified else verify_live(record_path)
     repo = Path(live['repo']).resolve(strict=True)
+    if verified:
+        verified.check_source(repo, live['sourceCommit'])
+        verify_math3d_identity(live['math3dRoot'], live['math3dIdentity'])
     release_root = record_path.parent
     certified = release_root / 'certified.json'
     if digest(certified.read_bytes()) != Path(str(certified) + '.sha256').read_text().strip():
@@ -197,24 +204,26 @@ def export(record_path, output, signing_key, key_id, shared_path, report_path,
     entries = {(item['runtimeId'], item['capabilityId']): item for item in source['certifiedCapabilities']}
     if set(entries) != set(TARGETS.values()):
         raise ValueError('Six certified capability entries are required.')
-    shared = verify_shared(shared_path)
-    report = verify_report(report_path)
-    advice = verify_shared_advice(advisor_path)
-    product = json.loads(Path(product_path).read_text(encoding='utf-8'))
-    verify_product(product_path, shared_path, product['inputPath'])
+    shared = verified.get('shared', shared_path) if verified else verify_shared(shared_path)
+    report = verified.get('report', report_path) if verified else verify_report(report_path)
+    advice = verified.get('advice', advisor_path) if verified else verify_shared_advice(advisor_path)
+    product = verified.get('product', product_path) if verified else json.loads(Path(product_path).read_text(encoding='utf-8'))
+    if not verified:
+        verify_product(product_path, shared_path, product['inputPath'])
     if (shared['releaseRecordSha256'] != digest(record_path.read_bytes())
             or report['releaseRecordSha256'] != digest(record_path.read_bytes())
             or advice['scopeRecordSha256'] != digest(Path(shared_path).read_bytes())
             or product['scopeRecordSha256'] != digest(Path(shared_path).read_bytes())
             or product.get('math3dIdentity') != live['math3dIdentity']):
         raise ValueError('Six-capability evidence sources are not linked.')
-    classes = verify_classes(class_path) if class_path else None
+    classes = (verified.get('classes', class_path) if verified else verify_classes(class_path)) if class_path else None
     if classes and (classes['releaseRecordSha256'] != digest(record_path.read_bytes())
                     or classes['sourceCommit'] != live['sourceCommit']):
         raise ValueError('Bounded class evidence belongs to another release.')
     if not classes or not desktop_path:
         raise ValueError('A complete signed release requires bounded classes and managed desktop product journey.')
-    desktop = verify_desktop_journey(desktop_path, record_path, class_path)
+    desktop = (verified.get('desktop', desktop_path) if verified
+               else verify_desktop_journey(desktop_path, record_path, class_path))
     files, index, payloads = {}, [], []
     index.append(json_file(files, 'release/coexistence.json', record_path))
     index.append(json_file(files, 'release/certified.json', certified))

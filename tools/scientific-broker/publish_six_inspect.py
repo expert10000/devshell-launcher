@@ -19,6 +19,7 @@ from portable_six_evidence import export as export_bundle, verify as verify_bund
 from six_capability_release import verify as verify_release
 from six_capability_report import compare as build_report, verify as verify_report
 from advisor import verify_shared_advice
+from verified_evidence_cache import VerifiedEvidenceCache
 
 
 def sha(path):
@@ -64,6 +65,9 @@ def publish(release_path, math3d_root, signing_key, key_id, output_root, port=93
     if math3d != Path(release['math3dRoot']).resolve(strict=True):
         raise ValueError('Publication MATH3D checkout differs from the release.')
     verify_math3d(math3d, release['math3dIdentity'])
+    verified = VerifiedEvidenceCache()
+    verified.bind_source(repo, release['sourceCommit'])
+    verified.add('release', release_path, release, (release_path.parent,))
     if not 5 <= samples <= 20:
         raise ValueError('Use 5–20 paired class samples.')
     root = Path(checkpoint).resolve().parent if checkpoint else Path(output_root).resolve() / uuid.uuid4().hex
@@ -94,15 +98,26 @@ def publish(release_path, math3d_root, signing_key, key_id, output_root, port=93
             path = (root / previous['path']).resolve(strict=True)
             if not path.is_relative_to(root) or sha(path) != previous['sha256']:
                 raise ValueError(name + ' publication checkpoint artifact changed.')
-            return path, verify(path)
+            result = verify(path)
+            if name != 'bundle':
+                verified.add(name, path, result, witness_roots(name, path, result))
+            return path, result
         path, result = build()
         path = Path(path).resolve(strict=True)
         if not path.is_relative_to(root):
             raise ValueError(name + ' publication artifact escaped its run directory.')
         saved['stages'][name] = {'path': str(path.relative_to(root)), 'sha256': sha(path)}
         save_checkpoint(checkpoint_path, saved)
+        if name != 'bundle':
+            verified.add(name, path, result, witness_roots(name, path, result))
         print('STAGE=' + name, flush=True)
         return path, result
+
+    def witness_roots(name, path, result):
+        if name == 'desktop':
+            return (path, Path(str(path) + '.sha256'),
+                    *(repo / '.scientific/runs' / item['runId'] for item in result['runs'].values()))
+        return (path.parent,)
 
     class_path, classes = stage('classes', lambda: qualify_classes(release_path, root / 'class-inspect', samples), verify_classes)
     shared_path, shared = stage('shared', lambda: measure_shared(release_path, root / 'shared-inspect', 7), verify_shared)
@@ -150,7 +165,8 @@ def publish(release_path, math3d_root, signing_key, key_id, output_root, port=93
     trust = repo / 'schemas/scientific-evidence-trust.v1.json'
     def make_bundle():
         info = export_bundle(release_path, bundle, signing_key, key_id, shared_path,
-                             report_path, advice_path, product_path, class_path, journey_path)
+                             report_path, advice_path, product_path, class_path, journey_path,
+                             verified=verified)
         return bundle, info
     bundle_path, bundle_info = stage('bundle', make_bundle, lambda path: verify_bundle(path, trust))
     verdict = verify_bundle(bundle_path, trust)

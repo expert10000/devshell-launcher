@@ -7,7 +7,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/scientific-broker'))
 from comparable_inspect import policy
-from math3d_inspect_product import choose
+from math3d_inspect_product import choose, render_html
 
 
 class ProductSelection(unittest.TestCase):
@@ -67,6 +67,13 @@ class ProductSelection(unittest.TestCase):
             self.assertEqual('cgal-win-conda', selected['selectedProvider'])
         with patch('math3d_inspect_product.decide_class', side_effect=ValueError('tampered')):
             self.assertEqual('fallback', choose(None, self.input, class_record=self.shared)['state'])
+
+    def test_manual_choice_with_abstention_renders_rationale(self):
+        html = render_html({'selectedProvider': 'cgal-win-conda',
+                            'recommendedProvider': None, 'reason': 'Manual qualified provider retained.',
+                            'classId': 'torus-surface-1024-1600', 'rankingEvidence': {'phases': {}}})
+        self.assertIn('Recommended:</strong> unavailable', html)
+        self.assertIn('torus-surface-1024-1600', html)
 
 
 if __name__ == '__main__':

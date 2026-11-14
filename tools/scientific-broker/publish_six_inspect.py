@@ -19,6 +19,7 @@ from portable_six_evidence import export as export_bundle, verify as verify_bund
 from six_capability_release import verify as verify_release
 from six_capability_report import compare as build_report, verify as verify_report
 from advisor import verify_shared_advice
+from broker import Broker
 from verified_evidence_cache import VerifiedEvidenceCache, VerificationReceipts, sealed_files
 
 
@@ -125,10 +126,31 @@ def publish(release_path, math3d_root, signing_key, key_id, output_root, port=93
         return path, result
 
     def witness_roots(name, path, result):
+        dependencies = {'shared': ('release',), 'advice': ('shared',),
+                        'product': ('shared',), 'classes': ('release',),
+                        'desktop': ('classes',),
+                        'report': ('release', 'classes', 'shared', 'advice', 'product', 'desktop')}
+        receipts_for_stage = tuple(receipts.directory / (part + '.json')
+                                   for part in dependencies.get(name, ()))
         if name == 'desktop':
             return (path, Path(str(path) + '.sha256'),
-                    *(repo / '.scientific/runs' / item['runId'] for item in result['runs'].values()))
-        return (path.parent,)
+                    *(repo / '.scientific/runs' / item['runId'] for item in result['runs'].values()),
+                    *receipts_for_stage)
+        if name == 'classes':
+            artifacts = tuple(Path(artifact['path'])
+                for entry in result['classes'].values()
+                for runs in [entry['runs'],
+                             {provider: [gate['runs'][provider] for gate in entry.get('independentGates', [])]
+                              for provider in ('cgal', 'vtk')}]
+                for provider in ('cgal', 'vtk') for run in runs[provider]
+                for artifact in run['files'].values())
+            return (path.parent, *artifacts, *receipts_for_stage)
+        if name == 'product' and result.get('jobId'):
+            provider = result['selectedProvider']
+            broker = Broker(result['configPaths']['cgal' if provider == 'cgal-win-conda' else 'vtk'])
+            job = broker.jobs[result['jobId']]
+            return (path.parent, *sealed_files(job['directory']), *receipts_for_stage)
+        return (path.parent, *receipts_for_stage)
 
     class_path, classes = stage('classes', lambda: qualify_classes(release_path, root / 'class-inspect', samples), verify_classes)
     shared_path, shared = stage('shared', lambda: measure_shared(release_path, root / 'shared-inspect', 7), verify_shared)
@@ -147,6 +169,10 @@ def publish(release_path, math3d_root, signing_key, key_id, output_root, port=93
     if accepted is None:
         raise ValueError('All bounded classes abstained; automatic desktop selection cannot be certified.')
     fallback = repo / 'scientific/fixtures/cgal/open-square.obj'
+    torus = repo / next(item['holdoutFixture'] for item in policy['classes']
+                        if item['id'] == 'torus-surface-1024-1600')
+    star = repo / next(item['holdoutFixture'] for item in policy['classes']
+                       if item['id'] == 'star-closed-1024-2048')
     runs_path = root / 'desktop-runs.json'
     command = ['powershell', '-NoProfile', '-File',
         str(repo / 'tools/Run-Scientific-Desktop-Acceptance.ps1'),
@@ -162,6 +188,12 @@ def publish(release_path, math3d_root, signing_key, key_id, output_root, port=93
             environment = dict(os.environ)
             environment['DEVSHELL_DESKTOP_SOURCE_COMMIT'] = release['sourceCommit']
             environment['DEVSHELL_DESKTOP_MATH3D_COMMIT'] = release['math3dIdentity']['commit']
+            environment['DEVSHELL_DESKTOP_TORUS_INPUT'] = str(torus)
+            environment['DEVSHELL_DESKTOP_STAR_INPUT'] = str(star)
+            environment['DEVSHELL_DESKTOP_TORUS_RECOMMENDATION'] = (
+                decisions['torus-surface-1024-1600']['recommendation'] or '')
+            environment['DEVSHELL_DESKTOP_STAR_RECOMMENDATION'] = (
+                decisions['star-closed-1024-2048']['recommendation'] or '')
             returncode = run_owned(command + ['-LaunchDiagnosticsPath', str(launch)],
                                    repo, environment, log)
             if returncode or not runs_path.is_file():
@@ -192,7 +224,8 @@ def publish(release_path, math3d_root, signing_key, key_id, output_root, port=93
               'classIds': list(classes['classes']), 'sharedTiers': list(shared['tiers']),
               'rankingDecisions': {key: {'recommendation': item['recommendation'], 'reason': item['reason']}
                                    for key, item in decisions.items()},
-              'desktopInput': str(accepted), 'signingKeyId': key_id}
+              'desktopInput': str(accepted), 'abstainingInputs': {'torus': str(torus), 'star': str(star)},
+              'signingKeyId': key_id}
     temporary = root / 'publication.json.tmp'
     temporary.write_text(json.dumps(record, indent=2), encoding='utf-8')
     temporary.replace(root / 'publication.json')

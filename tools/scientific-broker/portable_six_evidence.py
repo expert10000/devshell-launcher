@@ -20,7 +20,8 @@ from six_capability_report import verify as verify_report
 from advisor import verify_shared_advice
 from math3d_inspect_product import verify as verify_product
 from class_inspect_qualification import verify as verify_classes
-from desktop_inspect_journey import (RECIPE as RECIPE_DESKTOP, ROLES as DESKTOP_ROLES,
+from desktop_inspect_journey import (RECIPE as RECIPE_DESKTOP, PREVIEW_RECIPE as RECIPE_PREVIEW,
+                                     ROLES as DESKTOP_ROLES, LEGACY_ROLES, CLASS_ROLES,
                                      verify as verify_desktop_journey)
 from math3d_release_identity import verify as verify_math3d_identity
 from verified_evidence_cache import VerifiedEvidenceCache
@@ -280,7 +281,10 @@ def export(record_path, output, signing_key, key_id, shared_path, report_path,
     if classes:
         for class_id, evidence in classes['classes'].items():
             for provider in ('cgal', 'vtk'):
-                for sample, run in enumerate(evidence['runs'][provider]):
+                measured = list(enumerate(evidence['runs'][provider]))
+                measured += [('independent-' + str(index), gate['runs'][provider])
+                             for index, gate in enumerate(evidence.get('independentGates', []))]
+                for sample, run in measured:
                     for kind, item in run['files'].items():
                         data, format_policy = portable_artifact(kind, Path(item['path']).read_bytes())
                         object_path = 'objects/sha256/' + digest(data)
@@ -358,7 +362,7 @@ def export(record_path, output, signing_key, key_id, shared_path, report_path,
             payloads.append({'runId': run_id, 'path': relative.replace('\\', '/'),
                              'sourceSha256': digest(source_bytes), 'object': object_path,
                              'formatPolicy': format_policy})
-    manifest = {'schemaVersion': 3, 'kind': 'scientific.portable-six-capability-evidence',
+    manifest = {'schemaVersion': 4, 'kind': 'scientific.portable-six-capability-evidence',
                 'sourceCommit': live['sourceCommit'], 'verifiedAtUtc': datetime.now(timezone.utc).isoformat(),
                 'liveRecordSha256': digest(record_path.read_bytes()),
                 'signingKeyId': key_id,
@@ -400,7 +404,7 @@ def verify(path, trust_store=None):
             raise ValueError('Bundle manifest seal changed.')
         manifest = json.loads(body)
         version = manifest.get('schemaVersion')
-        if version not in (1, 2, 3) or manifest.get('kind') != 'scientific.portable-six-capability-evidence':
+        if version not in (1, 2, 3, 4) or manifest.get('kind') != 'scientific.portable-six-capability-evidence':
             raise ValueError('Unsupported portable evidence bundle.')
         if version >= 2:
             signature = json.loads(archive.read('manifest.signature.json'))
@@ -446,7 +450,7 @@ def verify(path, trust_store=None):
             evidence_names = ('shared', 'report', 'matrix', 'comparison', 'advisor', 'product')
             if 'classes' in manifest.get('evidenceHashes', {}):
                 evidence_names += ('classes', 'classPolicy', 'rankingPolicy')
-            if version == 3:
+            if version >= 3:
                 evidence_names += ('desktopJourney',)
             if set(manifest.get('evidenceHashes', {})) != set(evidence_names):
                 raise ValueError('Six-capability evidence inventory changed.')
@@ -470,10 +474,10 @@ def verify(path, trust_store=None):
                     or advisor['scopeRecordSha256'] != manifest['evidenceHashes']['shared']
                     or product['scopeRecordSha256'] != manifest['evidenceHashes']['shared']):
                 raise ValueError('Offline release, benchmark, matrix or advisor link changed.')
-            if version == 3 and product.get('math3dIdentity') != json.loads(
+            if version >= 3 and product.get('math3dIdentity') != json.loads(
                     archive.read('release/coexistence.json'))['math3dIdentity']:
                 raise ValueError('Offline exact product MATH3D identity changed.')
-            if version == 3 and (matrix.get('schemaVersion') != 2
+            if version >= 3 and (matrix.get('schemaVersion') != 2
                     or report.get('schemaVersion') != 2
                     or matrix.get('boundedInspect', {}).get('sha256') != manifest['evidenceHashes']['classes']
                     or matrix.get('desktopJourney', {}).get('sha256') != manifest['evidenceHashes']['desktopJourney']):
@@ -488,7 +492,10 @@ def verify(path, trust_store=None):
                 expected_classes = {}
                 for class_id, evidence in classes['classes'].items():
                     for provider in ('cgal', 'vtk'):
-                        for sample, run in enumerate(evidence['runs'][provider]):
+                        measured = list(enumerate(evidence['runs'][provider]))
+                        measured += [('independent-' + str(index), gate['runs'][provider])
+                                     for index, gate in enumerate(evidence.get('independentGates', []))]
+                        for sample, run in measured:
                             for kind, item in run['files'].items():
                                 expected_classes[(class_id, provider, sample, kind)] = item['sha256']
                 observed_classes = {}
@@ -543,14 +550,15 @@ def verify(path, trust_store=None):
                 referenced.add(item['object'])
             if observed_product != product['productFiles']:
                 raise ValueError('MATH3D product payloads are incomplete or changed.')
-            if version == 3:
+            if version >= 3:
                 journey = json.loads(archive.read('evidence/desktopJourney.json'))
                 release_identity = json.loads(archive.read('release/coexistence.json'))['math3dIdentity']
+                roles = LEGACY_ROLES if version == 3 else DESKTOP_ROLES
                 if (journey.get('sourceCommit') != manifest['sourceCommit']
                         or journey.get('releaseRecordSha256') != manifest['liveRecordSha256']
                         or journey.get('classRecordSha256') != manifest['evidenceHashes']['classes']
                         or journey.get('math3dIdentitySha256') != release_identity['identitySha256']
-                        or set(journey.get('runs', {})) != set(DESKTOP_ROLES)):
+                        or set(journey.get('runs', {})) != set(roles)):
                     raise ValueError('Offline desktop journey release or consumer identity changed.')
                 expected_desktop = {(role, name): source_hash
                                     for role, run in journey['runs'].items()
@@ -572,13 +580,13 @@ def verify(path, trust_store=None):
                     referenced.add(item['object'])
                 if observed_desktop != expected_desktop:
                     raise ValueError('Desktop product payloads are incomplete or changed.')
-                for role in DESKTOP_ROLES:
+                for role in roles:
                     run = journey['runs'][role]
                     result = json.loads(decoded[(role, 'results.json')])
                     request = json.loads(decoded[(role, 'request.json')])
                     snapshot = json.loads(decoded[(role, 'source-snapshot.json')])
                     if (result['runId'] != run['runId'] or request['runId'] != run['runId']
-                            or result['recipeId'] != RECIPE_DESKTOP
+                            or result['recipeId'] != (RECIPE_PREVIEW if role.startswith('preview') else RECIPE_DESKTOP)
                             or snapshot['repositories']['devshell']['commit'] != manifest['sourceCommit']
                             or snapshot['repositories']['math3d']['commit'] != release_identity['commit']):
                         raise ValueError('Offline managed desktop source or run changed.')
@@ -587,6 +595,17 @@ def verify(path, trust_store=None):
                         if result['state'] != 'cancelled' or selection or result.get('artifacts'):
                             raise ValueError('Offline cancelled desktop selection promoted artifacts.')
                         continue
+                    if role.startswith('preview'):
+                        preview = json.loads(decoded[(role, 'preview.json')])
+                        recommendation = run.get('recommendation')
+                        if (result['state'] != 'succeeded' or preview != selection
+                                or request['parameters'].get('manualProvider')
+                                or selection.get('selectedProvider') != (recommendation or 'math3d-direct')
+                                or selection.get('state') != ('ranked' if recommendation else 'fallback')
+                                or selection.get('inputSha256') != request['inputArtifacts'][0]['sha256']
+                                or selection.get('classRecordSha256') != manifest['evidenceHashes']['classes']):
+                            raise ValueError('Offline abstention preview changed.')
+                        continue
                     selected = json.loads(decoded[(role, 'product-selection/selection.json')])
                     if (result['state'] != 'succeeded' or selected != selection
                             or selected.get('math3dIdentity') != release_identity
@@ -594,10 +613,14 @@ def verify(path, trust_store=None):
                         raise ValueError('Offline desktop selection or consumer changed.')
                     manual = request['parameters'].get('manualProvider')
                     if (role == 'automatic' and (manual or selected['selectedProvider'] == 'math3d-direct')
-                            or role == 'manual' and (not manual or selected['selectedProvider'] != manual)
+                            or role in ('manual', 'torusManual', 'starManual') and
+                               (not manual or selected['selectedProvider'] != manual)
                             or role == 'fallback' and (manual or selected['state'] != 'fallback'
                                                        or selected['selectedProvider'] != 'math3d-direct')):
                         raise ValueError('Offline desktop selection role changed.')
+                    if role in CLASS_ROLES and (selected.get('classId') != CLASS_ROLES[role]
+                                                or selected.get('recommendedProvider') != run.get('recommendation')):
+                        raise ValueError('Offline manual class selection changed.')
                     for name, source_hash in selected['productFiles'].items():
                         if observed_desktop.get((role, 'product-selection/product/' + name)) != source_hash:
                             raise ValueError('Offline MATH3D product file changed.')

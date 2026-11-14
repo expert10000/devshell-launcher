@@ -225,7 +225,7 @@ def verify(path, shared_record, input_path, class_record=None):
 
 def render_html(value):
     selected = escape(value['selectedProvider'])
-    recommended = escape(value.get('recommendedProvider', 'unavailable'))
+    recommended = escape(value.get('recommendedProvider') or 'unavailable')
     reason = escape(value['reason'])
     tier = escape(value.get('classId') or value.get('tier') or 'outside qualified scope')
     phases = value.get('rankingEvidence', {}).get('phases', {})

@@ -5,31 +5,68 @@ import json
 from pathlib import Path
 
 from class_inspect_qualification import verify as verify_classes
+from inspect_ranking import policy as ranking_policy, rank_class
+from inspect_classes import policy as class_policy
 from math3d_inspect_product import PRODUCT_FILES, verify as verify_product
 from six_capability_release import verify as verify_release
 
-ROLES = ('automatic', 'manual', 'fallback', 'cancelled')
+LEGACY_ROLES = ('automatic', 'manual', 'fallback', 'cancelled')
+ROLES = LEGACY_ROLES + ('previewTorus', 'previewStar', 'torusManual', 'starManual')
 RECIPE = 'l9.math3d-inspect-selection'
+PREVIEW_RECIPE = 'l9.math3d-inspect-preview'
+CLASS_ROLES = {'previewTorus': 'torus-surface-1024-1600',
+               'torusManual': 'torus-surface-1024-1600',
+               'previewStar': 'star-closed-1024-2048',
+               'starManual': 'star-closed-1024-2048'}
 
 
 def sha(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
-def check_run(role, directory, release, class_record):
+def check_run(role, directory, release, class_record, classes=None):
     directory = Path(directory).resolve(strict=True)
     request_path, result_path = directory / 'request.json', directory / 'results.json'
     request = json.loads(request_path.read_text(encoding='utf-8'))
     result = json.loads(result_path.read_text(encoding='utf-8'))
     snapshot = json.loads((directory / 'source-snapshot.json').read_text(encoding='utf-8'))
+    recipe = PREVIEW_RECIPE if role.startswith('preview') else RECIPE
     if (directory.name != result.get('runId') or result['runId'] != request.get('runId')
-            or result.get('recipeId') != RECIPE or request.get('recipeId') != RECIPE
+            or result.get('recipeId') != recipe or request.get('recipeId') != recipe
             or snapshot['repositories']['devshell']['commit'] != release['sourceCommit']
             or snapshot['repositories']['math3d']['commit'] != release['math3dIdentity']['commit']
             or request['parameters'].get('classRecord') != str(Path(class_record).resolve())):
         raise ValueError(role + ' managed selection source, request or release changed.')
     manual = request['parameters'].get('manualProvider')
     selection = result.get('selection')
+    expected_recommendation = None
+    if role in CLASS_ROLES:
+        classes = classes or verify_classes(class_record)
+        class_id = CLASS_ROLES[role]
+        scope, _ = class_policy(release['repo'])
+        fixture = next(item['holdoutFixture'] for item in scope['classes'] if item['id'] == class_id)
+        if request['inputArtifacts'][0]['sha256'] != sha(Path(release['repo']) / fixture):
+            raise ValueError(role + ' class input changed.')
+        ranking, _ = ranking_policy(release['repo'])
+        expected_recommendation = rank_class(classes['classes'][class_id], class_id, ranking)['recommendation']
+        if not isinstance(selection, dict) or selection.get('recommendedProvider') != expected_recommendation:
+            if not (role.startswith('preview') and expected_recommendation is None
+                    and isinstance(selection, dict) and 'recommendedProvider' not in selection):
+                raise ValueError(role + ' recommendation changed.')
+    if role.startswith('preview'):
+        preview = directory / 'preview.json'
+        if (result.get('state') != 'succeeded' or manual or not isinstance(selection, dict)
+                or selection.get('selectedProvider') != (expected_recommendation or 'math3d-direct')
+                or selection.get('state') != ('ranked' if expected_recommendation else 'fallback')
+                or selection.get('inputSha256') != request['inputArtifacts'][0]['sha256']
+                or selection.get('classRecordSha256') != sha(class_record)
+                or json.loads(preview.read_text(encoding='utf-8')) != selection
+                or sha(preview) != next((item['sha256'] for item in result.get('artifacts', [])
+                                        if item['path'] == 'preview.json'), None)):
+            raise ValueError(role + ' managed preview changed.')
+        return {'runId': result['runId'], 'state': result['state'], 'recommendation': expected_recommendation,
+                'files': {name: sha(directory / name) for name in
+                          ('request.json', 'results.json', 'source-snapshot.json', 'preview.json')}}
     if role == 'cancelled':
         if result.get('state') != 'cancelled' or selection or (directory / 'product-selection/selection.json').exists():
             raise ValueError('Cancelled selection produced a promoted product.')
@@ -54,8 +91,10 @@ def check_run(role, directory, release, class_record):
             raise ValueError(role + ' saved MATH3D document or viewport is incomplete.')
         if role == 'automatic' and (manual or selection['selectedProvider'] == 'math3d-direct'):
             raise ValueError('Automatic selection was not qualified.')
-        if role == 'manual' and (not manual or selection['selectedProvider'] != manual):
+        if role in ('manual', 'torusManual', 'starManual') and (not manual or selection['selectedProvider'] != manual):
             raise ValueError('Manual provider choice was not retained.')
+        if role in ('torusManual', 'starManual') and selection.get('classId') != CLASS_ROLES[role]:
+            raise ValueError(role + ' class identity changed.')
         if role == 'fallback' and (manual or selection['state'] != 'fallback'
                                     or selection['selectedProvider'] != 'math3d-direct'):
             raise ValueError('Fallback did not use the direct MATH3D importer.')
@@ -70,7 +109,10 @@ def check_run(role, directory, release, class_record):
         if not path.startswith('product-selection/') or sha(directory / path) != artifact['sha256']:
             raise ValueError(role + ' managed product artifact changed.')
         files[path] = artifact['sha256']
-    return {'runId': result['runId'], 'state': result['state'], 'files': files}
+    saved = {'runId': result['runId'], 'state': result['state'], 'files': files}
+    if role in CLASS_ROLES:
+        saved['recommendation'] = expected_recommendation
+    return saved
 
 
 def create(release_path, class_path, run_dirs, output):
@@ -78,11 +120,11 @@ def create(release_path, class_path, run_dirs, output):
     release = verify_release(release_path)
     classes = verify_classes(class_path)
     if classes['releaseRecordSha256'] != sha(release_path) or set(run_dirs) != set(ROLES):
-        raise ValueError('Desktop journey needs current class evidence and all four roles.')
-    runs = {role: check_run(role, run_dirs[role], release, class_path) for role in ROLES}
+        raise ValueError('Desktop journey needs current class evidence and all eight roles.')
+    runs = {role: check_run(role, run_dirs[role], release, class_path, classes) for role in ROLES}
     if len({item['runId'] for item in runs.values()}) != len(ROLES):
         raise ValueError('Desktop journey reused a managed run.')
-    value = {'schemaVersion': 1, 'kind': 'scientific.desktop-inspect-product-journey',
+    value = {'schemaVersion': 2, 'kind': 'scientific.desktop-inspect-product-journey',
              'sourceCommit': release['sourceCommit'], 'releaseRecordSha256': sha(release_path),
              'classRecordSha256': sha(class_path),
              'math3dIdentitySha256': release['math3dIdentity']['identitySha256'], 'runs': runs}
@@ -99,7 +141,7 @@ def verify(path, release_path, class_path):
         raise ValueError('Desktop journey record seal changed.')
     value = json.loads(path.read_text(encoding='utf-8'))
     release = verify_release(release_path)
-    if (value.get('schemaVersion') != 1 or value.get('kind') != 'scientific.desktop-inspect-product-journey'
+    if (value.get('schemaVersion') != 2 or value.get('kind') != 'scientific.desktop-inspect-product-journey'
             or value['sourceCommit'] != release['sourceCommit']
             or value['releaseRecordSha256'] != sha(release_path)
             or value['classRecordSha256'] != sha(class_path)
@@ -107,8 +149,9 @@ def verify(path, release_path, class_path):
             or set(value['runs']) != set(ROLES)):
         raise ValueError('Desktop journey release or consumer identity drifted.')
     repo = Path(release['repo'])
+    classes = verify_classes(class_path)
     for role, saved in value['runs'].items():
-        current = check_run(role, repo / '.scientific/runs' / saved['runId'], release, class_path)
+        current = check_run(role, repo / '.scientific/runs' / saved['runId'], release, class_path, classes)
         if current != saved:
             raise ValueError(role + ' desktop journey evidence drifted.')
     return value

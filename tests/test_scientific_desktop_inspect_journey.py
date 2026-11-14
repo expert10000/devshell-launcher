@@ -17,6 +17,7 @@ class DesktopJourney(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.release = {'sourceCommit': 'a' * 40,
+                        'repo': str(self.root),
                         'math3dIdentity': {'commit': 'b' * 40, 'identitySha256': 'c' * 64}}
         self.class_path = self.root / 'classes.json'
         self.class_path.write_text('{}')
@@ -88,6 +89,47 @@ class DesktopJourney(unittest.TestCase):
         result_path.write_text(json.dumps(result))
         with self.assertRaisesRegex(ValueError, 'consumer identity changed'):
             journey.check_run('automatic', directory, self.release, self.class_path)
+
+    def test_abstaining_previews_and_manual_saved_documents(self):
+        classes = {'classes': {name: {'runs': {}} for name in journey.CLASS_ROLES.values()}}
+        scope = {'classes': [{'id': name, 'holdoutFixture': 'accepted.obj'}
+                             for name in journey.CLASS_ROLES.values()]}
+        for index, role in enumerate(('previewTorus', 'previewStar', 'torusManual', 'starManual'), 5):
+            directory = self.root / (str(index) * 32)
+            directory.mkdir()
+            preview = role.startswith('preview')
+            selection = {'state': 'fallback' if preview else 'manual',
+                         'selectedProvider': 'math3d-direct' if preview else 'cgal-win-conda',
+                         'inputPath': str(self.input), 'inputSha256': journey.sha(self.input),
+                         'classRecordSha256': journey.sha(self.class_path),
+                         'math3dIdentity': self.release['math3dIdentity']}
+            if not preview:
+                selection['classId'] = journey.CLASS_ROLES[role]
+                selection['recommendedProvider'] = None
+                selection['productFiles'] = {name: journey.sha(self._product(directory, name))
+                                             for name in journey.PRODUCT_FILES}
+            artifact = directory / ('preview.json' if preview else 'product-selection/selection.json')
+            artifact.parent.mkdir(exist_ok=True)
+            artifact.write_text(json.dumps(selection))
+            recipe = journey.PREVIEW_RECIPE if preview else journey.RECIPE
+            (directory / 'results.json').write_text(json.dumps({'runId': directory.name,
+                'recipeId': recipe, 'state': 'succeeded', 'selection': selection,
+                'artifacts': [{'path': artifact.relative_to(directory).as_posix(),
+                               'sha256': journey.sha(artifact)}]}))
+            (directory / 'request.json').write_text(json.dumps({'runId': directory.name,
+                'recipeId': recipe, 'parameters': {'classRecord': str(self.class_path),
+                'manualProvider': None if preview else 'cgal-win-conda'},
+                'inputArtifacts': [{'sha256': journey.sha(self.input)}]}))
+            (directory / 'source-snapshot.json').write_text(json.dumps({'repositories': {
+                'devshell': {'commit': self.release['sourceCommit']},
+                'math3d': {'commit': self.release['math3dIdentity']['commit']}}}))
+            with patch.object(journey, 'class_policy', return_value=(scope, 'hash')), \
+                 patch.object(journey, 'ranking_policy', return_value=({}, 'hash')), \
+                 patch.object(journey, 'rank_class', return_value={'recommendation': None}), \
+                 patch.object(journey, 'verify_product'):
+                saved = journey.check_run(role, directory, self.release, self.class_path, classes)
+            self.assertIsNone(saved['recommendation'])
+            self.assertIn('preview.json' if preview else 'product-selection/product/read.m3dm', saved['files'])
 
 
 if __name__ == '__main__':

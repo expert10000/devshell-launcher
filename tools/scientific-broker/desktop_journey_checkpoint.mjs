@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-const names = new Set(['previewCancelled', 'previewSucceeded', 'automatic', 'manual', 'fallback', 'cancelled'])
+const names = new Set(['previewCancelled', 'previewSucceeded', 'previewTorus', 'previewStar',
+  'automatic', 'manual', 'fallback', 'cancelled', 'torusManual', 'starManual'])
 const digest = bytes => createHash('sha256').update(bytes).digest('hex')
 const fileHash = path => digest(readFileSync(path))
 const body = value => JSON.stringify(Object.fromEntries(Object.entries(value).filter(([key]) => key !== 'checkpointSha256')))
@@ -45,7 +46,10 @@ export function readAction(value, name) {
   const preview = name.startsWith('preview')
   const expectedState = name === 'cancelled' || name === 'previewCancelled' ? 'cancelled' : 'succeeded'
   const expectedRecipe = preview ? 'l9.math3d-inspect-preview' : 'l9.math3d-inspect-selection'
-  const inputHash = name === 'fallback' ? value.context.fallbackSha256 : value.context.acceptedSha256
+  const inputHash = name === 'fallback' ? value.context.fallbackSha256
+    : name === 'previewTorus' || name === 'torusManual' ? value.context.torusSha256
+      : name === 'previewStar' || name === 'starManual' ? value.context.starSha256
+        : value.context.acceptedSha256
   if (request.runId !== saved.runId || result.runId !== saved.runId
       || request.recipeId !== expectedRecipe || result.recipeId !== expectedRecipe
       || result.state !== expectedState || request.inputArtifacts?.[0]?.sha256 !== inputHash

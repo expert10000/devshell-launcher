@@ -1,4 +1,4 @@
-// Live four-role product journey in DevShell's managed Scientific Integration panel.
+// Live product journey, including abstaining torus and large-star classes.
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
@@ -14,8 +14,11 @@ const runs = process.env.DEVSHELL_SCIENTIFIC_RUNS_ROOT
 const classRecord = process.env.DEVSHELL_DESKTOP_CLASS_RECORD
 const acceptedInput = process.env.DEVSHELL_DESKTOP_INSPECT_INPUT
 const fallbackInput = process.env.DEVSHELL_DESKTOP_FALLBACK_INPUT
+const torusInput = process.env.DEVSHELL_DESKTOP_TORUS_INPUT
+const starInput = process.env.DEVSHELL_DESKTOP_STAR_INPUT
 const output = process.env.DEVSHELL_DESKTOP_JOURNEY_RUNS
-for (const [name, value] of Object.entries({ runs, classRecord, acceptedInput, fallbackInput, output }))
+for (const [name, value] of Object.entries({ runs, classRecord, acceptedInput, fallbackInput,
+  torusInput, starInput, output }))
   assert.ok(value, `Set ${name} for the managed inspection journey`)
 const sourceCommit = process.env.DEVSHELL_DESKTOP_SOURCE_COMMIT
 const math3dCommit = process.env.DEVSHELL_DESKTOP_MATH3D_COMMIT
@@ -24,7 +27,8 @@ const sha = path => createHash('sha256').update(readFileSync(path)).digest('hex'
 const checkpointPath = `${output}.checkpoint.json`
 const checkpoint = openCheckpoint(checkpointPath, {
   runs, classRecord, classRecordSha256: sha(classRecord), acceptedSha256: sha(acceptedInput),
-  fallbackSha256: sha(fallbackInput), sourceCommit, math3dCommit,
+  fallbackSha256: sha(fallbackInput), torusSha256: sha(torusInput), starSha256: sha(starInput),
+  sourceCommit, math3dCommit,
 })
 
 async function completed(before, expectedState, recipeId = 'l9.math3d-inspect-selection', timeoutMs = 600_000) {
@@ -84,11 +88,34 @@ try {
   const manualProvider = automaticProvider === 'cgal-win-conda' ? 'vtk-win-conda' : 'cgal-win-conda'
 
   const ids = {}
+  for (const [role, input, expected] of [
+    ['previewTorus', torusInput, process.env.DEVSHELL_DESKTOP_TORUS_RECOMMENDATION || ''],
+    ['previewStar', starInput, process.env.DEVSHELL_DESKTOP_STAR_RECOMMENDATION || ''],
+  ]) {
+    const prior = readAction(checkpoint, role)
+    if (prior) {
+      ids[role] = join(runs, prior.name)
+      continue
+    }
+    await panel.getByLabel('Inspection OBJ input').fill(input)
+    await panel.getByLabel('Inspection provider override').selectOption('')
+    const before = new Set(readdirSync(runs))
+    await panel.getByRole('button', { name: 'Verify and preview' }).click()
+    const saved = await completed(before, 'succeeded', 'l9.math3d-inspect-preview')
+    assert.equal(saved.result.selection?.selectedProvider, expected || 'math3d-direct')
+    assert.equal(saved.result.selection?.state, expected ? 'ranked' : 'fallback')
+    recordAction(checkpointPath, checkpoint, role, saved.name)
+    ids[role] = join(runs, saved.name)
+    console.log(`${role}: ${saved.name}`)
+  }
+
   for (const [role, input, provider, state] of [
     ['automatic', acceptedInput, '', 'succeeded'],
     ['manual', acceptedInput, manualProvider, 'succeeded'],
     ['fallback', fallbackInput, '', 'succeeded'],
     ['cancelled', acceptedInput, '', 'cancelled'],
+    ['torusManual', torusInput, 'cgal-win-conda', 'succeeded'],
+    ['starManual', starInput, 'vtk-win-conda', 'succeeded'],
   ]) {
     const prior = readAction(checkpoint, role)
     if (prior) {
@@ -109,7 +136,14 @@ try {
       assert.ok(result.selection?.productFiles?.['viewer.json'])
     }
     if (role === 'automatic') assert.equal(result.selection.selectedProvider, automaticProvider)
-    if (role === 'manual') assert.equal(result.selection.selectedProvider, provider)
+    if (role === 'manual' || role === 'torusManual' || role === 'starManual')
+      assert.equal(result.selection.selectedProvider, provider)
+    if (role === 'torusManual' || role === 'starManual') {
+      assert.equal(result.selection.recommendedProvider,
+        (role === 'torusManual' ? process.env.DEVSHELL_DESKTOP_TORUS_RECOMMENDATION
+          : process.env.DEVSHELL_DESKTOP_STAR_RECOMMENDATION) || null)
+      assert.equal(result.selection.state, 'manual')
+    }
     if (role === 'fallback') assert.equal(result.selection.selectedProvider, 'math3d-direct')
     recordAction(checkpointPath, checkpoint, role, name)
     ids[role] = join(runs, name)

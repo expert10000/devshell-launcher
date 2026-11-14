@@ -19,11 +19,20 @@ from portable_six_evidence import export as export_bundle, verify as verify_bund
 from six_capability_release import verify as verify_release
 from six_capability_report import compare as build_report, verify as verify_report
 from advisor import verify_shared_advice
-from verified_evidence_cache import VerifiedEvidenceCache, sealed_files
+from verified_evidence_cache import VerifiedEvidenceCache, VerificationReceipts, sealed_files
 
 
 def sha(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def verifier_version():
+    """Bind local receipts to all broker verifier source at this commit."""
+    digest = hashlib.sha256(b'scientific-publication-verifiers-v1')
+    for path in sorted(Path(__file__).parent.glob('*.py')):
+        digest.update(path.name.encode('utf-8'))
+        digest.update(bytes.fromhex(sha(path)))
+    return digest.hexdigest()
 
 
 def run_owned(command, cwd, environment, log, timeout=2400):
@@ -59,19 +68,20 @@ def load_checkpoint(path):
 
 def publish(release_path, math3d_root, signing_key, key_id, output_root, port=9330, samples=7, checkpoint=None):
     release_path = Path(release_path).resolve(strict=True)
-    release = verify_release(release_path)
+    root = Path(checkpoint).resolve().parent if checkpoint else Path(output_root).resolve() / uuid.uuid4().hex
+    root.mkdir(parents=True, exist_ok=True)
+    verified = VerifiedEvidenceCache()
+    receipts = VerificationReceipts(root / 'verification-receipts', verifier_version())
+    release = receipts.checked('release', release_path, verify_release,
+                               lambda path, _: sealed_files(path.parent), verified)
     repo = Path(release['repo']).resolve(strict=True)
     math3d = Path(math3d_root).resolve(strict=True)
     if math3d != Path(release['math3dRoot']).resolve(strict=True):
         raise ValueError('Publication MATH3D checkout differs from the release.')
     verify_math3d(math3d, release['math3dIdentity'])
-    verified = VerifiedEvidenceCache()
     verified.bind_source(repo, release['sourceCommit'])
-    verified.add('release', release_path, release, sealed_files(release_path.parent))
     if not 5 <= samples <= 20:
         raise ValueError('Use 5–20 paired class samples.')
-    root = Path(checkpoint).resolve().parent if checkpoint else Path(output_root).resolve() / uuid.uuid4().hex
-    root.mkdir(parents=True, exist_ok=True)
     checkpoint_path = root / 'checkpoint.json'
     if checkpoint:
         if Path(checkpoint).resolve() != checkpoint_path or not checkpoint_path.is_file():
@@ -98,18 +108,19 @@ def publish(release_path, math3d_root, signing_key, key_id, output_root, port=93
             path = (root / previous['path']).resolve(strict=True)
             if not path.is_relative_to(root) or sha(path) != previous['sha256']:
                 raise ValueError(name + ' publication checkpoint artifact changed.')
-            result = verify(path)
-            if name != 'bundle':
-                verified.add(name, path, result, witness_roots(name, path, result))
+            result = (verify(path) if name == 'bundle' else receipts.checked(
+                name, path, verify, lambda checked_path, checked_result:
+                witness_roots(name, checked_path, checked_result), verified))
             return path, result
-        path, result = build()
+        path, _ = build()
         path = Path(path).resolve(strict=True)
         if not path.is_relative_to(root):
             raise ValueError(name + ' publication artifact escaped its run directory.')
         saved['stages'][name] = {'path': str(path.relative_to(root)), 'sha256': sha(path)}
         save_checkpoint(checkpoint_path, saved)
-        if name != 'bundle':
-            verified.add(name, path, result, witness_roots(name, path, result))
+        result = (verify(path) if name == 'bundle' else receipts.checked(
+            name, path, verify, lambda checked_path, checked_result:
+            witness_roots(name, checked_path, checked_result), verified))
         print('STAGE=' + name, flush=True)
         return path, result
 

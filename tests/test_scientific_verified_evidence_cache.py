@@ -7,10 +7,77 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/scientific-broker'))
-from verified_evidence_cache import VerifiedEvidenceCache, sealed_files
+from verified_evidence_cache import VerifiedEvidenceCache, VerificationReceipts, sealed_files
 
 
 class VerifiedEvidenceCacheTests(unittest.TestCase):
+    def test_receipt_reuses_verified_bytes_across_processes_and_rechecks_changes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            record = root / 'record.json'
+            dependency = root / 'payload.obj'
+            record.write_text('{}')
+            dependency.write_text('v 0 0 0\n')
+            calls = []
+            def verify(path):
+                calls.append(1)
+                return {'qualified': True, 'record': str(path)}
+            def check(version):
+                receipts = VerificationReceipts(root / 'receipts', version)
+                return receipts.checked('classes', record, verify,
+                                        lambda path, result: (path, dependency), VerifiedEvidenceCache())
+            check('v1')
+            check('v1')
+            self.assertEqual(1, len(calls))
+            dependency.write_text('v 1 0 0\n')
+            check('v1')
+            self.assertEqual(2, len(calls))
+            check('v2')
+            self.assertEqual(3, len(calls))
+            receipt = root / 'receipts/classes.json'
+            receipt.write_text(receipt.read_text().replace('qualified', 'forged'))
+            with self.assertRaisesRegex(ValueError, 'tampered'):
+                check('v2')
+
+    def test_frozen_receipt_ignores_new_broker_job_but_rechecks_old_job(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            record = root / 'release.json'
+            job = root / 'jobs/old/result.json'
+            job.parent.mkdir(parents=True)
+            record.write_text('{}')
+            job.write_text('{"ok":true}')
+            calls = []
+            def check():
+                return VerificationReceipts(root / 'receipts', 'v1').checked(
+                    'release', record, lambda path: calls.append(1) or {'ok': True},
+                    lambda path, result: sealed_files(root / 'jobs') + (record,),
+                    VerifiedEvidenceCache())
+            check()
+            later = root / 'jobs/new/result.json'
+            later.parent.mkdir()
+            later.write_text('{}')
+            check()
+            self.assertEqual(1, len(calls))
+            job.write_text('{"ok":false}')
+            check()
+            self.assertEqual(2, len(calls))
+
+    def test_interrupted_receipt_write_does_not_promote(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            record = root / 'record.json'
+            record.write_text('{}')
+            receipt = VerificationReceipts(root / 'receipts', 'v1')
+            with patch('verified_evidence_cache.os.replace', side_effect=OSError('interrupted')):
+                with self.assertRaisesRegex(OSError, 'interrupted'):
+                    receipt.checked('report', record, lambda path: {'ok': True},
+                                    lambda path, result: (path,), VerifiedEvidenceCache())
+            self.assertFalse((root / 'receipts/report.json').exists())
+            self.assertEqual({'ok': True}, receipt.checked('report', record,
+                lambda path: {'ok': True}, lambda path, result: (path,), VerifiedEvidenceCache()))
+
     def test_reuses_one_check_and_rejects_artifact_tamper_or_new_file(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

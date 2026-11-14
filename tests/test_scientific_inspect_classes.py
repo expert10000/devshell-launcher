@@ -53,7 +53,7 @@ class InspectClassesTests(unittest.TestCase):
 
     def test_independent_closed_topology_and_size_tiers(self):
         value, _ = policy(ROOT)
-        self.assertEqual(3, value['schemaVersion'])
+        self.assertEqual(4, value['schemaVersion'])
         tiers = [item for item in value['classes'] if item['mode'] == 'star-closed']
         self.assertEqual([(64, 128), (256, 512), (1024, 2048)],
                          [(item['minimumTriangles'], item['maximumTriangles']) for item in tiers])
@@ -67,11 +67,11 @@ class InspectClassesTests(unittest.TestCase):
 
     def test_nonconvex_and_torus_classes(self):
         value, _ = policy(ROOT)
-        self.assertEqual(2, len([item for item in value['classes']
-                                 if item['mode'] in ('concave-star', 'torus-grid')]))
+        self.assertEqual(3, len([item for item in value['classes']
+                                 if item['mode'] in ('concave-star', 'torus-grid', 'torus-surface')]))
         for relative, contents in topology_fixtures().items():
             self.assertEqual((ROOT / relative).read_text(), contents)
-        for class_id in ('concave-closed-256-512', 'torus-grid-256-400'):
+        for class_id in ('concave-closed-256-512', 'torus-grid-256-400', 'torus-surface-1024-1600'):
             item = next(entry for entry in value['classes'] if entry['id'] == class_id)
             self.assertNotEqual(mesh(ROOT / item['baseFixture'])[1],
                                 mesh(ROOT / item['holdoutFixture'])[1])

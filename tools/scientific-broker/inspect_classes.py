@@ -5,8 +5,9 @@ import math
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-POLICY = 'schemas/scientific-mesh-inspect-classes.v3.json'
+POLICY = 'schemas/scientific-mesh-inspect-classes.v4.json'
 IDS = ('tetra-uniform-4', 'concave-closed-256-512', 'torus-grid-256-400',
+       'torus-surface-1024-1600',
        'octa-uniform-8', 'cube-uniform-12',
        'star-closed-64-128', 'star-closed-256-512', 'star-closed-1024-2048')
 
@@ -183,6 +184,72 @@ def _torus_grid(vertices, faces, item, value):
             'majorRadius': major, 'minorRadius': minor, 'signedVolume': volume}
 
 
+def _torus_surface(vertices, faces, item, value):
+    if not item['minimumTriangles'] <= len(faces) <= item['maximumTriangles']:
+        return None
+    if len(vertices) * 2 != len(faces):
+        return None  # Closed triangular genus one: E=3F/2 and V=F/2.
+    bounds = value['torusSurfaceBounds']
+    center = tuple((max(point[axis] for point in vertices) + min(point[axis] for point in vertices)) / 2
+                   for axis in range(3))
+    if any(abs(axis) > bounds['maximumAbsoluteCenter'] for axis in center):
+        return None
+    shifted = [tuple(point[axis] - center[axis] for axis in range(3)) for point in vertices]
+    radial = [math.hypot(point[0], point[1]) for point in shifted]
+    major = sum(radial) / len(radial)
+    minor = sum(math.hypot(radius - major, point[2]) for radius, point in zip(radial, shifted)) / len(radial)
+    if (not bounds['minimumMajorRadius'] <= major <= bounds['maximumMajorRadius']
+            or not bounds['minimumMinorRadius'] <= minor <= bounds['maximumMinorRadius']
+            or len({tuple(round(axis, 7) for axis in point) for point in vertices}) != len(vertices)):
+        return None
+    angles = []
+    for point, radius in zip(shifted, radial):
+        tube = math.hypot(radius - major, point[2])
+        if abs(tube - minor) > bounds['maximumTubeDeviation']:
+            return None
+        angles.append((math.atan2(point[1], point[0]), math.atan2(point[2], radius - major)))
+    def delta(left, right):
+        return abs((left - right + math.pi) % (2 * math.pi) - math.pi)
+    edges, neighbors, used, volume = {}, [set() for _ in vertices], set(), 0.
+    for a, b, c in faces:
+        used.update((a, b, c))
+        for start, end in ((a, b), (b, c), (c, a)):
+            if (delta(angles[start][0], angles[end][0]) > bounds['maximumMajorAngularEdge']
+                    or delta(angles[start][1], angles[end][1]) > bounds['maximumMinorAngularEdge']):
+                return None
+            key = tuple(sorted((start, end)))
+            edges.setdefault(key, []).append((start, end))
+            neighbors[start].add(end)
+            neighbors[end].add(start)
+        va, vb, vc = shifted[a], shifted[b], shifted[c]
+        ab = tuple(vb[i] - va[i] for i in range(3))
+        ac = tuple(vc[i] - va[i] for i in range(3))
+        normal = (ab[1] * ac[2] - ab[2] * ac[1], ab[2] * ac[0] - ab[0] * ac[2],
+                  ab[0] * ac[1] - ab[1] * ac[0])
+        if math.sqrt(sum(axis * axis for axis in normal)) / 2 < bounds['minimumFaceArea']:
+            return None
+        centroid = tuple((va[i] + vb[i] + vc[i]) / 3 for i in range(3))
+        radius = math.hypot(centroid[0], centroid[1])
+        outward = ((centroid[0] * (radius - major) / radius,
+                    centroid[1] * (radius - major) / radius, centroid[2]))
+        if sum(normal[i] * outward[i] for i in range(3)) <= 0:
+            return None
+        volume += sum(va[i] * normal[i] for i in range(3)) / 6
+    if (len(used) != len(vertices) or len(vertices) - len(edges) + len(faces) != 0
+            or any(len(pair) != 2 or pair[0] != tuple(reversed(pair[1])) for pair in edges.values())):
+        return None
+    reached, pending = {0}, [0]
+    while pending:
+        for adjacent in neighbors[pending.pop()]:
+            if adjacent not in reached:
+                reached.add(adjacent)
+                pending.append(adjacent)
+    if len(reached) != len(vertices) or volume < bounds['minimumVolume']:
+        return None
+    return {'points': len(vertices), 'triangles': len(faces), 'genus': 1,
+            'majorRadius': major, 'minorRadius': minor, 'signedVolume': volume}
+
+
 def _matches(vertices, faces, item, repo, value):
     if item['mode'] == 'uniform':
         return _match(vertices, faces, repo / item['baseFixture'], value)
@@ -192,6 +259,8 @@ def _matches(vertices, faces, item, repo, value):
         return _concave_star(vertices, faces, item, value)
     if item['mode'] == 'torus-grid':
         return _torus_grid(vertices, faces, item, value)
+    if item['mode'] == 'torus-surface':
+        return _torus_surface(vertices, faces, item, value)
     raise ValueError('Unsupported inspection class mode.')
 
 
@@ -199,7 +268,7 @@ def policy(repo=ROOT):
     repo = Path(repo).resolve(strict=True)
     path = repo / POLICY
     value = json.loads(path.read_text(encoding='utf-8'))
-    if (value.get('schemaVersion') != 3 or value.get('kind') != 'scientific.mesh-inspect-input-classes'
+    if (value.get('schemaVersion') != 4 or value.get('kind') != 'scientific.mesh-inspect-input-classes'
             or value.get('operation') != 'mesh.inspect'
             or [item.get('id') for item in value.get('classes', [])] != list(IDS)
             or value.get('minimumScale') != .5 or value.get('maximumScale') != 2
@@ -213,6 +282,11 @@ def policy(repo=ROOT):
             or value.get('torusBounds') != {'minimumMajorRadius': .9, 'maximumMajorRadius': 1.2,
                 'minimumMinorRadius': .3, 'maximumMinorRadius': .5,
                 'maximumAbsoluteCenter': .2, 'maximumParametricDeviation': .02,
+                'minimumVolume': .5}
+            or value.get('torusSurfaceBounds') != {'minimumMajorRadius': .9, 'maximumMajorRadius': 1.2,
+                'minimumMinorRadius': .3, 'maximumMinorRadius': .5, 'maximumAbsoluteCenter': .2,
+                'maximumTubeDeviation': .025, 'maximumMajorAngularEdge': .35,
+                'maximumMinorAngularEdge': .5, 'minimumFaceArea': 1e-5,
                 'minimumVolume': .5}):
         raise ValueError('Shared inspection class policy changed.')
     for item in value['classes']:
@@ -220,10 +294,12 @@ def policy(repo=ROOT):
                            'star-closed-256-512': (256, 512),
                            'star-closed-1024-2048': (1024, 2048),
                            'concave-closed-256-512': (256, 512),
-                           'torus-grid-256-400': (256, 400)}
+                           'torus-grid-256-400': (256, 400),
+                           'torus-surface-1024-1600': (1024, 1600)}
         if item['id'] in expected_ranges:
             expected_mode = {'concave-closed-256-512': 'concave-star',
-                             'torus-grid-256-400': 'torus-grid'}.get(item['id'], 'star-closed')
+                             'torus-grid-256-400': 'torus-grid',
+                             'torus-surface-1024-1600': 'torus-surface'}.get(item['id'], 'star-closed')
             if (item.get('mode') != expected_mode or
                     (item.get('minimumTriangles'), item.get('maximumTriangles')) != expected_ranges[item['id']]):
                 raise ValueError('Shared inspection class tier changed.')

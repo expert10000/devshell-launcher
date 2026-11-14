@@ -1,6 +1,6 @@
 # Bounded `mesh.inspect` classes
 
-`schemas/scientific-mesh-inspect-classes.v3.json` defines eight bounded classes.
+`schemas/scientific-mesh-inspect-classes.v4.json` defines nine bounded classes.
 The v1 three tiny classes and v2 three outward star-shaped closed surface tiers
 remain documented as historical policy files. The v3 additions are a dimpled,
 nonconvex genus-zero surface at 256–512 triangles and a structured, oriented
@@ -9,9 +9,14 @@ holdout meshes are pinned by SHA-256; the torus requires a regular parametric
 grid with bounded major/minor radii, position deviation and positive volume.
 The nonconvex class requires a measured radial depression. Translated holdouts
 prove admission beyond the exact pinned hashes. Flipped and scrambled torus
-meshes are pinned rejections. `generate_inspect_topology.py` reproduces all six
-new fixtures. These constraints define the accepted topology; they do not
-admit arbitrary genus-one or nonconvex meshes.
+meshes are pinned rejections. V4 adds a medium torus surface at 1024–1600
+triangles. Its independent holdout permutes vertex order and alternates face
+diagonals. Admission checks bounded radii, tube deviation, local angular
+edges, outward nondegenerate faces, connectedness, opposing manifold edges,
+Euler genus one and signed volume. Open, inverted, pinched and long-edge
+adversarial meshes have pinned rejection hashes. `generate_inspect_topology.py`
+reproduces these fixtures. These constraints do not admit arbitrary genus-one
+or nonconvex meshes.
 
 `schemas/scientific-mesh-inspect-classes.v1.json` defines three deliberately narrow
 classes: tetrahedron (4 faces), octahedron (8 faces), and cube (12 faces). Each

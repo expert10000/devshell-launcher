@@ -38,9 +38,17 @@ def torus(u_count, v_count, diagonal, major, minor, offset, phase_u, phase_v):
             b = ((i + 1) % u_count) * v_count + j
             c = ((i + 1) % u_count) * v_count + (j + 1) % v_count
             d = i * v_count + (j + 1) % v_count
-            faces.extend(((a, b, c), (a, c, d)) if diagonal == 0
+            use_diagonal = (i + j) % 2 if diagonal == 2 else diagonal
+            faces.extend(((a, b, c), (a, c, d)) if use_diagonal == 0
                          else ((a, b, d), (b, c, d)))
     return vertices, faces
+
+
+def reordered(vertices, faces):
+    count = len(vertices)
+    order = [(index * 37) % count for index in range(count)]
+    inverse = {old: new for new, old in enumerate(order)}
+    return [vertices[index] for index in order], [tuple(inverse[index] for index in face) for face in faces]
 
 
 def fixtures():
@@ -63,6 +71,21 @@ def fixtures():
     scrambled = vertices.copy()
     scrambled[3], scrambled[80] = scrambled[80], scrambled[3]
     result['scientific/fixtures/inspect-topology/torus-scrambled.obj'] = render(scrambled, faces)
+    medium = torus(32, 16, 2, 1.02, .38, (0., 0., 0.), .13, .17)
+    result['scientific/fixtures/inspect-topology/torus-surface-1024.obj'] = render(*medium)
+    medium_holdout = reordered(*torus(40, 20, 2, 1.06, .36, (.04, -.03, .02), .31, .23))
+    result['scientific/fixtures/inspect-topology/torus-surface-1600-holdout.obj'] = render(*medium_holdout)
+    vertices, faces = medium_holdout
+    result['scientific/fixtures/inspect-topology/torus-surface-open.obj'] = render(vertices, faces[:-1])
+    inverted = [tuple(reversed(face)) for face in faces]
+    result['scientific/fixtures/inspect-topology/torus-surface-inverted.obj'] = render(vertices, inverted)
+    pinched = vertices.copy()
+    pinched[faces[0][0]] = pinched[faces[0][1]]
+    result['scientific/fixtures/inspect-topology/torus-surface-pinched.obj'] = render(pinched, faces)
+    jumped = faces.copy()
+    a, b, _ = jumped[0]
+    jumped[0] = (a, b, (a + len(vertices) // 2) % len(vertices))
+    result['scientific/fixtures/inspect-topology/torus-surface-jumped.obj'] = render(vertices, jumped)
     return result
 
 

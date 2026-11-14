@@ -101,7 +101,8 @@ class ReleaseResume(unittest.TestCase):
             value['activeStage'] = 'build'
             value['attempts'] = [{'stage': 'build', 'result': 'running'}]
             resume.save(path, value)
-            with patch.object(resume, 'validate'), \
+            with patch.object(resume.release, 'ROOT', Path(folder)), \
+                 patch.object(resume, 'validate'), \
                  patch.object(resume, 'stage', side_effect=RuntimeError('stop before retry')):
                 with self.assertRaisesRegex(RuntimeError, 'stop before retry'):
                     resume.execute(path)
@@ -118,7 +119,8 @@ class ReleaseResume(unittest.TestCase):
                 resume.stage(path, value, 'build', lambda: (_ for _ in ()).throw(ValueError('desktop failure')))
             saved = resume.load(path)[1]
             self.assertIsNone(saved['activeStage'])
-            with patch.object(resume, 'validate'), \
+            with patch.object(resume.release, 'ROOT', Path(folder)), \
+                 patch.object(resume, 'validate'), \
                  patch.object(resume, 'stage', side_effect=RuntimeError('retry started')):
                 with self.assertRaisesRegex(RuntimeError, 'retry started'):
                     resume.execute(path)
@@ -131,7 +133,8 @@ class ReleaseResume(unittest.TestCase):
             value['status'] = 'interrupted'
             value['attempts'] = [{'stage': 'build', 'result': 'interrupted'}]
             resume.save(path, value)
-            with patch.object(resume, 'validate'), \
+            with patch.object(resume.release, 'ROOT', Path(folder)), \
+                 patch.object(resume, 'validate'), \
                  patch.object(resume, 'stage', side_effect=RuntimeError('retry started')):
                 with self.assertRaisesRegex(RuntimeError, 'retry started'):
                     resume.execute(path)
@@ -194,6 +197,78 @@ class ReleaseResume(unittest.TestCase):
                 with self.assertRaises(subprocess.TimeoutExpired):
                     resume.desktop(path, value, 'inspect')
             self.assertEqual(['taskkill', '/PID', '12345', '/T', '/F'], kill.call_args.args[0])
+
+    def test_missing_inventory_fails_before_worktree_creation(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            math3d = root / 'math3d/renderer/src/mesh'
+            math3d.mkdir(parents=True)
+            (math3d / 'surfaceMesh.ts').write_text('source')
+            prefixes = []
+            for name in ('cgal', 'vtk', 'scientific'):
+                prefix = root / name
+                prefix.mkdir()
+                (prefix / 'python.exe').write_bytes(b'')
+                prefixes.append(prefix)
+            with patch.object(resume.release, 'math3d_identity', return_value={}), \
+                 patch.object(resume.release, 'command') as command:
+                with self.assertRaises(FileNotFoundError):
+                    resume.start(root / 'math3d', *prefixes,
+                                 runtime_report=root / 'missing.json')
+            command.assert_not_called()
+
+    def test_inventory_prefix_mismatch_and_missing_ui_dependency(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            report = root / 'runtime.json'
+            prefix = root / 'prefix'
+            report.write_text(json.dumps({'runtimes': [
+                {'id': name, 'environmentRoot': str(prefix)} for name in
+                ('cgal-win-conda', 'vtk-win-conda', 'gmsh-win-conda')]}))
+            mapping = {name: str(prefix) for name in resume.SCENARIOS}
+            with self.assertRaisesRegex(ValueError, 'mismatches'):
+                resume.runtime_inventory(report, {**mapping, 'volume': str(root / 'other')})
+            worktree = root / 'worktree'
+            worktree.mkdir()
+            state_value = state(root / 'release')
+            state_value['worktree'] = str(worktree)
+            state_value['runtimeReport'] = str(report)
+            state_value['runtimeReportSha256'] = resume.sha(report)
+            with patch.object(resume.release, 'command') as command:
+                with self.assertRaisesRegex(ValueError, 'Playwright dependency'):
+                    resume.build(state_value)
+            self.assertEqual(resume.sha(report), resume.sha(worktree / '.scientific/runtime-report.json'))
+            self.assertEqual(1, command.call_count)
+            dependency = worktree / 'DevShell/ui/dev-ui-react/node_modules/playwright-core/package.json'
+            dependency.parent.mkdir(parents=True)
+            dependency.write_text('{}')
+            with patch.object(resume.release, 'command') as command, \
+                 patch.object(resume, 'sha', side_effect=lambda path:
+                              state_value['runtimeReportSha256'] if Path(path) == report else 'c' * 64):
+                resume.build(state_value)
+            self.assertEqual(3, command.call_count)
+            self.assertEqual(2, len(state_value['build']))
+
+    def test_execution_hands_off_to_sealed_worktree(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            worktree = root / 'checkout'
+            worktree.mkdir()
+            checkpoint = root / 'release/checkpoint.json'
+            value = state(checkpoint.parent)
+            value['worktree'] = str(worktree)
+            record = checkpoint.parent / 'coexistence.json'
+            record.parent.mkdir()
+            record.write_text(json.dumps({'sourceCommit': 'a' * 40}))
+            value['releaseRecord'] = str(record)
+            value['status'] = 'complete'
+            resume.save(checkpoint, value)
+            with patch.object(resume.release, 'ROOT', root), \
+                 patch.object(resume.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0)) as child:
+                path, result = resume.execute(checkpoint)
+            self.assertEqual(record, path)
+            self.assertEqual('a' * 40, result['sourceCommit'])
+            self.assertEqual(worktree, Path(child.call_args.kwargs['cwd']))
 
 
 if __name__ == '__main__':

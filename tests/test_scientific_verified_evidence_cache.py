@@ -7,7 +7,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/scientific-broker'))
-from verified_evidence_cache import VerifiedEvidenceCache
+from verified_evidence_cache import VerifiedEvidenceCache, sealed_files
 
 
 class VerifiedEvidenceCacheTests(unittest.TestCase):
@@ -51,6 +51,24 @@ class VerifiedEvidenceCacheTests(unittest.TestCase):
             source.write_text('changed')
             with self.assertRaisesRegex(ValueError, 'drifted'):
                 cache.check_source(repo, head)
+
+    def test_frozen_release_inventory_ignores_later_jobs_but_rejects_old_file_tamper(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            record = root / 'release.json'
+            support = root / 'jobs' / 'qualified' / 'result.json'
+            support.parent.mkdir(parents=True)
+            record.write_text('{"qualified":true}')
+            support.write_text('{"passed":true}')
+            cache = VerifiedEvidenceCache()
+            cache.add('release', record, {'qualified': True}, sealed_files(root))
+            later = root / 'jobs' / 'new' / 'result.json'
+            later.parent.mkdir()
+            later.write_text('{"passed":true}')
+            self.assertTrue(cache.get('release', record)['qualified'])
+            support.write_text('{"passed":false}')
+            with self.assertRaisesRegex(ValueError, 'changed'):
+                cache.get('release', record)
 
 
 if __name__ == '__main__':

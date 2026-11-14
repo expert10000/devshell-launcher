@@ -29,6 +29,19 @@ def witness(roots):
     return result.hexdigest()
 
 
+def sealed_files(root):
+    """Freeze the files in a verified record tree before unrelated jobs are added."""
+    if Path(root).is_symlink():
+        raise ValueError('Evidence witness cannot follow a symlink.')
+    root = Path(root).resolve(strict=True)
+    if not root.is_dir():
+        raise ValueError('Verified evidence root must be a real directory.')
+    entries = sorted(root.rglob('*'))
+    if any(path.is_symlink() for path in entries):
+        raise ValueError('Evidence witness cannot follow a symlink.')
+    return tuple(path for path in entries if path.is_file())
+
+
 class VerifiedEvidenceCache:
     def __init__(self):
         self._entries = {}

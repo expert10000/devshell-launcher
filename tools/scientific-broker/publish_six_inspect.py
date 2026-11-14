@@ -12,14 +12,14 @@ from class_inspect_qualification import run as qualify_classes, verify as verify
 from comparable_inspect import run as measure_shared, verify as verify_shared
 from desktop_inspect_journey import create as seal_desktop, verify as verify_desktop
 from inspect_classes import policy as class_policy
-from inspect_ranking import decide
+from inspect_ranking import policy as ranking_policy, rank_class
 from math3d_inspect_product import run as run_product, verify as verify_product
 from math3d_release_identity import verify as verify_math3d
 from portable_six_evidence import export as export_bundle, verify as verify_bundle
 from six_capability_release import verify as verify_release
 from six_capability_report import compare as build_report, verify as verify_report
 from advisor import verify_shared_advice
-from verified_evidence_cache import VerifiedEvidenceCache
+from verified_evidence_cache import VerifiedEvidenceCache, sealed_files
 
 
 def sha(path):
@@ -67,7 +67,7 @@ def publish(release_path, math3d_root, signing_key, key_id, output_root, port=93
     verify_math3d(math3d, release['math3dIdentity'])
     verified = VerifiedEvidenceCache()
     verified.bind_source(repo, release['sourceCommit'])
-    verified.add('release', release_path, release, (release_path.parent,))
+    verified.add('release', release_path, release, sealed_files(release_path.parent))
     if not 5 <= samples <= 20:
         raise ValueError('Use 5–20 paired class samples.')
     root = Path(checkpoint).resolve().parent if checkpoint else Path(output_root).resolve() / uuid.uuid4().hex
@@ -127,12 +127,12 @@ def publish(release_path, math3d_root, signing_key, key_id, output_root, port=93
     product_path, _ = stage('product', lambda: run_product(shared_path, exact_input, math3d, root / 'product-exact'),
                             lambda path: verify_product(path, shared_path, exact_input))
     policy, _ = class_policy(repo)
-    accepted = None
-    for entry in policy['classes']:
-        input_path = repo / entry['holdoutFixture']
-        if decide(class_path, input_path)['recommendation']:
-            accepted = input_path
-            break
+    ranking, _ = ranking_policy(repo)
+    decisions = {entry['id']: rank_class(classes['classes'][entry['id']], entry['id'], ranking)
+                 for entry in policy['classes']}
+    ranked = [entry for entry in policy['classes'] if decisions[entry['id']]['recommendation']]
+    preferred = next((entry for entry in ranked if entry['id'] == 'torus-surface-1024-1600'), None)
+    accepted = repo / (preferred or ranked[0])['holdoutFixture'] if ranked else None
     if accepted is None:
         raise ValueError('All bounded classes abstained; automatic desktop selection cannot be certified.')
     fallback = repo / 'scientific/fixtures/cgal/open-square.obj'
@@ -179,6 +179,8 @@ def publish(release_path, math3d_root, signing_key, key_id, output_root, port=93
               'desktopJourney': str(journey_path), 'report': str(report_path),
               'bundle': str(bundle_path), 'manifestSha256': verdict['manifestSha256'],
               'classIds': list(classes['classes']), 'sharedTiers': list(shared['tiers']),
+              'rankingDecisions': {key: {'recommendation': item['recommendation'], 'reason': item['reason']}
+                                   for key, item in decisions.items()},
               'desktopInput': str(accepted), 'signingKeyId': key_id}
     temporary = root / 'publication.json.tmp'
     temporary.write_text(json.dumps(record, indent=2), encoding='utf-8')

@@ -2,6 +2,8 @@
 
 Original plan updated 2026-10-16. This extends [SCIENTIFIC_RUNTIMES_ROADMAP.md](SCIENTIFIC_RUNTIMES_ROADMAP.md); it does not replace the existing scientific jobs, CGAL/VTK workers, or their recorded evidence.
 
+The current product design and staged implementation for selecting mesh objects, running provider operations, and reviewing 3D/text results is in [docs/scientific-mesh-workbench-roadmap.md](docs/scientific-mesh-workbench-roadmap.md).
+
 ## 2026-11-09 live volume requalification
 
 The prepared `D:\_masters` desktop-five workspace completed the sealed fixed-cube Gmsh `mesh.generate3d` L0–L9 chain. Its L9 record, broker export, MATH3D tetrahedral document/viewer smoke, fresh runtime inventory, capability-scoped release and deployed manifest all passed. The saved result is `.scientific/gmsh-volume-requalification-20261108/a03ab2dcdf0e463ca629c3a671a9fe16-result.json` in that checkout; the separate verifier and broker manifest verification passed. The qualified release is `gmsh-fixed-cube-volume-v1`, scoped to this fixture, source and runtime fingerprint. Gmsh 4.15.2 produced 205 tetrahedra; the L9 consumer and evidence gates now compare cell counts with pinned L7 and exporter evidence instead of assuming 204. Requalify after source, package, contract or consumer drift.

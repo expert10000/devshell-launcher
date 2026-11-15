@@ -214,9 +214,10 @@ def _run_uncheckpointed(math3d, cgal_prefix, vtk_prefix, scientific_prefix, outp
     return path, record
 
 
-def run(math3d, cgal_prefix, vtk_prefix, scientific_prefix, output_root=None, profile='desktop-five', port=9270):
+def run(math3d, cgal_prefix, vtk_prefix, scientific_prefix, output_root=None, profile='desktop-five', port=9270,
+        runtime_report=None):
     from six_release_resume import start
-    return start(math3d, cgal_prefix, vtk_prefix, scientific_prefix, output_root, profile, port)
+    return start(math3d, cgal_prefix, vtk_prefix, scientific_prefix, output_root, profile, port, runtime_report)
 
 
 def verify(path):
@@ -233,6 +234,7 @@ if __name__ == '__main__':
     parser.add_argument('--cgal-prefix', default=os.environ.get('DEVSHELL_CGAL_PREFIX'))
     parser.add_argument('--vtk-prefix', default=os.environ.get('DEVSHELL_VTK_PREFIX'))
     parser.add_argument('--scientific-prefix', default=os.environ.get('DEVSHELL_SCIENTIFIC_PREFIX'))
+    parser.add_argument('--runtime-report')
     parser.add_argument('--output-root')
     parser.add_argument('--profile-id', default='desktop-five')
     parser.add_argument('--port', type=int, default=9270)
@@ -243,7 +245,8 @@ if __name__ == '__main__':
         if not all((options.math3d_root, options.cgal_prefix, options.vtk_prefix, options.scientific_prefix)):
             parser.error('run requires --math3d-root, --cgal-prefix, --vtk-prefix and --scientific-prefix')
         path, result = run(options.math3d_root, options.cgal_prefix, options.vtk_prefix,
-                           options.scientific_prefix, options.output_root, options.profile_id, options.port)
+                           options.scientific_prefix, options.output_root, options.profile_id, options.port,
+                           options.runtime_report)
     elif options.command == 'resume':
         if not options.checkpoint:
             parser.error('resume requires --checkpoint')

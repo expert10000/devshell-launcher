@@ -1,5 +1,34 @@
 # Bounded `mesh.inspect` classes
 
+`schemas/scientific-mesh-inspect-classes.v5.json` defines nine bounded classes.
+The v1 three tiny classes and v2 three outward star-shaped closed surface tiers
+remain documented as historical policy files. The v3 additions are a dimpled,
+nonconvex genus-zero surface at 256–512 triangles and a structured, oriented
+genus-one torus at 256–400 triangles. Their base and independently triangulated
+holdout meshes are pinned by SHA-256; the torus requires a regular parametric
+grid with bounded major/minor radii, position deviation and positive volume.
+The nonconvex class requires a measured radial depression. Translated holdouts
+prove admission beyond the exact pinned hashes. Flipped and scrambled torus
+meshes are pinned rejections. V4 adds a medium torus surface at 1024–1600
+triangles. Its independent holdout permutes vertex order and alternates face
+diagonals. Admission checks bounded radii, tube deviation, local angular
+edges, outward nondegenerate faces, connectedness, opposing manifold edges,
+Euler genus one and signed volume. Open, inverted, pinched and long-edge
+adversarial meshes have pinned rejection hashes. `generate_inspect_topology.py`
+reproduces these fixtures. These constraints do not admit arbitrary genus-one
+or nonconvex meshes.
+
+V5 keeps the medium torus triangle range and requires two additional, pinned
+holdouts with independently perturbed major and minor angles, different sizes,
+mixed face diagonals and permuted vertex order. It requires a positive
+parametric face area and rejects overlapping projected triangles on the
+periodic torus surface. Folded and crossing meshes are pinned adversaries.
+The new holdouts require fresh CGAL and VTK managed L5–L9 records bound to the
+v5 policy, plus paired accepted broker jobs and promotions for each holdout.
+Each adversary requires paired broker rejection evidence. Earlier class and
+desktop records remain historical; ranking cannot admit the revised class
+until the new release and class record verify.
+
 `schemas/scientific-mesh-inspect-classes.v1.json` defines three deliberately narrow
 classes: tetrahedron (4 faces), octahedron (8 faces), and cube (12 faces). Each
 requires the base mesh's oriented triangular face indices, a positive uniform
@@ -22,7 +51,7 @@ provider and class, plus rejection evidence for both providers. `verify
 --record <classes.json>` rechecks the release, source, host, desktop L9 IDs,
 policy, artifacts, geometry, statistics, resource telemetry, and current broker
 promotion. The advisor may admit a class only while this record verifies.
-`schemas/scientific-inspect-ranking.v1.json` requires matching paired cold and
+`schemas/scientific-inspect-ranking.v2.json` requires matching paired cold and
 warm results, 95% confidence intervals excluding a tie, at least 10% median
 advantage, and bounded time and memory. `advisor.py advise-class --class-record
 <classes.json> --input <mesh.obj> --output-root <directory>` abstains on close,

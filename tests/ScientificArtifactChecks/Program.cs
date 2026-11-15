@@ -153,8 +153,22 @@ var invalidTranslation = (JsonObject)booleanRequest.DeepClone(); invalidTranslat
 Reject(() => ScientificBooleanParameters.Parse(Element(invalidTranslation)), "incomplete Boolean placement rejected");
 
 var progressRecords = new JsonArray(new JsonObject { ["name"] = "cube.obj", ["state"] = "validating" });
-var importProgress = ScientificMeshImports.Progress(new string('e',32), "laptop", progressRecords);
+var importProgress = ScientificMeshImports.Progress(new string('e',32), "laptop", "cgal-win-conda", progressRecords);
 Check(importProgress["validatedCapabilities"]!.AsArray().Count == 0 && importProgress["artifacts"]!.AsArray().Count == 0 && importProgress["state"]!.GetValue<string>() == "running", "import progress uses a complete result envelope without claiming capabilities or artifacts");
+var vtkImportProgress = ScientificMeshImports.Progress(new string('f', 32), "laptop", "vtk-win-conda", progressRecords);
+Check(vtkImportProgress["runtimeId"]!.GetValue<string>() == "vtk-win-conda" && vtkImportProgress["validatedCapabilities"]!.AsArray().Count == 0,
+    "VTK registration identifies its provider without claiming geometry validation");
+Check(ScientificProviderRegistry.RequireAction("vtk-win-conda", "import-meshes").RuntimeId == "vtk-win-conda", "VTK admits managed mesh registration");
+Check(ScientificProviderRegistry.RequireAction("vtk-win-conda", "workbench-math3d-handoff").RuntimeId == "vtk-win-conda"
+    && ScientificProviderRegistry.RequireAction("cgal-win-conda", "workbench-math3d-handoff").RuntimeId == "cgal-win-conda",
+    "only surface Workbench providers expose saved MATH3D handoff");
+Reject(() => ScientificProviderRegistry.RequireAction("gmsh-win-conda", "workbench-math3d-handoff"), "Gmsh needs a separate typed surface or volume contract");
+Check(ScientificMeshImports.Accepts("vtk-win-conda", "mesh.obj") && ScientificMeshImports.Accepts("vtk-win-conda", "mesh.stl")
+    && ScientificMeshImports.Accepts("vtk-win-conda", "mesh.ply") && !ScientificMeshImports.Accepts("vtk-win-conda", "mesh.off")
+    && ScientificMeshImports.Accepts("vtk-win-conda", "mesh.vtp") && ScientificMeshImports.Accepts("cgal-win-conda", "mesh.off"),
+    "provider import policy accepts only formats backed by its intake path");
+Check(ScientificProviderRegistry.RequireAction("vtk-win-conda", "dataset-preview").RuntimeId == "vtk-win-conda", "VTK admits registered input preview");
+Reject(() => ScientificProviderRegistry.RequireAction("sage-wsl", "dataset-preview"), "non-mesh providers reject input preview");
 progressRecords[0]!["state"] = "passed";
 Check(importProgress["imports"]![0]!["state"]!.GetValue<string>() == "validating", "published import progress snapshots remain immutable");
 var importRoot = Path.Combine(directory, "user-imports");
@@ -183,6 +197,26 @@ foreach(var extension in new[]{".stl", ".ply", ".off"})
 {
     var file = Path.Combine(directory,"mesh"+extension); File.WriteAllText(file,"fixture");
     Check(ScientificMeshImports.Import(importRoot,file)["path"]!.GetValue<string>().EndsWith(extension), "import supports " + extension);
+}
+var safeVtp = Path.Combine(directory, "safe-polydata.vtp");
+File.WriteAllText(safeVtp, "<VTKFile type=\"PolyData\" version=\"1.0\"><PolyData><Piece NumberOfPoints=\"0\" NumberOfPolys=\"0\" /></PolyData></VTKFile>");
+Check(ScientificMeshImports.Accepts("vtk-win-conda", safeVtp) && !ScientificMeshImports.Accepts("cgal-win-conda", safeVtp), "VTP registration is VTK-only");
+var inspectParameters = JsonSerializer.SerializeToElement(new { inputId = "registered/mesh.vtp", outputName = "result.vtp" });
+ScientificWorkbenchOperationCatalog.Validate(args[0], "vtk-win-conda", "mesh.inspect", inspectParameters, safeVtp);
+Check(true, "desktop VTK operation uses the versioned shared catalog");
+Reject(() => ScientificWorkbenchOperationCatalog.Validate(args[0], "cgal-win-conda", "mesh.inspect", inspectParameters, safeVtp), "catalog rejects wrong provider");
+Reject(() => ScientificWorkbenchOperationCatalog.Validate(args[0], "vtk-win-conda", "mesh.inspect", JsonSerializer.SerializeToElement(new { inputId = "x", outputName = "../bad.vtp" }), safeVtp), "catalog rejects unsafe output");
+Reject(() => ScientificWorkbenchOperationCatalog.Validate(args[0], "cgal-win-conda", "cgal.remesh", JsonSerializer.SerializeToElement(new { inputId = "x", outputName = "result.obj", targetEdge = 0.1, iterations = 3, preserveBoundary = true }), safeVtp), "guarded remesh rejects VTP before run");
+Reject(() => ScientificWorkbenchOperationCatalog.Validate(args[0], "vtk-win-conda", "mesh.simplify", JsonSerializer.SerializeToElement(new { inputId = "x", outputName = "result.vtp", targetReduction = 1.0, preserveTopology = true, preserveBoundary = true }), safeVtp), "catalog enforces reduction bound");
+Check(ScientificMeshImports.Import(importRoot, safeVtp)["path"]!.GetValue<string>().EndsWith(".vtp"), "bounded XML PolyData is registered");
+foreach (var (name, xml) in new[] {
+    ("doctype", "<!DOCTYPE VTKFile [<!ENTITY x SYSTEM 'file:///secret'>]><VTKFile type=\"PolyData\"><PolyData><Piece /></PolyData></VTKFile>"),
+    ("external", "<VTKFile type=\"PolyData\"><PolyData><Piece href=\"file:///secret\" /></PolyData></VTKFile>"),
+    ("raw", "<VTKFile type=\"PolyData\"><PolyData><Piece /></PolyData><AppendedData encoding=\"raw\">_abc</AppendedData></VTKFile>"),
+    ("malformed", "<VTKFile type=\"PolyData\"><PolyData><Piece /></VTKFile>") })
+{
+    var file = Path.Combine(directory, name + ".vtp"); File.WriteAllText(file, xml);
+    Reject(() => ScientificMeshImports.Import(importRoot, file), "VTP " + name + " is rejected before registration");
 }
 var unsupported = Path.Combine(directory,"unsafe.exe"); File.WriteAllText(unsupported,"fixture");
 Reject(() => ScientificMeshImports.Import(importRoot,unsupported), "unsupported import types rejected");

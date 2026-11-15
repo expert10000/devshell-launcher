@@ -6,6 +6,7 @@ import { initialCamera } from './scientificCamera'
 import type { Camera } from './scientificCamera'
 import { ScientificComparisonPresets } from './ScientificComparisonPresets'
 import { ScientificExactMathInspector, ScientificMeshFacts, ScientificMeshNumericDiff } from './ScientificArtifactInspector'
+import operationCatalog from '../../../../schemas/scientific-workbench-operations.v1.json'
 
 const metric = (value: number | null | undefined) => typeof value === 'number' && Number.isFinite(value) ? value.toPrecision(4) : 'unavailable'
 
@@ -54,6 +55,8 @@ export function ScientificHistory({ native, runtimeId, focusRunId = null, compar
   const selectedVisible = !!selectedJobId && (!!filteredEntries?.some(entry => entry.jobId === selectedJobId)
     || !!qualificationSummary?.capabilities.some(capability => capability.supportingRuns.some(run => run.runId === selectedJobId)))
   const result = selectedVisible && selectedJobId ? native.historyResults[selectedJobId] ?? null : null
+  const handoffArtifact = result?.state === 'succeeded' && operationCatalog.operations.some(item => item.id === result.recipeId)
+    ? result.artifacts?.find(item => item.role !== 'operand' && /\.(obj|vtp)$/i.test(item.path)) : undefined
   const [imageSelection, setImageSelection] = useState<{ jobId: string; path: string } | null>(null)
   const imagePreview = imageSelection ? native.historyImages[`${imageSelection.jobId}|${imageSelection.path}`] : undefined
   const [imageError, setImageError] = useState('')
@@ -114,7 +117,7 @@ export function ScientificHistory({ native, runtimeId, focusRunId = null, compar
   return <section className="scientific-history" aria-label="Scientific run history">
     <h3>Run history</h3>
     {showComparisonPresets && <details className="scientific-history-presets"><summary>Prepare comparable runs</summary><ScientificComparisonPresets native={native} /></details>}
-    <p className="scientific-runtime-note">Completed runs for this profile are read from local result files. Loading history never starts a recipe.</p>
+    <p className="scientific-runtime-note">Saved runs for this profile are read from local result files, including failures and cancellations. Loading history never starts a recipe.</p>
     <button disabled={native.pending} onClick={() => native.send('', 'history')}>{entries ? 'Refresh history' : 'Load history'}</button>
     {entries && <section aria-label="Current qualification summary"><h4>Highest current level by capability / {runtimeId}</h4>
       {qualificationSummary ? <><p className="scientific-runtime-note">Only verified, successful runs with current source, environment and contract count. Excluded: {qualificationSummary.excludedFailedRuns} non-successful runs, {qualificationSummary.excludedStaleRecords} stale records, {qualificationSummary.excludedUnknownRecords} unknown records.</p>
@@ -131,7 +134,7 @@ export function ScientificHistory({ native, runtimeId, focusRunId = null, compar
       }} /></td><td>{new Date(entry.finishedAtUtc).toLocaleString()}</td><td>{entry.runtimeId}<br /><strong>{entry.recipeId}</strong></td><td>{entry.state}</td><td>{(entry.durationMs / 1000).toFixed(1)} s</td><td>{entry.artifactCount}</td>
       <td><div className="scientific-history-actions"><button aria-pressed={selectedJobId === entry.jobId} onClick={() => { setSelectedJobId(entry.jobId); native.send(entry.runtimeId, 'history-result', { jobId: entry.jobId }) }}>{selectedJobId === entry.jobId ? 'Viewing' : 'Result'}</button>{entry.recipeId === 'cgal.boolean' && <button disabled={native.pending || native.busy} onClick={() => native.send(entry.runtimeId, 'history-boolean-draft', { jobId: entry.jobId })}>Rerun...</button>}<button onClick={() => native.send(entry.runtimeId, 'history-open-log', { jobId: entry.jobId })}>Log</button><button onClick={() => native.send(entry.runtimeId, 'history-open-output', { jobId: entry.jobId })}>Folder</button><button disabled={entry.state !== 'succeeded' || !(entry.meshArtifactCount ?? entry.artifactCount)} aria-pressed={comparisonIds.includes(entry.jobId)} onClick={() => toggleComparison(entry)}>{comparisonIds.includes(entry.jobId) ? 'Selected' : 'Compare'}</button></div></td>
     </tr>)}</tbody></table></div> : <p role="status">No runs match these filters. Clear filters to show all runs.</p>}
-    </> : <p>No completed runs found for this profile.</p>)}
+    </> : <p>No saved runs found for this profile.</p>)}
     {selectedVisible && !result && <div className="scientific-history-result" role="status">Loading result <code>{selectedJobId}</code>...</div>}
     {result && <div ref={resultRef} className="scientific-history-result"><h4>{result.runtimeId} / {result.recipeId} / {result.state}</h4><p><code>{result.runId}</code> / {result.durationMs} ms</p>
       {result.runFingerprintSha256 && <p>Verified run fingerprint: <code>{result.runFingerprintSha256}</code>. Open the run folder to inspect <code>{result.runFingerprintReference}</code>.</p>}
@@ -163,6 +166,11 @@ export function ScientificHistory({ native, runtimeId, focusRunId = null, compar
         </tbody></table> : <p>No geometry output recorded.</p>}</div>)}</details>
       </section>}
       {result.recipeId === 'cgal.boolean' && <button disabled={native.pending || native.busy} onClick={() => native.send(result.runtimeId, 'history-boolean-draft', { jobId: result.runId })}>Rerun with these settings...</button>}
+      {handoffArtifact && <section aria-label="MATH3D saved-result handoff"><h5>MATH3D saved document</h5>
+        <p>The verified output is converted to bounded OBJ and loaded into the pulled MATH3D consumer. Its saved Mesh document, resource, M3DM, source run, hashes, and consumer commit are checked on reload.</p>
+        <button disabled={native.pending || native.busy || result.gitSourceDrift?.state !== 'current'} onClick={() => native.send(result.runtimeId, 'workbench-math3d-handoff', { jobId: result.runId, artifactPath: handoffArtifact.path })}>Send verified result to MATH3D</button>
+        {result.gitSourceDrift?.state !== 'current' && <p role="status">Rerun this operation at the current source before handoff.</p>}
+      </section>}
       {result.rerunOf && <p>Rerun of <code>{result.rerunOf}</code>. The original result remains in History.</p>}
       {result.imports && <section aria-label="Saved mesh import results"><h5>Imported meshes</h5><ul>{result.imports.map((item, index) => <li key={index}>{item.name} / {item.state} / {item.triangles ?? 'unknown'} triangles<p>{item.message}</p></li>)}</ul></section>}
       {result.boolean && <p><strong>{result.boolean.operation.toUpperCase()}</strong> / {result.boolean.empty ? 'Empty result' : `Volume ${result.after?.volume ?? 'unavailable'}`} / Mesh B scale {result.boolean.scaleB}, offset [{result.boolean.translateB.join(', ')}]. Retained input snapshots reopen the same operands used for this run.</p>}

@@ -30,9 +30,10 @@ def wait(broker, request):
         raise ValueError('Bounded inspection changed input geometry.')
     result = json.loads((folder / 'results.json').read_text(encoding='utf-8'))
     telemetry = broker.telemetry(job_id)
-    warm = (result.get('engineDetails', {}).get('durationMs') if broker.inspect
-            else result.get('durationMs'))
-    if (not isinstance(warm, (int, float)) or warm < 0 or warm > job['workerDurationMs']
+    warm_us = (result.get('engineDetails', {}).get('durationUs') if broker.inspect
+               else result.get('operationDurationUs'))
+    warm = warm_us / 1000 if isinstance(warm_us, int) else None
+    if (not isinstance(warm_us, int) or warm_us <= 0 or warm > job['workerDurationMs']
             or telemetry.get('ram', {}).get('state') != 'recorded'
             or not isinstance(telemetry['ram'].get('value'), int)):
         raise ValueError('Cold/warm timing or attributed RAM telemetry is unavailable.')
@@ -42,7 +43,7 @@ def wait(broker, request):
     if broker.vtk_read:
         files['read.vtp'] = {'path': str(folder / 'read.vtp'), 'sha256': sha(folder / 'read.vtp')}
     return {'jobId': job_id, 'coldInvocationMs': job['workerDurationMs'],
-            'warmExecutionMs': warm,
+            'warmExecutionMs': warm, 'warmExecutionUs': warm_us,
             'startupOverheadMs': job['workerDurationMs'] - warm,
             'peakRssBytes': telemetry['ram']['value'], 'files': files}
 
@@ -102,6 +103,22 @@ def run(release_path, output_root, samples=5):
                                      'startupOverhead': summary([item['startupOverheadMs'] for item in items]),
                                      'peakRssBytes': max(item['peakRssBytes'] for item in items)}
                                      for name, items in runs.items()}}
+        independent = []
+        for extra in entry.get('independentHoldouts', []):
+            source = repo / extra['path']
+            if classify(source, repo)['classId'] != entry['id']:
+                raise ValueError('Independent holdout is outside its class.')
+            gate = {}
+            for name, broker in brokers.items():
+                target = broker.paths['datasetRoot'] / ('inspect-class-extra-' + entry['id'] +
+                                                        '-' + str(len(independent)) + '-' + name + '.obj')
+                shutil.copyfile(source, target)
+                gate[name] = wait(broker, request(broker, entry['id'], target))
+            if not equivalent(gate['cgal']['files']['inspected.obj']['path'],
+                              gate['vtk']['files']['read.obj']['path']):
+                raise ValueError('Independent holdout providers disagree.')
+            independent.append({'fixture': extra['path'], 'sha256': extra['sha256'], 'runs': gate})
+        accepted[entry['id']]['independentGates'] = independent
     for adverse in classes['rejectedFixtures']:
         source = repo / adverse['path']
         for name, broker in brokers.items():
@@ -114,7 +131,8 @@ def run(release_path, output_root, samples=5):
                                  'provider': name, 'reason': str(error)[:240]})
             else:
                 raise ValueError('Adverse class input was accepted: ' + adverse['path'])
-    record = {'schemaVersion': 2, 'kind': 'scientific.bounded-inspect-class-qualification',
+    record = {'schemaVersion': 5, 'kind': 'scientific.bounded-inspect-class-qualification',
+              'measurementVersion': 2, 'warmTimingBoundary': 'worker-read-inspect-write-microseconds',
               'createdAtUtc': datetime.now(timezone.utc).isoformat(),
               'sourceCommit': release['sourceCommit'], 'releaseRecord': str(release_path),
               'releaseRecordSha256': sha(release_path), 'policySha256': policy_hash,
@@ -136,7 +154,9 @@ def verify(path):
     if sha(path) != Path(str(path) + '.sha256').read_text(encoding='utf-8').strip():
         raise ValueError('Bounded class record seal changed.')
     record = json.loads(path.read_text(encoding='utf-8'))
-    if record.get('schemaVersion') != 2 or record.get('kind') != 'scientific.bounded-inspect-class-qualification':
+    if (record.get('schemaVersion') != 5 or record.get('measurementVersion') != 2
+            or record.get('warmTimingBoundary') != 'worker-read-inspect-write-microseconds'
+            or record.get('kind') != 'scientific.bounded-inspect-class-qualification'):
         raise ValueError('Bounded class record contract changed.')
     release = verify_release(record['releaseRecord'])
     repo = Path(release['repo'])
@@ -192,8 +212,9 @@ def verify(path):
                         or result_value.get('runId') != run['jobId']
                         or broker_value.get('workerDurationMs') != run['coldInvocationMs']
                         or broker_value.get('telemetrySha256') != run['files']['telemetry.json']['sha256']
-                        or (result_value.get('engineDetails', {}).get('durationMs') if name == 'cgal'
-                            else result_value.get('durationMs')) != run['warmExecutionMs']
+                        or (result_value.get('engineDetails', {}).get('durationUs') if name == 'cgal'
+                            else result_value.get('operationDurationUs')) != run['warmExecutionUs']
+                        or run['warmExecutionMs'] != run['warmExecutionUs'] / 1000
                         or run['startupOverheadMs'] != run['coldInvocationMs'] - run['warmExecutionMs']
                         or telemetry.get('ram', {}).get('state') != 'recorded'
                         or telemetry['ram'].get('value') != run['peakRssBytes']
@@ -213,18 +234,44 @@ def verify(path):
         if not equivalent(saved['runs']['cgal'][0]['files']['inspected.obj']['path'],
                           saved['runs']['vtk'][0]['files']['read.obj']['path']):
             raise ValueError('Bounded class provider geometry diverged.')
+        if len(saved.get('independentGates', [])) != len(entry.get('independentHoldouts', [])):
+            raise ValueError('Independent class gates are incomplete.')
+        for extra, gate in zip(entry.get('independentHoldouts', []), saved['independentGates']):
+            source = repo / extra['path']
+            if (gate['fixture'] != extra['path'] or gate['sha256'] != extra['sha256']
+                    or classify(source, repo)['classId'] != entry['id']
+                    or set(gate['runs']) != {'cgal', 'vtk'}):
+                raise ValueError('Independent holdout identity changed.')
+            for name, run in gate['runs'].items():
+                for artifact in run['files'].values():
+                    if sha(artifact['path']) != artifact['sha256']:
+                        raise ValueError('Independent holdout artifact changed.')
+                request_value = json.loads(Path(run['files']['request.json']['path']).read_text())
+                result_value = json.loads(Path(run['files']['results.json']['path']).read_text())
+                promotion = json.loads(Path(run['files']['promotion.json']['path']).read_text())
+                output = run['files']['inspected.obj' if name == 'cgal' else 'read.obj']['path']
+                if (request_value['provenance'].get('inspectionClassId') != entry['id']
+                        or request_value['provenance'].get('inspectionClassPolicySha256') != policy_hash
+                        or request_value['inputArtifacts'][0]['sha256'] != extra['sha256']
+                        or result_value['state'] != 'succeeded' or result_value['runId'] != run['jobId']
+                        or promotion['decision'] != 'allowed' or promotion['sourceJobId'] != run['jobId']
+                        or not equivalent(source, output)
+                        or brokers[name].promote(run['jobId'])['decision'] != 'allowed'):
+                    raise ValueError('Independent holdout promotion or geometry changed.')
+            if not equivalent(gate['runs']['cgal']['files']['inspected.obj']['path'],
+                              gate['runs']['vtk']['files']['read.obj']['path']):
+                raise ValueError('Independent holdout provider geometry diverged.')
     expected_rejections = {(item['path'], name, item['sha256'])
                            for item in classes['rejectedFixtures'] for name in ('cgal', 'vtk')}
     observed = {(item['fixture'], item['provider'], item['sha256']) for item in record['rejections']}
     if observed != expected_rejections or len(record['rejections']) != len(expected_rejections):
         raise ValueError('Bounded class rejection evidence is incomplete.')
     for item in record['rejections']:
-        if not item['reason'] or not item['reason'].startswith('Input is outside'):
-            raise ValueError('Bounded class rejection reason changed.')
         try:
             classify(repo / item['fixture'], repo)
-        except ValueError:
-            pass
+        except ValueError as error:
+            if item['reason'] != str(error)[:240]:
+                raise ValueError('Bounded class rejection reason changed.') from error
         else:
             raise ValueError('Adverse inspection input became accepted.')
     return record

@@ -1,0 +1,142 @@
+"""A semantic verification is reused only while every witnessed byte is fixed."""
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'tools/scientific-broker'))
+from verified_evidence_cache import VerifiedEvidenceCache, VerificationReceipts, sealed_files
+
+
+class VerifiedEvidenceCacheTests(unittest.TestCase):
+    def test_receipt_reuses_verified_bytes_across_processes_and_rechecks_changes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            record = root / 'record.json'
+            dependency = root / 'payload.obj'
+            record.write_text('{}')
+            dependency.write_text('v 0 0 0\n')
+            calls = []
+            def verify(path):
+                calls.append(1)
+                return {'qualified': True, 'record': str(path)}
+            def check(version):
+                receipts = VerificationReceipts(root / 'receipts', version)
+                return receipts.checked('classes', record, verify,
+                                        lambda path, result: (path, dependency), VerifiedEvidenceCache())
+            check('v1')
+            check('v1')
+            self.assertEqual(1, len(calls))
+            dependency.write_text('v 1 0 0\n')
+            check('v1')
+            self.assertEqual(2, len(calls))
+            check('v2')
+            self.assertEqual(3, len(calls))
+            receipt = root / 'receipts/classes.json'
+            receipt.write_text(receipt.read_text().replace('qualified', 'forged'))
+            with self.assertRaisesRegex(ValueError, 'tampered'):
+                check('v2')
+
+    def test_frozen_receipt_ignores_new_broker_job_but_rechecks_old_job(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            record = root / 'release.json'
+            job = root / 'jobs/old/result.json'
+            job.parent.mkdir(parents=True)
+            record.write_text('{}')
+            job.write_text('{"ok":true}')
+            calls = []
+            def check():
+                return VerificationReceipts(root / 'receipts', 'v1').checked(
+                    'release', record, lambda path: calls.append(1) or {'ok': True},
+                    lambda path, result: sealed_files(root / 'jobs') + (record,),
+                    VerifiedEvidenceCache())
+            check()
+            later = root / 'jobs/new/result.json'
+            later.parent.mkdir()
+            later.write_text('{}')
+            check()
+            self.assertEqual(1, len(calls))
+            job.write_text('{"ok":false}')
+            check()
+            self.assertEqual(2, len(calls))
+
+    def test_interrupted_receipt_write_does_not_promote(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            record = root / 'record.json'
+            record.write_text('{}')
+            receipt = VerificationReceipts(root / 'receipts', 'v1')
+            with patch('verified_evidence_cache.os.replace', side_effect=OSError('interrupted')):
+                with self.assertRaisesRegex(OSError, 'interrupted'):
+                    receipt.checked('report', record, lambda path: {'ok': True},
+                                    lambda path, result: (path,), VerifiedEvidenceCache())
+            self.assertFalse((root / 'receipts/report.json').exists())
+            self.assertEqual({'ok': True}, receipt.checked('report', record,
+                lambda path: {'ok': True}, lambda path, result: (path,), VerifiedEvidenceCache()))
+
+    def test_reuses_one_check_and_rejects_artifact_tamper_or_new_file(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            record = root / 'record.json'
+            artifact = root / 'artifact.obj'
+            record.write_text('{}')
+            artifact.write_text('v 0 0 0\n')
+            calls = []
+            def verify():
+                calls.append(1)
+                return {'qualified': True}
+            cache = VerifiedEvidenceCache()
+            cache.add('classes', record, verify())
+            self.assertEqual(cache.get('classes', record), cache.get('classes', record))
+            self.assertEqual(len(calls), 1)
+            artifact.write_text('v 1 0 0\n')
+            with self.assertRaisesRegex(ValueError, 'changed'):
+                cache.get('classes', record)
+            artifact.write_text('v 0 0 0\n')
+            (root / 'new.json').write_text('{}')
+            with self.assertRaisesRegex(ValueError, 'changed'):
+                cache.get('classes', record)
+
+    def test_source_witness_rejects_drift_even_with_same_commit(self):
+        with tempfile.TemporaryDirectory() as folder:
+            repo = Path(folder)
+            subprocess.run(['git', 'init', '-q', str(repo)], check=True)
+            subprocess.run(['git', '-C', str(repo), 'config', 'user.email', 'test@example.invalid'], check=True)
+            subprocess.run(['git', '-C', str(repo), 'config', 'user.name', 'Test'], check=True)
+            source = repo / 'source.txt'
+            source.write_text('original')
+            subprocess.run(['git', '-C', str(repo), 'add', 'source.txt'], check=True)
+            subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'initial'], check=True)
+            head = subprocess.check_output(['git', '-C', str(repo), 'rev-parse', 'HEAD'], text=True).strip()
+            cache = VerifiedEvidenceCache()
+            cache.bind_source(repo, head)
+            cache.check_source(repo, head)
+            source.write_text('changed')
+            with self.assertRaisesRegex(ValueError, 'drifted'):
+                cache.check_source(repo, head)
+
+    def test_frozen_release_inventory_ignores_later_jobs_but_rejects_old_file_tamper(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            record = root / 'release.json'
+            support = root / 'jobs' / 'qualified' / 'result.json'
+            support.parent.mkdir(parents=True)
+            record.write_text('{"qualified":true}')
+            support.write_text('{"passed":true}')
+            cache = VerifiedEvidenceCache()
+            cache.add('release', record, {'qualified': True}, sealed_files(root))
+            later = root / 'jobs' / 'new' / 'result.json'
+            later.parent.mkdir()
+            later.write_text('{"passed":true}')
+            self.assertTrue(cache.get('release', record)['qualified'])
+            support.write_text('{"passed":false}')
+            with self.assertRaisesRegex(ValueError, 'changed'):
+                cache.get('release', record)
+
+
+if __name__ == '__main__':
+    unittest.main()

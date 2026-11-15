@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 2,
+  "kind": "scientific.mesh-inspect-input-classes",
+  "operation": "mesh.inspect",
+  "scope": "Strict triangular OBJ: pinned tiny uniform-transform classes plus bounded, single-component outward star-shaped closed genus-zero surface tiers with independent icosphere holdouts. No open, nonmanifold, degenerate, inverted, disconnected, nonfinite, oversized or unsupported input.",
+  "minimumScale": 0.5,
+  "maximumScale": 2.0,
+  "maximumAbsoluteTranslation": 2.0,
+  "coordinateTolerance": 1e-06,
+  "maximumInputBytes": 131072,
+  "classes": [
+    {
+      "id": "tetra-uniform-4",
+      "tier": "tetra-4",
+      "baseFixture": "scientific/fixtures/cgal/closed-tetra.obj",
+      "baseSha256": "21b1325a5d9f7ef43f04b923c7b469e6a8c73cc41eef436924801d37ac29113d",
+      "holdoutFixture": "scientific/fixtures/inspect-shared/tetra-holdout.obj",
+      "holdoutSha256": "e07cd4385a67311d149689fa636bb4528f7c301ef555c3d387ef9e0f236198d5",
+      "mode": "uniform"
+    },
+    {
+      "id": "octa-uniform-8",
+      "tier": "octa-6",
+      "baseFixture": "scientific/fixtures/cgal-remesh-qualification/octahedron.obj",
+      "baseSha256": "72cff9d9e08a2ce0ba81932417e0c6351bc11174d394607e7041586ad59b1a5a",
+      "holdoutFixture": "scientific/fixtures/inspect-shared/octa-holdout.obj",
+      "holdoutSha256": "7bce2b04074fdc62af4e6dc05196e8832e8ce8c43063bb12a772ca05f77864ef",
+      "mode": "uniform"
+    },
+    {
+      "id": "cube-uniform-12",
+      "tier": "cube-8",
+      "baseFixture": "scientific/fixtures/cgal-repair-quad/cube-closed.obj",
+      "baseSha256": "70a95597b1464af10a197f4c0d6def7f51fbd77118d765fc735e807ec52ca504",
+      "holdoutFixture": "scientific/fixtures/inspect-shared/cube-holdout.obj",
+      "holdoutSha256": "e7e90a80697ff7b720b7d17cbaea10d602383e3ddd4d6e92675ce5d16c3f9495",
+      "mode": "uniform"
+    },
+    {
+      "id": "star-closed-64-128",
+      "tier": "closed-64-128",
+      "mode": "star-closed",
+      "minimumTriangles": 64,
+      "maximumTriangles": 128,
+      "baseFixture": "scientific/fixtures/inspect-shared/sphere-128.obj",
+      "baseSha256": "bf3a21ef2ebe26f8e7daf3a88c94c54f06fac040a183adc7958d07e431a85b70",
+      "holdoutFixture": "scientific/fixtures/inspect-classes/ico-80-holdout.obj",
+      "holdoutSha256": "002520bfa2d0dff69a39d681a02a00b30348e179340a4ddc659fc7999f905a0e"
+    },
+    {
+      "id": "star-closed-256-512",
+      "tier": "closed-256-512",
+      "mode": "star-closed",
+      "minimumTriangles": 256,
+      "maximumTriangles": 512,
+      "baseFixture": "scientific/fixtures/inspect-shared/sphere-512.obj",
+      "baseSha256": "8c05a577381397605ec5b0717cea164f378dbc5b47959b1a4c3a18235f850563",
+      "holdoutFixture": "scientific/fixtures/inspect-classes/ico-320-holdout.obj",
+      "holdoutSha256": "0e79de97685df0c3df9686df138e407da2e27158fed582e13276128ae7d6f6fb"
+    },
+    {
+      "id": "star-closed-1024-2048",
+      "tier": "closed-1024-2048",
+      "mode": "star-closed",
+      "minimumTriangles": 1024,
+      "maximumTriangles": 2048,
+      "baseFixture": "scientific/fixtures/inspect-shared/sphere-2048.obj",
+      "baseSha256": "ec86b08e0b43aee95708ae08d83703dc3edbb92c0bddf517038c2e8711298afa",
+      "holdoutFixture": "scientific/fixtures/inspect-classes/ico-1280-holdout.obj",
+      "holdoutSha256": "21bf8a6feb3668177e938f807208617ffd59c29ee5cb90948bbf721966c62593"
+    }
+  ],
+  "rejectedFixtures": [
+    {
+      "path": "scientific/fixtures/inspect-shared/tetra-nonuniform.obj",
+      "sha256": "863da5dc5df705c0271a7de850b8003fccdab3e0156acb4f0631babeb70e73d0",
+      "reason": "nonuniform"
+    },
+    {
+      "path": "scientific/fixtures/inspect-shared/tetra-mirrored.obj",
+      "sha256": "617a745bef6c80dfef63759b602ae453669b1211892825909a1c310d9beac46b",
+      "reason": "mirror"
+    },
+    {
+      "path": "scientific/fixtures/inspect-shared/tetra-overscale.obj",
+      "sha256": "c0a6b722114da36ed7906f3f1943ee8331ed351bcce4c75c0930c831b81e1b24",
+      "reason": "scale"
+    },
+    {
+      "path": "scientific/fixtures/inspect-shared/tetra-flipped-face.obj",
+      "sha256": "3d75d3001e784ac98f23ea19f84255abd5437663eb1d13820a7826bb7f8a8cfb",
+      "reason": "face"
+    },
+    {
+      "path": "scientific/fixtures/inspect-classes/ico-open.obj",
+      "sha256": "6d816a063ed35e9955f24def69b2c755dc208905f16cdd7b5b77fb1e5c9ad748",
+      "reason": "open"
+    },
+    {
+      "path": "scientific/fixtures/inspect-classes/ico-flipped.obj",
+      "sha256": "c0267f004ea547034f44500facf391fd931f4e3a48b11833794a9e6becaa3701",
+      "reason": "inverted"
+    },
+    {
+      "path": "scientific/fixtures/inspect-classes/ico-collapsed.obj",
+      "sha256": "99fe45a4fc6122f92249773683d41ba7d6a7efe57998fe8e9cbdcc59c4a5099c",
+      "reason": "degenerate"
+    },
+    {
+      "path": "scientific/fixtures/inspect-classes/ico-disconnected.obj",
+      "sha256": "60d084fe2e499a9bef44355d98f4222c23adccad654f018bb33e7a2419f30eda",
+      "reason": "disconnected"
+    },
+    {
+      "path": "scientific/fixtures/inspect-classes/ico-nonfinite.obj",
+      "sha256": "12a85a5f99fbe91ed036276177062b66c05690483f4d7cbb5f7cae127a666675",
+      "reason": "nonfinite"
+    },
+    {
+      "path": "scientific/fixtures/inspect-classes/ico-oversize.obj",
+      "sha256": "4917df88dd24ec218c4dfd99ca0b06e63f7715e3628cb531606a6aa2ba8175b7",
+      "reason": "coordinate-bounds"
+    }
+  ],
+  "starBounds": {
+    "minimumRadius": 0.6,
+    "maximumRadius": 1.4,
+    "maximumAbsoluteCenter": 2.0,
+    "maximumAbsoluteCoordinate": 3.5,
+    "minimumFaceArea": 1e-08,
+    "minimumVolume": 0.1
+  }
+}

@@ -10,15 +10,17 @@ from class_inspect_qualification import verify as verify_classes
 from inspect_classes import classify
 
 ROOT = Path(__file__).resolve().parents[2]
-POLICY_PATH = 'schemas/scientific-inspect-ranking.v1.json'
+POLICY_PATH = 'schemas/scientific-inspect-ranking.v2.json'
 PROVIDERS = {'cgal': 'cgal-win-conda', 'vtk': 'vtk-win-conda'}
 
 
 def policy(repo=ROOT):
     path = Path(repo) / POLICY_PATH
     value = json.loads(path.read_text(encoding='utf-8'))
-    expected = {'schemaVersion': 1, 'kind': 'scientific.mesh-inspect-ranking-policy',
-                'operation': 'mesh.inspect', 'minimumPairedSamples': 5,
+    expected = {'schemaVersion': 2, 'kind': 'scientific.mesh-inspect-ranking-policy',
+                'operation': 'mesh.inspect', 'measurementVersion': 2,
+                'warmTimingBoundary': 'worker-read-inspect-write-microseconds',
+                'minimumPairedSamples': 5,
                 'bootstrapIterations': 2000, 'confidence': .95,
                 'minimumRelativeAdvantage': .1, 'maximumColdInvocationMs': 20000,
                 'maximumWarmExecutionMs': 10000, 'maximumPeakRssMiB': 2048}
@@ -46,7 +48,9 @@ def rank_class(saved, class_id, ranking_policy):
               'warmExecutionMs': ranking_policy['maximumWarmExecutionMs']}
     for provider in PROVIDERS:
         for run in runs[provider]:
-            if (not isinstance(run.get('peakRssBytes'), int)
+            if (not isinstance(run.get('warmExecutionUs'), int) or run['warmExecutionUs'] <= 0
+                    or run.get('warmExecutionMs') != run['warmExecutionUs'] / 1000
+                    or not isinstance(run.get('peakRssBytes'), int)
                     or run['peakRssBytes'] > ranking_policy['maximumPeakRssMiB'] * 1024 * 1024
                     or any(not isinstance(run.get(key), (int, float)) or run[key] > limit or run[key] < 0
                            for key, limit in limits.items())):

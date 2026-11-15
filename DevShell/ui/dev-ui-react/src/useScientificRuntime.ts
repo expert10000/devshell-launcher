@@ -9,6 +9,7 @@ export interface ScientificDataset { id: string; name: string; category: string;
 export interface ScientificEnvironment { environment: Record<string, string>; vcpkgRoot: string | null; installedVcpkg: string | null; vcpkgUsed: boolean; report: ScientificRuntimeReport; evidence?: { compilerVersion?: string | null; compilerSource?: string; rendering?: ScientificRunResult['rendering'] } }
 export interface ScientificMeshPreview { name: string; positions: number[]; bounds: number[]; points: number; triangles: number; previewTriangles: number; sampled: boolean; note: string }
 export interface ScientificArtifactPreview { jobId: string; artifactPath: string; geometry: { before: ScientificMeshPreview | null; beforeSecond?: ScientificMeshPreview | null; after: ScientificMeshPreview }; result: ScientificRunResult }
+export interface ScientificDatasetPreview { inputId: string; sha256: string; geometry: ScientificMeshPreview }
 export interface ScientificHistoryImagePreview { jobId: string; artifactPath: string; image: { dataUrl: string; mimeType: string; size: number } }
 export interface ScientificHistoryThumbnail { jobId: string; artifactPath: string; dataUrl?: string; error?: string }
 export interface ScientificHistoryEntry { jobId: string; runtimeId: string; recipeId: string; testCaseId?: string | null; state: string; durationMs: number; finishedAtUtc: string; artifactCount: number; meshArtifactCount?: number; thumbnailPath?: string | null }
@@ -24,6 +25,7 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
   const [jobs, setJobs] = useState<Record<string, ScientificJob>>({})
   const [environments, setEnvironments] = useState<Record<string, ScientificEnvironment>>({})
   const [previews, setPreviews] = useState<Record<string, ScientificArtifactPreview>>({})
+  const [datasetPreview, setDatasetPreview] = useState<ScientificDatasetPreview | null>(null)
   const [datasets, setDatasets] = useState<{ importedAt: string; note: string; entries: ScientificDataset[] } | null>(null)
   const [history, setHistory] = useState<ScientificHistoryEntry[] | null>(null)
   const [historyResult, setHistoryResult] = useState<ScientificRunResult | null>(null)
@@ -50,6 +52,7 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
     setJobs(previous => {
       const existing = previous[job.runtimeId]
       if (existing?.jobId === job.jobId && existing.state !== 'running' && job.state === 'running') return previous
+      if (existing?.jobId !== job.jobId && existing?.startedAtUtc && job.startedAtUtc && existing.startedAtUtc > job.startedAtUtc) return previous
       return { ...previous, [job.runtimeId]: job }
     })
     if (job.state === 'succeeded' && (job.recipeId === 'diagnostics' || job.recipeId === 'setup.install') && !completed.current.has(job.jobId)) { completed.current.add(job.jobId); refresh.current() }
@@ -61,7 +64,7 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
     const thumbnailKey = background ? `${extra.jobId}|${extra.artifactPath}` : undefined
     if (!background) { setError(''); setNotice(''); setPending(true) }
     else if (thumbnailKey) setHistoryThumbnails(previous => ({ ...previous, [thumbnailKey]: { jobId: String(extra.jobId), artifactPath: String(extra.artifactPath) } }))
-    const timer = setTimeout(() => { requests.current.delete(requestId); setPending([...requests.current.values()].some(item => item.action !== 'history-thumbnail')); if (thumbnailKey) setHistoryThumbnails(previous => ({ ...previous, [thumbnailKey]: { jobId: String(extra.jobId), artifactPath: String(extra.artifactPath), error: 'Thumbnail timed out.' } })); else setError(`${action} response timed out. Inspect job status before retrying a run.`) }, action === 'export' ? 600000 : action === 'import-meshes' ? 300000 : action === 'retest-plan' || action === 'inspect-selection-preview' ? 180000 : runtimeId === 'sage-wsl' && ['qualification-summary', 'history-result', 'history-drift-diagnose'].includes(action) ? 180000 : 30000)
+    const timer = setTimeout(() => { requests.current.delete(requestId); setPending([...requests.current.values()].some(item => item.action !== 'history-thumbnail')); if (thumbnailKey) setHistoryThumbnails(previous => ({ ...previous, [thumbnailKey]: { jobId: String(extra.jobId), artifactPath: String(extra.artifactPath), error: 'Thumbnail timed out.' } })); else setError(`${action} response timed out. Inspect job status before retrying a run.`) }, action === 'export' ? 600000 : action === 'import-meshes' ? 300000 : action === 'inspect-selection-preview' ? 210000 : action === 'retest-plan' ? 180000 : action === 'dataset-preview' ? 45000 : runtimeId === 'sage-wsl' && ['qualification-summary', 'history-result', 'history-drift-diagnose'].includes(action) ? 180000 : 30000)
     requests.current.set(requestId, { action, thumbnailKey, timer })
     bridge.postMessage({ type: 'scientific.runtime', profileId, runtimeId, requestId, action, ...extra })
   }
@@ -93,17 +96,19 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
       else if (message.action === 'history-result' && message.data) { const result = message.data as ScientificRunResult; setHistoryResult(result); setHistoryResults(previous => ({ ...previous, [result.runId]: result })) }
       else if (message.action === 'history-image-preview' && message.data) { const preview = message.data as ScientificHistoryImagePreview; setHistoryImages(previous => ({ ...previous, [`${preview.jobId}|${preview.artifactPath}`]: preview })) }
       else if (message.action === 'history-preview' && message.data) { const preview = message.data as ScientificArtifactPreview; setHistoryPreviews(previous => ({ ...previous, [`${preview.jobId}|${preview.artifactPath}`]: preview })) }
+      else if (message.action === 'workbench-math3d-handoff' && message.data) mergeJob(message.data as ScientificJob)
       else if ((message.action === 'recipe' || message.action === 'sage-recipe' || message.action === 'lab-probe' || message.action === 'install-runtime' || message.action === 'cgal-recipe' || message.action === 'boolean-recipe' || message.action === 'math3d-integration' || message.action === 'math3d-prepare-run' || message.action === 'l5-worker' || message.action === 'l5-cgal-repair' || message.action === 'l5-cgal-orientation' || message.action === 'l6-reproduce' || message.action === 'l6-cgal-repair' || message.action === 'l6-cgal-orientation' || message.action === 'l7-cgal-repair' || message.action === 'l8-cgal-repair' || message.action === 'l9-cgal-repair' || message.action === 'l5-cgal-remesh' || message.action === 'l6-cgal-remesh' || message.action === 'l7-cgal-remesh' || message.action === 'l8-cgal-remesh' || message.action === 'l9-cgal-remesh' || message.action === 'l5-cgal-inspect' || message.action === 'l6-cgal-inspect' || message.action === 'l7-cgal-inspect' || message.action === 'l8-cgal-inspect' || message.action === 'l9-cgal-inspect' || message.action === 'l5-cgal-orient' || message.action === 'l6-cgal-orient' || message.action === 'l7-cgal-orient' || message.action === 'l8-cgal-orient' || message.action === 'l9-cgal-orient' || message.action === 'l5-vtk-read' || message.action === 'l6-vtk-read' || message.action === 'l7-vtk-read' || message.action === 'l8-vtk-read' || message.action === 'l9-vtk-read' || message.action === 'l7-math3d-import' || message.action === 'l7-cgal-vtk-math3d' || message.action === 'l7-gmsh-interop' || message.action === 'l8-resilience' || message.action === 'l8-gmsh-resilience' || message.action === 'l9-math3d-product' || message.action === 'l9-gmsh-product' || message.action === 'l5-gmsh-volume' || message.action === 'l6-gmsh-volume' || message.action === 'l7-gmsh-volume' || message.action === 'l8-gmsh-volume' || message.action === 'gmsh-volume-product-readiness' || message.action === 'l9-gmsh-volume' || message.action === 'test-hold' || message.action === 'stop') && message.data) mergeJob(message.data as ScientificJob)
       else if (message.action === 'artifacts' && message.data && message.runtimeId) setPreviews(previous => ({ ...previous, [message.runtimeId!]: message.data as ScientificArtifactPreview }))
       else if (message.action === 'environment' && message.data && message.runtimeId) setEnvironments(previous => ({ ...previous, [message.runtimeId!]: message.data as ScientificEnvironment }))
       else if (message.action === 'math3d-readiness' && message.data) setMath3dReadiness(message.data as Math3DReadiness)
       else if (message.action === 'datasets' && message.data) setDatasets(message.data as { importedAt: string; note: string; entries: ScientificDataset[] })
+      else if (message.action === 'dataset-preview' && message.data) setDatasetPreview(message.data as ScientificDatasetPreview)
       else if (message.action === 'repair-fixtures' && message.data) { setDatasets(message.data as { importedAt: string; note: string; entries: ScientificDataset[] }); setNotice('Authored repair fixtures copied and registered.') }
       else if (message.action === 'test-matrix' && Array.isArray(message.data)) setTestMatrix(message.data as ScientificMatrixCase[])
       else if (message.action === 'ci-matrix' && Array.isArray(message.data)) setCiMatrix(message.data as ScientificCiImport[])
       else if ((message.action === 'retest-plan' || message.action === 'retest-status' || message.action === 'retest-start' || message.action === 'retest-stop') && message.data) setRetestPlan(message.data as ScientificRetestPlan)
       else if (message.action === 'history-drift-diagnose' && message.data) setDriftDiagnosis(message.data as ScientificDriftDiagnosis)
-      else if (message.action === 'inspect-selection-preview' && message.data) setInspectSelection(message.data as InspectSelection)
+      else if (message.action === 'inspect-selection-preview' && message.data) mergeJob(message.data as ScientificJob)
       else if (message.action === 'inspect-selection-run' && message.data) mergeJob(message.data as ScientificJob)
       else if ((message.action === 'run-matrix' || message.action === 'vtk-rejections' || message.action === 'real-mesh-suite') && message.data) mergeJob(message.data as ScientificJob)
       else if (message.action === 'export') { const result = message.data as { path?: string; cancelled?: boolean }; setNotice(result.cancelled ? 'Profile export cancelled.' : `Profile exported: ${result.path ?? ''}`) }
@@ -115,5 +120,5 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
     // Callback refs keep completed diagnostics from restarting subscriptions.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bridge, profileId])
-  return { profileId, jobs, environments, previews, datasets, history, historyResult, historyResults, qualificationSummaries, historyPreviews, historyImages, historyThumbnails, testMatrix, ciMatrix, driftDiagnosis, retestPlan, inspectSelection, math3dReadiness, booleanDraft, pending, error, notice, send, busy: Object.values(jobs).some(job => job.state === 'running') }
+  return { profileId, jobs, environments, previews, datasetPreview, datasets, history, historyResult, historyResults, qualificationSummaries, historyPreviews, historyImages, historyThumbnails, testMatrix, ciMatrix, driftDiagnosis, retestPlan, inspectSelection, math3dReadiness, booleanDraft, pending, error, notice, send, busy: Object.values(jobs).some(job => job.state === 'running') }
 }

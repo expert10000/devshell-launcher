@@ -1,5 +1,6 @@
 """Checkpointed, restartable six-capability desktop and broker release run."""
 import argparse
+from copy import deepcopy
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -7,6 +8,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import uuid
 
 import six_capability_release as release
@@ -70,11 +72,39 @@ def prefixes(cgal, vtk, scientific):
     return values
 
 
-def start(math3d, cgal, vtk, scientific, output_root=None, profile='desktop-five', port=9270):
+def runtime_inventory(path, runtime_prefixes):
+    path = Path(path).resolve(strict=True)
+    report = json.loads(path.read_text(encoding='utf-8'))
+    expected = {'cgal-win-conda': runtime_prefixes['inspect'],
+                'vtk-win-conda': runtime_prefixes['vtk_read'],
+                'gmsh-win-conda': runtime_prefixes['volume']}
+    found = {item['id']: item for item in report.get('runtimes', [])}
+    for runtime_id, prefix in expected.items():
+        if (runtime_id not in found or
+                Path(found[runtime_id].get('environmentRoot', '')).resolve() != Path(prefix)):
+            raise ValueError('Runtime inventory is missing or mismatches ' + runtime_id + '.')
+    return path, sha(path)
+
+
+def preflight(runtime_report, runtime_prefixes):
+    inventory, digest = runtime_inventory(runtime_report, runtime_prefixes)
+    frontend = release.ROOT / 'DevShell/ui/dev-ui-react'
+    if not (frontend / 'package-lock.json').is_file() or not (frontend / 'package.json').is_file():
+        raise ValueError('Desktop UI package manifest or lockfile is missing.')
+    for executable in ('git', 'npm', 'dotnet', 'powershell'):
+        if not shutil.which(executable):
+            raise ValueError('Release bootstrap is missing ' + executable + '.')
+    return inventory, digest
+
+
+def start(math3d, cgal, vtk, scientific, output_root=None, profile='desktop-five', port=9270,
+          runtime_report=None):
     math3d = Path(math3d).resolve(strict=True)
     if not (math3d / 'renderer/src/mesh/surfaceMesh.ts').is_file():
         raise ValueError('MATH3D consumer checkout is unavailable.')
     runtime_prefixes = prefixes(cgal, vtk, scientific)
+    inventory, inventory_sha = preflight(runtime_report or release.ROOT / '.scientific/runtime-report.json',
+                                         runtime_prefixes)
     identity = release.math3d_identity(math3d)
     worktree = Path(os.environ.get('SystemDrive', 'C:') + '\\ds6-' + uuid.uuid4().hex[:12])
     release.command(['git', 'worktree', 'add', '--detach', worktree, 'HEAD'])
@@ -83,6 +113,7 @@ def start(math3d, cgal, vtk, scientific, output_root=None, profile='desktop-five
              'sourceCommit': release.commit(worktree), 'worktree': str(worktree),
              'releaseRoot': str(root), 'math3dRoot': str(math3d),
              'math3dIdentity': identity, 'prefixes': runtime_prefixes,
+             'runtimeReport': str(inventory), 'runtimeReportSha256': inventory_sha,
              'profileId': profile, 'port': port, 'build': None,
              'desktop': {}, 'broker': {}, 'manifestSha256': None,
              'releaseRecord': None, 'attempts': [], 'activeStage': None,
@@ -122,6 +153,13 @@ def validate(checkpoint, state):
             or Path(state['releaseRoot']).resolve() != checkpoint.parent):
         raise ValueError('Six-capability checkpoint source commit or worktree changed.')
     release.verify_math3d_identity(state['math3dRoot'], state['math3dIdentity'])
+    if state.get('runtimeReport'):
+        inventory, digest = runtime_inventory(state['runtimeReport'], state['prefixes'])
+        if digest != state['runtimeReportSha256']:
+            raise ValueError('Checkpointed runtime inventory changed.')
+        copied = worktree / '.scientific/runtime-report.json'
+        if copied.exists() and sha(copied) != digest:
+            raise ValueError('Worktree runtime inventory changed.')
     for path in state['prefixes'].values():
         if not (Path(path) / 'python.exe').is_file():
             raise ValueError('Six-capability runtime prefix disappeared.')
@@ -160,12 +198,18 @@ def stage(checkpoint, state, name, callback):
     state['status'] = 'running'
     state['attempts'].append({'stage': name, 'startedAtUtc': now(), 'result': 'running'})
     save(checkpoint, state)
+    # A callback may fill a release field before a later verification fails.
+    # Never checkpoint that partial promotion as a completed gate.
+    promotion = {key: deepcopy(state[key]) for key in
+                 ('build', 'desktop', 'broker', 'manifestSha256', 'releaseRecord')}
     try:
         result = callback()
     except BaseException as error:
+        state.update(promotion)
         state['status'] = 'interrupted'
         state['attempts'][-1].update(result='interrupted', endedAtUtc=now(),
                                      error=str(error)[-500:])
+        state['activeStage'] = None
         save(checkpoint, state)
         raise
     state['attempts'][-1].update(result='passed', endedAtUtc=now())
@@ -178,11 +222,14 @@ def build(state):
     worktree = Path(state['worktree'])
     scientific = worktree / '.scientific'
     scientific.mkdir(exist_ok=True)
-    inventory = release.ROOT / '.scientific/runtime-report.json'
-    if inventory.is_file():
-        shutil.copyfile(inventory, scientific / 'runtime-report.json')
+    inventory = Path(state['runtimeReport'])
+    if sha(inventory) != state['runtimeReportSha256']:
+        raise ValueError('Checkpointed runtime inventory changed.')
+    shutil.copyfile(inventory, scientific / 'runtime-report.json')
     frontend = worktree / 'DevShell/ui/dev-ui-react'
     release.command(['npm', 'ci', '--ignore-scripts'], cwd=frontend, timeout=240)
+    if not (frontend / 'node_modules/playwright-core/package.json').is_file():
+        raise ValueError('Desktop UI Playwright dependency is missing after npm ci.')
     release.command(['npm', 'run', 'build'], cwd=frontend, timeout=240)
     release.command(['dotnet', 'build', worktree / 'BatchLauncher/BatchLauncher.csproj', '-c', 'Release'],
                     cwd=worktree, timeout=240)
@@ -193,23 +240,24 @@ def build(state):
 
 def desktop(checkpoint, state, name):
     worktree = Path(state['worktree'])
-    retry_l9 = name == 'remesh' and state['retryL9']
     attempt = sum(item['stage'] == 'desktop:' + name for item in state['attempts'])
     log = checkpoint.parent / f'desktop-{name}-{attempt}.log'
     args = ['powershell', '-NoProfile', '-File',
             str(worktree / 'tools/Run-Scientific-Desktop-Acceptance.ps1'),
             '-Scenario', SCENARIOS[name], '-ExistingWorktree', str(worktree), '-SkipBuild',
             '-Math3DCheckout', state['math3dRoot'], '-CdpPort', str(state['port'] + list(release.TARGETS).index(name))]
-    if retry_l9:
-        args += ['-ResumeFrom', 'L9']
     with log.open('w', encoding='utf-8') as stream:
-        completed = subprocess.run(args, cwd=worktree, stdout=stream, stderr=subprocess.STDOUT,
-                                   text=True, timeout=2400)
-    if completed.returncode:
-        output = log.read_text(encoding='utf-8', errors='replace')
-        state['retryL9'] = name == 'remesh' and 'l9.cgal-remesh' in output and (
-            'process' in output.lower() and 'exited' in output.lower())
-        save(checkpoint, state)
+        process = subprocess.Popen(args, cwd=worktree, stdout=stream, stderr=subprocess.STDOUT,
+                                   text=True)
+        try:
+            result_code = process.wait(timeout=2400)
+        except BaseException:
+            if process.poll() is None:
+                subprocess.run(['taskkill', '/PID', str(process.pid), '/T', '/F'],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+                process.wait(timeout=10)
+            raise
+    if result_code:
         raise ValueError(f'{name} desktop acceptance failed; see {log}')
     probe = checkpoint.parent / ('desktop-' + name + '-support.json')
     fresh = current_entries(state, probe)
@@ -263,7 +311,31 @@ def execute(checkpoint, state=None):
     checkpoint = Path(checkpoint).resolve(strict=True)
     if state is None:
         checkpoint, state = load(checkpoint)
+    # Broker and desktop verifier imports must originate in the sealed checkout.
+    if release.ROOT.resolve() != Path(state['worktree']).resolve():
+        child = [sys.executable, str(Path(state['worktree']) /
+                 'tools/scientific-broker/six_capability_release.py'),
+                 'resume', '--checkpoint', str(checkpoint)]
+        completed = subprocess.run(child, cwd=state['worktree'], check=False)
+        if completed.returncode:
+            raise ValueError('Sealed worktree release execution failed: ' + str(completed.returncode))
+        _, finished = load(checkpoint)
+        if finished['status'] != 'complete' or not finished['releaseRecord']:
+            raise ValueError('Sealed worktree did not complete the release.')
+        path = Path(finished['releaseRecord'])
+        return path, json.loads(path.read_text(encoding='utf-8'))
     validate(checkpoint, state)
+    if state['activeStage']:
+        if not state['attempts'] or state['attempts'][-1]['stage'] != state['activeStage']:
+            raise ValueError('Incomplete stage checkpoint is inconsistent.')
+        if state['attempts'][-1]['result'] == 'running':
+            state['attempts'][-1].update(result='interrupted', endedAtUtc=now(),
+                                         error='Process ended before stage completion')
+        elif state['attempts'][-1]['result'] != 'interrupted' or state['status'] != 'interrupted':
+            raise ValueError('Incomplete stage checkpoint is inconsistent.')
+        state['activeStage'] = None
+        state['status'] = 'interrupted'
+        save(checkpoint, state)
     if state['status'] == 'complete':
         return Path(state['releaseRecord']), release.verify(state['releaseRecord'])
     if not state['build']:
@@ -306,6 +378,7 @@ if __name__ == '__main__':
     parser.add_argument('--cgal-prefix', default=os.environ.get('DEVSHELL_CGAL_PREFIX'))
     parser.add_argument('--vtk-prefix', default=os.environ.get('DEVSHELL_VTK_PREFIX'))
     parser.add_argument('--scientific-prefix', default=os.environ.get('DEVSHELL_SCIENTIFIC_PREFIX'))
+    parser.add_argument('--runtime-report')
     parser.add_argument('--output-root')
     parser.add_argument('--profile-id', default='desktop-five')
     parser.add_argument('--port', type=int, default=9270)
@@ -319,5 +392,5 @@ if __name__ == '__main__':
             parser.error('run requires the MATH3D checkout and three scientific prefixes')
         path, record = start(options.math3d_root, options.cgal_prefix, options.vtk_prefix,
                              options.scientific_prefix, options.output_root,
-                             options.profile_id, options.port)
+                             options.profile_id, options.port, options.runtime_report)
     print(json.dumps({'record': str(path), 'sourceCommit': record['sourceCommit'], 'verdict': 'qualified'}))

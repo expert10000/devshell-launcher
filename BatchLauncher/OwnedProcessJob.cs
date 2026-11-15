@@ -36,7 +36,7 @@ internal sealed class OwnedProcessJob : IDisposable
             {
                 try { RefreshDescendants(); }
                 catch (Win32Exception) { }
-                catch (InvalidOperationException) { } // A discovered child may exit before its handle opens.
+                catch (InvalidOperationException) { } // A descendant may exit between enumeration and opening its handle.
                 try { await Task.Delay(100, _trackingCancellation.Token); }
                 catch (OperationCanceledException) { break; }
             }
@@ -107,8 +107,8 @@ internal sealed class OwnedProcessJob : IDisposable
                             if (_tracked.ContainsKey(id)) continue;
                             try { var process = Process.GetProcessById(id); _ = process.Handle; _tracked[id] = process; queue.Enqueue(id); }
                             catch (ArgumentException) { }
-                            catch (Win32Exception) { }
                             catch (InvalidOperationException) { }
+                            catch (Win32Exception) { }
                         }
             }
         }

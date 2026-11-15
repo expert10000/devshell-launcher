@@ -64,9 +64,11 @@ def source_run(repo, dataset, root, name, python, worker=None, operation=None):
 
 
 def compare(record, output_root, repetitions=5, shared_inspect_record=None,
-            advisor_record=None, product_record=None):
+            advisor_record=None, product_record=None, class_record=None, desktop_journey_record=None):
     if repetitions < 3 or repetitions > 15:
         raise ValueError('Use 3–15 measured repetitions.')
+    if not all((shared_inspect_record, advisor_record, product_record, class_record, desktop_journey_record)):
+        raise ValueError('Six-capability report requires shared, class, advisor, product and desktop journey evidence.')
     release = verify_release(record)
     repo = Path(release['repo'])
     certified = json.loads((Path(record).parent / 'certified.json').read_text(encoding='utf-8'))
@@ -113,7 +115,7 @@ def compare(record, output_root, repetitions=5, shared_inspect_record=None,
         inventory_state = 'current' if 0 <= (datetime.now(timezone.utc) - observed).total_seconds() <= 86400 else 'stale'
     except (KeyError, ValueError, TypeError):
         inventory_state = 'unavailable'
-    matrix = {'schemaVersion': 1, 'kind': 'scientific.six-capability-current-matrix',
+    matrix = {'schemaVersion': 2, 'kind': 'scientific.six-capability-current-matrix',
               'sourceCommit': release['sourceCommit'], 'releaseRecordSha256': sha(record),
               'certifiedSha256': sha(Path(record).parent / 'certified.json'),
               'inventorySha256': sha(inventory_path) if inventory_path.is_file() else None,
@@ -127,8 +129,6 @@ def compare(record, output_root, repetitions=5, shared_inspect_record=None,
               'consumer': {'name': 'MATH3D', 'evidence': 'six broker/MATH3D smokes passed',
                            'releaseIdentity': release['math3dIdentity']}}
     shared = None
-    if not shared_inspect_record or not advisor_record or not product_record:
-        raise ValueError('Six-capability report requires shared, advisor and MATH3D product evidence.')
     if shared_inspect_record:
         from comparable_inspect import verify as verify_shared
         shared = verify_shared(shared_inspect_record)
@@ -151,6 +151,20 @@ def compare(record, output_root, repetitions=5, shared_inspect_record=None,
                          'recommendation': advice['recommendation']}
     matrix['math3dProduct'] = {'record': str(Path(product_record).resolve()),
                                'sha256': sha(product_record), 'selectedProvider': product['selectedProvider']}
+    from class_inspect_qualification import verify as verify_classes
+    from desktop_inspect_journey import verify as verify_journey
+    from inspect_ranking import policy as ranking_policy, rank_class
+    classes = verify_classes(class_record)
+    journey = verify_journey(desktop_journey_record, record, class_record)
+    ranking, ranking_hash = ranking_policy(repo)
+    if classes['releaseRecordSha256'] != sha(record) or journey['classRecordSha256'] != sha(class_record):
+        raise ValueError('Bounded inspection or desktop journey belongs to another release.')
+    matrix['boundedInspect'] = {'record': str(Path(class_record).resolve()), 'sha256': sha(class_record),
+        'policySha256': classes['policySha256'], 'rankingPolicySha256': ranking_hash,
+        'classes': {name: rank_class(saved, name, ranking) for name, saved in classes['classes'].items()}}
+    matrix['desktopJourney'] = {'record': str(Path(desktop_journey_record).resolve()),
+        'sha256': sha(desktop_journey_record),
+        'runIds': {role: saved['runId'] for role, saved in journey['runs'].items()}}
     lines = ['# Six-capability reproducibility report', '',
              f"Source commit: `{release['sourceCommit']}`. Six current L0–L9 chains and broker/MATH3D smokes verified.", '',
              f"Runtime inventory: **{inventory_state}**; SHA-256 `{matrix['inventorySha256'] or 'unavailable'}`.", '',
@@ -180,12 +194,35 @@ def compare(record, output_root, repetitions=5, shared_inspect_record=None,
             right = evidence['measurements']['vtk']['statistics']
             lines.append(f"| {tier} | {left['medianMs']} | {right['medianMs']} | {left['samples']} |")
         lines += ['', 'Advisor ranking is permitted only for these exact fixture and size tiers while the shared record remains current.', '']
+    lines += ['## Bounded independent closed meshes', '',
+              f"Class policy SHA-256: `{classes['policySha256']}`. Both desktop L5–L9 chains and "
+              f"{len(classes['classes']) * classes['samples'] * 2} accepted broker jobs passed; "
+              f"{len(classes['rejections'])} adverse broker jobs rejected.",
+              '| Class | CGAL cold / warm median ms | VTK cold / warm median ms | Paired 95% intervals (cold; warm) | Decision |',
+              '|---|---:|---:|---|---|']
+    for name, saved in classes['classes'].items():
+        decision = matrix['boundedInspect']['classes'][name]
+        phases = decision.get('phases', {})
+        cold, warm = phases.get('coldInvocationMs'), phases.get('warmExecutionMs')
+        if not cold or not warm:
+            lines.append(f"| {name} | unavailable | unavailable | unavailable | abstain: {decision['reason']} |")
+            continue
+        left, right = cold['mediansMs'], warm['mediansMs']
+        lines.append(f"| {name} | {left['cgal-win-conda']} / {right['cgal-win-conda']} | "
+                     f"{left['vtk-win-conda']} / {right['vtk-win-conda']} | "
+                     f"{cold['pairedCgalMinusVtk95PctMs']}; {warm['pairedCgalMinusVtk95PctMs']} | "
+                     f"{decision['recommendation'] or 'abstain'} |")
+    lines += ['', 'A recommendation requires separate cold and warm advantages, paired uncertainty and resource limits. '
+              'Inputs outside these verified classes fall back to direct MATH3D import.', '',
+              '## Managed desktop product journey', '',
+              'Automatic selection, manual override, direct fallback, cancellation and saved-document/viewport reload '
+              'are sealed to the release and MATH3D consumer identity.', '']
     markdown = '\n'.join(lines)
     (root / 'comparison.json').write_text(json.dumps(comparison, separators=(',', ':')), encoding='utf-8')
     (root / 'matrix.json').write_text(json.dumps(matrix, separators=(',', ':')), encoding='utf-8')
     (root / 'reproducibility.md').write_text(markdown, encoding='utf-8')
     (root / 'reproducibility.html').write_text(render_html(markdown), encoding='utf-8')
-    report = {'schemaVersion': 1, 'kind': 'scientific.six-capability-report',
+    report = {'schemaVersion': 2, 'kind': 'scientific.six-capability-report',
               'createdAtUtc': datetime.now(timezone.utc).isoformat(), 'sourceCommit': release['sourceCommit'],
               'releaseRecord': str(Path(record).resolve()), 'releaseRecordSha256': sha(record),
               'files': {name: sha(root / name) for name in ('comparison.json', 'matrix.json', 'reproducibility.md', 'reproducibility.html')}}
@@ -200,7 +237,7 @@ def verify(path):
     if sha(path) != Path(str(path) + '.sha256').read_text().strip():
         raise ValueError('Six-capability report seal changed.')
     report = json.loads(path.read_text(encoding='utf-8'))
-    if report.get('schemaVersion') != 1 or report.get('kind') != 'scientific.six-capability-report':
+    if report.get('schemaVersion') != 2 or report.get('kind') != 'scientific.six-capability-report':
         raise ValueError('Report contract changed.')
     release = verify_release(report['releaseRecord'])
     if report['sourceCommit'] != release['sourceCommit'] or report['releaseRecordSha256'] != sha(report['releaseRecord']):
@@ -210,6 +247,21 @@ def verify(path):
     matrix = json.loads((path.parent / 'matrix.json').read_text(encoding='utf-8'))
     comparison = json.loads((path.parent / 'comparison.json').read_text(encoding='utf-8'))
     require_consumer_identity(matrix, release)
+    from class_inspect_qualification import verify as verify_classes
+    from desktop_inspect_journey import verify as verify_journey
+    from inspect_ranking import policy as ranking_policy, rank_class
+    class_ref, journey_ref = matrix['boundedInspect'], matrix['desktopJourney']
+    if sha(class_ref['record']) != class_ref['sha256'] or sha(journey_ref['record']) != journey_ref['sha256']:
+        raise ValueError('Bounded inspection or desktop journey matrix hash changed.')
+    classes = verify_classes(class_ref['record'])
+    journey = verify_journey(journey_ref['record'], report['releaseRecord'], class_ref['record'])
+    ranking, ranking_hash = ranking_policy(release['repo'])
+    if (class_ref['policySha256'] != classes['policySha256']
+            or class_ref['rankingPolicySha256'] != ranking_hash
+            or class_ref['classes'] != {name: rank_class(saved, name, ranking)
+                                        for name, saved in classes['classes'].items()}
+            or journey_ref['runIds'] != {role: saved['runId'] for role, saved in journey['runs'].items()}):
+        raise ValueError('Bounded class ranking or desktop journey matrix drifted.')
     if matrix.get('sharedInspect'):
         from comparable_inspect import verify as verify_shared
         shared_ref = matrix['sharedInspect']
@@ -265,12 +317,15 @@ if __name__ == '__main__':
     parser.add_argument('--shared-inspect-record')
     parser.add_argument('--advisor-record')
     parser.add_argument('--product-record')
+    parser.add_argument('--class-record')
+    parser.add_argument('--desktop-journey-record')
     args = parser.parse_args()
     if args.command == 'build':
         if not args.output_root:
             parser.error('build requires --output-root')
         path, report = compare(args.record, args.output_root, args.repetitions,
-                               args.shared_inspect_record, args.advisor_record, args.product_record)
+                               args.shared_inspect_record, args.advisor_record, args.product_record,
+                               args.class_record, args.desktop_journey_record)
     else:
         path, report = args.record, verify(args.record)
     print(json.dumps({'record': str(path), 'sourceCommit': report['sourceCommit'], 'verdict': 'verified'}))

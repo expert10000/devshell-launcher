@@ -140,7 +140,15 @@ public static class ScientificRunFingerprint
             "tools/scientific-runtime-probe.py" });
         if (recipeId == "version") names.Add("tools/scientific-runtime-probe.py");
         if (recipeId?.StartsWith("mesh.", StringComparison.Ordinal) == true)
-            names.Add("tools/scientific-mesh-worker.py");
+            names.AddRange(new[] { "tools/scientific-mesh-worker.py", "schemas/scientific-workbench-operations.v1.json",
+                "BatchLauncher/ScientificWorkbenchOperationCatalog.cs", "DevShell/ui/dev-ui-react/src/ScientificMeshWorkbench.tsx" });
+        if (recipeId is "cgal.validate" or "cgal.remesh" or "cgal.repair-orientation" or "cgal.fill-bounded-holes")
+            names.AddRange(new[] { "schemas/scientific-workbench-operations.v1.json",
+                "BatchLauncher/ScientificWorkbenchOperationCatalog.cs", "DevShell/ui/dev-ui-react/src/ScientificMeshWorkbench.tsx" });
+        if (recipeId == "workbench.math3d-handoff")
+            names.AddRange(new[] { "BatchLauncher/Form1.Scientific.WorkbenchHandoff.cs",
+                "tools/scientific-workbench-math3d-convert.py", "tools/math3d-vtk-read-product.mjs",
+                "schemas/scientific-workbench-operations.v1.json" });
         if (recipeId is "configure" or "build" or "run" or "test-all" or "compile-link")
         {
             var kind = runtimeId.StartsWith("cgal", StringComparison.Ordinal) ? "cgal" :
@@ -197,7 +205,7 @@ public static class ScientificRunFingerprint
             names.AddRange(new[] { "BatchLauncher/Form1.Scientific.VtkRead.cs",
                 "BatchLauncher/ScientificQualificationRecords.VtkRead.cs",
                 "scientific/fixtures/vtk/read/manifest.v4.json",
-                "schemas/scientific-mesh-inspect-classes.v1.json",
+                "schemas/scientific-mesh-inspect-classes.v5.json",
                 "tools/scientific-broker/inspect_classes.py",
                 "scientific/fixtures/inspect-shared/tetra-holdout.obj",
                 "scientific/fixtures/inspect-shared/octa-holdout.obj",
@@ -221,7 +229,7 @@ public static class ScientificRunFingerprint
             names.AddRange(new[] { "BatchLauncher/Form1.Scientific.CgalInspect.cs",
                 "BatchLauncher/ScientificQualificationRecords.Inspect.cs",
                 "scientific/fixtures/cgal-inspect/manifest.v3.json",
-                "schemas/scientific-mesh-inspect-classes.v1.json",
+                "schemas/scientific-mesh-inspect-classes.v5.json",
                 "tools/scientific-broker/inspect_classes.py",
                 "scientific/fixtures/inspect-shared/tetra-holdout.obj",
                 "scientific/fixtures/inspect-shared/octa-holdout.obj",
@@ -243,14 +251,43 @@ public static class ScientificRunFingerprint
                 "tools/math3d-vtk-import-handoff.mjs", "tools/math3d-vtk-read-product.mjs",
                 "tools/math3d-vtk-read-viewer.mjs", "tools/scientific-broker/Program.Inspect.cs",
                 "tools/scientific-broker/broker.py", "tools/scientific-broker/inspect_broker_smoke.py" });
-        if (recipeId == "l9.math3d-inspect-selection")
+        if (recipeId is "l5.cgal-inspect" or "l6.cgal-inspect" or "l7.cgal-inspect" or "l8.cgal-inspect" or "l9.cgal-inspect"
+            or "l5.vtk-read" or "l6.vtk-read" or "l7.vtk-read" or "l8.vtk-read" or "l9.vtk-read"
+            or "l9.math3d-inspect-selection" or "l9.math3d-inspect-preview")
+            names.AddRange(new[] { "scientific/fixtures/inspect-classes/ico-80-holdout.obj",
+                "scientific/fixtures/inspect-classes/ico-320-holdout.obj",
+                "scientific/fixtures/inspect-classes/ico-1280-holdout.obj",
+                "scientific/fixtures/inspect-classes/ico-open.obj",
+                "scientific/fixtures/inspect-classes/ico-flipped.obj",
+                "scientific/fixtures/inspect-classes/ico-collapsed.obj",
+                "scientific/fixtures/inspect-classes/ico-disconnected.obj",
+                "scientific/fixtures/inspect-classes/ico-nonfinite.obj",
+                "scientific/fixtures/inspect-classes/ico-oversize.obj",
+                "scientific/fixtures/inspect-topology/concave-uv-512.obj",
+                "scientific/fixtures/inspect-topology/concave-ico-320-holdout.obj",
+                "scientific/fixtures/inspect-topology/torus-grid-256.obj",
+                "scientific/fixtures/inspect-topology/torus-grid-400-holdout.obj",
+                "scientific/fixtures/inspect-topology/torus-flipped.obj",
+                "scientific/fixtures/inspect-topology/torus-scrambled.obj",
+                "scientific/fixtures/inspect-topology/torus-surface-1024.obj",
+                "scientific/fixtures/inspect-topology/torus-surface-1600-holdout.obj",
+                "scientific/fixtures/inspect-topology/torus-surface-1024-irregular-holdout.obj",
+                "scientific/fixtures/inspect-topology/torus-surface-1296-irregular-holdout.obj",
+                "scientific/fixtures/inspect-topology/torus-surface-folded.obj",
+                "scientific/fixtures/inspect-topology/torus-surface-crossing.obj",
+                "scientific/fixtures/inspect-topology/torus-surface-open.obj",
+                "scientific/fixtures/inspect-topology/torus-surface-inverted.obj",
+                "scientific/fixtures/inspect-topology/torus-surface-pinched.obj",
+                "scientific/fixtures/inspect-topology/torus-surface-jumped.obj",
+                "tools/scientific-broker/generate_inspect_topology.py" });
+        if (recipeId is "l9.math3d-inspect-selection" or "l9.math3d-inspect-preview")
             names.AddRange(new[] { "BatchLauncher/Form1.Scientific.InspectSelection.cs",
                 "tools/scientific-broker/math3d_inspect_product.py", "tools/scientific-broker/advisor.py",
                 "tools/scientific-broker/inspect_ranking.py",
                 "tools/scientific-broker/class_inspect_qualification.py",
                 "tools/scientific-broker/comparable_inspect.py",
-                "schemas/scientific-inspect-ranking.v1.json",
-                "schemas/scientific-mesh-inspect-classes.v1.json" });
+                "schemas/scientific-inspect-ranking.v2.json",
+                "schemas/scientific-mesh-inspect-classes.v5.json" });
         if (recipeId is "cgal.fill-one-hole" or "cgal.fill-quad-hole" or "cgal.fill-two-quad-holes" or "cgal.fill-bounded-holes")
             names.AddRange(new[] { "BatchLauncher/Form1.Scientific.Cgal.cs", "tools/scientific-cgal-hole-repair-worker.py",
                 "tools/scientific_cgal_mesh_metrics.py", "scientific/cgal-worker/hole_repair.cpp" });

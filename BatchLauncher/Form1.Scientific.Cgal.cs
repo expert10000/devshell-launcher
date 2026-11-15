@@ -36,6 +36,8 @@ public partial class Form1
             }
         var inputArtifact=ScientificDatasetArtifact(inputId);
         var input=inputArtifact["path"]?.GetValue<string>() ?? "";
+        if(recipe is "cgal.validate" or "cgal.remesh" or "cgal.repair-orientation" or "cgal.fill-bounded-holes")
+            ScientificWorkbenchOperationCatalog.Validate(ScientificSourceRoot,runtimeId,recipe,parameters,input);
         if(!File.Exists(input)||new FileInfo(input).Length>32*1024*1024||!new[]{".obj",".stl",".ply",".off"}.Contains(Path.GetExtension(input).ToLowerInvariant()))
             throw new InvalidOperationException("CGAL input must be an OBJ/STL/PLY/OFF fixture up to 32 MiB.");
         if((repair||recipe=="cgal.remesh")&&Path.GetExtension(input).ToLowerInvariant()!=".obj")throw new InvalidOperationException("CGAL repair and guarded remesh require a registered OBJ mesh.");

@@ -1,12 +1,18 @@
 param(
-    [Parameter(Mandatory=$true)][ValidateSet('Repair', 'GmshVolume', 'Remesh', 'CgalInspect', 'Orientation', 'VtkRead', 'InspectSelection')][string]$Scenario,
+    [Parameter(Mandatory=$true)][ValidateSet('Repair', 'GmshVolume', 'Remesh', 'CgalInspect', 'Orientation', 'VtkRead')][string]$Scenario,
     [int]$CdpPort = 9244,
     [string]$Math3DCheckout = $env:MATH3D_CHECKOUT,
     [string]$ExistingWorktree,
     [ValidateSet('L0', 'L5', 'L6', 'L7', 'L8', 'L9')][string]$ResumeFrom = 'L0',
     [switch]$UseRunningApp,
     [switch]$SkipBuild,
-    [switch]$BootOnly
+    [switch]$BootOnly,
+    [switch]$ProductJourney,
+    [string]$ClassRecord,
+    [string]$InspectInput,
+    [string]$FallbackInput,
+    [string]$JourneyRunsOutput,
+    [string]$LaunchDiagnosticsPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -19,12 +25,29 @@ $previousResume = [Environment]::GetEnvironmentVariable('DEVSHELL_REPAIR_RESUME_
 $previousScientificResume = [Environment]::GetEnvironmentVariable('DEVSHELL_SCIENTIFIC_RESUME_FROM', 'Process')
 $previousVolumeOnly = [Environment]::GetEnvironmentVariable('DEVSHELL_GMSH_VOLUME_ONLY', 'Process')
 $previousVolumeResume = [Environment]::GetEnvironmentVariable('DEVSHELL_GMSH_VOLUME_RESUME', 'Process')
+$journeyVariables = @('DEVSHELL_DESKTOP_CLASS_RECORD', 'DEVSHELL_DESKTOP_INSPECT_INPUT',
+    'DEVSHELL_DESKTOP_FALLBACK_INPUT', 'DEVSHELL_DESKTOP_JOURNEY_RUNS')
+$previousJourney = @{}
+foreach ($name in $journeyVariables) { $previousJourney[$name] = [Environment]::GetEnvironmentVariable($name, 'Process') }
 $ownedApp = $null
 $worktree = $root
 $cdpUrl = "http://127.0.0.1:$CdpPort"
+$launch = @{ schemaVersion = 1; scenario = $Scenario; port = $CdpPort;
+    startedAtUtc = [DateTime]::UtcNow.ToString('o'); stage = 'starting'; appPid = $null;
+    appExitCode = $null; error = $null }
+function Save-LaunchDiagnostics {
+    if ($LaunchDiagnosticsPath) {
+        $launch | ConvertTo-Json -Compress | Set-Content -LiteralPath $LaunchDiagnosticsPath -Encoding utf8
+    }
+}
+Save-LaunchDiagnostics
 
 try {
     if ($UseRunningApp -and !$SkipBuild) { throw 'UseRunningApp requires SkipBuild.' }
+    if ($ProductJourney -and ($Scenario -ne 'CgalInspect' -or
+        @(@($ClassRecord, $InspectInput, $FallbackInput, $JourneyRunsOutput) | Where-Object { !$_ }).Count -gt 0)) {
+        throw 'ProductJourney requires CgalInspect, class record, accepted and fallback inputs, and output path.'
+    }
     if ($ExistingWorktree -and !$SkipBuild) {
         throw 'ExistingWorktree requires SkipBuild; rebuilding changes runtime-lab identity and stales saved support.'
     }
@@ -78,11 +101,22 @@ try {
     if (!(Test-Path -LiteralPath $app)) { throw "Desktop executable is unavailable: $app" }
     [Environment]::SetEnvironmentVariable('MATH3D_CHECKOUT', $Math3DCheckout, 'Process')
     if (!$UseRunningApp) {
+        # A reused CDP port can attach Playwright to another DevShell process.
+        # Reject it before launching any qualification actions.
+        $portProbe = [System.Net.Sockets.TcpClient]::new()
+        try {
+            $pending = $portProbe.BeginConnect('127.0.0.1', $CdpPort, $null, $null)
+            if ($pending.AsyncWaitHandle.WaitOne(500) -and $portProbe.Connected) {
+                throw "CDP port $CdpPort is already in use."
+            }
+        } finally { $portProbe.Dispose() }
         [Environment]::SetEnvironmentVariable('WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS',
             "--remote-debugging-port=$CdpPort", 'Process')
-        # The WebView2 page is initialized by Form1.Shown; a hidden launch can leave CDP without an app page.
         $ownedApp = Start-Process -FilePath $app -WorkingDirectory (Split-Path -Parent $app) `
             -WindowStyle Normal -PassThru
+        $launch.appPid = $ownedApp.Id
+        $launch.stage = 'process-started'
+        Save-LaunchDiagnostics
     }
     [Environment]::SetEnvironmentVariable('DEVSHELL_CDP_URL', $cdpUrl, 'Process')
     [Environment]::SetEnvironmentVariable('MATH3D_CHECKOUT', $Math3DCheckout, 'Process')
@@ -94,22 +128,29 @@ try {
         $(if ($Scenario -eq 'GmshVolume' -and $ResumeFrom -eq 'L0') { '1' } else { $null }), 'Process')
     [Environment]::SetEnvironmentVariable('DEVSHELL_GMSH_VOLUME_RESUME',
         $(if ($Scenario -eq 'GmshVolume' -and $ResumeFrom -eq 'L7') { '1' } else { $null }), 'Process')
+    if ($ProductJourney) {
+        [Environment]::SetEnvironmentVariable('DEVSHELL_DESKTOP_CLASS_RECORD', $ClassRecord, 'Process')
+        [Environment]::SetEnvironmentVariable('DEVSHELL_DESKTOP_INSPECT_INPUT', $InspectInput, 'Process')
+        [Environment]::SetEnvironmentVariable('DEVSHELL_DESKTOP_FALLBACK_INPUT', $FallbackInput, 'Process')
+        [Environment]::SetEnvironmentVariable('DEVSHELL_DESKTOP_JOURNEY_RUNS', $JourneyRunsOutput, 'Process')
+    }
     $ready = $false
-    $consecutivePages = 0
     for ($attempt = 0; $attempt -lt 60; $attempt++) {
         if ($ownedApp -and $ownedApp.HasExited) { throw 'Isolated DevShell exited before WebView2 was ready.' }
         try {
             $targets = Invoke-RestMethod "$cdpUrl/json/list" -TimeoutSec 2
             if (@($targets | Where-Object { $_.url -like '*app.local*' }).Count -gt 0) {
-                $consecutivePages++
-                if ($consecutivePages -ge 3) { $ready = $true; break }
-            } else { $consecutivePages = 0 }
-        } catch { $consecutivePages = 0 }
+                $ready = $true
+                break
+            }
+        } catch { }
         Start-Sleep -Seconds 1
     }
     if (!$ready) { throw "Isolated DevShell WebView2 did not appear at $cdpUrl." }
+    $launch.stage = 'page-ready'
+    Save-LaunchDiagnostics
     if (!$BootOnly) {
-        $script = if ($Scenario -eq 'InspectSelection') { 'scientific-inspect-selection-live-ui-checks.mjs' }
+        $script = if ($ProductJourney) { 'scientific-inspect-selection-managed-ui-checks.mjs' }
             elseif ($Scenario -eq 'Repair') { 'scientific-cgal-repair-managed-ui-checks.mjs' }
             elseif ($Scenario -eq 'Remesh') { 'scientific-cgal-remesh-managed-ui-checks.mjs' }
             elseif ($Scenario -eq 'CgalInspect') { 'scientific-cgal-inspect-managed-ui-checks.mjs' }
@@ -120,6 +161,14 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "Managed $Scenario acceptance failed." }
     }
     Write-Host "PASS: isolated $Scenario acceptance session"
+    $launch.stage = 'passed'
+    Save-LaunchDiagnostics
+}
+catch {
+    $launch.stage = 'failed'
+    $launch.error = $_.Exception.Message
+    Save-LaunchDiagnostics
+    throw
 }
 finally {
     [Environment]::SetEnvironmentVariable('WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS', $previousArgs, 'Process')
@@ -130,8 +179,16 @@ finally {
     [Environment]::SetEnvironmentVariable('DEVSHELL_SCIENTIFIC_RESUME_FROM', $previousScientificResume, 'Process')
     [Environment]::SetEnvironmentVariable('DEVSHELL_GMSH_VOLUME_ONLY', $previousVolumeOnly, 'Process')
     [Environment]::SetEnvironmentVariable('DEVSHELL_GMSH_VOLUME_RESUME', $previousVolumeResume, 'Process')
+    foreach ($name in $journeyVariables) {
+        [Environment]::SetEnvironmentVariable($name, $previousJourney[$name], 'Process')
+    }
     if ($ownedApp -and !$ownedApp.HasExited) {
         $null = $ownedApp.CloseMainWindow()
-        if (!$ownedApp.WaitForExit(10000)) { Stop-Process -Id $ownedApp.Id -Force }
+        if (!$ownedApp.WaitForExit(10000)) {
+            & taskkill /PID $ownedApp.Id /T /F | Out-Null
+            $ownedApp.WaitForExit(10000) | Out-Null
+        }
     }
+    if ($ownedApp -and $ownedApp.HasExited) { $launch.appExitCode = $ownedApp.ExitCode }
+    Save-LaunchDiagnostics
 }

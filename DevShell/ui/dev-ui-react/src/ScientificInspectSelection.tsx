@@ -9,10 +9,16 @@ export function ScientificInspectSelection({ native, onHistory }: {
   const [sharedRecord, setSharedRecord] = useState('')
   const [classRecord, setClassRecord] = useState('')
   const [manualProvider, setManualProvider] = useState('')
-  const job = native.jobs['cgal-win-conda']?.recipeId === 'l9.math3d-inspect-selection'
-    ? native.jobs['cgal-win-conda'] : undefined
-  const saved = (job?.result as unknown as { selection?: InspectSelection } | undefined)?.selection
-  const selection = saved ?? native.inspectSelection
+  const current = native.jobs['cgal-win-conda']
+  const job = current?.recipeId === 'l9.math3d-inspect-selection' ? current : undefined
+  const previewJob = current?.recipeId === 'l9.math3d-inspect-preview' ? current : undefined
+  const matches = (candidate: typeof job) => candidate?.request?.inputArtifacts?.[0]?.path === inputPath.trim()
+    && (candidate.request.parameters.classRecord || '') === classRecord.trim()
+    && (candidate.request.parameters.sharedRecord || '') === sharedRecord.trim()
+    && (candidate.request.parameters.manualProvider || '') === manualProvider
+  const saved = matches(job) ? (job?.result as unknown as { selection?: InspectSelection } | undefined)?.selection : undefined
+  const preview = matches(previewJob) ? (previewJob?.result as unknown as { selection?: InspectSelection } | undefined)?.selection : undefined
+  const selection = saved ?? preview
   const ready = !!inputPath.trim() && !!(classRecord.trim() || sharedRecord.trim())
   const request = { inputPath: inputPath.trim(), sharedRecord: sharedRecord.trim() || null,
     classRecord: classRecord.trim() || null, manualProvider: manualProvider || null }
@@ -29,7 +35,7 @@ export function ScientificInspectSelection({ native, onHistory }: {
     <div className="scientific-runtime-actions">
       <button disabled={!ready || native.pending || native.busy} onClick={() => native.send('cgal-win-conda', 'inspect-selection-preview', request)}>Verify and preview</button>
       <button disabled={!ready || native.pending || native.busy} onClick={() => native.send('cgal-win-conda', 'inspect-selection-run', request)}>Run and reopen in MATH3D</button>
-      {job?.state === 'running' && <button onClick={() => native.send('cgal-win-conda', 'stop', { jobId: job.jobId })}>Stop</button>}
+      {(job?.state === 'running' || previewJob?.state === 'running') && <button onClick={() => native.send('cgal-win-conda', 'stop', { jobId: (job ?? previewJob)?.jobId })}>Stop</button>}
       <button onClick={onHistory}>History</button>
     </div>
     {selection && <div role="status" className="scientific-history-result">
@@ -38,6 +44,6 @@ export function ScientificInspectSelection({ native, onHistory }: {
       {phases && <table><thead><tr><th>Phase</th><th>CGAL median</th><th>VTK median</th><th>Paired CGAL−VTK 95% interval</th></tr></thead><tbody>{Object.entries(phases).map(([name, phase]) => <tr key={name}><td>{name}</td><td>{phase.mediansMs['cgal-win-conda']} ms</td><td>{phase.mediansMs['vtk-win-conda']} ms</td><td>{phase.pairedCgalMinusVtk95PctMs.join(' to ')} ms</td></tr>)}</tbody></table>}
       {saved?.productFiles && <p>Saved MATH3D document, resource, M3DM, and viewport reloaded. Product artifacts: {Object.keys(saved.productFiles).join(', ')}.</p>}
     </div>}
-    {job && <p role="status">Managed run {job.jobId}: {job.state} / {job.stage ?? job.state}. {job.error}</p>}
+    {(job || previewJob) && <p role="status">Managed {job ? 'run' : 'preview'} {(job ?? previewJob)?.jobId}: {(job ?? previewJob)?.state} / {(job ?? previewJob)?.stage}. {(job ?? previewJob)?.error}</p>}
   </section>
 }

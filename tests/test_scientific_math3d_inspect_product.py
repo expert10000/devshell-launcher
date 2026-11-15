@@ -7,7 +7,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/scientific-broker'))
 from comparable_inspect import policy
-from math3d_inspect_product import choose
+from math3d_inspect_product import choose, render_html
 
 
 class ProductSelection(unittest.TestCase):
@@ -19,6 +19,7 @@ class ProductSelection(unittest.TestCase):
             'tiers': {'sphere-128': {'measurements': {
                 name: {'statistics': {'medianMs': cold, 'median95PctBootstrapMs': [cold, cold]},
                        'runs': [{'coldInvocationMs': cold, 'warmExecutionMs': warm,
+                                 'warmExecutionUs': warm * 1000,
                                  'peakRssBytes': 40 * 1048576}] * 5,
                        'phases': {'peakRssBytes': 40 * 1048576}}
                 for name, cold, warm in (('cgal', 100, 10), ('vtk', 200, 30))}}}}
@@ -50,6 +51,7 @@ class ProductSelection(unittest.TestCase):
         for item in self.scope['tiers']['sphere-128']['measurements']['vtk']['runs']:
             item['coldInvocationMs'] = 101
             item['warmExecutionMs'] = 11
+            item['warmExecutionUs'] = 11000
         with patch('math3d_inspect_product.verify_shared', return_value=self.scope), \
              patch('math3d_inspect_product.verify_release', return_value={'repo': str(ROOT)}):
             self.assertEqual('fallback', choose(self.shared, self.input)['state'])
@@ -65,6 +67,13 @@ class ProductSelection(unittest.TestCase):
             self.assertEqual('cgal-win-conda', selected['selectedProvider'])
         with patch('math3d_inspect_product.decide_class', side_effect=ValueError('tampered')):
             self.assertEqual('fallback', choose(None, self.input, class_record=self.shared)['state'])
+
+    def test_manual_choice_with_abstention_renders_rationale(self):
+        html = render_html({'selectedProvider': 'cgal-win-conda',
+                            'recommendedProvider': None, 'reason': 'Manual qualified provider retained.',
+                            'classId': 'torus-surface-1024-1600', 'rankingEvidence': {'phases': {}}})
+        self.assertIn('Recommended:</strong> unavailable', html)
+        self.assertIn('torus-surface-1024-1600', html)
 
 
 if __name__ == '__main__':

@@ -6,7 +6,9 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/scientific-broker'))
-from inspect_classes import classify, equivalent, policy  # noqa: E402
+from inspect_classes import classify, equivalent, mesh, policy  # noqa: E402
+from generate_inspect_holdouts import render, sphere  # noqa: E402
+from generate_inspect_topology import fixtures as topology_fixtures  # noqa: E402
 
 
 class InspectClassesTests(unittest.TestCase):
@@ -48,6 +50,72 @@ class InspectClassesTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 classify(path, ROOT)
             self.assertFalse(equivalent(source, path))
+
+    def test_independent_closed_topology_and_size_tiers(self):
+        value, _ = policy(ROOT)
+        self.assertEqual(5, value['schemaVersion'])
+        tiers = [item for item in value['classes'] if item['mode'] == 'star-closed']
+        self.assertEqual([(64, 128), (256, 512), (1024, 2048)],
+                         [(item['minimumTriangles'], item['maximumTriangles']) for item in tiers])
+        for item in tiers:
+            base, holdout = ROOT / item['baseFixture'], ROOT / item['holdoutFixture']
+            self.assertNotEqual(mesh(base)[1], mesh(holdout)[1])
+            self.assertEqual(item['id'], classify(holdout, ROOT)['classId'])
+        for level, triangles in ((1, 80), (2, 320), (3, 1280)):
+            committed = ROOT / f'scientific/fixtures/inspect-classes/ico-{triangles}-holdout.obj'
+            self.assertEqual(committed.read_text(), render(*sphere(level)))
+
+    def test_nonconvex_and_torus_classes(self):
+        value, _ = policy(ROOT)
+        self.assertEqual(3, len([item for item in value['classes']
+                                 if item['mode'] in ('concave-star', 'torus-grid', 'torus-surface')]))
+        for relative, contents in topology_fixtures().items():
+            self.assertEqual((ROOT / relative).read_text(), contents)
+        for class_id in ('concave-closed-256-512', 'torus-grid-256-400', 'torus-surface-1024-1600'):
+            item = next(entry for entry in value['classes'] if entry['id'] == class_id)
+            self.assertNotEqual(mesh(ROOT / item['baseFixture'])[1],
+                                mesh(ROOT / item['holdoutFixture'])[1])
+            with tempfile.TemporaryDirectory() as folder:
+                translated = Path(folder) / 'translated.obj'
+                lines = (ROOT / item['holdoutFixture']).read_text().splitlines()
+                for index, line in enumerate(lines):
+                    if line.startswith('v '):
+                        point = [float(number) for number in line.split()[1:]]
+                        lines[index] = 'v ' + ' '.join(str(axis + (.05 if number == 0 else 0))
+                                                         for number, axis in enumerate(point))
+                translated.write_text('\n'.join(lines) + '\n')
+                self.assertEqual(class_id, classify(translated, ROOT)['classId'])
+
+    def test_irregular_torus_holdouts_and_crossing_adversaries(self):
+        value, _ = policy(ROOT)
+        torus = next(item for item in value['classes'] if item['id'] == 'torus-surface-1024-1600')
+        self.assertEqual(2, len(torus['independentHoldouts']))
+        for extra in torus['independentHoldouts']:
+            self.assertEqual(torus['id'], classify(ROOT / extra['path'], ROOT)['classId'])
+            self.assertNotEqual(extra['sha256'], torus['holdoutSha256'])
+        for name in ('torus-surface-folded.obj', 'torus-surface-crossing.obj'):
+            with self.assertRaises(ValueError):
+                classify(ROOT / 'scientific/fixtures/inspect-topology' / name, ROOT)
+
+    def test_large_class_accepts_new_geometry_but_rejects_broken_topology(self):
+        value, _ = policy(ROOT)
+        item = next(entry for entry in value['classes'] if entry['id'] == 'star-closed-1024-2048')
+        source = ROOT / item['holdoutFixture']
+        with tempfile.TemporaryDirectory() as folder:
+            translated = Path(folder) / 'independent.obj'
+            lines = source.read_text().splitlines()
+            for index, line in enumerate(lines):
+                if line.startswith('v '):
+                    point = [float(number) for number in line.split()[1:]]
+                    lines[index] = 'v ' + ' '.join(str(axis + (.05 if number == 0 else 0))
+                                                     for number, axis in enumerate(point))
+            translated.write_text('\n'.join(lines) + '\n')
+            self.assertNotEqual(item['holdoutSha256'], classify(translated, ROOT)['inputSha256'])
+            self.assertEqual(item['id'], classify(translated, ROOT)['classId'])
+            broken = Path(folder) / 'broken.obj'
+            broken.write_text('\n'.join(lines[:-1]) + '\n')
+            with self.assertRaises(ValueError):
+                classify(broken, ROOT)
 
 
 if __name__ == '__main__':

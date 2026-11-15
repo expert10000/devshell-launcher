@@ -1,6 +1,6 @@
 import type { RuntimeExecution, RuntimeKind, RuntimeProbe } from './scientificRuntimeProfiles'
 
-export const scientificSections = ['State', 'Matrix', 'Environment', 'Commands', 'Boolean', 'Tests', 'Catalog', 'Benchmarks', 'Packages', 'Artifacts', 'History', 'Integration'] as const
+export const scientificSections = ['State', 'Workbench', 'Matrix', 'Environment', 'Commands', 'Boolean', 'Tests', 'Catalog', 'Benchmarks', 'Packages', 'Artifacts', 'History', 'Integration'] as const
 export type ScientificSection = typeof scientificSections[number]
 
 export interface ScientificCatalogTest {
@@ -36,7 +36,7 @@ const common: ScientificSection[] = ['State', 'Matrix', 'Environment', 'Tests', 
 // These declarations describe shipped UI and managed entry points, not installed libraries
 // or certified capabilities. Qualification still comes from run-scoped evidence.
 export const scientificRuntimePlugins: ScientificRuntimePlugin[] = [
-  { kind: 'cgal', name: 'CGAL', environmentName: 'devshell-cgal', commandView: 'mesh', testView: 'cgal', artifactView: 'mesh', integrationView: 'cgal', sdk: true, labProbe: true, holdTest: true, comparisonPresets: true, configuredBackends: ['windows-native'], sections: [...common, 'Commands', 'Boolean', 'Catalog', 'Artifacts'], catalogTests: [
+  { kind: 'cgal', name: 'CGAL', environmentName: 'devshell-cgal', commandView: 'mesh', testView: 'cgal', artifactView: 'mesh', integrationView: 'cgal', sdk: true, labProbe: true, holdTest: true, comparisonPresets: true, configuredBackends: ['windows-native'], sections: [...common, 'Workbench', 'Commands', 'Boolean', 'Catalog', 'Artifacts'], catalogTests: [
     { id: 'cgal-matrix', name: 'CGAL validation matrix', recipeId: 'matrix.cgal.validation', action: 'run-matrix', expected: 'Registered mesh cases match their expected verdicts.', requires: 'matrix' },
     { id: 'math3d-native', name: 'Math3D native Boolean integration', recipeId: 'integration.math3d.native-boolean', action: 'math3d-prepare-run', expected: 'Fourteen native Boolean cases pass their saved comparisons.', requires: 'integration' },
   ], checks: [
@@ -45,7 +45,7 @@ export const scientificRuntimePlugins: ScientificRuntimePlugin[] = [
     { id: 'cgal.link', name: 'CGAL link test and linked libraries', category: 'compiler' },
     { id: 'cgal.surface-mesh', name: 'Surface_mesh smoke test', category: 'geometry', capability: 'mesh.validate' },
   ] },
-  { kind: 'vtk', name: 'VTK', environmentName: 'devshell-vtk', commandView: 'mesh', testView: 'vtk', artifactView: 'mesh', integrationView: 'unconfigured', versionArguments: ['-c', 'from vtkmodules.vtkCommonCore import vtkVersion; print(vtkVersion.GetVTKVersion())'], sdk: true, labProbe: true, holdTest: true, configuredBackends: ['windows-native'], sections: [...common, 'Commands', 'Catalog', 'Artifacts'], catalogTests: [
+  { kind: 'vtk', name: 'VTK', environmentName: 'devshell-vtk', commandView: 'mesh', testView: 'vtk', artifactView: 'mesh', integrationView: 'unconfigured', versionArguments: ['-c', 'from vtkmodules.vtkCommonCore import vtkVersion; print(vtkVersion.GetVTKVersion())'], sdk: true, labProbe: true, holdTest: true, configuredBackends: ['windows-native'], sections: [...common, 'Workbench', 'Commands', 'Catalog', 'Artifacts'], catalogTests: [
     { id: 'vtk-probe', name: 'VTK runtime probes', recipeId: 'lab.probe', action: 'lab-probe', expected: 'Installed VTK binding and render probes report their evidence.' },
     { id: 'vtk-rejections', name: 'VTK rejection checks', recipeId: 'matrix.vtk.rejections', action: 'vtk-rejections', expected: 'Invalid mesh requests are rejected with diagnostics.', requires: 'datasets' },
   ], checks: [

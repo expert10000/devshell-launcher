@@ -11,7 +11,8 @@ from inspect_ranking import policy, rank_class  # noqa: E402
 def class_evidence(cold_cgal, cold_vtk, warm_cgal, warm_vtk, rss=40 * 1048576):
     runs = {'cgal': [], 'vtk': []}
     for provider, cold, warm in (('cgal', cold_cgal, warm_cgal), ('vtk', cold_vtk, warm_vtk)):
-        runs[provider] = [{'coldInvocationMs': c, 'warmExecutionMs': w, 'peakRssBytes': rss}
+        runs[provider] = [{'coldInvocationMs': c, 'warmExecutionMs': w,
+                           'warmExecutionUs': int(w * 1000), 'peakRssBytes': rss}
                           for c, w in zip(cold, warm)]
     return {'runs': runs, 'statistics': {name: {'peakRssBytes': rss} for name in runs}}
 
@@ -36,6 +37,11 @@ class InspectRankingTests(unittest.TestCase):
         saved = class_evidence([100] * 5, [200] * 5, [10] * 5, [30] * 5, rss=3 * 1024**3)
         self.assertIsNone(rank_class(saved, 'tetra-uniform-4', self.policy)['recommendation'])
         saved['runs']['cgal'].pop()
+        self.assertIsNone(rank_class(saved, 'tetra-uniform-4', self.policy)['recommendation'])
+
+    def test_missing_or_rounded_warm_measurement_abstains(self):
+        saved = class_evidence([100] * 5, [200] * 5, [1] * 5, [30] * 5)
+        saved['runs']['cgal'][0]['warmExecutionUs'] = 0
         self.assertIsNone(rank_class(saved, 'tetra-uniform-4', self.policy)['recommendation'])
 
 

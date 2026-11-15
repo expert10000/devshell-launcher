@@ -87,12 +87,13 @@ def inspect_sample(broker, case_id, fixture, digest, provider):
     request_path = directory / 'request.json'
     result = json.loads(result_path.read_text(encoding='utf-8'))
     telemetry = broker.telemetry(job_id)
-    warm = (result.get('engineDetails', {}).get('durationMs') if provider == 'cgal'
-            else result.get('durationMs'))
+    warm_us = (result.get('engineDetails', {}).get('durationUs') if provider == 'cgal'
+               else result.get('operationDurationUs'))
+    warm = warm_us / 1000 if isinstance(warm_us, int) else None
     if (result.get('operation') != 'mesh.inspect' or result.get('state') != 'succeeded'
             or result.get('runId') != job_id or result['inputArtifacts'][0]['sha256'] != digest
             or not isinstance(job.get('workerDurationMs'), (int, float))
-            or not isinstance(warm, (int, float)) or warm < 0 or warm > job['workerDurationMs']
+            or not isinstance(warm_us, int) or warm_us <= 0 or warm > job['workerDurationMs']
             or telemetry.get('ram', {}).get('state') != 'recorded'
             or not isinstance(telemetry['ram'].get('value'), int)):
         raise ValueError('Typed shared inspect result changed.')
@@ -104,6 +105,7 @@ def inspect_sample(broker, case_id, fixture, digest, provider):
             'telemetryPath': str(telemetry_path), 'telemetrySha256': sha(telemetry_path),
             'runId': result['runId'], 'durationMs': job['workerDurationMs'],
             'coldInvocationMs': job['workerDurationMs'], 'warmExecutionMs': warm,
+            'warmExecutionUs': warm_us,
             'startupOverheadMs': job['workerDurationMs'] - warm,
             'peakRssBytes': telemetry['ram']['value'],
             'descriptor': load_saved_mesh(result_path, artifact.name)}
@@ -210,7 +212,8 @@ def run(release_path, output_root, repetitions=7):
                                                'startupOverhead': summary([run['startupOverheadMs'] for run in observations[name]]),
                                                'peakRssBytes': max(run['peakRssBytes'] for run in observations[name])}}
                              for name in active}}
-    record = {'schemaVersion': 3, 'kind': 'scientific.comparable-mesh-inspect',
+    record = {'schemaVersion': 4, 'kind': 'scientific.comparable-mesh-inspect',
+              'measurementVersion': 2, 'warmTimingBoundary': 'worker-read-inspect-write-microseconds',
               'state': 'qualified-shared-scope', 'operation': 'mesh.inspect',
               'createdAtUtc': datetime.now(timezone.utc).isoformat(),
               'sourceCommit': release['sourceCommit'], 'releaseRecord': str(release_path),
@@ -231,7 +234,9 @@ def verify(path):
     if sha(path) != Path(str(path) + '.sha256').read_text().strip():
         raise ValueError('Shared inspection record seal changed.')
     record = json.loads(path.read_text(encoding='utf-8'))
-    if (record.get('schemaVersion') != 3 or record.get('kind') != 'scientific.comparable-mesh-inspect'
+    if (record.get('schemaVersion') != 4 or record.get('measurementVersion') != 2
+            or record.get('warmTimingBoundary') != 'worker-read-inspect-write-microseconds'
+            or record.get('kind') != 'scientific.comparable-mesh-inspect'
             or record.get('state') != 'qualified-shared-scope' or record.get('operation') != 'mesh.inspect'):
         raise ValueError('Shared inspection qualification changed.')
     release = verify_release(record['releaseRecord'])
@@ -281,8 +286,9 @@ def verify(path):
                         or broker_result.get('workerDurationMs') != run['durationMs']
                         or broker_result.get('telemetrySha256') != run['telemetrySha256']
                         or run['coldInvocationMs'] != run['durationMs']
-                        or (result.get('engineDetails', {}).get('durationMs') if name == 'cgal'
-                            else result.get('durationMs')) != run['warmExecutionMs']
+                        or (result.get('engineDetails', {}).get('durationUs') if name == 'cgal'
+                            else result.get('operationDurationUs')) != run['warmExecutionUs']
+                        or run['warmExecutionMs'] != run['warmExecutionUs'] / 1000
                         or run['startupOverheadMs'] != run['coldInvocationMs'] - run['warmExecutionMs']
                         or telemetry.get('ram', {}).get('state') != 'recorded'
                         or telemetry['ram'].get('value') != run['peakRssBytes']

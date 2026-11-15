@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -10,7 +11,7 @@ namespace BatchLauncher;
 
 public partial class Form1
 {
-    private readonly Dictionary<string, ScientificJob> _scientificJobs = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, ScientificJob> _scientificJobs = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim _scientificGate = new(1, 1);
     private bool _scientificCloseHook;
     private sealed class ScientificJob
@@ -98,9 +99,12 @@ public partial class Form1
             if(compiler.Success)job.CompilerVersion=compiler.Groups["version"].Value;
             var path=Path.Combine(job.Directory,"full.log");if(!File.Exists(path)||new FileInfo(path).Length<16777216)File.AppendAllText(path,text,Encoding.UTF8);
         }
-        ScientificSend(new{type="scientific.runtime.job",job=ScientificJobSnapshot(job)});
+        // Internal resilience probes own processes but do not replace the managed parent in the UI.
+        if (_scientificJobs.TryGetValue(job.ProfileId + ":" + job.RuntimeId, out var current)
+            && ReferenceEquals(current, job))
+            ScientificSend(new{type="scientific.runtime.job",job=ScientificJobSnapshot(job)});
     }
-    private async Task ScientificProcessAsync(ScientificJob job,string prefix,string executable,string[] arguments,string directory,int timeoutSeconds,string? extraPath=null,long? memoryLimitBytes=null,Action<long>? peakMemory=null)
+    private async Task ScientificProcessAsync(ScientificJob job,string prefix,string executable,string[] arguments,string directory,int timeoutSeconds,string? extraPath=null,long? memoryLimitBytes=null,Action<long>? peakMemory=null,Action<string>? stdoutCapture=null)
     {
         job.Cancellation.Token.ThrowIfCancellationRequested();
         job.Stage=arguments.Contains("--build")?"build":arguments.Contains("-S")?"configure":executable.EndsWith("python.exe",StringComparison.OrdinalIgnoreCase)?"worker":"run";
@@ -122,8 +126,8 @@ public partial class Form1
         try
         {
             owner.Add(process);
-            async Task Drain(StreamReader reader){var buffer=new char[4096];int count;while((count=await reader.ReadAsync(buffer.AsMemory()))>0)ScientificLog(job,new string(buffer,0,count));}
-            var output=Drain(process.StandardOutput);var errors=Drain(process.StandardError);
+            async Task Drain(StreamReader reader,Action<string>? capture){var buffer=new char[4096];int count;while((count=await reader.ReadAsync(buffer.AsMemory()))>0){var chunk=new string(buffer,0,count);capture?.Invoke(chunk);ScientificLog(job,chunk);}}
+            var output=Drain(process.StandardOutput,stdoutCapture);var errors=Drain(process.StandardError,null);
             try{await process.WaitForExitAsync(cancellation.Token);}
             catch(OperationCanceledException){owner.Stop();await process.WaitForExitAsync();await Task.WhenAll(output,errors);if(job.Cancellation.IsCancellationRequested)throw;throw new TimeoutException($"Step exceeded {timeoutSeconds} seconds.");}
             await Task.WhenAll(output,errors);job.ExitCode=process.ExitCode;
@@ -149,6 +153,7 @@ public partial class Form1
                 if(kind!="vtk")throw new InvalidOperationException("CGAL mesh workers are not implemented by this adapter.");
                 var inputId=request.GetProperty("parameters").GetProperty("inputId").GetString()??"";
                 var inputArtifact=ScientificDatasetArtifact(inputId);var input=inputArtifact["path"]!.GetValue<string>();
+                ScientificWorkbenchOperationCatalog.Validate(ScientificSourceRoot,job.RuntimeId,job.RecipeId,request.GetProperty("parameters"),input);
                 if(!File.Exists(input)||new FileInfo(input).Length>33554432||!new[]{".obj",".stl",".ply",".vtp"}.Contains(Path.GetExtension(input).ToLowerInvariant()))throw new InvalidOperationException("Select a supported bounded dataset copy.");
                 var output=request.GetProperty("parameters").GetProperty("outputName").GetString()??"";
                 if(!Regex.IsMatch(output,"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,99}\\.vtp$"))throw new InvalidOperationException("Output must be a safe VTP basename.");
@@ -230,16 +235,18 @@ public partial class Form1
                 : ScientificDriftDiagnosis(profileId,runtimeId,request.GetProperty("jobId").GetString()??"");
             else if(action=="history-boolean-draft")data=ScientificBooleanDraft(profileId,request.GetProperty("jobId").GetString()??"");
             else if(action=="import-meshes"){ScientificProviderRegistry.RequireAction(runtimeId,action);data=ScientificMeshImportStart(profileId,runtimeId);}
+            else if(action=="workbench-math3d-handoff"){ScientificProviderRegistry.RequireAction(runtimeId,action);data=ScientificWorkbenchHandoffStart(profileId,runtimeId,request);}
             else if(action=="test-matrix"){ScientificProviderRegistry.RequireAction(runtimeId,action);data=ScientificMatrixCases();}
             else if(action=="history-thumbnail")data=ScientificHistoryThumbnail(profileId,request);
             else if(action=="history-image-preview")data=ScientificHistoryImagePreview(profileId,request);
             else if(action=="history-preview")data=await ScientificHistoryPreviewAsync(profileId,request);
+            else if(action=="dataset-preview"){ScientificProviderRegistry.RequireAction(runtimeId,action);data=await ScientificDatasetPreviewAsync(request);}
             else if(action is "history-open-log" or "history-open-output" or "history-reveal-artifact" or "history-open-artifact")data=ScientificHistoryOpen(profileId,request,action);
             else if(action=="report")data=ScientificReport();
             else if(action=="install-runtime")data=ScientificInstallStart(profileId,runtimeId);
             else if(action=="sage-recipe"){ScientificProviderRegistry.RequireAction(runtimeId,action);data=ScientificSageStart(profileId,runtimeId,request);}
             else if(action=="math3d-readiness"){ScientificProviderRegistry.RequireAction(runtimeId,action);data=ScientificMath3DReadiness(profileId);}
-            else if(action=="inspect-selection-preview")data=await ScientificInspectSelectionPreviewAsync(request);
+            else if(action=="inspect-selection-preview")data=ScientificInspectPreviewStart(profileId,request);
             else if(action=="inspect-selection-run")data=ScientificInspectSelectionStart(profileId,request);
             else if(action=="datasets")
             {

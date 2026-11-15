@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
-import { waitForScientificPage } from './scientific-desktop-page.mjs'
+import { scientificDesktopPage } from './scientific-desktop-page.mjs'
 
 const require = createRequire(import.meta.url)
 const { chromium } = require(join(import.meta.dirname, '..', 'DevShell', 'ui', 'dev-ui-react', 'node_modules', 'playwright-core'))
@@ -49,7 +49,7 @@ async function newRun(previous, recipe, level, capability = 'mesh.repair', page,
 if (!process.env.DEVSHELL_CDP_URL) throw new Error('Set DEVSHELL_CDP_URL to the running DevShell debug endpoint.')
 const browser = await chromium.connectOverCDP(process.env.DEVSHELL_CDP_URL)
 try {
-  const page = await waitForScientificPage(browser)
+  const page = await scientificDesktopPage(browser)
   page.setDefaultTimeout(120_000)
   await page.getByText('RUNTIMES / Scientific', { exact: true }).click()
   const main = page.getByRole('main', { name: 'Scientific Runtimes' })

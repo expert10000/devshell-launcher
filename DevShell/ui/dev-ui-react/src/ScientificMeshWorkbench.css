@@ -1,0 +1,14 @@
+.scientific-mesh-workbench { display: grid; gap: 1.1rem; }
+.scientific-mesh-workbench > header h3 { margin-bottom: .25rem; }
+.scientific-mesh-workbench > header p { margin: 0; }
+.scientific-workbench-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.scientific-workbench-steps > section, .scientific-mesh-workbench > section { min-width: 0; padding: 1rem; border: 1px solid var(--workspace-control-border, #566273); border-radius: 12px; }
+.scientific-workbench-steps h4, .scientific-mesh-workbench > section h4 { margin: 0 0 .7rem; }
+.scientific-workbench-steps label { display: grid; gap: .3rem; margin: .7rem 0; }
+.scientific-workbench-steps select, .scientific-workbench-steps input:not([type='checkbox']) { width: 100%; max-width: 100%; box-sizing: border-box; }
+.scientific-workbench-steps code { overflow-wrap: anywhere; }
+.scientific-workbench-input-preview { display: grid; gap: .5rem; margin-top: .75rem; }
+.scientific-workbench-input-preview > div { min-width: 0; }
+.scientific-workbench-input-preview canvas { max-width: 100%; }
+.scientific-mesh-workbench .scientific-artifacts { margin-top: .8rem; }
+@media (max-width: 850px) { .scientific-workbench-steps { grid-template-columns: 1fr; } }

@@ -31,7 +31,7 @@ from vtkmodules.vtkIOPLY import vtkPLYReader
 from vtkmodules.vtkIOXML import vtkXMLPolyDataReader, vtkXMLPolyDataWriter
 contract.versions = {'vtk': vtkVersion.GetVTKVersion()}
 
-start = time.monotonic()
+operation_started_ns = time.perf_counter_ns()
 readers = {'.obj': vtkOBJReader, '.stl': vtkSTLReader, '.ply': vtkPLYReader, '.vtp': vtkXMLPolyDataReader}
 reader_type = readers.get(input_path.suffix.lower())
 if not reader_type:
@@ -109,7 +109,10 @@ writer.SetFileName(str(output_path))
 writer.SetInputData(mesh)
 if writer.Write() != 1 or messages:
     raise ValueError('Output write failed')
-contract.finish(before=before, after={'points': mesh.GetNumberOfPoints(), 'triangles': mesh.GetNumberOfPolys(),
-                                    'boundaryEdges': edge_count(mesh, boundary=True), 'nonManifoldEdges': edge_count(mesh, non_manifold=True)},
+after = {'points': mesh.GetNumberOfPoints(), 'triangles': mesh.GetNumberOfPolys(),
+         'boundaryEdges': edge_count(mesh, boundary=True), 'nonManifoldEdges': edge_count(mesh, non_manifold=True)}
+operation_duration_us = max(1, (time.perf_counter_ns() - operation_started_ns) // 1000)
+contract.finish(before=before, after=after,
                 capabilities=['geometry.polydata', 'mesh.read', 'mesh.write'] + (['mesh.filter'] if recipe != 'mesh.inspect' else []),
-                scope='Basic triangulated-surface statistics only; no self-intersection or full mesh-validity guarantee.')
+                scope='Basic triangulated-surface statistics only; no self-intersection or full mesh-validity guarantee.',
+                extra={'operationDurationUs': operation_duration_us})

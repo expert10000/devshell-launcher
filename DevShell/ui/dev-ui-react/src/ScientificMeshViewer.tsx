@@ -142,7 +142,7 @@ export function MeshCanvas({ mesh, camera, setCamera, bounds, after, label }: {
 export function ScientificMeshInspection({ geometry }: { geometry: ScientificArtifactPreview['geometry'] }) {
   const [camera, setCamera] = useState(initialCamera)
   const [display, setDisplay] = useState<Display>({ ...solidDisplay, opacity: { a: 0.2, b: 0.2, result: 1 } })
-  const [separate, setSeparate] = useState(false)
+  const [separate, setSeparate] = useState(() => !!geometry.before && !geometry.beforeSecond)
   const layers = useMemo<Layer[]>(() => [
     ...(geometry.before ? [{ id: 'a', name: geometry.beforeSecond ? 'Mesh A' : 'Input', mesh: geometry.before, color: colors.a }] : []),
     ...(geometry.beforeSecond ? [{ id: 'b', name: 'Mesh B', mesh: geometry.beforeSecond, color: colors.b }] : []),
@@ -170,6 +170,7 @@ export function ScientificMeshInspection({ geometry }: { geometry: ScientificArt
       <label><input aria-label="Reverse clipping side" disabled={!display.clip} type="checkbox" checked={display.reverse} onChange={event => setDisplay(previous => ({ ...previous, reverse: event.target.checked }))} />Reverse side</label>
     </div>
     {geometry.after.triangles === 0 && <p role="status">Result is empty: no surface geometry. Input meshes remain available for inspection.</p>}
+    {separate && <p className="scientific-runtime-note">Before and after share the same camera, zoom, clipping plane, and scale.</p>}
     {separate ? <div className={`scientific-mesh-comparison${layers.length === 3 ? ' scientific-mesh-comparison--three' : ''}`}>{layers.map(layer => <SeparateLayer key={layer.id} layer={layer} display={display} camera={camera} setCamera={setCamera} bounds={bounds} />)}</div>
       : <MeshViewport layers={layers} display={display} camera={camera} setCamera={setCamera} bounds={bounds} title="Combined mesh inspection" />}
     <p className="scientific-runtime-note">Drag to orbit; arrow keys rotate. Visibility, transparency, wireframe, and clipping change the preview only. Clipped surfaces are uncapped; saved meshes retain their full geometry.</p>

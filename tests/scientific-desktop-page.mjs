@@ -1,13 +1,14 @@
 import { setTimeout as delay } from 'node:timers/promises'
 
-// CDP can report the WebView2 target before Playwright attaches its page.
-export async function waitForScientificPage(browser, timeoutMs = 45_000) {
+// CDP can publish the WebView target before Playwright attaches it to a context.
+// Qualification actions must wait for that attachment, not just /json/list.
+export async function scientificDesktopPage(browser, timeoutMs = 20_000) {
   const deadline = Date.now() + timeoutMs
-  while (Date.now() < deadline) {
-    const page = browser.contexts().flatMap(context => context.pages())
-      .find(item => !item.isClosed() && item.url().includes('app.local'))
+  do {
+    const pages = browser.contexts().flatMap(context => context.pages())
+    const page = pages.find(item => !item.isClosed() && item.url().includes('app.local'))
     if (page) return page
-    await delay(250)
-  }
-  throw new Error('DevShell app page is unavailable after CDP attachment wait')
+    await delay(Math.min(250, Math.max(1, deadline - Date.now())))
+  } while (Date.now() < deadline)
+  throw new Error('DevShell app page did not attach to Playwright after CDP became ready')
 }

@@ -1,15 +1,22 @@
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using System.Xml;
 
 namespace BatchLauncher;
 
 internal static class ScientificMeshImports
 {
     internal const long MaxBytes = 32 * 1024 * 1024;
-    internal static JsonObject Progress(string runId, string profileId, JsonArray records) => new()
+    internal static bool Accepts(string runtimeId, string source) => (runtimeId, Path.GetExtension(source).ToLowerInvariant()) switch
     {
-        ["schemaVersion"] = 1, ["runId"] = runId, ["profileId"] = profileId, ["runtimeId"] = "cgal-win-conda", ["recipeId"] = "datasets.import",
+        ("cgal-win-conda", ".obj" or ".stl" or ".ply" or ".off") => true,
+        ("vtk-win-conda", ".obj" or ".stl" or ".ply" or ".vtp") => true,
+        _ => false
+    };
+    internal static JsonObject Progress(string runId, string profileId, string runtimeId, JsonArray records) => new()
+    {
+        ["schemaVersion"] = 1, ["runId"] = runId, ["profileId"] = profileId, ["runtimeId"] = runtimeId, ["recipeId"] = "datasets.import",
         ["state"] = "running", ["durationMs"] = 0, ["versions"] = new JsonObject(), ["validatedCapabilities"] = new JsonArray(),
         ["diagnostics"] = new JsonArray(), ["artifacts"] = new JsonArray(), ["imports"] = records.DeepClone()
     };
@@ -35,17 +42,61 @@ internal static class ScientificMeshImports
         File.Move(temporary, file, true);
     }
 
+    // VTP intake is XML/base64 only. DTDs, external references, namespaces and
+    // raw appended data are outside the local preview/worker contract.
+    private static void ValidateVtp(Stream input)
+    {
+        input.Position = 0;
+        var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null,
+            MaxCharactersInDocument = MaxBytes, CloseInput = false };
+        try
+        {
+            using var reader = XmlReader.Create(input, settings);
+            var root = false; var polyData = false; var piece = false;
+            while (reader.Read())
+            {
+                if (reader.NodeType == XmlNodeType.ProcessingInstruction)
+                    throw new InvalidOperationException("VTP processing instructions are not allowed.");
+                if (reader.NodeType != XmlNodeType.Element) continue;
+                if (reader.NamespaceURI.Length != 0)
+                    throw new InvalidOperationException("VTP XML namespaces and includes are not allowed.");
+                if (!root)
+                {
+                    root = true;
+                    if (reader.Name != "VTKFile" || reader.GetAttribute("type") != "PolyData")
+                        throw new InvalidOperationException("Expected a VTP PolyData document.");
+                }
+                if (reader.Name == "PolyData") polyData = true;
+                if (reader.Name == "Piece" && polyData) piece = true;
+                if (reader.Name == "AppendedData" && reader.GetAttribute("encoding") != "base64")
+                    throw new InvalidOperationException("VTP appended data must use base64 encoding.");
+                if (reader.Name == "DataArray" && reader.GetAttribute("format") is { } format
+                    && format is not ("ascii" or "binary" or "appended"))
+                    throw new InvalidOperationException("Unsupported VTP array encoding.");
+                if (!reader.HasAttributes) continue;
+                while (reader.MoveToNextAttribute())
+                    if (reader.NamespaceURI.Length != 0 || reader.LocalName is "href" or "src" or "url" or "file")
+                        throw new InvalidOperationException("VTP external references are not allowed.");
+                reader.MoveToElement();
+            }
+            if (!root || !polyData || !piece) throw new InvalidOperationException("VTP PolyData must contain a Piece.");
+        }
+        catch (XmlException error) { throw new InvalidOperationException("Malformed VTP XML: " + error.Message, error); }
+        finally { input.Position = 0; }
+    }
+
     internal static JsonObject Import(string dataRoot, string source, CancellationToken cancellation = default)
     {
         cancellation.ThrowIfCancellationRequested();
         source = Path.GetFullPath(source);
         var extension = Path.GetExtension(source).ToLowerInvariant();
-        if (!new[] { ".obj", ".stl", ".ply", ".off" }.Contains(extension)) throw new InvalidOperationException("Choose OBJ, STL, PLY, or OFF meshes.");
+        if (!new[] { ".obj", ".stl", ".ply", ".off", ".vtp" }.Contains(extension)) throw new InvalidOperationException("Choose OBJ, STL, PLY, OFF, or VTP meshes.");
         if ((File.GetAttributes(source) & FileAttributes.ReparsePoint) != 0) throw new InvalidOperationException("Choose a regular mesh file, not a link.");
         using var input = new FileStream(source, FileMode.Open, FileAccess.Read, FileShare.Read);
         if (input.Length is <= 0 or > MaxBytes) throw new InvalidOperationException("Each mesh must contain between 1 byte and 32 MiB.");
         var hash = Convert.ToHexString(SHA256.HashData(input)).ToLowerInvariant();
         input.Position = 0;
+        if (extension == ".vtp") ValidateVtp(input);
         var stem = Regex.Replace(Path.GetFileNameWithoutExtension(source), "[^a-zA-Z0-9_-]", "_");
         stem = stem[..Math.Min(stem.Length, 64)];
         var id = $"imported/{hash}/mesh-{stem}{extension}";
@@ -71,10 +122,14 @@ internal static class ScientificMeshImports
                     while ((read = input.Read(buffer)) > 0) { cancellation.ThrowIfCancellationRequested(); output.Write(buffer, 0, read); }
                 }
                 cancellation.ThrowIfCancellationRequested();
+                if (!File.Exists(source) || ScientificArtifactFiles.Hash(source) != hash)
+                    throw new InvalidOperationException("Source mesh changed while importing; choose the file again.");
                 File.Move(temporary, destination);
             }
             finally { if (File.Exists(temporary)) File.Delete(temporary); }
         }
+        if (!File.Exists(source) || ScientificArtifactFiles.Hash(source) != hash)
+            throw new InvalidOperationException("Source mesh changed while importing; choose the file again.");
         var existing = entries.OfType<JsonObject>().FirstOrDefault(item => item["id"]?.GetValue<string>() == id);
         if (existing != null) return (JsonObject)existing.DeepClone();
         var entry = new JsonObject { ["id"] = id, ["path"] = id, ["name"] = Path.GetFileName(source), ["category"] = "Imported",

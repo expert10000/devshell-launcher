@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 2,
+  "kind": "scientific.mesh-inspect-ranking-policy",
+  "operation": "mesh.inspect",
+  "measurementVersion": 2,
+  "warmTimingBoundary": "worker-read-inspect-write-microseconds",
+  "minimumPairedSamples": 5,
+  "bootstrapIterations": 2000,
+  "confidence": 0.95,
+  "minimumRelativeAdvantage": 0.1,
+  "maximumColdInvocationMs": 20000,
+  "maximumWarmExecutionMs": 10000,
+  "maximumPeakRssMiB": 2048,
+  "rule": "Recommend only when both paired cold invocation and microsecond-resolution worker read/inspect/write phases favor the same provider by at least 10%, both paired 95% bootstrap intervals exclude zero, and all resource measurements are present and within limits. Missing phase timing abstains."
+}

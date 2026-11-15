@@ -20,6 +20,11 @@ from six_capability_report import verify as verify_report
 from advisor import verify_shared_advice
 from math3d_inspect_product import verify as verify_product
 from class_inspect_qualification import verify as verify_classes
+from desktop_inspect_journey import (RECIPE as RECIPE_DESKTOP, PREVIEW_RECIPE as RECIPE_PREVIEW,
+                                     ROLES as DESKTOP_ROLES, LEGACY_ROLES, CLASS_ROLES,
+                                     verify as verify_desktop_journey)
+from math3d_release_identity import verify as verify_math3d_identity
+from verified_evidence_cache import VerifiedEvidenceCache
 
 PATH = re.compile(r'(?i)(?:[a-z]:[\\/]|\\\\)[^\s\"\'<>;,]*')
 HASH = re.compile(r'^[0-9a-f]{64}$')
@@ -58,6 +63,12 @@ def portable_artifact(path, source):
         return compact(redact(json.loads(source))), 'redacted-json'
     if suffix in ('.txt', '.log', '.obj', '.msh', '.vtp'):
         return redact(source.decode('utf-8')).encode('utf-8'), 'redacted-utf8'
+    if suffix == '.html':
+        value = source.decode('utf-8').lower()
+        if not value.startswith('<!doctype html>') or any(item in value for item in
+            ('<script', 'javascript:', ' onload=', ' onclick=', ' onerror=')):
+            raise ValueError('Only static product rationale HTML is portable.')
+        return redact(source.decode('utf-8')).encode('utf-8'), 'static-redacted-html'
     magic = {'.bin': b'MD3M', '.m3dm': b'M3DM', '.m3dt': b'M3DT'}
     if suffix in magic:
         if len(source) < 16 or not source.startswith(magic[suffix]):
@@ -176,59 +187,16 @@ def find_runs(repo, needed):
     return found
 
 
-def verify_desktop(path, release_path, class_path):
-    """Check the live UI transcript against finalized managed run and product records."""
-    path = Path(path).resolve(strict=True)
-    if digest(path.read_bytes()) != Path(str(path) + '.sha256').read_text().strip():
-        raise ValueError('Live desktop record seal changed.')
-    value = json.loads(path.read_text(encoding='utf-8'))
-    release = json.loads(Path(release_path).read_text(encoding='utf-8'))
-    if (value.get('schemaVersion') != 1 or value.get('kind') != 'scientific.live-desktop-inspect-selection'
-            or value.get('sourceCommit') != release['sourceCommit']
-            or value.get('releaseRecordSha256') != digest(Path(release_path).read_bytes())
-            or value.get('classRecordSha256') != digest(Path(class_path).read_bytes())
-            or not HASH.fullmatch(value.get('inputSha256', ''))
-            or not re.search(r'selected (?:cgal|vtk)-win-conda', value.get('automaticText', ''))
-            or 'selected vtk-win-conda' not in value.get('manualText', '')
-            or 'manual' not in value.get('manualText', '').lower()):
-        raise ValueError('Live desktop selection identity changed.')
-    results = {}
-    for label, state in (('success', 'succeeded'), ('cancellation', 'cancelled')):
-        entry = value[label]
-        if not RUN.fullmatch(entry['runId']):
-            raise ValueError('Invalid live desktop run ID.')
-        result_path = Path(entry['resultPath']).resolve(strict=True)
-        if (result_path.name != 'results.json' or result_path.parent.name != entry['runId']
-                or digest(result_path.read_bytes()) != entry['resultSha256']):
-            raise ValueError('Live desktop managed result changed.')
-        result = json.loads(result_path.read_text(encoding='utf-8'))
-        if (result.get('runId') != entry['runId'] or result.get('state') != state
-                or result.get('recipeId') != 'l9.math3d-inspect-selection'):
-            raise ValueError('Live desktop managed outcome changed.')
-        results[label] = result
-    selection_entry = value['success']
-    selection_path = Path(selection_entry['selectionPath']).resolve(strict=True)
-    if (selection_path.name != 'selection.json' or selection_path.parent.parent != Path(selection_entry['resultPath']).parent
-            or digest(selection_path.read_bytes()) != selection_entry['selectionSha256']):
-        raise ValueError('Live desktop MATH3D selection changed.')
-    selection = json.loads(selection_path.read_text(encoding='utf-8'))
-    if (selection.get('classRecordSha256') != value['classRecordSha256']
-            or selection.get('inputSha256') != value['inputSha256']
-            or selection.get('classId') not in ('tetra-uniform-4', 'octa-uniform-8', 'cube-uniform-12')
-            or selection.get('state') not in ('qualified', 'manual')
-            or not {'read.m3dm', 'viewer.png'} <= set(selection.get('productFiles', {}))
-            or results['success'].get('selection') != selection
-            or results['cancellation'].get('artifacts') != []
-            or results['cancellation'].get('validatedCapabilities') != []):
-        raise ValueError('Live desktop product or cancellation evidence changed.')
-    return value
-
-
 def export(record_path, output, signing_key, key_id, shared_path, report_path,
-           advisor_path, product_path, class_path=None, desktop_path=None):
+           advisor_path, product_path, class_path=None, desktop_path=None, verified=None):
     record_path = Path(record_path).resolve(strict=True)
-    live = verify_live(record_path)
+    if verified is not None and not isinstance(verified, VerifiedEvidenceCache):
+        raise ValueError('Publication verification cache is invalid.')
+    live = verified.get('release', record_path) if verified else verify_live(record_path)
     repo = Path(live['repo']).resolve(strict=True)
+    if verified:
+        verified.check_source(repo, live['sourceCommit'])
+        verify_math3d_identity(live['math3dRoot'], live['math3dIdentity'])
     release_root = record_path.parent
     certified = release_root / 'certified.json'
     if digest(certified.read_bytes()) != Path(str(certified) + '.sha256').read_text().strip():
@@ -237,23 +205,26 @@ def export(record_path, output, signing_key, key_id, shared_path, report_path,
     entries = {(item['runtimeId'], item['capabilityId']): item for item in source['certifiedCapabilities']}
     if set(entries) != set(TARGETS.values()):
         raise ValueError('Six certified capability entries are required.')
-    shared = verify_shared(shared_path)
-    report = verify_report(report_path)
-    advice = verify_shared_advice(advisor_path)
-    product = json.loads(Path(product_path).read_text(encoding='utf-8'))
-    verify_product(product_path, shared_path, product['inputPath'])
+    shared = verified.get('shared', shared_path) if verified else verify_shared(shared_path)
+    report = verified.get('report', report_path) if verified else verify_report(report_path)
+    advice = verified.get('advice', advisor_path) if verified else verify_shared_advice(advisor_path)
+    product = verified.get('product', product_path) if verified else json.loads(Path(product_path).read_text(encoding='utf-8'))
+    if not verified:
+        verify_product(product_path, shared_path, product['inputPath'])
     if (shared['releaseRecordSha256'] != digest(record_path.read_bytes())
             or report['releaseRecordSha256'] != digest(record_path.read_bytes())
             or advice['scopeRecordSha256'] != digest(Path(shared_path).read_bytes())
-            or product['scopeRecordSha256'] != digest(Path(shared_path).read_bytes())):
+            or product['scopeRecordSha256'] != digest(Path(shared_path).read_bytes())
+            or product.get('math3dIdentity') != live['math3dIdentity']):
         raise ValueError('Six-capability evidence sources are not linked.')
-    classes = verify_classes(class_path) if class_path else None
+    classes = (verified.get('classes', class_path) if verified else verify_classes(class_path)) if class_path else None
     if classes and (classes['releaseRecordSha256'] != digest(record_path.read_bytes())
                     or classes['sourceCommit'] != live['sourceCommit']):
         raise ValueError('Bounded class evidence belongs to another release.')
-    if desktop_path and not classes:
-        raise ValueError('Live desktop class evidence requires a bounded class record.')
-    desktop = verify_desktop(desktop_path, record_path, class_path) if desktop_path else None
+    if not classes or not desktop_path:
+        raise ValueError('A complete signed release requires bounded classes and managed desktop product journey.')
+    desktop = (verified.get('desktop', desktop_path) if verified
+               else verify_desktop_journey(desktop_path, record_path, class_path))
     files, index, payloads = {}, [], []
     index.append(json_file(files, 'release/coexistence.json', record_path))
     index.append(json_file(files, 'release/certified.json', certified))
@@ -267,13 +238,12 @@ def export(record_path, output, signing_key, key_id, shared_path, report_path,
     evidence_paths = {'shared': shared_path, 'report': report_path,
                       'matrix': Path(report_path).parent / 'matrix.json',
                       'comparison': Path(report_path).parent / 'comparison.json',
-                      'advisor': advisor_path, 'product': product_path}
+                      'advisor': advisor_path, 'product': product_path,
+                      'desktopJourney': desktop_path}
     if classes:
         evidence_paths.update({'classes': class_path,
-                               'classPolicy': repo / 'schemas/scientific-mesh-inspect-classes.v1.json',
-                               'rankingPolicy': repo / 'schemas/scientific-inspect-ranking.v1.json'})
-    if desktop:
-        evidence_paths['desktop'] = desktop_path
+                               'classPolicy': repo / 'schemas/scientific-mesh-inspect-classes.v5.json',
+                               'rankingPolicy': repo / 'schemas/scientific-inspect-ranking.v2.json'})
     evidence_hashes = {}
     for name, source_path in evidence_paths.items():
         entry = json_file(files, f'evidence/{name}.json', source_path)
@@ -311,7 +281,10 @@ def export(record_path, output, signing_key, key_id, shared_path, report_path,
     if classes:
         for class_id, evidence in classes['classes'].items():
             for provider in ('cgal', 'vtk'):
-                for sample, run in enumerate(evidence['runs'][provider]):
+                measured = list(enumerate(evidence['runs'][provider]))
+                measured += [('independent-' + str(index), gate['runs'][provider])
+                             for index, gate in enumerate(evidence.get('independentGates', []))]
+                for sample, run in measured:
                     for kind, item in run['files'].items():
                         data, format_policy = portable_artifact(kind, Path(item['path']).read_bytes())
                         object_path = 'objects/sha256/' + digest(data)
@@ -337,19 +310,18 @@ def export(record_path, output, signing_key, key_id, shared_path, report_path,
         product_payloads.append({'name': name, 'sourceSha256': source_hash,
                                  'object': object_path, 'formatPolicy': format_policy})
     desktop_payloads = []
-    if desktop:
-        for label, source_path, source_hash in (
-                ('success', desktop['success']['resultPath'], desktop['success']['resultSha256']),
-                ('selection', desktop['success']['selectionPath'], desktop['success']['selectionSha256']),
-                ('cancellation', desktop['cancellation']['resultPath'], desktop['cancellation']['resultSha256'])):
-            data, format_policy = portable_artifact(source_path, Path(source_path).read_bytes())
+    for role in DESKTOP_ROLES:
+        run = desktop['runs'][role]
+        directory = repo / '.scientific/runs' / run['runId']
+        for name, source_hash in sorted(run['files'].items()):
+            data, format_policy = portable_artifact(name, (directory / name).read_bytes())
             object_path = 'objects/sha256/' + digest(data)
             if object_path not in files:
-                add(files, object_path, data)
+                add(files, object_path, data, binary=not format_policy.startswith(('redacted', 'static-redacted')))
                 index.append({'path': object_path, 'sha256': digest(data),
                               'sourceSha256': source_hash, 'bytes': len(data),
                               'formatPolicy': format_policy})
-            desktop_payloads.append({'name': label, 'sourceSha256': source_hash,
+            desktop_payloads.append({'role': role, 'path': name, 'sourceSha256': source_hash,
                                      'object': object_path, 'formatPolicy': format_policy})
     for run_id, directory in sorted(runs.items()):
         if not RUN.fullmatch(run_id):
@@ -390,7 +362,7 @@ def export(record_path, output, signing_key, key_id, shared_path, report_path,
             payloads.append({'runId': run_id, 'path': relative.replace('\\', '/'),
                              'sourceSha256': digest(source_bytes), 'object': object_path,
                              'formatPolicy': format_policy})
-    manifest = {'schemaVersion': 2, 'kind': 'scientific.portable-six-capability-evidence',
+    manifest = {'schemaVersion': 4, 'kind': 'scientific.portable-six-capability-evidence',
                 'sourceCommit': live['sourceCommit'], 'verifiedAtUtc': datetime.now(timezone.utc).isoformat(),
                 'liveRecordSha256': digest(record_path.read_bytes()),
                 'signingKeyId': key_id,
@@ -432,27 +404,27 @@ def verify(path, trust_store=None):
             raise ValueError('Bundle manifest seal changed.')
         manifest = json.loads(body)
         version = manifest.get('schemaVersion')
-        if version not in (1, 2) or manifest.get('kind') != 'scientific.portable-six-capability-evidence':
+        if version not in (1, 2, 3, 4) or manifest.get('kind') != 'scientific.portable-six-capability-evidence':
             raise ValueError('Unsupported portable evidence bundle.')
-        if version == 2:
+        if version >= 2:
             signature = json.loads(archive.read('manifest.signature.json'))
             if signature.get('keyId') != manifest.get('signingKeyId'):
                 raise ValueError('Evidence signing key ID changed.')
             verify_signature(body, signature, trust_store)
         files = {item['path']: item for item in manifest['files']}
-        metadata = {'manifest.json', 'manifest.sha256'} | ({'manifest.signature.json'} if version == 2 else set())
+        metadata = {'manifest.json', 'manifest.sha256'} | ({'manifest.signature.json'} if version >= 2 else set())
         if set(names) != set(files) | metadata or len(files) != len(manifest['files']):
             raise ValueError('Bundle inventory changed.')
         for name, item in files.items():
             data = archive.read(name)
-            if version == 2 and name.startswith('objects/sha256/'):
+            if version >= 2 and name.startswith('objects/sha256/'):
                 if name != 'objects/sha256/' + digest(data):
                     raise ValueError('Content-addressed object name changed.')
             else:
                 path_free(data)
             if len(data) != item['bytes'] or digest(data) != item['sha256'] or not HASH.fullmatch(item['sourceSha256']):
                 raise ValueError('Bundle file hash changed: ' + name)
-        if version == 2:
+        if version >= 2:
             if manifest.get('omittedArtifacts'):
                 raise ValueError('Signed bundle omits supporting artifacts.')
             payloads = manifest.get('artifactPayloads')
@@ -478,8 +450,8 @@ def verify(path, trust_store=None):
             evidence_names = ('shared', 'report', 'matrix', 'comparison', 'advisor', 'product')
             if 'classes' in manifest.get('evidenceHashes', {}):
                 evidence_names += ('classes', 'classPolicy', 'rankingPolicy')
-            if 'desktop' in manifest.get('evidenceHashes', {}):
-                evidence_names += ('desktop',)
+            if version >= 3:
+                evidence_names += ('desktopJourney',)
             if set(manifest.get('evidenceHashes', {})) != set(evidence_names):
                 raise ValueError('Six-capability evidence inventory changed.')
             for name in evidence_names:
@@ -502,6 +474,14 @@ def verify(path, trust_store=None):
                     or advisor['scopeRecordSha256'] != manifest['evidenceHashes']['shared']
                     or product['scopeRecordSha256'] != manifest['evidenceHashes']['shared']):
                 raise ValueError('Offline release, benchmark, matrix or advisor link changed.')
+            if version >= 3 and product.get('math3dIdentity') != json.loads(
+                    archive.read('release/coexistence.json'))['math3dIdentity']:
+                raise ValueError('Offline exact product MATH3D identity changed.')
+            if version >= 3 and (matrix.get('schemaVersion') != 2
+                    or report.get('schemaVersion') != 2
+                    or matrix.get('boundedInspect', {}).get('sha256') != manifest['evidenceHashes']['classes']
+                    or matrix.get('desktopJourney', {}).get('sha256') != manifest['evidenceHashes']['desktopJourney']):
+                raise ValueError('Offline matrix bounded class or desktop journey link changed.')
             if 'classes' in manifest['evidenceHashes']:
                 classes = json.loads(archive.read('evidence/classes.json'))
                 if (classes['sourceCommit'] != manifest['sourceCommit']
@@ -512,7 +492,10 @@ def verify(path, trust_store=None):
                 expected_classes = {}
                 for class_id, evidence in classes['classes'].items():
                     for provider in ('cgal', 'vtk'):
-                        for sample, run in enumerate(evidence['runs'][provider]):
+                        measured = list(enumerate(evidence['runs'][provider]))
+                        measured += [('independent-' + str(index), gate['runs'][provider])
+                                     for index, gate in enumerate(evidence.get('independentGates', []))]
+                        for sample, run in measured:
                             for kind, item in run['files'].items():
                                 expected_classes[(class_id, provider, sample, kind)] = item['sha256']
                 observed_classes = {}
@@ -567,52 +550,85 @@ def verify(path, trust_store=None):
                 referenced.add(item['object'])
             if observed_product != product['productFiles']:
                 raise ValueError('MATH3D product payloads are incomplete or changed.')
-            if 'desktop' in manifest['evidenceHashes']:
-                if 'classes' not in manifest['evidenceHashes']:
-                    raise ValueError('Live desktop class evidence has no class record.')
-                desktop = json.loads(archive.read('evidence/desktop.json'))
-                if (desktop.get('kind') != 'scientific.live-desktop-inspect-selection'
-                        or desktop.get('sourceCommit') != manifest['sourceCommit']
-                        or desktop.get('releaseRecordSha256') != manifest['liveRecordSha256']
-                        or desktop.get('classRecordSha256') != manifest['evidenceHashes']['classes']
-                        or not re.search(r'selected (?:cgal|vtk)-win-conda', desktop.get('automaticText', ''))
-                        or 'selected vtk-win-conda' not in desktop.get('manualText', '')
-                        or 'manual' not in desktop.get('manualText', '').lower()):
-                    raise ValueError('Offline live desktop selection link changed.')
-                expected_desktop = {'success': desktop['success']['resultSha256'],
-                                    'selection': desktop['success']['selectionSha256'],
-                                    'cancellation': desktop['cancellation']['resultSha256']}
+            if version >= 3:
+                journey = json.loads(archive.read('evidence/desktopJourney.json'))
+                release_identity = json.loads(archive.read('release/coexistence.json'))['math3dIdentity']
+                roles = LEGACY_ROLES if version == 3 else DESKTOP_ROLES
+                if (journey.get('sourceCommit') != manifest['sourceCommit']
+                        or journey.get('releaseRecordSha256') != manifest['liveRecordSha256']
+                        or journey.get('classRecordSha256') != manifest['evidenceHashes']['classes']
+                        or journey.get('math3dIdentitySha256') != release_identity['identitySha256']
+                        or set(journey.get('runs', {})) != set(roles)):
+                    raise ValueError('Offline desktop journey release or consumer identity changed.')
+                expected_desktop = {(role, name): source_hash
+                                    for role, run in journey['runs'].items()
+                                    for name, source_hash in run['files'].items()}
                 observed_desktop = {}
-                desktop_data = {}
+                decoded = {}
                 for item in manifest.get('desktopPayloads', []):
-                    name = item['name']
-                    if name in observed_desktop or name not in expected_desktop:
-                        raise ValueError('Duplicate or unknown live desktop payload.')
-                    observed_desktop[name] = item['sourceSha256']
+                    key = (item['role'], item['path'])
+                    if key in observed_desktop or item['object'] not in files:
+                        raise ValueError('Duplicate or missing desktop product payload.')
+                    observed_desktop[key] = item['sourceSha256']
                     data = archive.read(item['object'])
-                    checked, policy = portable_artifact(name + '.json', data)
+                    checked, policy = portable_artifact(item['path'], data)
                     if checked != data or policy != item['formatPolicy']:
-                        raise ValueError('Live desktop payload format changed.')
-                    desktop_data[name] = json.loads(data)
+                        raise ValueError('Desktop product payload format changed.')
+                    if item['formatPolicy'] != files[item['object']]['formatPolicy']:
+                        raise ValueError('Desktop product payload policy changed.')
+                    decoded[key] = data
                     referenced.add(item['object'])
                 if observed_desktop != expected_desktop:
-                    raise ValueError('Live desktop payloads are incomplete or changed.')
-                success, selection, cancellation = (desktop_data[name] for name in ('success', 'selection', 'cancellation'))
-                if (success.get('runId') != desktop['success']['runId'] or success.get('state') != 'succeeded'
-                        or cancellation.get('runId') != desktop['cancellation']['runId']
-                        or cancellation.get('state') != 'cancelled'
-                        or success.get('recipeId') != 'l9.math3d-inspect-selection'
-                        or cancellation.get('recipeId') != 'l9.math3d-inspect-selection'
-                        or selection.get('classRecordSha256') != desktop['classRecordSha256']
-                        or selection.get('inputSha256') != desktop['inputSha256']
-                        or selection.get('classId') not in classes['classes']
-                        or not {'read.m3dm', 'viewer.png'} <= set(selection.get('productFiles', {}))
-                        or success.get('selection') != selection
-                        or cancellation.get('artifacts') != []
-                        or cancellation.get('validatedCapabilities') != []):
-                    raise ValueError('Offline live desktop outcome changed.')
-            elif manifest.get('desktopPayloads'):
-                raise ValueError('Live desktop payloads lack a signed desktop record.')
+                    raise ValueError('Desktop product payloads are incomplete or changed.')
+                for role in roles:
+                    run = journey['runs'][role]
+                    result = json.loads(decoded[(role, 'results.json')])
+                    request = json.loads(decoded[(role, 'request.json')])
+                    snapshot = json.loads(decoded[(role, 'source-snapshot.json')])
+                    if (result['runId'] != run['runId'] or request['runId'] != run['runId']
+                            or result['recipeId'] != (RECIPE_PREVIEW if role.startswith('preview') else RECIPE_DESKTOP)
+                            or snapshot['repositories']['devshell']['commit'] != manifest['sourceCommit']
+                            or snapshot['repositories']['math3d']['commit'] != release_identity['commit']):
+                        raise ValueError('Offline managed desktop source or run changed.')
+                    selection = result.get('selection')
+                    if role == 'cancelled':
+                        if result['state'] != 'cancelled' or selection or result.get('artifacts'):
+                            raise ValueError('Offline cancelled desktop selection promoted artifacts.')
+                        continue
+                    if role.startswith('preview'):
+                        preview = json.loads(decoded[(role, 'preview.json')])
+                        recommendation = run.get('recommendation')
+                        if (result['state'] != 'succeeded' or preview != selection
+                                or request['parameters'].get('manualProvider')
+                                or selection.get('selectedProvider') != (recommendation or 'math3d-direct')
+                                or selection.get('state') != ('ranked' if recommendation else 'fallback')
+                                or selection.get('inputSha256') != request['inputArtifacts'][0]['sha256']
+                                or selection.get('classRecordSha256') != manifest['evidenceHashes']['classes']):
+                            raise ValueError('Offline abstention preview changed.')
+                        continue
+                    selected = json.loads(decoded[(role, 'product-selection/selection.json')])
+                    if (result['state'] != 'succeeded' or selected != selection
+                            or selected.get('math3dIdentity') != release_identity
+                            or selected['inputSha256'] != request['inputArtifacts'][0]['sha256']):
+                        raise ValueError('Offline desktop selection or consumer changed.')
+                    manual = request['parameters'].get('manualProvider')
+                    if (role == 'automatic' and (manual or selected['selectedProvider'] == 'math3d-direct')
+                            or role in ('manual', 'torusManual', 'starManual') and
+                               (not manual or selected['selectedProvider'] != manual)
+                            or role == 'fallback' and (manual or selected['state'] != 'fallback'
+                                                       or selected['selectedProvider'] != 'math3d-direct')):
+                        raise ValueError('Offline desktop selection role changed.')
+                    if role in CLASS_ROLES and (selected.get('classId') != CLASS_ROLES[role]
+                                                or selected.get('recommendedProvider') != run.get('recommendation')):
+                        raise ValueError('Offline manual class selection changed.')
+                    for name, source_hash in selected['productFiles'].items():
+                        if observed_desktop.get((role, 'product-selection/product/' + name)) != source_hash:
+                            raise ValueError('Offline MATH3D product file changed.')
+                    document = json.loads(decoded[(role, 'product-selection/product/product.json')])
+                    viewport = json.loads(decoded[(role, 'product-selection/product/viewer.json')])
+                    if (document.get('verdict') != 'passed' or viewport.get('verdict') != 'passed'
+                            or viewport.get('documentSha256') != document.get('documentSha256')):
+                        raise ValueError('Offline MATH3D document or viewport reload changed.')
             if referenced != {name for name in files if name.startswith('objects/sha256/')}:
                 raise ValueError('Unreferenced artifact object.')
         release = json.loads(archive.read('release/coexistence.json'))
@@ -630,7 +646,7 @@ def verify(path, trust_store=None):
                 profile_file = files[f'profiles/{item["name"]}/{label}.json']
                 if profile_file['sourceSha256'] != release['profiles'][item['name']][label + 'Sha256']:
                     raise ValueError('Release profile source hash changed.')
-            if version == 2 and release.get('math3dIdentity'):
+            if version >= 2 and release.get('math3dIdentity'):
                 link_file = files[f'profiles/{item["name"]}/math3d-link.json']
                 if link_file['sourceSha256'] != release['profiles'][item['name']]['math3dLinkSha256']:
                     raise ValueError('MATH3D product smoke link changed.')
@@ -643,7 +659,7 @@ def verify(path, trust_store=None):
             for level, support in enumerate(entry['supportingRecords']):
                 run_id, record_id = support['runId'], support['recordId']
                 result = json.loads(archive.read(f'runs/{run_id}/results.json'))
-                if version == 2:
+                if version >= 2:
                     for artifact in result.get('artifacts', []):
                         identity = (run_id, artifact['path'].replace('\\', '/'))
                         payload = by_key.get(identity)
@@ -671,7 +687,7 @@ def verify(path, trust_store=None):
         return {'verdict': 'verified-historical-evidence', 'sourceCommit': manifest['sourceCommit'],
                 'manifestSha256': digest(body), 'capabilities': len(capabilities),
                 'artifactPayloads': len(manifest.get('artifactPayloads', [])),
-                'signature': 'trusted' if version == 2 else 'legacy-unsigned'}
+                'signature': 'trusted' if version >= 2 else 'legacy-unsigned'}
 
 
 if __name__ == '__main__':
@@ -683,7 +699,7 @@ if __name__ == '__main__':
     parser.add_argument('--advisor-record')
     parser.add_argument('--product-record')
     parser.add_argument('--class-record')
-    parser.add_argument('--desktop-record')
+    parser.add_argument('--desktop-journey-record')
     parser.add_argument('--output')
     parser.add_argument('--bundle')
     parser.add_argument('--signing-key')
@@ -708,11 +724,11 @@ if __name__ == '__main__':
     elif options.command == 'export':
         if not all((options.record, options.output, options.signing_key, options.key_id,
                     options.shared_record, options.report_record, options.advisor_record,
-                    options.product_record)):
-            parser.error('export requires release, shared, report, advisor and product records plus signing key')
+                    options.product_record, options.class_record, options.desktop_journey_record)):
+            parser.error('export requires release, shared, report, advisor, product, class and desktop journey records plus signing key')
         report = export(options.record, options.output, options.signing_key, options.key_id,
                         options.shared_record, options.report_record, options.advisor_record,
-                        options.product_record, options.class_record, options.desktop_record)
+                        options.product_record, options.class_record, options.desktop_journey_record)
     else:
         if not options.bundle:
             parser.error('verify requires --bundle')

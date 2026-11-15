@@ -13,7 +13,7 @@ public partial class Form1
         try
         {
             using var dialog = new OpenFileDialog { Title = "Import meshes into the Scientific lab",
-                Filter = runtimeId == "vtk-win-conda" ? "VTK mesh files (*.obj;*.stl;*.ply)|*.obj;*.stl;*.ply"
+                Filter = runtimeId == "vtk-win-conda" ? "VTK mesh files (*.obj;*.stl;*.ply;*.vtp)|*.obj;*.stl;*.ply;*.vtp"
                     : "Mesh files (*.obj;*.stl;*.ply;*.off)|*.obj;*.stl;*.ply;*.off",
                 Multiselect = true, CheckFileExists = true, RestoreDirectory = true };
             if (dialog.ShowDialog(this) != DialogResult.OK) { _scientificGate.Release(); return new { cancelled = true }; }

@@ -62,13 +62,14 @@ function ScientificMeshWorkbenchContent({ runtime, native, edited, onHistory }: 
   const datasetsRequested = useRef(false)
   const currentJob = native.jobs[runtime.id]
   const job = catalog.some(item => item.id === currentJob?.recipeId) ? currentJob : undefined
-  const datasets = (native.datasets?.entries ?? []).filter(item => operation && eligible(item, operation))
+  const datasets = native.datasets?.entries ?? []
   const selected = datasets.find(item => item.id === inputId)
+  const formatAccepted = !!selected && !!operation && eligible(selected, operation)
   const inputPreview = selected && native.datasetPreview?.inputId === selected.id && native.datasetPreview.sha256 === selected.sha256
     ? native.datasetPreview.geometry : null
   const outputValid = !!operation && new RegExp(`^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,99}\\.${operation.output}$`).test(outputName)
   const parametersValid = !!operation && validFields(operation, values)
-  const ready = !!selected && outputValid && parametersValid && !edited && runtime.execution === 'windows-native'
+  const ready = formatAccepted && outputValid && parametersValid && !edited && runtime.execution === 'windows-native'
   const artifact = job?.state === 'succeeded' ? job.result?.artifacts?.find(item => item.role !== 'operand' && /\.(obj|stl|ply|vtp)$/i.test(item.path)) : undefined
   const importJob = currentJob?.recipeId === 'datasets.import' ? currentJob : undefined
   const lastSaved = native.history?.find(item => item.runtimeId === runtime.id && catalog.some(entry => entry.id === item.recipeId))
@@ -111,7 +112,6 @@ function ScientificMeshWorkbenchContent({ runtime, native, edited, onHistory }: 
     setOperationId(id)
     setValues(Object.fromEntries(next.fields.map(field => [field.id, field.kind === 'boolean' ? field.value === true : String(field.value)])))
     setOutputName(`mesh-result.${next.output}`)
-    if (inputId && !native.datasets?.entries.some(item => item.id === inputId && eligible(item, next))) setInputId('')
   }
   const run = () => {
     if (!ready || !operation) return
@@ -126,14 +126,17 @@ function ScientificMeshWorkbenchContent({ runtime, native, edited, onHistory }: 
       <section aria-label="Mesh input"><h4>1 · Object</h4>
         <div className="scientific-inspector-actions"><button disabled={native.pending} onClick={() => native.send(runtime.id, 'datasets')}>Load registered objects</button>
           <button disabled={native.pending || native.busy} onClick={() => native.send(runtime.id, 'import-meshes')}>Import mesh files…</button></div>
-        <p className="scientific-runtime-note">Import copies up to 16 {runtime.kind === 'vtk' ? 'OBJ, STL, or PLY' : 'OBJ, STL, PLY, or OFF'} files (32 MiB each). CGAL validates its copies. VTK import does not validate geometry; an existing CGAL validation of the same copy is retained. Originals stay untouched.</p>
+        {importJob && <div role="status"><strong>Last import: {importJob.state}</strong>{importJob.result?.imports?.map(item =>
+          <p key={item.name}>{item.name}: {item.state}{item.message ? ` · ${item.message}` : ''}</p>)}</div>}
+        <p className="scientific-runtime-note">Import copies up to 16 {runtime.kind === 'vtk' ? 'OBJ, STL, PLY, or VTP' : 'OBJ, STL, PLY, or OFF'} files (32 MiB each). VTP registration accepts local XML/base64 PolyData only, with no DTD or external references. CGAL validates its copies. VTK geometry is checked when an operation runs. Originals stay untouched.</p>
         <label>Selected object<select aria-label="Workbench object" value={inputId} onChange={event => { setInputId(event.target.value); setInputCamera(initialCamera) }}><option value="">Choose a registered mesh…</option>{datasets.map(item => <option key={item.id} value={item.id}>{item.category} / {item.name}{item.expectedProblem ? ' / expected problem' : ''}</option>)}</select></label>
-        {native.datasets && <small>{datasets.length} compatible objects / {native.datasets.entries.length} registered</small>}
+        {native.datasets && <small>{datasets.filter(item => eligible(item, operation)).length} compatible objects / {datasets.length} registered</small>}
         {selected && <p><strong>{selected.name}</strong> · {selected.bytes.toLocaleString()} bytes · <code>SHA-256 {selected.sha256}</code>{selected.validation?.state ? ` · ${selected.validation.state}` : ''}</p>}
+        {selected && !formatAccepted && <p role="alert">{selected.name} cannot be used for {operation.label}. This operation accepts {operation.inputNote}.</p>}
         {selected && <div className="scientific-workbench-input-preview">
           <button disabled={native.pending || !/\.(obj|stl|ply|vtp)$/i.test(selected.path)} onClick={() => native.send(runtime.id, 'dataset-preview', { inputId: selected.id })}>Load input 3D preview</button>
           {inputPreview && <MeshCanvas key={selected.id} mesh={inputPreview} camera={inputCamera} setCamera={setInputCamera} bounds={inputPreview.bounds} after={false} label="INPUT / registered copy" />}
-          {!/\.(obj|stl|ply|vtp)$/i.test(selected.path) && <p>3D preview is unavailable for this format; the CGAL operation can still read the registered copy.</p>}
+          {!/\.(obj|stl|ply|vtp)$/i.test(selected.path) && <p>OFF has no 3D preview in this Workbench. CGAL can still run on the verified registered copy; review its output and recorded metrics afterward.</p>}
           <small>Preview reads the copied bytes with VTK and verifies their hash. A run checks the copy again.</small>
         </div>}
       </section>

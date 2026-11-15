@@ -161,7 +161,7 @@ Check(vtkImportProgress["runtimeId"]!.GetValue<string>() == "vtk-win-conda" && v
 Check(ScientificProviderRegistry.RequireAction("vtk-win-conda", "import-meshes").RuntimeId == "vtk-win-conda", "VTK admits managed mesh registration");
 Check(ScientificMeshImports.Accepts("vtk-win-conda", "mesh.obj") && ScientificMeshImports.Accepts("vtk-win-conda", "mesh.stl")
     && ScientificMeshImports.Accepts("vtk-win-conda", "mesh.ply") && !ScientificMeshImports.Accepts("vtk-win-conda", "mesh.off")
-    && !ScientificMeshImports.Accepts("vtk-win-conda", "mesh.vtp") && ScientificMeshImports.Accepts("cgal-win-conda", "mesh.off"),
+    && ScientificMeshImports.Accepts("vtk-win-conda", "mesh.vtp") && ScientificMeshImports.Accepts("cgal-win-conda", "mesh.off"),
     "provider import policy accepts only formats backed by its intake path");
 Check(ScientificProviderRegistry.RequireAction("vtk-win-conda", "dataset-preview").RuntimeId == "vtk-win-conda", "VTK admits registered input preview");
 Reject(() => ScientificProviderRegistry.RequireAction("sage-wsl", "dataset-preview"), "non-mesh providers reject input preview");
@@ -193,6 +193,19 @@ foreach(var extension in new[]{".stl", ".ply", ".off"})
 {
     var file = Path.Combine(directory,"mesh"+extension); File.WriteAllText(file,"fixture");
     Check(ScientificMeshImports.Import(importRoot,file)["path"]!.GetValue<string>().EndsWith(extension), "import supports " + extension);
+}
+var safeVtp = Path.Combine(directory, "safe-polydata.vtp");
+File.WriteAllText(safeVtp, "<VTKFile type=\"PolyData\" version=\"1.0\"><PolyData><Piece NumberOfPoints=\"0\" NumberOfPolys=\"0\" /></PolyData></VTKFile>");
+Check(ScientificMeshImports.Accepts("vtk-win-conda", safeVtp) && !ScientificMeshImports.Accepts("cgal-win-conda", safeVtp), "VTP registration is VTK-only");
+Check(ScientificMeshImports.Import(importRoot, safeVtp)["path"]!.GetValue<string>().EndsWith(".vtp"), "bounded XML PolyData is registered");
+foreach (var (name, xml) in new[] {
+    ("doctype", "<!DOCTYPE VTKFile [<!ENTITY x SYSTEM 'file:///secret'>]><VTKFile type=\"PolyData\"><PolyData><Piece /></PolyData></VTKFile>"),
+    ("external", "<VTKFile type=\"PolyData\"><PolyData><Piece href=\"file:///secret\" /></PolyData></VTKFile>"),
+    ("raw", "<VTKFile type=\"PolyData\"><PolyData><Piece /></PolyData><AppendedData encoding=\"raw\">_abc</AppendedData></VTKFile>"),
+    ("malformed", "<VTKFile type=\"PolyData\"><PolyData><Piece /></VTKFile>") })
+{
+    var file = Path.Combine(directory, name + ".vtp"); File.WriteAllText(file, xml);
+    Reject(() => ScientificMeshImports.Import(importRoot, file), "VTP " + name + " is rejected before registration");
 }
 var unsupported = Path.Combine(directory,"unsafe.exe"); File.WriteAllText(unsupported,"fixture");
 Reject(() => ScientificMeshImports.Import(importRoot,unsupported), "unsupported import types rejected");

@@ -153,8 +153,18 @@ var invalidTranslation = (JsonObject)booleanRequest.DeepClone(); invalidTranslat
 Reject(() => ScientificBooleanParameters.Parse(Element(invalidTranslation)), "incomplete Boolean placement rejected");
 
 var progressRecords = new JsonArray(new JsonObject { ["name"] = "cube.obj", ["state"] = "validating" });
-var importProgress = ScientificMeshImports.Progress(new string('e',32), "laptop", progressRecords);
+var importProgress = ScientificMeshImports.Progress(new string('e',32), "laptop", "cgal-win-conda", progressRecords);
 Check(importProgress["validatedCapabilities"]!.AsArray().Count == 0 && importProgress["artifacts"]!.AsArray().Count == 0 && importProgress["state"]!.GetValue<string>() == "running", "import progress uses a complete result envelope without claiming capabilities or artifacts");
+var vtkImportProgress = ScientificMeshImports.Progress(new string('f', 32), "laptop", "vtk-win-conda", progressRecords);
+Check(vtkImportProgress["runtimeId"]!.GetValue<string>() == "vtk-win-conda" && vtkImportProgress["validatedCapabilities"]!.AsArray().Count == 0,
+    "VTK registration identifies its provider without claiming geometry validation");
+Check(ScientificProviderRegistry.RequireAction("vtk-win-conda", "import-meshes").RuntimeId == "vtk-win-conda", "VTK admits managed mesh registration");
+Check(ScientificMeshImports.Accepts("vtk-win-conda", "mesh.obj") && ScientificMeshImports.Accepts("vtk-win-conda", "mesh.stl")
+    && ScientificMeshImports.Accepts("vtk-win-conda", "mesh.ply") && !ScientificMeshImports.Accepts("vtk-win-conda", "mesh.off")
+    && !ScientificMeshImports.Accepts("vtk-win-conda", "mesh.vtp") && ScientificMeshImports.Accepts("cgal-win-conda", "mesh.off"),
+    "provider import policy accepts only formats backed by its intake path");
+Check(ScientificProviderRegistry.RequireAction("vtk-win-conda", "dataset-preview").RuntimeId == "vtk-win-conda", "VTK admits registered input preview");
+Reject(() => ScientificProviderRegistry.RequireAction("sage-wsl", "dataset-preview"), "non-mesh providers reject input preview");
 progressRecords[0]!["state"] = "passed";
 Check(importProgress["imports"]![0]!["state"]!.GetValue<string>() == "validating", "published import progress snapshots remain immutable");
 var importRoot = Path.Combine(directory, "user-imports");

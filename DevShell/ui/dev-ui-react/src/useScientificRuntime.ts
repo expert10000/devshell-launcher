@@ -9,6 +9,7 @@ export interface ScientificDataset { id: string; name: string; category: string;
 export interface ScientificEnvironment { environment: Record<string, string>; vcpkgRoot: string | null; installedVcpkg: string | null; vcpkgUsed: boolean; report: ScientificRuntimeReport; evidence?: { compilerVersion?: string | null; compilerSource?: string; rendering?: ScientificRunResult['rendering'] } }
 export interface ScientificMeshPreview { name: string; positions: number[]; bounds: number[]; points: number; triangles: number; previewTriangles: number; sampled: boolean; note: string }
 export interface ScientificArtifactPreview { jobId: string; artifactPath: string; geometry: { before: ScientificMeshPreview | null; beforeSecond?: ScientificMeshPreview | null; after: ScientificMeshPreview }; result: ScientificRunResult }
+export interface ScientificDatasetPreview { inputId: string; sha256: string; geometry: ScientificMeshPreview }
 export interface ScientificHistoryImagePreview { jobId: string; artifactPath: string; image: { dataUrl: string; mimeType: string; size: number } }
 export interface ScientificHistoryThumbnail { jobId: string; artifactPath: string; dataUrl?: string; error?: string }
 export interface ScientificHistoryEntry { jobId: string; runtimeId: string; recipeId: string; testCaseId?: string | null; state: string; durationMs: number; finishedAtUtc: string; artifactCount: number; meshArtifactCount?: number; thumbnailPath?: string | null }
@@ -24,6 +25,7 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
   const [jobs, setJobs] = useState<Record<string, ScientificJob>>({})
   const [environments, setEnvironments] = useState<Record<string, ScientificEnvironment>>({})
   const [previews, setPreviews] = useState<Record<string, ScientificArtifactPreview>>({})
+  const [datasetPreview, setDatasetPreview] = useState<ScientificDatasetPreview | null>(null)
   const [datasets, setDatasets] = useState<{ importedAt: string; note: string; entries: ScientificDataset[] } | null>(null)
   const [history, setHistory] = useState<ScientificHistoryEntry[] | null>(null)
   const [historyResult, setHistoryResult] = useState<ScientificRunResult | null>(null)
@@ -62,7 +64,7 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
     const thumbnailKey = background ? `${extra.jobId}|${extra.artifactPath}` : undefined
     if (!background) { setError(''); setNotice(''); setPending(true) }
     else if (thumbnailKey) setHistoryThumbnails(previous => ({ ...previous, [thumbnailKey]: { jobId: String(extra.jobId), artifactPath: String(extra.artifactPath) } }))
-    const timer = setTimeout(() => { requests.current.delete(requestId); setPending([...requests.current.values()].some(item => item.action !== 'history-thumbnail')); if (thumbnailKey) setHistoryThumbnails(previous => ({ ...previous, [thumbnailKey]: { jobId: String(extra.jobId), artifactPath: String(extra.artifactPath), error: 'Thumbnail timed out.' } })); else setError(`${action} response timed out. Inspect job status before retrying a run.`) }, action === 'export' ? 600000 : action === 'import-meshes' ? 300000 : action === 'inspect-selection-preview' ? 210000 : action === 'retest-plan' ? 180000 : runtimeId === 'sage-wsl' && ['qualification-summary', 'history-result', 'history-drift-diagnose'].includes(action) ? 180000 : 30000)
+    const timer = setTimeout(() => { requests.current.delete(requestId); setPending([...requests.current.values()].some(item => item.action !== 'history-thumbnail')); if (thumbnailKey) setHistoryThumbnails(previous => ({ ...previous, [thumbnailKey]: { jobId: String(extra.jobId), artifactPath: String(extra.artifactPath), error: 'Thumbnail timed out.' } })); else setError(`${action} response timed out. Inspect job status before retrying a run.`) }, action === 'export' ? 600000 : action === 'import-meshes' ? 300000 : action === 'inspect-selection-preview' ? 210000 : action === 'retest-plan' ? 180000 : action === 'dataset-preview' ? 45000 : runtimeId === 'sage-wsl' && ['qualification-summary', 'history-result', 'history-drift-diagnose'].includes(action) ? 180000 : 30000)
     requests.current.set(requestId, { action, thumbnailKey, timer })
     bridge.postMessage({ type: 'scientific.runtime', profileId, runtimeId, requestId, action, ...extra })
   }
@@ -99,6 +101,7 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
       else if (message.action === 'environment' && message.data && message.runtimeId) setEnvironments(previous => ({ ...previous, [message.runtimeId!]: message.data as ScientificEnvironment }))
       else if (message.action === 'math3d-readiness' && message.data) setMath3dReadiness(message.data as Math3DReadiness)
       else if (message.action === 'datasets' && message.data) setDatasets(message.data as { importedAt: string; note: string; entries: ScientificDataset[] })
+      else if (message.action === 'dataset-preview' && message.data) setDatasetPreview(message.data as ScientificDatasetPreview)
       else if (message.action === 'repair-fixtures' && message.data) { setDatasets(message.data as { importedAt: string; note: string; entries: ScientificDataset[] }); setNotice('Authored repair fixtures copied and registered.') }
       else if (message.action === 'test-matrix' && Array.isArray(message.data)) setTestMatrix(message.data as ScientificMatrixCase[])
       else if (message.action === 'ci-matrix' && Array.isArray(message.data)) setCiMatrix(message.data as ScientificCiImport[])
@@ -116,5 +119,5 @@ export function useScientificRuntime(bridge: ScientificBridge | null, profileId:
     // Callback refs keep completed diagnostics from restarting subscriptions.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bridge, profileId])
-  return { profileId, jobs, environments, previews, datasets, history, historyResult, historyResults, qualificationSummaries, historyPreviews, historyImages, historyThumbnails, testMatrix, ciMatrix, driftDiagnosis, retestPlan, inspectSelection, math3dReadiness, booleanDraft, pending, error, notice, send, busy: Object.values(jobs).some(job => job.state === 'running') }
+  return { profileId, jobs, environments, previews, datasetPreview, datasets, history, historyResult, historyResults, qualificationSummaries, historyPreviews, historyImages, historyThumbnails, testMatrix, ciMatrix, driftDiagnosis, retestPlan, inspectSelection, math3dReadiness, booleanDraft, pending, error, notice, send, busy: Object.values(jobs).some(job => job.state === 'running') }
 }

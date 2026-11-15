@@ -238,6 +238,7 @@ public partial class Form1
             else if(action=="history-thumbnail")data=ScientificHistoryThumbnail(profileId,request);
             else if(action=="history-image-preview")data=ScientificHistoryImagePreview(profileId,request);
             else if(action=="history-preview")data=await ScientificHistoryPreviewAsync(profileId,request);
+            else if(action=="dataset-preview"){ScientificProviderRegistry.RequireAction(runtimeId,action);data=await ScientificDatasetPreviewAsync(request);}
             else if(action is "history-open-log" or "history-open-output" or "history-reveal-artifact" or "history-open-artifact")data=ScientificHistoryOpen(profileId,request,action);
             else if(action=="report")data=ScientificReport();
             else if(action=="install-runtime")data=ScientificInstallStart(profileId,runtimeId);

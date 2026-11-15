@@ -8,11 +8,14 @@ public partial class Form1
 {
     private object ScientificMeshImportStart(string profileId, string runtimeId)
     {
-        if (runtimeId != "cgal-win-conda") throw new InvalidOperationException("Select CGAL / Windows Native to import meshes.");
+        if (runtimeId is not ("cgal-win-conda" or "vtk-win-conda")) throw new InvalidOperationException("Select CGAL or VTK / Windows Native to import meshes.");
         if (!_scientificGate.Wait(0)) throw new InvalidOperationException("Another Scientific job is running; stop or wait for it.");
         try
         {
-            using var dialog = new OpenFileDialog { Title = "Import meshes into the Scientific lab", Filter = "Mesh files (*.obj;*.stl;*.ply;*.off)|*.obj;*.stl;*.ply;*.off", Multiselect = true, CheckFileExists = true, RestoreDirectory = true };
+            using var dialog = new OpenFileDialog { Title = "Import meshes into the Scientific lab",
+                Filter = runtimeId == "vtk-win-conda" ? "VTK mesh files (*.obj;*.stl;*.ply)|*.obj;*.stl;*.ply"
+                    : "Mesh files (*.obj;*.stl;*.ply;*.off)|*.obj;*.stl;*.ply;*.off",
+                Multiselect = true, CheckFileExists = true, RestoreDirectory = true };
             if (dialog.ShowDialog(this) != DialogResult.OK) { _scientificGate.Release(); return new { cancelled = true }; }
             var files = dialog.FileNames.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
             if (files.Length is 0 or > 16) throw new InvalidOperationException("Import between 1 and 16 meshes at a time.");
@@ -44,10 +47,20 @@ public partial class Form1
                 {
                     job.Stage = $"copy {index + 1}/{files.Length}";
                     ScientificLog(job, $"Importing {Path.GetFileName(files[index])}\n");
+                    if (!ScientificMeshImports.Accepts(job.RuntimeId, files[index]))
+                        throw new InvalidOperationException("The selected provider does not accept this mesh format for registration.");
                     entry = await Task.Run(() => ScientificMeshImports.Import(ScientificDataRoot, files[index], job.Cancellation.Token));
                     record["id"] = entry["id"]!.DeepClone(); record["sha256"] = entry["sha256"]!.DeepClone(); record["bytes"] = entry["bytes"]!.DeepClone();
+                    if (job.RuntimeId == "vtk-win-conda")
+                    {
+                        record["state"] = "registered";
+                        record["message"] = "Hashed local copy registered. Geometry is not checked until a VTK operation runs.";
+                        job.Result = JsonSerializer.SerializeToElement(ScientificMeshImports.Progress(job.Id, job.ProfileId, job.RuntimeId, records));
+                        ScientificSend(new { type = "scientific.runtime.job", job = ScientificJobSnapshot(job) });
+                        continue;
+                    }
                     record["state"] = "validating";
-                    job.Result = JsonSerializer.SerializeToElement(ScientificMeshImports.Progress(job.Id, job.ProfileId, records));
+                    job.Result = JsonSerializer.SerializeToElement(ScientificMeshImports.Progress(job.Id, job.ProfileId, job.RuntimeId, records));
                     ScientificSend(new { type = "scientific.runtime.job", job = ScientificJobSnapshot(job) });
                     var directory = Path.Combine(job.Directory, $"validation-{index + 1}");
                     Directory.CreateDirectory(directory);
@@ -84,12 +97,12 @@ public partial class Form1
                 }
                 finally
                 {
-                    if (entry != null)
+                    if (entry != null && job.RuntimeId == "cgal-win-conda")
                     {
                         var validation = (JsonObject)record.DeepClone(); validation["runId"] = job.Id; validation["profileId"] = job.ProfileId; validation["checkedAt"] = DateTimeOffset.UtcNow.ToString("O");
                         ScientificMeshImports.SaveValidation(ScientificDataRoot, entry["id"]!.GetValue<string>(), entry["sha256"]!.GetValue<string>(), validation);
                     }
-                    job.Result = JsonSerializer.SerializeToElement(ScientificMeshImports.Progress(job.Id, job.ProfileId, records));
+                    job.Result = JsonSerializer.SerializeToElement(ScientificMeshImports.Progress(job.Id, job.ProfileId, job.RuntimeId, records));
                     ScientificSend(new { type = "scientific.runtime.job", job = ScientificJobSnapshot(job) });
                 }
             }

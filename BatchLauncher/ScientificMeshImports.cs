@@ -7,9 +7,15 @@ namespace BatchLauncher;
 internal static class ScientificMeshImports
 {
     internal const long MaxBytes = 32 * 1024 * 1024;
-    internal static JsonObject Progress(string runId, string profileId, JsonArray records) => new()
+    internal static bool Accepts(string runtimeId, string source) => (runtimeId, Path.GetExtension(source).ToLowerInvariant()) switch
     {
-        ["schemaVersion"] = 1, ["runId"] = runId, ["profileId"] = profileId, ["runtimeId"] = "cgal-win-conda", ["recipeId"] = "datasets.import",
+        ("cgal-win-conda", ".obj" or ".stl" or ".ply" or ".off") => true,
+        ("vtk-win-conda", ".obj" or ".stl" or ".ply") => true,
+        _ => false
+    };
+    internal static JsonObject Progress(string runId, string profileId, string runtimeId, JsonArray records) => new()
+    {
+        ["schemaVersion"] = 1, ["runId"] = runId, ["profileId"] = profileId, ["runtimeId"] = runtimeId, ["recipeId"] = "datasets.import",
         ["state"] = "running", ["durationMs"] = 0, ["versions"] = new JsonObject(), ["validatedCapabilities"] = new JsonArray(),
         ["diagnostics"] = new JsonArray(), ["artifacts"] = new JsonArray(), ["imports"] = records.DeepClone()
     };

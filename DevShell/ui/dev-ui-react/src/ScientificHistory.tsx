@@ -6,6 +6,7 @@ import { initialCamera } from './scientificCamera'
 import type { Camera } from './scientificCamera'
 import { ScientificComparisonPresets } from './ScientificComparisonPresets'
 import { ScientificExactMathInspector, ScientificMeshFacts, ScientificMeshNumericDiff } from './ScientificArtifactInspector'
+import operationCatalog from '../../../../schemas/scientific-workbench-operations.v1.json'
 
 const metric = (value: number | null | undefined) => typeof value === 'number' && Number.isFinite(value) ? value.toPrecision(4) : 'unavailable'
 
@@ -54,6 +55,8 @@ export function ScientificHistory({ native, runtimeId, focusRunId = null, compar
   const selectedVisible = !!selectedJobId && (!!filteredEntries?.some(entry => entry.jobId === selectedJobId)
     || !!qualificationSummary?.capabilities.some(capability => capability.supportingRuns.some(run => run.runId === selectedJobId)))
   const result = selectedVisible && selectedJobId ? native.historyResults[selectedJobId] ?? null : null
+  const handoffArtifact = result?.state === 'succeeded' && operationCatalog.operations.some(item => item.id === result.recipeId)
+    ? result.artifacts?.find(item => item.role !== 'operand' && /\.(obj|vtp)$/i.test(item.path)) : undefined
   const [imageSelection, setImageSelection] = useState<{ jobId: string; path: string } | null>(null)
   const imagePreview = imageSelection ? native.historyImages[`${imageSelection.jobId}|${imageSelection.path}`] : undefined
   const [imageError, setImageError] = useState('')
@@ -163,6 +166,11 @@ export function ScientificHistory({ native, runtimeId, focusRunId = null, compar
         </tbody></table> : <p>No geometry output recorded.</p>}</div>)}</details>
       </section>}
       {result.recipeId === 'cgal.boolean' && <button disabled={native.pending || native.busy} onClick={() => native.send(result.runtimeId, 'history-boolean-draft', { jobId: result.runId })}>Rerun with these settings...</button>}
+      {handoffArtifact && <section aria-label="MATH3D saved-result handoff"><h5>MATH3D saved document</h5>
+        <p>The verified output is converted to bounded OBJ and loaded into the pulled MATH3D consumer. Its saved Mesh document, resource, M3DM, source run, hashes, and consumer commit are checked on reload.</p>
+        <button disabled={native.pending || native.busy || result.gitSourceDrift?.state !== 'current'} onClick={() => native.send(result.runtimeId, 'workbench-math3d-handoff', { jobId: result.runId, artifactPath: handoffArtifact.path })}>Send verified result to MATH3D</button>
+        {result.gitSourceDrift?.state !== 'current' && <p role="status">Rerun this operation at the current source before handoff.</p>}
+      </section>}
       {result.rerunOf && <p>Rerun of <code>{result.rerunOf}</code>. The original result remains in History.</p>}
       {result.imports && <section aria-label="Saved mesh import results"><h5>Imported meshes</h5><ul>{result.imports.map((item, index) => <li key={index}>{item.name} / {item.state} / {item.triangles ?? 'unknown'} triangles<p>{item.message}</p></li>)}</ul></section>}
       {result.boolean && <p><strong>{result.boolean.operation.toUpperCase()}</strong> / {result.boolean.empty ? 'Empty result' : `Volume ${result.after?.volume ?? 'unavailable'}`} / Mesh B scale {result.boolean.scaleB}, offset [{result.boolean.translateB.join(', ')}]. Retained input snapshots reopen the same operands used for this run.</p>}

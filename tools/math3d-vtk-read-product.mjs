@@ -4,6 +4,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { execFileSync } from 'node:child_process'
 
 const args = new Map()
 for (let index = 2; index < process.argv.length; index += 2) args.set(process.argv[index], process.argv[index + 1])
@@ -13,10 +14,24 @@ const checkout = resolve(args.get('--checkout'))
 const source = resolve(args.get('--source'))
 const output = resolve(args.get('--output'))
 const sha = bytes => createHash('sha256').update(bytes).digest('hex')
+const canonical = value => Array.isArray(value) ? value.map(canonical) : value && typeof value === 'object'
+  ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, canonical(item)])) : value
 const sourceBytes = await readFile(source)
 if (sourceBytes.length < 1 || sourceBytes.length > 32 * 1024 * 1024
   || !source.toLowerCase().endsWith('.obj') || sha(sourceBytes) !== args.get('--expected-sha'))
   throw new Error('Guarded VTK read source changed or exceeds the product budget.')
+const consumerCommit = execFileSync('git', ['-C', checkout, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
+let provenance = null
+let provenanceSha256 = null
+if (args.has('--provenance')) {
+  const bytes = await readFile(resolve(args.get('--provenance')))
+  provenanceSha256 = sha(bytes)
+  if (provenanceSha256 !== args.get('--provenance-sha')) throw new Error('Workbench handoff provenance changed.')
+  provenance = JSON.parse(bytes.toString('utf8'))
+  if (provenance.schemaVersion !== 1 || provenance.kind !== 'scientific.workbench-math3d-handoff'
+    || provenance.convertedObjSha256 !== sha(sourceBytes) || provenance.math3dCommit !== consumerCommit)
+    throw new Error('Workbench artifact or MATH3D consumer identity changed.')
+}
 
 const renderer = join(checkout, 'renderer')
 const requireFromRenderer = createRequire(join(renderer, 'package.json'))
@@ -28,6 +43,7 @@ try {
   const { encodeM3DMesh, decodeM3DMesh } = await import(pathToFileURL(join(checkout, 'src/main/python/nativeCgalProtocol.ts')).href)
   const imported = await loadSurfaceMeshFromFile([new File([sourceBytes], 'vtk-read.obj', { type: 'text/plain' })],
     { mergeVertices: true, useObjWorker: false })
+  if (provenance) imported.source = { ...imported.source, devshell: provenance }
   const points = imported.positions.length / 3
   const triangles = (imported.indices?.length ?? 0) / 3
   if (points < 4 || triangles < 2) throw new Error('MATH3D importer returned an empty VTK read.')
@@ -42,9 +58,12 @@ try {
   const restored = MeshDocumentAdapter.restore({ document: JSON.parse(await readFile(documentPath, 'utf8')),
     resourceBytes: new Uint8Array(await readFile(resourcePath)) })
   const mesh = restored.mesh()
-  if (mesh.positions.length / 3 !== points || mesh.indices?.length / 3 !== triangles
-    || restored.document().identity.structuralHash !== pkg.document.identity.structuralHash)
-    throw new Error('Saved VTK read Mesh document failed to reopen.')
+  const reload = { points: mesh.positions.length / 3 === points, triangles: mesh.indices?.length / 3 === triangles,
+    structuralHash: restored.document().identity.structuralHash === pkg.document.identity.structuralHash,
+    provenance: !provenance || JSON.stringify(canonical(mesh.source.devshell)) === JSON.stringify(canonical(provenance)),
+    provenancePresent: !provenance || !!mesh.source.devshell }
+  if (!Object.values(reload).every(Boolean))
+    throw new Error('Saved VTK read Mesh document failed to reopen: ' + JSON.stringify(reload))
   const encoded = encodeM3DMesh(new Float32Array(mesh.positions), new Uint32Array(mesh.indices))
   await writeFile(m3dmPath, encoded)
   const decoded = decodeM3DMesh(await readFile(m3dmPath))
@@ -60,7 +79,7 @@ try {
     sourceObjSha256: sha(sourceBytes), documentSha256: sha(await readFile(documentPath)),
     resourceSha256: sha(await readFile(resourcePath)), m3dmSha256: sha(await readFile(m3dmPath)),
     documentId: pkg.document.identity.id, structuralHash: pkg.document.identity.structuralHash,
-    points, triangles, consumerSources }
+    points, triangles, consumerCommit, consumerSources, provenanceSha256 }
   await writeFile(join(output, 'product.json'), JSON.stringify(report, null, 2))
   console.log(JSON.stringify({ verdict: report.verdict, documentId: report.documentId, output }))
 } finally {

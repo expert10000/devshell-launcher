@@ -235,6 +235,7 @@ public partial class Form1
                 : ScientificDriftDiagnosis(profileId,runtimeId,request.GetProperty("jobId").GetString()??"");
             else if(action=="history-boolean-draft")data=ScientificBooleanDraft(profileId,request.GetProperty("jobId").GetString()??"");
             else if(action=="import-meshes"){ScientificProviderRegistry.RequireAction(runtimeId,action);data=ScientificMeshImportStart(profileId,runtimeId);}
+            else if(action=="workbench-math3d-handoff"){ScientificProviderRegistry.RequireAction(runtimeId,action);data=ScientificWorkbenchHandoffStart(profileId,runtimeId,request);}
             else if(action=="test-matrix"){ScientificProviderRegistry.RequireAction(runtimeId,action);data=ScientificMatrixCases();}
             else if(action=="history-thumbnail")data=ScientificHistoryThumbnail(profileId,request);
             else if(action=="history-image-preview")data=ScientificHistoryImagePreview(profileId,request);

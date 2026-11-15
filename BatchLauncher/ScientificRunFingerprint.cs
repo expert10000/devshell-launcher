@@ -145,6 +145,10 @@ public static class ScientificRunFingerprint
         if (recipeId is "cgal.validate" or "cgal.remesh" or "cgal.repair-orientation" or "cgal.fill-bounded-holes")
             names.AddRange(new[] { "schemas/scientific-workbench-operations.v1.json",
                 "BatchLauncher/ScientificWorkbenchOperationCatalog.cs", "DevShell/ui/dev-ui-react/src/ScientificMeshWorkbench.tsx" });
+        if (recipeId == "workbench.math3d-handoff")
+            names.AddRange(new[] { "BatchLauncher/Form1.Scientific.WorkbenchHandoff.cs",
+                "tools/scientific-workbench-math3d-convert.py", "tools/math3d-vtk-read-product.mjs",
+                "schemas/scientific-workbench-operations.v1.json" });
         if (recipeId is "configure" or "build" or "run" or "test-all" or "compile-link")
         {
             var kind = runtimeId.StartsWith("cgal", StringComparison.Ordinal) ? "cgal" :

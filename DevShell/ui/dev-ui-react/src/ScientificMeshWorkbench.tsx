@@ -164,6 +164,7 @@ function ScientificMeshWorkbenchContent({ runtime, native, edited, onHistory }: 
       {!job && lastSuccessful && lastSuccessful.jobId !== lastSaved?.jobId && <button onClick={() => onHistory(lastSuccessful.jobId)}>Reopen last successful result · {lastSuccessful.recipeId}</button>}
       {job?.error && <p role="alert">{job.error}</p>}
       {job?.result && <WorkbenchResultSummary result={job.result} />}
+      {job?.state === 'succeeded' && artifact && <button disabled={native.pending || native.busy} onClick={() => native.send(runtime.id, 'workbench-math3d-handoff', { jobId: job.jobId, artifactPath: artifact.path })}>Send verified result to MATH3D</button>}
       {job && <ScientificArtifacts runtime={runtime} native={native} />}
     </section>
   </section>

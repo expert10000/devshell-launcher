@@ -159,6 +159,10 @@ var vtkImportProgress = ScientificMeshImports.Progress(new string('f', 32), "lap
 Check(vtkImportProgress["runtimeId"]!.GetValue<string>() == "vtk-win-conda" && vtkImportProgress["validatedCapabilities"]!.AsArray().Count == 0,
     "VTK registration identifies its provider without claiming geometry validation");
 Check(ScientificProviderRegistry.RequireAction("vtk-win-conda", "import-meshes").RuntimeId == "vtk-win-conda", "VTK admits managed mesh registration");
+Check(ScientificProviderRegistry.RequireAction("vtk-win-conda", "workbench-math3d-handoff").RuntimeId == "vtk-win-conda"
+    && ScientificProviderRegistry.RequireAction("cgal-win-conda", "workbench-math3d-handoff").RuntimeId == "cgal-win-conda",
+    "only surface Workbench providers expose saved MATH3D handoff");
+Reject(() => ScientificProviderRegistry.RequireAction("gmsh-win-conda", "workbench-math3d-handoff"), "Gmsh needs a separate typed surface or volume contract");
 Check(ScientificMeshImports.Accepts("vtk-win-conda", "mesh.obj") && ScientificMeshImports.Accepts("vtk-win-conda", "mesh.stl")
     && ScientificMeshImports.Accepts("vtk-win-conda", "mesh.ply") && !ScientificMeshImports.Accepts("vtk-win-conda", "mesh.off")
     && ScientificMeshImports.Accepts("vtk-win-conda", "mesh.vtp") && ScientificMeshImports.Accepts("cgal-win-conda", "mesh.off"),

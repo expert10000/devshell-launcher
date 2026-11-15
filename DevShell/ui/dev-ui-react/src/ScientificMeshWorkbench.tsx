@@ -43,7 +43,7 @@ function validFields(operation: Operation, values: Record<string, string | boole
   })
 }
 
-type Props = { runtime: RuntimeProfile; native: ReturnType<typeof useScientificRuntime>; edited: boolean; onHistory: () => void }
+type Props = { runtime: RuntimeProfile; native: ReturnType<typeof useScientificRuntime>; edited: boolean; onHistory: (jobId?: string) => void }
 export function ScientificMeshWorkbench(props: Props) {
   return <ScientificMeshWorkbenchContent key={props.runtime.id} {...props} />
 }
@@ -58,6 +58,8 @@ function ScientificMeshWorkbenchContent({ runtime, native, edited, onHistory }: 
   const [inputCamera, setInputCamera] = useState(initialCamera)
   const previewRequested = useRef('')
   const importRefreshed = useRef('')
+  const historyRequested = useRef(false)
+  const datasetsRequested = useRef(false)
   const currentJob = native.jobs[runtime.id]
   const job = catalog.some(item => item.id === currentJob?.recipeId) ? currentJob : undefined
   const datasets = (native.datasets?.entries ?? []).filter(item => operation && eligible(item, operation))
@@ -69,6 +71,26 @@ function ScientificMeshWorkbenchContent({ runtime, native, edited, onHistory }: 
   const ready = !!selected && outputValid && parametersValid && !edited && runtime.execution === 'windows-native'
   const artifact = job?.state === 'succeeded' ? job.result?.artifacts?.find(item => item.role !== 'operand' && /\.(obj|stl|ply|vtp)$/i.test(item.path)) : undefined
   const importJob = currentJob?.recipeId === 'datasets.import' ? currentJob : undefined
+  const lastSaved = native.history?.find(item => item.runtimeId === runtime.id && catalog.some(entry => entry.id === item.recipeId))
+  const lastSuccessful = native.history?.find(item => item.runtimeId === runtime.id && item.state === 'succeeded' && catalog.some(entry => entry.id === item.recipeId))
+
+  useEffect(() => {
+    if (!native.history && !native.pending && !historyRequested.current) {
+      historyRequested.current = true
+      native.send('', 'history')
+    }
+    // History is read once when the workbench opens; a run never starts on restore.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runtime.id, native.history, native.pending])
+
+  useEffect(() => {
+    if (!native.datasets && !native.pending && !datasetsRequested.current) {
+      datasetsRequested.current = true
+      native.send(runtime.id, 'datasets')
+    }
+    // Loading registered metadata is read-only and does not run an operation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runtime.id, native.datasets, native.pending])
 
   useEffect(() => {
     if (!importJob || importJob.state === 'running' || native.pending || importRefreshed.current === importJob.jobId) return
@@ -126,12 +148,14 @@ function ScientificMeshWorkbenchContent({ runtime, native, edited, onHistory }: 
         {!parametersValid && <p role="alert">Enter values within the limits shown for this operation.</p>}
         <div className="scientific-inspector-actions"><button disabled={!ready || native.busy || native.pending} onClick={run}>Run {operation.label}</button>
           <button disabled={job?.state !== 'running' || native.pending} onClick={() => job && native.send(runtime.id, 'stop', { jobId: job.jobId })}>Cancel run</button>
-          <button onClick={onHistory}>Open History</button></div>
+          <button onClick={() => onHistory()}>Open History</button></div>
         {edited && <p role="status">This runtime definition is edited. Restore the configured profile before running.</p>}
       </section>
     </div>
     <section aria-label="Mesh result"><h4>3 · Result</h4>
-      {job ? <p><strong>{job.recipeId}</strong> · {job.state} · {job.stage ?? 'run'} · {job.durationMs.toLocaleString()} ms · <code>{job.jobId}</code></p> : <p>No mesh operation result in this session. Opening the workbench does not execute an operation. Use History to reopen older results.</p>}
+      {job ? <p><strong>{job.recipeId}</strong> · {job.state} · {job.stage ?? 'run'} · {job.durationMs.toLocaleString()} ms · <code>{job.jobId}</code></p> : <p>No mesh operation result in this session. Opening the workbench does not execute an operation.</p>}
+      {!job && lastSaved && <button onClick={() => onHistory(lastSaved.jobId)}>Reopen last saved result · {lastSaved.recipeId} / {lastSaved.state}</button>}
+      {!job && lastSuccessful && lastSuccessful.jobId !== lastSaved?.jobId && <button onClick={() => onHistory(lastSuccessful.jobId)}>Reopen last successful result · {lastSuccessful.recipeId}</button>}
       {job?.error && <p role="alert">{job.error}</p>}
       {job && <ScientificArtifacts runtime={runtime} native={native} />}
     </section>

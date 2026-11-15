@@ -114,7 +114,7 @@ export function ScientificHistory({ native, runtimeId, focusRunId = null, compar
   return <section className="scientific-history" aria-label="Scientific run history">
     <h3>Run history</h3>
     {showComparisonPresets && <details className="scientific-history-presets"><summary>Prepare comparable runs</summary><ScientificComparisonPresets native={native} /></details>}
-    <p className="scientific-runtime-note">Completed runs for this profile are read from local result files. Loading history never starts a recipe.</p>
+    <p className="scientific-runtime-note">Saved runs for this profile are read from local result files, including failures and cancellations. Loading history never starts a recipe.</p>
     <button disabled={native.pending} onClick={() => native.send('', 'history')}>{entries ? 'Refresh history' : 'Load history'}</button>
     {entries && <section aria-label="Current qualification summary"><h4>Highest current level by capability / {runtimeId}</h4>
       {qualificationSummary ? <><p className="scientific-runtime-note">Only verified, successful runs with current source, environment and contract count. Excluded: {qualificationSummary.excludedFailedRuns} non-successful runs, {qualificationSummary.excludedStaleRecords} stale records, {qualificationSummary.excludedUnknownRecords} unknown records.</p>
@@ -131,7 +131,7 @@ export function ScientificHistory({ native, runtimeId, focusRunId = null, compar
       }} /></td><td>{new Date(entry.finishedAtUtc).toLocaleString()}</td><td>{entry.runtimeId}<br /><strong>{entry.recipeId}</strong></td><td>{entry.state}</td><td>{(entry.durationMs / 1000).toFixed(1)} s</td><td>{entry.artifactCount}</td>
       <td><div className="scientific-history-actions"><button aria-pressed={selectedJobId === entry.jobId} onClick={() => { setSelectedJobId(entry.jobId); native.send(entry.runtimeId, 'history-result', { jobId: entry.jobId }) }}>{selectedJobId === entry.jobId ? 'Viewing' : 'Result'}</button>{entry.recipeId === 'cgal.boolean' && <button disabled={native.pending || native.busy} onClick={() => native.send(entry.runtimeId, 'history-boolean-draft', { jobId: entry.jobId })}>Rerun...</button>}<button onClick={() => native.send(entry.runtimeId, 'history-open-log', { jobId: entry.jobId })}>Log</button><button onClick={() => native.send(entry.runtimeId, 'history-open-output', { jobId: entry.jobId })}>Folder</button><button disabled={entry.state !== 'succeeded' || !(entry.meshArtifactCount ?? entry.artifactCount)} aria-pressed={comparisonIds.includes(entry.jobId)} onClick={() => toggleComparison(entry)}>{comparisonIds.includes(entry.jobId) ? 'Selected' : 'Compare'}</button></div></td>
     </tr>)}</tbody></table></div> : <p role="status">No runs match these filters. Clear filters to show all runs.</p>}
-    </> : <p>No completed runs found for this profile.</p>)}
+    </> : <p>No saved runs found for this profile.</p>)}
     {selectedVisible && !result && <div className="scientific-history-result" role="status">Loading result <code>{selectedJobId}</code>...</div>}
     {result && <div ref={resultRef} className="scientific-history-result"><h4>{result.runtimeId} / {result.recipeId} / {result.state}</h4><p><code>{result.runId}</code> / {result.durationMs} ms</p>
       {result.runFingerprintSha256 && <p>Verified run fingerprint: <code>{result.runFingerprintSha256}</code>. Open the run folder to inspect <code>{result.runFingerprintReference}</code>.</p>}

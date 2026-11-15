@@ -5,33 +5,14 @@ import type { useScientificRuntime } from './useScientificRuntime'
 import { ScientificArtifacts } from './ScientificArtifacts'
 import { MeshCanvas } from './ScientificMeshViewer'
 import { initialCamera } from './scientificCamera'
+import operationCatalog from '../../../../schemas/scientific-workbench-operations.v1.json'
 import './ScientificMeshWorkbench.css'
 
 type Field = { id: string; label: string; kind: 'number' | 'boolean'; value: number | boolean; min?: number; max?: number; step?: number; integer?: boolean }
-type Operation = { id: string; label: string; provider: 'cgal' | 'vtk'; description: string; accepts: RegExp; inputNote: string; output: 'obj' | 'vtp'; fields: Field[] }
+type Operation = { id: string; label: string; provider: 'cgal' | 'vtk'; description: string; inputExtensions: string[]; inputNote: string; output: 'obj' | 'vtp'; fields: Field[] }
+const operations = operationCatalog.operations as Operation[]
 
-const operations: Operation[] = [
-  { id: 'cgal.validate', label: 'Validate surface', provider: 'cgal', description: 'Read the mesh and record topology and geometry facts.', accepts: /\.(obj|stl|ply|off)$/i, inputNote: 'OBJ, STL, PLY, OFF', output: 'obj', fields: [] },
-  { id: 'cgal.remesh', label: 'Isotropic remesh', provider: 'cgal', description: 'Remesh a guarded triangle surface to a target edge length.', accepts: /\.(obj|stl|ply|off)$/i, inputNote: 'OBJ, STL, PLY, OFF; guarded scope', output: 'obj', fields: [
-    { id: 'targetEdge', label: 'Target edge length', kind: 'number', value: 0.1, min: 0.000001, max: 1000000 },
-    { id: 'iterations', label: 'Iterations', kind: 'number', value: 3, min: 1, max: 10, integer: true },
-    { id: 'preserveBoundary', label: 'Protect boundary curve', kind: 'boolean', value: true },
-  ] },
-  { id: 'cgal.repair-orientation', label: 'Repair orientation', provider: 'cgal', description: 'Orient one closed triangle volume outward; open meshes are rejected.', accepts: /\.obj$/i, inputNote: 'OBJ; one closed triangle volume', output: 'obj', fields: [] },
-  { id: 'cgal.fill-bounded-holes', label: 'Fill bounded holes', provider: 'cgal', description: 'Fill 1–8 boundary loops with 3–12 edges each on a guarded OBJ mesh.', accepts: /\.obj$/i, inputNote: 'OBJ; bounded open manifold', output: 'obj', fields: [] },
-  { id: 'mesh.inspect', label: 'Inspect surface', provider: 'vtk', description: 'Read the surface and report points, faces, and topology.', accepts: /\.(obj|stl|ply|vtp)$/i, inputNote: 'OBJ, STL, PLY, VTP', output: 'vtp', fields: [] },
-  { id: 'mesh.simplify', label: 'Simplify', provider: 'vtk', description: 'Reduce triangle count with optional topology and boundary constraints.', accepts: /\.(obj|stl|ply|vtp)$/i, inputNote: 'OBJ, STL, PLY, VTP', output: 'vtp', fields: [
-    { id: 'targetReduction', label: 'Target reduction fraction', kind: 'number', value: 0.5, min: 0, max: 0.95, step: 0.05 },
-    { id: 'preserveTopology', label: 'Preserve topology', kind: 'boolean', value: true },
-    { id: 'preserveBoundary', label: 'Preserve boundary vertices', kind: 'boolean', value: true },
-  ] },
-  { id: 'mesh.normals', label: 'Compute normals', provider: 'vtk', description: 'Compute face or vertex normals; automatic orientation requires a closed manifold.', accepts: /\.(obj|stl|ply|vtp)$/i, inputNote: 'OBJ, STL, PLY, VTP', output: 'vtp', fields: [
-    { id: 'featureAngle', label: 'Feature angle (degrees)', kind: 'number', value: 30, min: 0, max: 180, step: 1 },
-    { id: 'autoOrient', label: 'Auto orient closed mesh', kind: 'boolean', value: false },
-  ] },
-]
-
-function eligible(dataset: ScientificDataset, operation: Operation) { return operation.accepts.test(dataset.path) }
+function eligible(dataset: ScientificDataset, operation: Operation) { return operation.inputExtensions.includes(dataset.path.split('.').pop()?.toLowerCase() ?? '') }
 function validFields(operation: Operation, values: Record<string, string | boolean>) {
   return operation.fields.every(field => {
     const value = values[field.id]
@@ -41,6 +22,28 @@ function validFields(operation: Operation, values: Record<string, string | boole
     return Number.isFinite(number) && (field.min === undefined || number >= field.min) &&
       (field.max === undefined || number <= field.max) && (!field.integer || Number.isInteger(number))
   })
+}
+
+function WorkbenchResultSummary({ result }: { result: NonNullable<ReturnType<typeof useScientificRuntime>['jobs'][string]['result']> }) {
+  if (result.state !== 'succeeded') return null
+  const before = result.before ?? {}, after = result.after ?? {}
+  const count = (value: number | boolean | undefined) => typeof value === 'number' ? value.toLocaleString() : 'unavailable'
+  const delta = (key: string) => typeof before[key] === 'number' && typeof after[key] === 'number'
+    ? ((after[key] as number) - (before[key] as number)).toLocaleString() : 'unavailable'
+  const trianglesBefore = typeof before.triangles === 'number' ? before.triangles : typeof before.faces === 'number' ? before.faces : undefined
+  const trianglesAfter = typeof after.triangles === 'number' ? after.triangles : typeof after.faces === 'number' ? after.faces : undefined
+  const reduction = result.recipeId === 'mesh.simplify' && trianglesBefore && typeof trianglesAfter === 'number'
+    ? `${((1 - trianglesAfter / trianglesBefore) * 100).toFixed(1)}% observed triangle reduction` : null
+  return <section aria-label="Workbench result summary" className="scientific-workbench-summary">
+    <h5>{result.recipeId} / recorded result</h5>
+    <p>{reduction ?? `${count(trianglesAfter)} output triangles`}. {count(after.points ?? after.vertices)} output points.</p>
+    <p>Triangle change: {trianglesBefore !== undefined && trianglesAfter !== undefined ? (trianglesAfter - trianglesBefore).toLocaleString() : delta('triangles')}. Boundary edges: {count(after.boundaryEdges)}; non-manifold edges: {count(after.nonManifoldEdges)}.</p>
+    {typeof after.closed === 'boolean' && <p>Closed surface: {after.closed ? 'yes' : 'no'}.</p>}
+    {typeof after.surfaceArea === 'number' && <p>Surface area: {after.surfaceArea.toPrecision(6)}.</p>}
+    {typeof after.signedVolume === 'number' && <p>Signed volume: {after.signedVolume.toPrecision(6)}.</p>}
+    {result.recipeId === 'mesh.normals' && <p>Normals were written to the saved VTP. Review the artifact hash before handoff.</p>}
+    <small>Counts and topology are worker facts for the full output. The 3D view may sample triangles.</small>
+  </section>
 }
 
 type Props = { runtime: RuntimeProfile; native: ReturnType<typeof useScientificRuntime>; edited: boolean; onHistory: (jobId?: string) => void }
@@ -142,7 +145,7 @@ function ScientificMeshWorkbenchContent({ runtime, native, edited, onHistory }: 
       </section>
       <section aria-label="Mesh operation"><h4>2 · Operation</h4>
         <label>Feature<select aria-label="Workbench operation" value={operation.id} onChange={event => changeOperation(event.target.value)}>{catalog.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
-        <p>{operation.description}</p><small>Accepted input: {operation.inputNote}. Operation ID: <code>{operation.id}</code></small>
+        <p>{operation.description}</p><small>Accepted input: {operation.inputNote}. Operation ID: <code>{operation.id}</code>. Catalog v{operationCatalog.schemaVersion}.</small>
         <div className="scientific-runtime-fields">{operation.fields.map(field => <label key={field.id}>{field.label}{field.kind === 'boolean'
           ? <input type="checkbox" checked={values[field.id] === true} onChange={event => setValues(previous => ({ ...previous, [field.id]: event.target.checked }))} />
           : <input type="number" min={field.min} max={field.max} step={field.step ?? 'any'} value={String(values[field.id] ?? '')} onChange={event => setValues(previous => ({ ...previous, [field.id]: event.target.value }))} />}</label>)}</div>
@@ -160,6 +163,7 @@ function ScientificMeshWorkbenchContent({ runtime, native, edited, onHistory }: 
       {!job && lastSaved && <button onClick={() => onHistory(lastSaved.jobId)}>Reopen last saved result · {lastSaved.recipeId} / {lastSaved.state}</button>}
       {!job && lastSuccessful && lastSuccessful.jobId !== lastSaved?.jobId && <button onClick={() => onHistory(lastSuccessful.jobId)}>Reopen last successful result · {lastSuccessful.recipeId}</button>}
       {job?.error && <p role="alert">{job.error}</p>}
+      {job?.result && <WorkbenchResultSummary result={job.result} />}
       {job && <ScientificArtifacts runtime={runtime} native={native} />}
     </section>
   </section>

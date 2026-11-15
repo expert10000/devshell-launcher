@@ -94,6 +94,9 @@ public partial class Form1
                 ? new JsonObject { ["inputPolicy"] = "Fixed exact arithmetic check; no user expression", ["transport"] = "Fixed WSL shell probe and argv-owned Sage command" }
                 : new JsonObject { ["inputPolicy"] = "Registered local copies; SHA-256 checked before execution", ["transport"] = "JSON request / argv-owned adapter; no shell" }
         };
+        if (job.RecipeId is "cgal.validate" or "cgal.remesh" or "cgal.repair-orientation" or "cgal.fill-bounded-holes"
+            or "mesh.inspect" or "mesh.simplify" or "mesh.normals")
+            request["provenance"]!["operationCatalogVersion"] = ScientificWorkbenchOperationCatalog.Version;
         if (rerunOf != null) request["rerunOf"] = rerunOf;
         var json = request.ToJsonString(ScientificJson);
         var reportPath = ScientificReportPath();

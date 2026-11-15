@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "operations": [
+    { "id": "cgal.validate", "label": "Validate surface", "provider": "cgal", "description": "Read the mesh and record topology and geometry facts.", "inputExtensions": ["obj", "stl", "ply", "off"], "inputNote": "OBJ, STL, PLY, OFF", "output": "obj", "fields": [] },
+    { "id": "cgal.remesh", "label": "Isotropic remesh", "provider": "cgal", "description": "Remesh a guarded triangle surface to a target edge length.", "inputExtensions": ["obj"], "inputNote": "OBJ; guarded scope", "output": "obj", "fields": [
+      { "id": "targetEdge", "label": "Target edge length", "kind": "number", "value": 0.1, "min": 0.000001, "max": 1000000 },
+      { "id": "iterations", "label": "Iterations", "kind": "number", "value": 3, "min": 1, "max": 10, "integer": true },
+      { "id": "preserveBoundary", "label": "Protect boundary curve", "kind": "boolean", "value": true }
+    ] },
+    { "id": "cgal.repair-orientation", "label": "Repair orientation", "provider": "cgal", "description": "Orient one closed triangle volume outward; open meshes are rejected.", "inputExtensions": ["obj"], "inputNote": "OBJ; one closed triangle volume", "output": "obj", "fields": [] },
+    { "id": "cgal.fill-bounded-holes", "label": "Fill bounded holes", "provider": "cgal", "description": "Fill 1–8 boundary loops with 3–12 edges each on a guarded OBJ mesh.", "inputExtensions": ["obj"], "inputNote": "OBJ; bounded open manifold", "output": "obj", "fields": [] },
+    { "id": "mesh.inspect", "label": "Inspect surface", "provider": "vtk", "description": "Read the surface and report points, faces, and topology.", "inputExtensions": ["obj", "stl", "ply", "vtp"], "inputNote": "OBJ, STL, PLY, VTP", "output": "vtp", "fields": [] },
+    { "id": "mesh.simplify", "label": "Simplify", "provider": "vtk", "description": "Reduce triangle count with optional topology and boundary constraints.", "inputExtensions": ["obj", "stl", "ply", "vtp"], "inputNote": "OBJ, STL, PLY, VTP", "output": "vtp", "fields": [
+      { "id": "targetReduction", "label": "Target reduction fraction", "kind": "number", "value": 0.5, "min": 0, "max": 0.95, "step": 0.05 },
+      { "id": "preserveTopology", "label": "Preserve topology", "kind": "boolean", "value": true },
+      { "id": "preserveBoundary", "label": "Preserve boundary vertices", "kind": "boolean", "value": true }
+    ] },
+    { "id": "mesh.normals", "label": "Compute normals", "provider": "vtk", "description": "Compute face or vertex normals; automatic orientation requires a closed manifold.", "inputExtensions": ["obj", "stl", "ply", "vtp"], "inputNote": "OBJ, STL, PLY, VTP", "output": "vtp", "fields": [
+      { "id": "featureAngle", "label": "Feature angle (degrees)", "kind": "number", "value": 30, "min": 0, "max": 180, "step": 1 },
+      { "id": "autoOrient", "label": "Auto orient closed mesh", "kind": "boolean", "value": false }
+    ] }
+  ]
+}

@@ -153,6 +153,7 @@ public partial class Form1
                 if(kind!="vtk")throw new InvalidOperationException("CGAL mesh workers are not implemented by this adapter.");
                 var inputId=request.GetProperty("parameters").GetProperty("inputId").GetString()??"";
                 var inputArtifact=ScientificDatasetArtifact(inputId);var input=inputArtifact["path"]!.GetValue<string>();
+                ScientificWorkbenchOperationCatalog.Validate(ScientificSourceRoot,job.RuntimeId,job.RecipeId,request.GetProperty("parameters"),input);
                 if(!File.Exists(input)||new FileInfo(input).Length>33554432||!new[]{".obj",".stl",".ply",".vtp"}.Contains(Path.GetExtension(input).ToLowerInvariant()))throw new InvalidOperationException("Select a supported bounded dataset copy.");
                 var output=request.GetProperty("parameters").GetProperty("outputName").GetString()??"";
                 if(!Regex.IsMatch(output,"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,99}\\.vtp$"))throw new InvalidOperationException("Output must be a safe VTP basename.");

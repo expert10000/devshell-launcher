@@ -140,7 +140,11 @@ public static class ScientificRunFingerprint
             "tools/scientific-runtime-probe.py" });
         if (recipeId == "version") names.Add("tools/scientific-runtime-probe.py");
         if (recipeId?.StartsWith("mesh.", StringComparison.Ordinal) == true)
-            names.Add("tools/scientific-mesh-worker.py");
+            names.AddRange(new[] { "tools/scientific-mesh-worker.py", "schemas/scientific-workbench-operations.v1.json",
+                "BatchLauncher/ScientificWorkbenchOperationCatalog.cs", "DevShell/ui/dev-ui-react/src/ScientificMeshWorkbench.tsx" });
+        if (recipeId is "cgal.validate" or "cgal.remesh" or "cgal.repair-orientation" or "cgal.fill-bounded-holes")
+            names.AddRange(new[] { "schemas/scientific-workbench-operations.v1.json",
+                "BatchLauncher/ScientificWorkbenchOperationCatalog.cs", "DevShell/ui/dev-ui-react/src/ScientificMeshWorkbench.tsx" });
         if (recipeId is "configure" or "build" or "run" or "test-all" or "compile-link")
         {
             var kind = runtimeId.StartsWith("cgal", StringComparison.Ordinal) ? "cgal" :

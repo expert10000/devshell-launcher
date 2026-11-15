@@ -197,6 +197,13 @@ foreach(var extension in new[]{".stl", ".ply", ".off"})
 var safeVtp = Path.Combine(directory, "safe-polydata.vtp");
 File.WriteAllText(safeVtp, "<VTKFile type=\"PolyData\" version=\"1.0\"><PolyData><Piece NumberOfPoints=\"0\" NumberOfPolys=\"0\" /></PolyData></VTKFile>");
 Check(ScientificMeshImports.Accepts("vtk-win-conda", safeVtp) && !ScientificMeshImports.Accepts("cgal-win-conda", safeVtp), "VTP registration is VTK-only");
+var inspectParameters = JsonSerializer.SerializeToElement(new { inputId = "registered/mesh.vtp", outputName = "result.vtp" });
+ScientificWorkbenchOperationCatalog.Validate(args[0], "vtk-win-conda", "mesh.inspect", inspectParameters, safeVtp);
+Check(true, "desktop VTK operation uses the versioned shared catalog");
+Reject(() => ScientificWorkbenchOperationCatalog.Validate(args[0], "cgal-win-conda", "mesh.inspect", inspectParameters, safeVtp), "catalog rejects wrong provider");
+Reject(() => ScientificWorkbenchOperationCatalog.Validate(args[0], "vtk-win-conda", "mesh.inspect", JsonSerializer.SerializeToElement(new { inputId = "x", outputName = "../bad.vtp" }), safeVtp), "catalog rejects unsafe output");
+Reject(() => ScientificWorkbenchOperationCatalog.Validate(args[0], "cgal-win-conda", "cgal.remesh", JsonSerializer.SerializeToElement(new { inputId = "x", outputName = "result.obj", targetEdge = 0.1, iterations = 3, preserveBoundary = true }), safeVtp), "guarded remesh rejects VTP before run");
+Reject(() => ScientificWorkbenchOperationCatalog.Validate(args[0], "vtk-win-conda", "mesh.simplify", JsonSerializer.SerializeToElement(new { inputId = "x", outputName = "result.vtp", targetReduction = 1.0, preserveTopology = true, preserveBoundary = true }), safeVtp), "catalog enforces reduction bound");
 Check(ScientificMeshImports.Import(importRoot, safeVtp)["path"]!.GetValue<string>().EndsWith(".vtp"), "bounded XML PolyData is registered");
 foreach (var (name, xml) in new[] {
     ("doctype", "<!DOCTYPE VTKFile [<!ENTITY x SYSTEM 'file:///secret'>]><VTKFile type=\"PolyData\"><PolyData><Piece /></PolyData></VTKFile>"),

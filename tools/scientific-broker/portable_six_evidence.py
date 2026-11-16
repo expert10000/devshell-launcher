@@ -26,7 +26,7 @@ from desktop_inspect_journey import (RECIPE as RECIPE_DESKTOP, PREVIEW_RECIPE as
 from math3d_release_identity import verify as verify_math3d_identity
 from verified_evidence_cache import VerifiedEvidenceCache
 
-PATH = re.compile(r'(?i)(?:[a-z]:[\\/]|\\\\)[^\s\"\'<>;,]*')
+PATH = re.compile(r'(?i)(?:[a-z]:[\\/]|\\\\)[^\r\n\"\'<>;,]*')
 HASH = re.compile(r'^[0-9a-f]{64}$')
 RUN = re.compile(r'^[0-9a-f]{32}$')
 
@@ -50,7 +50,20 @@ def redact(value):
 
 
 def path_free(data):
-    if PATH.search(data.decode('utf-8')):
+    content = data.decode('utf-8')
+    try:
+        value = json.loads(content)
+    except ValueError:
+        value = content
+
+    def contains_path(item):
+        if isinstance(item, dict):
+            return any(contains_path(key) or contains_path(entry) for key, entry in item.items())
+        if isinstance(item, list):
+            return any(contains_path(entry) for entry in item)
+        return isinstance(item, str) and PATH.search(item) is not None
+
+    if contains_path(value):
         raise ValueError('Portable evidence contains a local absolute path.')
 
 
@@ -348,14 +361,15 @@ def export(record_path, output, signing_key, key_id, shared_path, report_path,
                 data, format_policy = portable_artifact(relative, source_bytes)
             except ValueError as error:
                 raise ValueError('Unsafe artifact ' + run_id + '/' + relative + ': ' + str(error)) from error
-            if format_policy.startswith('redacted'):
+            if format_policy.startswith(('redacted', 'static-redacted')):
                 try:
                     path_free(data)
                 except ValueError as error:
                     raise ValueError('Artifact redaction failed for ' + run_id + '/' + relative) from error
             object_path = 'objects/sha256/' + digest(data)
             if object_path not in files:
-                add(files, object_path, data, binary=not format_policy.startswith('redacted'))
+                add(files, object_path, data,
+                    binary=not format_policy.startswith(('redacted', 'static-redacted')))
                 index.append({'path': object_path, 'sha256': digest(data),
                               'sourceSha256': digest(source_bytes), 'bytes': len(data),
                               'formatPolicy': format_policy})

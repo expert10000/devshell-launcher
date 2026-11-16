@@ -13,12 +13,23 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools' / 'scientific-broker'))
 from portable_evidence import digest, path_free, redact, verify, verify_signature, portable_artifact
-from portable_six_evidence import portable_artifact as portable_six_artifact
+from portable_six_evidence import (compact as compact_six, path_free as path_free_six,
+                                   portable_artifact as portable_six_artifact, redact as redact_six)
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives import serialization
 
 
 class RedactionTests(unittest.TestCase):
+    def test_portable_six_json_checks_decoded_paths(self):
+        source = {'command': r'C:\Program Files\nodejs\node.exe --version',
+                  'relative': r'objects\mesh.bin'}
+        redacted = compact_six(redact_six(source))
+        path_free_six(redacted)
+        self.assertNotIn('nodejs', redacted.decode())
+        path_free_six(json.dumps({'relative': source['relative']}).encode())
+        with self.assertRaisesRegex(ValueError, 'local absolute path'):
+            path_free_six(json.dumps(source).encode())
+
     def test_static_product_rationale_only(self):
         data, policy = portable_six_artifact('selection.html', b'<!doctype html><html><p>Selected CGAL</p></html>')
         self.assertEqual('static-redacted-html', policy)

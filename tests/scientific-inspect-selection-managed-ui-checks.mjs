@@ -60,6 +60,16 @@ try {
   await main.getByRole('navigation', { name: 'Scientific runtime sections' })
     .getByRole('button', { name: 'Integration', exact: true }).click()
   const panel = main.getByRole('region', { name: 'MATH3D inspection backend selection' })
+  async function ensurePanel() {
+    if (await panel.isVisible().catch(() => false)) return
+    await page.getByText('RUNTIMES / Scientific', { exact: true }).click()
+    await main.getByLabel('Scientific execution environment').selectOption('windows-native')
+    await main.locator('.scientific-runtime-item').filter({ hasText: 'CGAL' }).first().click()
+    await main.getByRole('navigation', { name: 'Scientific runtime sections' })
+      .getByRole('button', { name: 'Integration', exact: true }).click()
+    await panel.waitFor()
+    await panel.getByLabel('Bounded inspection class record').fill(classRecord)
+  }
   await panel.getByLabel('Bounded inspection class record').fill(classRecord)
   await panel.getByLabel('Inspection OBJ input').fill(acceptedInput)
   if (!readAction(checkpoint, 'previewCancelled')) {
@@ -97,6 +107,7 @@ try {
       ids[role] = join(runs, prior.name)
       continue
     }
+    await ensurePanel()
     await panel.getByLabel('Inspection OBJ input').fill(input)
     await panel.getByLabel('Inspection provider override').selectOption('')
     const before = new Set(readdirSync(runs))
@@ -123,6 +134,7 @@ try {
       console.log(`${role}: ${prior.name} (verified checkpoint)`)
       continue
     }
+    await ensurePanel()
     await panel.getByLabel('Inspection OBJ input').fill(input)
     await panel.getByLabel('Inspection provider override').selectOption(provider)
     const before = new Set(readdirSync(runs))

@@ -150,6 +150,15 @@ public static class ScientificRunFingerprint
                 "tools/scientific-workbench-math3d-convert.py", "tools/math3d-vtk-read-product.mjs",
                 "tools/math3d-typed-measurement.mjs",
                 "schemas/scientific-workbench-operations.v1.json" });
+        if (recipeId == "scientific.typed-journey")
+            names.AddRange(new[] { "BatchLauncher/Form1.Scientific.TypedJourney.cs",
+                "tools/scientific-gmsh-boolean-volume.py", "tools/scientific-gmsh-boundary-extract.py",
+                "tools/scientific-vtk-boundary-inspect.py", "tools/scientific-scipy-surface-measure.py",
+                "tools/scientific-workbench-math3d-convert.py", "tools/math3d-vtk-read-product.mjs",
+                "tools/math3d-typed-measurement.mjs", "tools/math3d-typed-cold-reopen.mjs",
+                "tools/scientific-broker/verify_typed_product.py", "schemas/scientific-typed-journey.v1.json",
+                "DevShell/ui/dev-ui-react/src/ScientificBooleanPanel.tsx",
+                "DevShell/ui/dev-ui-react/src/ScientificHistory.tsx" });
         if (recipeId is "configure" or "build" or "run" or "test-all" or "compile-link")
         {
             var kind = runtimeId.StartsWith("cgal", StringComparison.Ordinal) ? "cgal" :

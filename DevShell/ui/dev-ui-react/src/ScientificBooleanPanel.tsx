@@ -45,6 +45,7 @@ function ScientificBooleanPanelContent({ runtime, native, edited, onArtifacts, o
     && /^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,99}\.m3dm$/.test(output) && !/^operand-[ab]\.m3dm$/i.test(output)
   const canRun = valid && ready && !edited && runtime.id === 'cgal-win-conda' && !native.busy && !native.pending
   const job = native.jobs[runtime.id]?.recipeId === 'cgal.boolean' ? native.jobs[runtime.id] : undefined
+  const journey = native.jobs[runtime.id]?.recipeId === 'scientific.typed-journey' ? native.jobs[runtime.id] : undefined
   const choices = inputs.map(item => <option key={item.id} value={item.id}>{item.category} / {item.name}{item.expectedProblem ? ' / expected problem' : ''}{item.validation ? ` / ${item.validation.state}` : ''}</option>)
   return <section ref={panel} aria-label="Boolean mesh operation">
     <h3>Boolean operation</h3>
@@ -71,9 +72,11 @@ function ScientificBooleanPanelContent({ runtime, native, edited, onArtifacts, o
     <p className="scientific-runtime-note">Registered OBJ/STL/PLY/OFF copies only. Inputs must be closed, consistently oriented solids. Nonempty results include an OBJ export; empty results retain a valid M3DM file. Stop cancels validation and computation.</p>
     {job && <div className="scientific-recipe-job" role="status"><h4>{job.request?.parameters.operation as string} / {job.state}</h4><p>{job.stage} / {job.durationMs} ms</p>
       <div className="scientific-inspector-actions"><button disabled={job.state !== 'running'} onClick={() => native.send(runtime.id, 'stop', { jobId: job.jobId })}>Stop</button><button disabled={job.state !== 'succeeded'} onClick={() => { native.send(runtime.id, 'artifacts', { jobId: job.jobId, artifactPath: job.result?.boolean?.outputArtifact }); onArtifacts() }}>Inspect result</button><button onClick={() => native.send(runtime.id, 'open-output', { jobId: job.jobId })}>Open output folder</button></div>
+      {job.state === 'succeeded' && !job.result?.boolean?.empty && job.result?.inputArtifacts?.[0]?.sha256 !== job.result?.inputArtifacts?.[1]?.sha256 && <button disabled={native.busy || native.pending} onClick={() => native.send(runtime.id, 'typed-journey', { jobId: job.jobId })}>Continue through Gmsh, VTK, SciPy and MATH3D</button>}
       {job.result?.rerunOf && job.state === 'succeeded' && <button onClick={() => onCompare(job.result!.rerunOf!, job.jobId)}>Compare original and rerun</button>}
       {job.result?.boolean && <p>{job.result.boolean.empty ? 'Empty result.' : `${job.result.after?.triangles ?? 0} triangles; enclosed volume ${job.result.after?.volume ?? 'unavailable'}.`} Inputs A and B are retained for inspection.</p>}
       {job.error && <p role="alert">{job.error}</p>}<details><summary>Run log</summary><pre>{job.log || 'Waiting for output...'}</pre></details>
     </div>}
+    {journey && <div className="scientific-recipe-job" role="status"><h4>Typed scientific journey / {journey.state}</h4><p>{journey.stage} / {journey.durationMs} ms</p><button disabled={journey.state !== 'running'} onClick={() => native.send(runtime.id, 'stop', { jobId: journey.jobId })}>Stop journey</button><button onClick={() => { native.send('', 'history'); onHistory() }}>Review saved journey</button>{journey.error && <p role="alert">{journey.error}</p>}</div>}
   </section>
 }

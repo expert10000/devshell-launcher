@@ -69,6 +69,7 @@ try {
   await panel.getByLabel('Boolean mesh A').selectOption(entries[0].id)
   await panel.getByLabel('Boolean mesh B').selectOption(entries[1].id)
   await panel.getByLabel('Boolean operation').selectOption('union')
+  await panel.locator('details').filter({ hasText: 'Mesh B placement' }).locator('summary').click()
   await panel.getByLabel('Offset X').fill('0.75')
   const beforeBoolean = new Set(readdirSync(runs))
   await panel.getByRole('button', { name: 'Run Boolean' }).click()

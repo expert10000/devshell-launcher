@@ -1,6 +1,12 @@
 # Scientific mesh workbench roadmap
 
-Updated 2026-11-17. The Workbench implementation and a signed six-capability release passed at `46067b6`, with MATH3D pinned to `12e87f93`. The portable bundle independently verified its trusted signature and 163 artifact payloads. That release is historical after the portable-evidence change at `5dffb70`; current support requires a fresh qualification at the eventual source HEAD. The Workbench selects an object, operation, managed job, and verified result; neither installed algorithms nor arbitrary imports acquire qualification through this UI.
+Updated 2026-11-17. A new six-capability requalification completed all six desktop and broker gates at source `447c1ca7bf22bab6270ddc4381ea125d578168ad`, with pulled MATH3D `12e87f93d6d50737553fd3c229b8863481336c60`. The signed publication and offline bundle verification are tracked in the release closure record below. The earlier signed release at `46067b6` remains historical. The Workbench selects an object, operation, managed job, and verified result; neither installed algorithms nor arbitrary imports acquire qualification through this UI.
+
+## Release closure record
+
+The six-capability run at `447c1ca` completed managed desktop and broker gates for inspection, orientation repair, remesh, hole repair, volume, and VTK read. Its checkpoint and coexistence record are source-pinned, and the MATH3D consumer identity is pinned to `12e87f93`. This records the release at the qualified source commit; the roadmap commit itself moves main forward and therefore does not make the prior qualification current for later source.
+
+The next closure gate is the signed portable publication: class scope, paired benchmark, advisor, product, desktop journey, report, bundle signature, and independent offline verification must all pass before the publication can be called complete. Record the bundle digest and verification verdict here after that process finishes.
 
 ## Product shape
 
@@ -25,8 +31,8 @@ The versioned `schemas/scientific-workbench-operations.v1.json` is shared by the
 2. **Bounded object intake — done for this scope.** VTK registers OBJ/STL/PLY/VTP as hashed copies; VTP uses the v1 safe XML/base64 PolyData policy. CGAL retains OFF, with an explicit preview limitation. Format errors appear before Run and malformed VTP is rejected before registration. See `docs/scientific-workbench-intake-policy.v1.md`.
 3. **Typed operations and result review — v1 done.** UI and launcher read one versioned catalog. Worker guards remain narrower; result review shows topology and counts beside synchronized before/after views. Quality and normal-array analysis, export, and operation presets remain future scoped features.
 4. **MATH3D handoff — implemented and accepted at `46067b6`.** A managed action reads a verified saved Workbench result, converts bounded OBJ/VTP geometry, binds source and MATH3D Git identity, and reloads the saved Mesh document and M3DM. Desktop and broker gates passed, and a signed portable bundle verified offline for that source commit.
-5. **Current source release — next.** Requalify the six capabilities at the merged HEAD, exercise the desktop product journey and broker/MATH3D smokes, and sign a new portable bundle. Verify the bundle offline using the current trust store. Keep historical bundles identifiable by their source and consumer pins.
-6. **Gmsh Workbench — after the release.** Version separate surface and volume input/output contracts, retain cell types and dimensional meaning, then add managed desktop and broker acceptance and rejection evidence before exposing Gmsh operations in the Workbench.
+5. **Six-capability release at `447c1ca` — desktop and broker gates passed.** Finish signed publication and independent offline verification, then preserve the exact source and MATH3D pins. Later source commits require renewed qualification before support is current.
+6. **Typed cross-provider journey — draft.** Version a distinct-input CGAL Boolean → Gmsh volume → actual boundary → VTK → SciPy → pulled MATH3D → save/export → cold-reopen contract. The candidate local operation chain is under draft review; it needs managed DevShell and broker acceptance, rejection, tamper, cancellation, installed-app and signed evidence gates before release.
 
 ## Acceptance before calling this complete
 

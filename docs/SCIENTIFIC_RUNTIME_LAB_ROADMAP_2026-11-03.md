@@ -3,7 +3,7 @@
 **Project:** MATH3D / DevShell\
 **Date:** 2026-11-03\
 **Scope:** Scientific development environments, repositories, native/WSL/Container execution, integration and qualification of CGAL, VTK, VTK-m, SageMath, Gmsh, Python, and future providers.\
-**Status:** Proposed implementation roadmap based on DevShell scientific review screenshots (2026-11-03).\
+**Status:** Historical architecture proposal based on DevShell scientific review screenshots (2026-11-03). For the 2026-11-17 six-capability release and current Workbench sequence, see `docs/scientific-mesh-workbench-roadmap.md`.\
 
 > **Architectural principle:** DevShell installs, discovers, develops, builds, probes, tests, benchmarks, diagnoses, compares and certifies scientific runtimes. MATH3D consumes stable, versioned, typed scientific capabilities and artifacts. MATH3D must not depend on DevShell's local paths, environment management UI or repository-management internals.
 

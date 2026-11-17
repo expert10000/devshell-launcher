@@ -117,7 +117,10 @@ test('distinct-input native Boolean result enters bounded Gmsh volume bridge', {
     assert.ok(inspected.triangles > 12);
     assert.equal(inspected.inputHashes['gmsh-boundary'], boundary.output.sha256);
     assert.ok(Math.abs(inspected.enclosedVolume - boolean.after.volume) < 0.02 * boolean.after.volume);
-    assert.equal(sha(await readFile(path.join(vtkDirectory, 'preview.png'))), inspected.preview.sha256);
+    const previewBytes = await readFile(path.join(vtkDirectory, 'preview.png'));
+    assert.equal(sha(previewBytes), inspected.preview.sha256);
+    assert.equal(previewBytes.readUInt32BE(16), 640);
+    assert.equal(previewBytes.readUInt32BE(20), 480);
     const scipyDirectory = path.join(data.directory, 'scipy'); await mkdir(scipyDirectory);
     const scipyRequest = path.join(scipyDirectory, 'request.json');
     const vtkBytes = await readFile(vtp);

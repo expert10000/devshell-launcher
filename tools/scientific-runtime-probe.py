@@ -12,7 +12,7 @@ import time
 from urllib.parse import urlsplit, urlunsplit
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--kind', choices=['cgal', 'vtk', 'gmsh'], required=True)
+parser.add_argument('--kind', choices=['cgal', 'vtk', 'gmsh', 'python'], required=True)
 args = parser.parse_args()
 prefix = Path(sys.prefix)
 checks = []
@@ -60,6 +60,16 @@ for distribution in importlib.metadata.distributions():
 check('python.version', 'Python interpreter', lambda: sys.version.split()[0])
 check('python.numpy', 'NumPy import', lambda: importlib.import_module('numpy').__version__)
 check('python.scipy', 'SciPy import', lambda: importlib.import_module('scipy').__version__)
+if args.kind == 'python':
+    def abi_smoke():
+        numpy = importlib.import_module('numpy')
+        linalg = importlib.import_module('scipy.linalg')
+        value = linalg.solve(numpy.array([[2.0, 0.0], [0.0, 4.0]], dtype='float64'),
+                             numpy.array([2.0, 8.0], dtype='float64'))
+        if value.dtype != numpy.float64 or not numpy.allclose(value, [1.0, 2.0], rtol=0, atol=1e-12):
+            raise ValueError('SciPy binary solve returned the wrong result or dtype.')
+        return 'float64 SciPy solve [1,2]; ABI smoke only, not capability qualification'
+    check('python.scipy-abi', 'NumPy / SciPy binary ABI smoke', abi_smoke)
 if args.kind == 'cgal':
     check('cgal.python', 'CGAL Python bindings / Point_3',
           lambda: str(importlib.import_module('CGAL.CGAL_Kernel').Point_3(1, 2, 3)))
@@ -75,18 +85,23 @@ elif args.kind == 'vtk':
     include = include_candidates[0] if include_candidates else prefix / 'Library' / 'include' / 'vtkVersion.h'
     config_candidates = sorted((prefix / 'Library' / 'lib' / 'cmake').glob('vtk*/vtk-config.cmake'))
     sdk_version = versions.get('vtk-base', versions.get('vtk'))
-else:
+elif args.kind == 'gmsh':
     check('gmsh.python', 'Gmsh Python binding / version',
           lambda: importlib.import_module('gmsh').__version__)
     include = prefix / 'Library' / 'include' / 'gmsh.h'
     config_candidates = []
     sdk_version = versions.get('gmsh')
+else:
+    include = None
+    config_candidates = []
+    sdk_version = versions.get('scipy')
 config = next((item for item in config_candidates if item.is_file()), None)
-sdk_present = include.is_file() and (config is not None if args.kind != 'gmsh'
-                                      else (prefix / 'Library' / 'lib' / 'gmsh.dll.lib').is_file())
-checks.append({'id': f'{args.kind}.sdk', 'name': 'C++ SDK header and import library' if args.kind == 'gmsh' else 'C++ SDK headers and CMake config',
-               'state': 'passed' if sdk_present else 'missing', 'durationMs': 0,
-               'detail': 'Installed files detected; compilation/linking NOT tested.' if sdk_present else 'SDK header or link dependency missing.'})
+sdk_present = bool(include and include.is_file() and (config is not None if args.kind != 'gmsh'
+                                      else (prefix / 'Library' / 'lib' / 'gmsh.dll.lib').is_file()))
+if args.kind != 'python':
+    checks.append({'id': f'{args.kind}.sdk', 'name': 'C++ SDK header and import library' if args.kind == 'gmsh' else 'C++ SDK headers and CMake config',
+                   'state': 'passed' if sdk_present else 'missing', 'durationMs': 0,
+                   'detail': 'Installed files detected; compilation/linking NOT tested.' if sdk_present else 'SDK header or link dependency missing.'})
 tools = {}
 for name in ('cmake', 'ninja'):
     executable = prefix / 'Library' / 'bin' / f'{name}.exe'
@@ -103,14 +118,16 @@ for name in ('cmake', 'ninja'):
             record.update(state='failed', detail=str(error)[:1000])
     tools[name] = record
 
-print(json.dumps({
-    'id': f'{args.kind}-win-conda', 'kind': args.kind, 'name': {'cgal': 'CGAL', 'vtk': 'VTK', 'gmsh': 'Gmsh'}[args.kind],
+result = {
+    'id': f'{args.kind}-win-conda', 'kind': args.kind, 'name': {'cgal': 'CGAL', 'vtk': 'VTK', 'gmsh': 'Gmsh', 'python': 'Python / SciPy'}[args.kind],
     'execution': 'windows-native', 'environmentRoot': str(prefix), 'executable': sys.executable,
     'version': sdk_version, 'state': 'failed' if any(item['state'] == 'failed' for item in checks) else 'partial',
     'pythonVersion': platform.python_version(), 'architecture': platform.machine(),
-    'sdk': {'root': str(prefix / 'Library'), 'include': str(include),
-            'cmakeConfig': str(config) if config else None, 'installed': sdk_present,
-            'compilation': 'not-tested', 'linking': 'not-tested', 'rendering': 'not-tested'},
     'tools': tools, 'checks': checks, 'packages': sorted(packages, key=lambda package: package['name'].lower()),
     'validatedCapabilities': [],
-}, ensure_ascii=True))
+}
+if args.kind != 'python':
+    result['sdk'] = {'root': str(prefix / 'Library'), 'include': str(include),
+                     'cmakeConfig': str(config) if config else None, 'installed': sdk_present,
+                     'compilation': 'not-tested', 'linking': 'not-tested', 'rendering': 'not-tested'}
+print(json.dumps(result, ensure_ascii=True))

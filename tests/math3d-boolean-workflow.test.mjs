@@ -179,8 +179,20 @@ test('distinct-input native Boolean result enters bounded Gmsh volume bridge', {
       assert.notEqual(reopened.producerPid, reopened.reopenPid);
       assert.equal(reopened.documentSha256, product.documentSha256);
       assert.equal(reopened.measurementSha256, sha(measurementBytes));
+      const independentlyChecked = JSON.parse(execFileSync(gmshPython,
+        ['tools/scientific-broker/verify_typed_product.py', '--product', productDirectory,
+          '--provenance', provenancePath, '--measurement', measurementPath,
+          '--vtk', vtp, '--obj', converted, '--cold', coldPath, '--math3d', math3dRoot],
+        { cwd: path.resolve('.'), encoding: 'utf8', timeout: 120000 }));
+      assert.equal(independentlyChecked.verdict, 'verified-typed-product-relations');
+      assert.equal(independentlyChecked.measurementSha256, sha(measurementBytes));
       await writeFile(path.join(productDirectory, 'read.m3dm'), Buffer.concat([
         await readFile(path.join(productDirectory, 'read.m3dm')), Buffer.from([0]) ]));
+      assert.throws(() => execFileSync(gmshPython,
+        ['tools/scientific-broker/verify_typed_product.py', '--product', productDirectory,
+          '--provenance', provenancePath, '--measurement', measurementPath,
+          '--vtk', vtp, '--obj', converted, '--cold', coldPath, '--math3d', math3dRoot],
+        { cwd: path.resolve('.'), encoding: 'utf8', timeout: 120000, stdio: 'pipe' }));
       assert.throws(() => execFileSync('node', ['tools/math3d-typed-cold-reopen.mjs',
         '--checkout', math3dRoot, '--product', productDirectory,
         '--provenance', provenancePath, '--output', path.join(data.directory, 'tampered-reopen.json')],

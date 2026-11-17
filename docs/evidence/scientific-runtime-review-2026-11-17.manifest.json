@@ -1,0 +1,3071 @@
+{
+  "schemaVersion": 1,
+  "kind": "devshell.scientific-runtime-ui-review",
+  "capturedAt": "2026-11-17T11:32:33.423Z",
+  "sourceCommit": "46067b6893d71757d93127ed64f981a227fbdc6d",
+  "currentMainAtStart": "5dffb70ad898c55bae6dc9252bbecada46272270",
+  "note": "The current main commit changes only portable evidence verification; the desktop UI is identical to the source commit shown here.",
+  "screenshotCount": 200,
+  "providers": [
+    "CGAL",
+    "VTK",
+    "Gmsh",
+    "SageMath",
+    "Python / SciPy"
+  ],
+  "screenshots": [
+    {
+      "number": 1,
+      "file": "screenshots/001_cgal_state_light_top.jpg",
+      "provider": "CGAL",
+      "tab": "State",
+      "theme": "light",
+      "position": "top",
+      "sha256": "9bd691024ef318e1ed1c5be52d58ecbce8b245b4625551fd839c3a9fc8c41a3e",
+      "bytes": 399851,
+      "caption": "CGAL / State / light / top. Recorded readiness, probes, and capability status.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Readiness evidence",
+        "Environment Inspector"
+      ]
+    },
+    {
+      "number": 2,
+      "file": "screenshots/002_cgal_workbench_light_top.jpg",
+      "provider": "CGAL",
+      "tab": "Workbench",
+      "theme": "light",
+      "position": "top",
+      "sha256": "bb5d43d6e55a7cec36d52afd3d267c2678a730452d5d14f4bf1f60a719b66d89",
+      "bytes": 460112,
+      "caption": "CGAL / Workbench / light / top. Registered mesh intake, provider operation controls, and result review.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Mesh workbench"
+      ]
+    },
+    {
+      "number": 3,
+      "file": "screenshots/003_cgal_matrix_light_top.jpg",
+      "provider": "CGAL",
+      "tab": "Matrix",
+      "theme": "light",
+      "position": "top",
+      "sha256": "476807a3d13a9164e23a619a3cad51dde88af736f7b128c37e4dc1d9a1da4013",
+      "bytes": 425898,
+      "caption": "CGAL / Matrix / light / top. Capability support and qualification matrix.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Runtime matrix"
+      ]
+    },
+    {
+      "number": 4,
+      "file": "screenshots/004_cgal_environment_light_top.jpg",
+      "provider": "CGAL",
+      "tab": "Environment",
+      "theme": "light",
+      "position": "top",
+      "sha256": "fe05cd75774ed5cc6d25c4b2635e5e2f29ed23b14657c65eac9832dee0df3bc9",
+      "bytes": 425615,
+      "caption": "CGAL / Environment / light / top. Runtime environment and dependency details.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Candidate environment definition",
+        "Environment Inspector"
+      ]
+    },
+    {
+      "number": 5,
+      "file": "screenshots/005_cgal_commands_light_top.jpg",
+      "provider": "CGAL",
+      "tab": "Commands",
+      "theme": "light",
+      "position": "top",
+      "sha256": "2d5fa2e026e0ec6c1fed0f2aac76407566447e6856115d813701c49e588b550f",
+      "bytes": 476148,
+      "caption": "CGAL / Commands / light / top. Provider commands and managed execution controls.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Quick commands / registered recipes",
+        "Parameterized mesh operations"
+      ]
+    },
+    {
+      "number": 6,
+      "file": "screenshots/006_cgal_boolean_light_top.jpg",
+      "provider": "CGAL",
+      "tab": "Boolean",
+      "theme": "light",
+      "position": "top",
+      "sha256": "9738a2919c6b0b14877b95b869f8b3b04c01e7d52e698f3fa416661e880af5cf",
+      "bytes": 414467,
+      "caption": "CGAL / Boolean / light / top. CGAL Boolean operation surface and its limits.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Boolean operation"
+      ]
+    },
+    {
+      "number": 7,
+      "file": "screenshots/007_cgal_tests_light_top.jpg",
+      "provider": "CGAL",
+      "tab": "Tests",
+      "theme": "light",
+      "position": "top",
+      "sha256": "0df84d6e8494c78522de3f172f0f0494d29e3312868028ec714128b03c63b087",
+      "bytes": 466084,
+      "caption": "CGAL / Tests / light / top. Managed qualification and acceptance actions.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "MATH3D-scoped capability catalog",
+        "Real-mesh qualification / opt-in",
+        "CGAL validation test matrix"
+      ]
+    },
+    {
+      "number": 8,
+      "file": "screenshots/008_cgal_catalog_light_top.jpg",
+      "provider": "CGAL",
+      "tab": "Catalog",
+      "theme": "light",
+      "position": "top",
+      "sha256": "70c9407dc0aa95edd8489bf24c62701f96e22c7406af364d3ab4709ef3754067",
+      "bytes": 463330,
+      "caption": "CGAL / Catalog / light / top. Declared provider capabilities and operations.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Math3D test catalog"
+      ]
+    },
+    {
+      "number": 9,
+      "file": "screenshots/009_cgal_benchmarks_light_top.jpg",
+      "provider": "CGAL",
+      "tab": "Benchmarks",
+      "theme": "light",
+      "position": "top",
+      "sha256": "7964888ca1c2bff7f5f8bf3e3c487350f87b6171720063bd122b1bd207cab472",
+      "bytes": 441152,
+      "caption": "CGAL / Benchmarks / light / top. Saved benchmark evidence and measurement controls.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Reproducible benchmarks"
+      ]
+    },
+    {
+      "number": 10,
+      "file": "screenshots/010_cgal_packages_light_top.jpg",
+      "provider": "CGAL",
+      "tab": "Packages",
+      "theme": "light",
+      "position": "top",
+      "sha256": "8d820002d1daa888c0ac56fef07eca66a42cb0609ea846a2a383bc460bfdcfc2",
+      "bytes": 469341,
+      "caption": "CGAL / Packages / light / top. Package inventory and runtime dependencies.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Package provenance"
+      ]
+    },
+    {
+      "number": 11,
+      "file": "screenshots/011_cgal_artifacts_light_top.jpg",
+      "provider": "CGAL",
+      "tab": "Artifacts",
+      "theme": "light",
+      "position": "top",
+      "sha256": "5cc735ba5f154a1b7b6c08f9e7215e003fd25c44d1074dba6bcfacc3719e6ae2",
+      "bytes": 467674,
+      "caption": "CGAL / Artifacts / light / top. Saved outputs, hashes, and artifact access.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Mesh comparison / run artifacts"
+      ]
+    },
+    {
+      "number": 12,
+      "file": "screenshots/012_cgal_history_light_top.jpg",
+      "provider": "CGAL",
+      "tab": "History",
+      "theme": "light",
+      "position": "top",
+      "sha256": "69eb2b79c23650b4a99199d49c6b2f47f5a87802ed07a8ece3c106e6194724cf",
+      "bytes": 417105,
+      "caption": "CGAL / History / light / top. Managed job history and saved evidence.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Run history"
+      ]
+    },
+    {
+      "number": 13,
+      "file": "screenshots/013_cgal_integration_light_top.jpg",
+      "provider": "CGAL",
+      "tab": "Integration",
+      "theme": "light",
+      "position": "top",
+      "sha256": "a30bae66ffd2d07f3d6f1c515333c84a0104a7a4b803ab33ace63e7e6c22e73a",
+      "bytes": 414747,
+      "caption": "CGAL / Integration / light / top. MATH3D integration and backend selection controls.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "MATH3D inspection backend",
+        "MATH3D fixture-to-contract test",
+        "MATH3D native worker comparison",
+        "MATH3D execution contract"
+      ]
+    },
+    {
+      "number": 14,
+      "file": "screenshots/014_cgal_state_light_bottom.jpg",
+      "provider": "CGAL",
+      "tab": "State",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "b770e226e7353f7704258f4afafcfac5d747ca3c1a10468dc390570ae1257c3f",
+      "bytes": 435656,
+      "caption": "CGAL / State / light / bottom. Recorded readiness, probes, and capability status.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Readiness evidence",
+        "Environment Inspector"
+      ]
+    },
+    {
+      "number": 15,
+      "file": "screenshots/015_cgal_workbench_light_bottom.jpg",
+      "provider": "CGAL",
+      "tab": "Workbench",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "67ab270edc4a5377bb16035edc71a9681ff879f6264ad60915e6476a86d1610e",
+      "bytes": 487302,
+      "caption": "CGAL / Workbench / light / bottom. Registered mesh intake, provider operation controls, and result review.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Mesh workbench"
+      ]
+    },
+    {
+      "number": 16,
+      "file": "screenshots/016_cgal_matrix_light_bottom.jpg",
+      "provider": "CGAL",
+      "tab": "Matrix",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "e4575bd51c6f55ee0bb2ab5ff856166d0d9c9becf57c7ec8e3612d4255f2fd22",
+      "bytes": 414219,
+      "caption": "CGAL / Matrix / light / bottom. Capability support and qualification matrix.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Runtime matrix"
+      ]
+    },
+    {
+      "number": 17,
+      "file": "screenshots/017_cgal_environment_light_bottom.jpg",
+      "provider": "CGAL",
+      "tab": "Environment",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "6ed8325e83f3398028e1698224cca8812c0aa7b38f5349cb74a7afffd2bad8f7",
+      "bytes": 436628,
+      "caption": "CGAL / Environment / light / bottom. Runtime environment and dependency details.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Candidate environment definition",
+        "Environment Inspector"
+      ]
+    },
+    {
+      "number": 18,
+      "file": "screenshots/018_cgal_commands_light_bottom.jpg",
+      "provider": "CGAL",
+      "tab": "Commands",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "e03b386088f518757c5e5b05fe1cc533270506ece56cc135b44ca018ca3692bf",
+      "bytes": 432198,
+      "caption": "CGAL / Commands / light / bottom. Provider commands and managed execution controls.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Quick commands / registered recipes",
+        "Parameterized mesh operations"
+      ]
+    },
+    {
+      "number": 19,
+      "file": "screenshots/019_cgal_boolean_light_bottom.jpg",
+      "provider": "CGAL",
+      "tab": "Boolean",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "b56a55e2334134e5abba8814d4df072b8430c19a45208c79323917175f4fb473",
+      "bytes": 449734,
+      "caption": "CGAL / Boolean / light / bottom. CGAL Boolean operation surface and its limits.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Boolean operation"
+      ]
+    },
+    {
+      "number": 20,
+      "file": "screenshots/020_cgal_tests_light_bottom.jpg",
+      "provider": "CGAL",
+      "tab": "Tests",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "52b2496b759f8da0ca20421bc51f93bfbb6da221ad43ab358753413989db2ece",
+      "bytes": 456239,
+      "caption": "CGAL / Tests / light / bottom. Managed qualification and acceptance actions.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "MATH3D-scoped capability catalog",
+        "Real-mesh qualification / opt-in",
+        "CGAL validation test matrix"
+      ]
+    },
+    {
+      "number": 21,
+      "file": "screenshots/021_cgal_catalog_light_bottom.jpg",
+      "provider": "CGAL",
+      "tab": "Catalog",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "1ceaebbd0b4687f3bf1aa2a6b017253c80531e3a0ac90e9189504265914d7be7",
+      "bytes": 487251,
+      "caption": "CGAL / Catalog / light / bottom. Declared provider capabilities and operations.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Math3D test catalog"
+      ]
+    },
+    {
+      "number": 22,
+      "file": "screenshots/022_cgal_benchmarks_light_bottom.jpg",
+      "provider": "CGAL",
+      "tab": "Benchmarks",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "bb49957c722f0d338d6b8ac367c0efd4be40c89dcdc47cb352ad851e2c0a3fe6",
+      "bytes": 444086,
+      "caption": "CGAL / Benchmarks / light / bottom. Saved benchmark evidence and measurement controls.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Reproducible benchmarks"
+      ]
+    },
+    {
+      "number": 23,
+      "file": "screenshots/023_cgal_packages_light_bottom.jpg",
+      "provider": "CGAL",
+      "tab": "Packages",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "8a5fcd4ee42e02a22966e4dcd9e267c1c3f39b895e34b0ecbffa78a210462b77",
+      "bytes": 503392,
+      "caption": "CGAL / Packages / light / bottom. Package inventory and runtime dependencies.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Package provenance"
+      ]
+    },
+    {
+      "number": 24,
+      "file": "screenshots/024_cgal_artifacts_light_bottom.jpg",
+      "provider": "CGAL",
+      "tab": "Artifacts",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "aa7cbccde3e8908c62ff48f0d7eb64cfc8309bd5ded6d9eb65d6577aba474cfa",
+      "bytes": 470987,
+      "caption": "CGAL / Artifacts / light / bottom. Saved outputs, hashes, and artifact access.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Mesh comparison / run artifacts"
+      ]
+    },
+    {
+      "number": 25,
+      "file": "screenshots/025_cgal_history_light_bottom.jpg",
+      "provider": "CGAL",
+      "tab": "History",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "985f62d78e6d6ca9a70e1b3057c58b32b81c03cde342fcf8d33932dfcf392ebf",
+      "bytes": 456449,
+      "caption": "CGAL / History / light / bottom. Managed job history and saved evidence.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Run history"
+      ]
+    },
+    {
+      "number": 26,
+      "file": "screenshots/026_cgal_integration_light_bottom.jpg",
+      "provider": "CGAL",
+      "tab": "Integration",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "fc28f82e08fec1b42d0eb3ae8f19d42c97e382ea0be215b7f005b2fe93e30637",
+      "bytes": 403919,
+      "caption": "CGAL / Integration / light / bottom. MATH3D integration and backend selection controls.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "MATH3D inspection backend",
+        "MATH3D fixture-to-contract test",
+        "MATH3D native worker comparison",
+        "MATH3D execution contract"
+      ]
+    },
+    {
+      "number": 27,
+      "file": "screenshots/027_cgal_state_dark_top.jpg",
+      "provider": "CGAL",
+      "tab": "State",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "0e4954c7bd656b1ada43f41f01809f172cfd38257b992282e9633d1cb2ac4816",
+      "bytes": 399563,
+      "caption": "CGAL / State / dark / top. Recorded readiness, probes, and capability status.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Readiness evidence",
+        "Environment Inspector"
+      ]
+    },
+    {
+      "number": 28,
+      "file": "screenshots/028_cgal_workbench_dark_top.jpg",
+      "provider": "CGAL",
+      "tab": "Workbench",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "255ab012a9eff4f55493361d2f5012a5b303e76d2cce4f9fcc13772d01e5ac2c",
+      "bytes": 457060,
+      "caption": "CGAL / Workbench / dark / top. Registered mesh intake, provider operation controls, and result review.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Mesh workbench"
+      ]
+    },
+    {
+      "number": 29,
+      "file": "screenshots/029_cgal_matrix_dark_top.jpg",
+      "provider": "CGAL",
+      "tab": "Matrix",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "893a2933559845ae428acccd11028e3f90da1bf835abda271b39833cc1df3a17",
+      "bytes": 425335,
+      "caption": "CGAL / Matrix / dark / top. Capability support and qualification matrix.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Runtime matrix"
+      ]
+    },
+    {
+      "number": 30,
+      "file": "screenshots/030_cgal_environment_dark_top.jpg",
+      "provider": "CGAL",
+      "tab": "Environment",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "c89980b40c6f9b89911aebe2185e6cde114c6f49fe8d55e25e27090ebef41299",
+      "bytes": 423589,
+      "caption": "CGAL / Environment / dark / top. Runtime environment and dependency details.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Candidate environment definition",
+        "Environment Inspector"
+      ]
+    },
+    {
+      "number": 31,
+      "file": "screenshots/031_cgal_commands_dark_top.jpg",
+      "provider": "CGAL",
+      "tab": "Commands",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "13d1c8ad07883f032c22a19cbf650f086f67fa99e10cfbb05e7eb70bed0af0e2",
+      "bytes": 476781,
+      "caption": "CGAL / Commands / dark / top. Provider commands and managed execution controls.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Quick commands / registered recipes",
+        "Parameterized mesh operations"
+      ]
+    },
+    {
+      "number": 32,
+      "file": "screenshots/032_cgal_boolean_dark_top.jpg",
+      "provider": "CGAL",
+      "tab": "Boolean",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "12aed2e4caad23d0904440368ce82b63a1ac08dd2f47818a02729a13ace58dd0",
+      "bytes": 418565,
+      "caption": "CGAL / Boolean / dark / top. CGAL Boolean operation surface and its limits.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Boolean operation"
+      ]
+    },
+    {
+      "number": 33,
+      "file": "screenshots/033_cgal_tests_dark_top.jpg",
+      "provider": "CGAL",
+      "tab": "Tests",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "30df72cb24bff9d4bb5a54d091d8489520fd1a8bcf328dd4ddb0005a9586c1a1",
+      "bytes": 465403,
+      "caption": "CGAL / Tests / dark / top. Managed qualification and acceptance actions.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "MATH3D-scoped capability catalog",
+        "Real-mesh qualification / opt-in",
+        "CGAL validation test matrix"
+      ]
+    },
+    {
+      "number": 34,
+      "file": "screenshots/034_cgal_catalog_dark_top.jpg",
+      "provider": "CGAL",
+      "tab": "Catalog",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "470f596864920ea4780407e057b5b0cfc2d4595b8d23e51c1c1d9ca39c137145",
+      "bytes": 460238,
+      "caption": "CGAL / Catalog / dark / top. Declared provider capabilities and operations.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Math3D test catalog"
+      ]
+    },
+    {
+      "number": 35,
+      "file": "screenshots/035_cgal_benchmarks_dark_top.jpg",
+      "provider": "CGAL",
+      "tab": "Benchmarks",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "ffdc88f831e49e7ef0bb79f61ca5fce6d485275ae27af8a9f9b3efc82f02f883",
+      "bytes": 441161,
+      "caption": "CGAL / Benchmarks / dark / top. Saved benchmark evidence and measurement controls.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Reproducible benchmarks"
+      ]
+    },
+    {
+      "number": 36,
+      "file": "screenshots/036_cgal_packages_dark_top.jpg",
+      "provider": "CGAL",
+      "tab": "Packages",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "ff71385570f83d104203ad1e51c784057bdb16e3d46a85c63afb252bab85353f",
+      "bytes": 467710,
+      "caption": "CGAL / Packages / dark / top. Package inventory and runtime dependencies.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Package provenance"
+      ]
+    },
+    {
+      "number": 37,
+      "file": "screenshots/037_cgal_artifacts_dark_top.jpg",
+      "provider": "CGAL",
+      "tab": "Artifacts",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "896687e52b18dc89bf0c11cd2b241f537ea6f10429fecd8431b5c498991f35c9",
+      "bytes": 469265,
+      "caption": "CGAL / Artifacts / dark / top. Saved outputs, hashes, and artifact access.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Mesh comparison / run artifacts"
+      ]
+    },
+    {
+      "number": 38,
+      "file": "screenshots/038_cgal_history_dark_top.jpg",
+      "provider": "CGAL",
+      "tab": "History",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "58d68a713f33dbcf9aa03593fc47b6eef9afa9cac1da35832da0d54c0d7ff9dc",
+      "bytes": 415655,
+      "caption": "CGAL / History / dark / top. Managed job history and saved evidence.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Run history"
+      ]
+    },
+    {
+      "number": 39,
+      "file": "screenshots/039_cgal_integration_dark_top.jpg",
+      "provider": "CGAL",
+      "tab": "Integration",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "a967471abe114b44775a5f7094a58524158dbd07fdb1e166da9e2fe28265f16a",
+      "bytes": 412933,
+      "caption": "CGAL / Integration / dark / top. MATH3D integration and backend selection controls.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "MATH3D inspection backend",
+        "MATH3D fixture-to-contract test",
+        "MATH3D native worker comparison",
+        "MATH3D execution contract"
+      ]
+    },
+    {
+      "number": 40,
+      "file": "screenshots/040_cgal_state_dark_bottom.jpg",
+      "provider": "CGAL",
+      "tab": "State",
+      "theme": "dark",
+      "position": "bottom",
+      "sha256": "2a46640b5fa7ef5be1fe60863386e7acf86b429a662838305a9ae7dc48fb6090",
+      "bytes": 437191,
+      "caption": "CGAL / State / dark / bottom. Recorded readiness, probes, and capability status.",
+      "visibleHeadings": [
+        "CGAL / Windows Native",
+        "Readiness evidence",
+        "Environment Inspector"
+      ]
+    },
+    {
+      "number": 41,
+      "file": "screenshots/041_vtk_state_light_top.jpg",
+      "provider": "VTK",
+      "tab": "State",
+      "theme": "light",
+      "position": "top",
+      "sha256": "d5ae8890fae5ef7bc1e32889b71fe9a4ea1b597b353cc3a1b70c6d13eddf9dd9",
+      "bytes": 403304,
+      "caption": "VTK / State / light / top. Recorded readiness, probes, and capability status.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Readiness evidence",
+        "Environment Inspector"
+      ]
+    },
+    {
+      "number": 42,
+      "file": "screenshots/042_vtk_workbench_light_top.jpg",
+      "provider": "VTK",
+      "tab": "Workbench",
+      "theme": "light",
+      "position": "top",
+      "sha256": "144ced2708a618fcaed6a518b96d6971078266eeec80b9d5b0aa0fa5028e96dd",
+      "bytes": 457343,
+      "caption": "VTK / Workbench / light / top. Registered mesh intake, provider operation controls, and result review.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Mesh workbench"
+      ]
+    },
+    {
+      "number": 43,
+      "file": "screenshots/043_vtk_matrix_light_top.jpg",
+      "provider": "VTK",
+      "tab": "Matrix",
+      "theme": "light",
+      "position": "top",
+      "sha256": "a406cad669b22de2f8eead3c05bc1549976a3af46d44ed327565b67f5add55e0",
+      "bytes": 423809,
+      "caption": "VTK / Matrix / light / top. Capability support and qualification matrix.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Runtime matrix"
+      ]
+    },
+    {
+      "number": 44,
+      "file": "screenshots/044_vtk_environment_light_top.jpg",
+      "provider": "VTK",
+      "tab": "Environment",
+      "theme": "light",
+      "position": "top",
+      "sha256": "7e71a41021a47ac30d3ab66572871c70eb665011dad9eda55322b1068a3d76da",
+      "bytes": 422914,
+      "caption": "VTK / Environment / light / top. Runtime environment and dependency details.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Candidate environment definition",
+        "Environment Inspector"
+      ]
+    },
+    {
+      "number": 45,
+      "file": "screenshots/045_vtk_commands_light_top.jpg",
+      "provider": "VTK",
+      "tab": "Commands",
+      "theme": "light",
+      "position": "top",
+      "sha256": "0d2d70fff91b93debb936aad3963527d9f301d9e746074ed98c27b3ae3cecd64",
+      "bytes": 476620,
+      "caption": "VTK / Commands / light / top. Provider commands and managed execution controls.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Quick commands / registered recipes",
+        "Parameterized mesh operations"
+      ]
+    },
+    {
+      "number": 46,
+      "file": "screenshots/046_vtk_tests_light_top.jpg",
+      "provider": "VTK",
+      "tab": "Tests",
+      "theme": "light",
+      "position": "top",
+      "sha256": "1a28f1609d15018fba24bea7070077138d84e2c35273826c251b465e35e8db1a",
+      "bytes": 464722,
+      "caption": "VTK / Tests / light / top. Managed qualification and acceptance actions.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "MATH3D-scoped capability catalog",
+        "Capability acceptance tests"
+      ]
+    },
+    {
+      "number": 47,
+      "file": "screenshots/047_vtk_catalog_light_top.jpg",
+      "provider": "VTK",
+      "tab": "Catalog",
+      "theme": "light",
+      "position": "top",
+      "sha256": "ee5aee07bf7257ca2aa5dc432966441ed52e65099e3c9bb06285d465d27443a5",
+      "bytes": 453017,
+      "caption": "VTK / Catalog / light / top. Declared provider capabilities and operations.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Math3D test catalog"
+      ]
+    },
+    {
+      "number": 48,
+      "file": "screenshots/048_vtk_benchmarks_light_top.jpg",
+      "provider": "VTK",
+      "tab": "Benchmarks",
+      "theme": "light",
+      "position": "top",
+      "sha256": "6c1a7719580e38b30b5aecc5a9c57802951f8f1414ba5b96467bd2871ae1f82c",
+      "bytes": 413829,
+      "caption": "VTK / Benchmarks / light / top. Saved benchmark evidence and measurement controls.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Reproducible benchmarks"
+      ]
+    },
+    {
+      "number": 49,
+      "file": "screenshots/049_vtk_packages_light_top.jpg",
+      "provider": "VTK",
+      "tab": "Packages",
+      "theme": "light",
+      "position": "top",
+      "sha256": "59764459f23d6749a5fff9c77c5bb8934613735393821574a632d72d2373999a",
+      "bytes": 467297,
+      "caption": "VTK / Packages / light / top. Package inventory and runtime dependencies.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Package provenance"
+      ]
+    },
+    {
+      "number": 50,
+      "file": "screenshots/050_vtk_artifacts_light_top.jpg",
+      "provider": "VTK",
+      "tab": "Artifacts",
+      "theme": "light",
+      "position": "top",
+      "sha256": "9ed5ec72b73f3de6c609f47b719ef54304409940d1b24c8f6ce9abb8ea776524",
+      "bytes": 439793,
+      "caption": "VTK / Artifacts / light / top. Saved outputs, hashes, and artifact access.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Mesh comparison / run artifacts"
+      ]
+    },
+    {
+      "number": 51,
+      "file": "screenshots/051_vtk_history_light_top.jpg",
+      "provider": "VTK",
+      "tab": "History",
+      "theme": "light",
+      "position": "top",
+      "sha256": "e1797e1a5b12db35fae9e2dfc2f359a6400d4646611c3ab66a4e2485d679fc45",
+      "bytes": 424408,
+      "caption": "VTK / History / light / top. Managed job history and saved evidence.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Run history"
+      ]
+    },
+    {
+      "number": 52,
+      "file": "screenshots/052_vtk_integration_light_top.jpg",
+      "provider": "VTK",
+      "tab": "Integration",
+      "theme": "light",
+      "position": "top",
+      "sha256": "c657aa0db2a8e208125cf76f98bdb1211a9318ede8d0c1d6438b149f6490d459",
+      "bytes": 404326,
+      "caption": "VTK / Integration / light / top. MATH3D integration and backend selection controls.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "VTK / MATH3D integration"
+      ]
+    },
+    {
+      "number": 53,
+      "file": "screenshots/053_vtk_state_light_bottom.jpg",
+      "provider": "VTK",
+      "tab": "State",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "55d846cce6292e35038d9e3c419f879ae6698f3a4ff88d88ff9b4b0ff8e33c95",
+      "bytes": 416714,
+      "caption": "VTK / State / light / bottom. Recorded readiness, probes, and capability status.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Readiness evidence",
+        "Environment Inspector"
+      ]
+    },
+    {
+      "number": 54,
+      "file": "screenshots/054_vtk_workbench_light_bottom.jpg",
+      "provider": "VTK",
+      "tab": "Workbench",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "ef8b7c41ebc923f38895fb7eef4124728bafc955938881247e968498dcaf346e",
+      "bytes": 484286,
+      "caption": "VTK / Workbench / light / bottom. Registered mesh intake, provider operation controls, and result review.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Mesh workbench"
+      ]
+    },
+    {
+      "number": 55,
+      "file": "screenshots/055_vtk_matrix_light_bottom.jpg",
+      "provider": "VTK",
+      "tab": "Matrix",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "cdb8a7dcf81f1f1684b7c9a86779fb34094bbe6dd48f754f0be95c1537a94d82",
+      "bytes": 391696,
+      "caption": "VTK / Matrix / light / bottom. Capability support and qualification matrix.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Runtime matrix"
+      ]
+    },
+    {
+      "number": 56,
+      "file": "screenshots/056_vtk_environment_light_bottom.jpg",
+      "provider": "VTK",
+      "tab": "Environment",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "2b12dd8281b683acc8d524e8d6011da04189ba2ff1171f45d271aa43d6edb37c",
+      "bytes": 414979,
+      "caption": "VTK / Environment / light / bottom. Runtime environment and dependency details.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Candidate environment definition",
+        "Environment Inspector"
+      ]
+    },
+    {
+      "number": 57,
+      "file": "screenshots/057_vtk_commands_light_bottom.jpg",
+      "provider": "VTK",
+      "tab": "Commands",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "3caf7fb5d2ed5f0623d5b3fdfd7160936aae4f6e0e005610024d3a564a23b33e",
+      "bytes": 412531,
+      "caption": "VTK / Commands / light / bottom. Provider commands and managed execution controls.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Quick commands / registered recipes",
+        "Parameterized mesh operations"
+      ]
+    },
+    {
+      "number": 58,
+      "file": "screenshots/058_vtk_tests_light_bottom.jpg",
+      "provider": "VTK",
+      "tab": "Tests",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "efd2aa458d0b7aa9be391a15f0cf627803160fd6192c48878011c4c813bda9d9",
+      "bytes": 442530,
+      "caption": "VTK / Tests / light / bottom. Managed qualification and acceptance actions.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "MATH3D-scoped capability catalog",
+        "Capability acceptance tests"
+      ]
+    },
+    {
+      "number": 59,
+      "file": "screenshots/059_vtk_catalog_light_bottom.jpg",
+      "provider": "VTK",
+      "tab": "Catalog",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "d775e1bfc71a3bbf9071ec7bb5e6e7a6c095e8a68c1c19cbf01b79359cf96ba4",
+      "bytes": 454529,
+      "caption": "VTK / Catalog / light / bottom. Declared provider capabilities and operations.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Math3D test catalog"
+      ]
+    },
+    {
+      "number": 60,
+      "file": "screenshots/060_vtk_benchmarks_light_bottom.jpg",
+      "provider": "VTK",
+      "tab": "Benchmarks",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "4e84ef841d87f9ef2b9ca2a6e086f1a7b79d0f02814d95e514611a2d58ca23dc",
+      "bytes": 416176,
+      "caption": "VTK / Benchmarks / light / bottom. Saved benchmark evidence and measurement controls.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Reproducible benchmarks"
+      ]
+    },
+    {
+      "number": 61,
+      "file": "screenshots/061_vtk_packages_light_bottom.jpg",
+      "provider": "VTK",
+      "tab": "Packages",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "b4df1daf286690b1b4070469bf511aa8d3779a2156262d6c3ad4a5998f393611",
+      "bytes": 498894,
+      "caption": "VTK / Packages / light / bottom. Package inventory and runtime dependencies.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Package provenance"
+      ]
+    },
+    {
+      "number": 62,
+      "file": "screenshots/062_vtk_artifacts_light_bottom.jpg",
+      "provider": "VTK",
+      "tab": "Artifacts",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "ec6070b62a3087b32f688074dcd649183af2d4bce290f9d66e5a72381ad384fc",
+      "bytes": 442964,
+      "caption": "VTK / Artifacts / light / bottom. Saved outputs, hashes, and artifact access.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Mesh comparison / run artifacts"
+      ]
+    },
+    {
+      "number": 63,
+      "file": "screenshots/063_vtk_history_light_bottom.jpg",
+      "provider": "VTK",
+      "tab": "History",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "43162f4ba9ced681ad96953479503caec6b4493da440b2486e63d4be9a3ace96",
+      "bytes": 464224,
+      "caption": "VTK / History / light / bottom. Managed job history and saved evidence.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Run history"
+      ]
+    },
+    {
+      "number": 64,
+      "file": "screenshots/064_vtk_integration_light_bottom.jpg",
+      "provider": "VTK",
+      "tab": "Integration",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "139d4d4a2bda1f90a00be99e97fab2b4aa3cafe79e926300c83598c272b607a4",
+      "bytes": 407024,
+      "caption": "VTK / Integration / light / bottom. MATH3D integration and backend selection controls.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "VTK / MATH3D integration"
+      ]
+    },
+    {
+      "number": 65,
+      "file": "screenshots/065_vtk_state_dark_top.jpg",
+      "provider": "VTK",
+      "tab": "State",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "e370ac48d0d0d8e7a66a4dced04a6f34f304ca3bf17f01107094fe4f5982a750",
+      "bytes": 402622,
+      "caption": "VTK / State / dark / top. Recorded readiness, probes, and capability status.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Readiness evidence",
+        "Environment Inspector"
+      ]
+    },
+    {
+      "number": 66,
+      "file": "screenshots/066_vtk_workbench_dark_top.jpg",
+      "provider": "VTK",
+      "tab": "Workbench",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "0719d004b92d7e54028187d705c839d0e403e4a01ae7ddb711c3adf33ec4954a",
+      "bytes": 453354,
+      "caption": "VTK / Workbench / dark / top. Registered mesh intake, provider operation controls, and result review.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Mesh workbench"
+      ]
+    },
+    {
+      "number": 67,
+      "file": "screenshots/067_vtk_matrix_dark_top.jpg",
+      "provider": "VTK",
+      "tab": "Matrix",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "aa6d80e6addcfb5c8e41edea9af4f7222c51298e74000334742a9b64fe25a855",
+      "bytes": 425593,
+      "caption": "VTK / Matrix / dark / top. Capability support and qualification matrix.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Runtime matrix"
+      ]
+    },
+    {
+      "number": 68,
+      "file": "screenshots/068_vtk_environment_dark_top.jpg",
+      "provider": "VTK",
+      "tab": "Environment",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "4ab326d8e35804924632cdc7b2e589c8e49a707f8a0a2a5aec054c6ec38a871d",
+      "bytes": 420526,
+      "caption": "VTK / Environment / dark / top. Runtime environment and dependency details.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Candidate environment definition",
+        "Environment Inspector"
+      ]
+    },
+    {
+      "number": 69,
+      "file": "screenshots/069_vtk_commands_dark_top.jpg",
+      "provider": "VTK",
+      "tab": "Commands",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "8a8d6ccad4df7a1e2c103e3a5a7120732357d2abbb714c8876428929d7aeed84",
+      "bytes": 476939,
+      "caption": "VTK / Commands / dark / top. Provider commands and managed execution controls.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Quick commands / registered recipes",
+        "Parameterized mesh operations"
+      ]
+    },
+    {
+      "number": 70,
+      "file": "screenshots/070_vtk_tests_dark_top.jpg",
+      "provider": "VTK",
+      "tab": "Tests",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "03107338335350a7eba2eba46874a34350fc51f1f2b5fe74c6421bb851bb23ed",
+      "bytes": 462928,
+      "caption": "VTK / Tests / dark / top. Managed qualification and acceptance actions.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "MATH3D-scoped capability catalog",
+        "Capability acceptance tests"
+      ]
+    },
+    {
+      "number": 71,
+      "file": "screenshots/071_vtk_catalog_dark_top.jpg",
+      "provider": "VTK",
+      "tab": "Catalog",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "d2deb4a3d08c14a08a824801bd5d3b5daf809ecd55c4c58be1defc9bf4559b40",
+      "bytes": 450267,
+      "caption": "VTK / Catalog / dark / top. Declared provider capabilities and operations.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Math3D test catalog"
+      ]
+    },
+    {
+      "number": 72,
+      "file": "screenshots/072_vtk_benchmarks_dark_top.jpg",
+      "provider": "VTK",
+      "tab": "Benchmarks",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "da1834c1fb463cb7e4760e2dbe8886eafae820135892f7a63b6cdd913cc625eb",
+      "bytes": 413412,
+      "caption": "VTK / Benchmarks / dark / top. Saved benchmark evidence and measurement controls.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Reproducible benchmarks"
+      ]
+    },
+    {
+      "number": 73,
+      "file": "screenshots/073_vtk_packages_dark_top.jpg",
+      "provider": "VTK",
+      "tab": "Packages",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "73d10aa720eb3504abbe67c7d16ecc7d43810c95c519d1c8ae97c48fb5839c05",
+      "bytes": 465591,
+      "caption": "VTK / Packages / dark / top. Package inventory and runtime dependencies.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Package provenance"
+      ]
+    },
+    {
+      "number": 74,
+      "file": "screenshots/074_vtk_artifacts_dark_top.jpg",
+      "provider": "VTK",
+      "tab": "Artifacts",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "bc2286eeef7c2d4747ab5ce5ec24d1b75c48c749121da1c8898cf1f76695d25f",
+      "bytes": 440318,
+      "caption": "VTK / Artifacts / dark / top. Saved outputs, hashes, and artifact access.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Mesh comparison / run artifacts"
+      ]
+    },
+    {
+      "number": 75,
+      "file": "screenshots/075_vtk_history_dark_top.jpg",
+      "provider": "VTK",
+      "tab": "History",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "9dd97433bc9282d519a0d48ea639faa1ee50903134706d8a4c68415462ca2aa9",
+      "bytes": 421640,
+      "caption": "VTK / History / dark / top. Managed job history and saved evidence.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Run history"
+      ]
+    },
+    {
+      "number": 76,
+      "file": "screenshots/076_vtk_integration_dark_top.jpg",
+      "provider": "VTK",
+      "tab": "Integration",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "ca91f9f4f5954229ae2d8a8758e78ff996bc577d2020f03a6d7c5c2c138902f2",
+      "bytes": 403227,
+      "caption": "VTK / Integration / dark / top. MATH3D integration and backend selection controls.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "VTK / MATH3D integration"
+      ]
+    },
+    {
+      "number": 77,
+      "file": "screenshots/077_vtk_state_dark_bottom.jpg",
+      "provider": "VTK",
+      "tab": "State",
+      "theme": "dark",
+      "position": "bottom",
+      "sha256": "ce80144dc6da359c5fe4720f211dec4a43fb6b9ec4ccfb2feb5122f4228c5d3b",
+      "bytes": 416084,
+      "caption": "VTK / State / dark / bottom. Recorded readiness, probes, and capability status.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Readiness evidence",
+        "Environment Inspector"
+      ]
+    },
+    {
+      "number": 78,
+      "file": "screenshots/078_vtk_workbench_dark_bottom.jpg",
+      "provider": "VTK",
+      "tab": "Workbench",
+      "theme": "dark",
+      "position": "bottom",
+      "sha256": "9d6339777aaef3c83280b3e00f2d90696139b80cb6b833e7c3e234751a5c26dc",
+      "bytes": 479681,
+      "caption": "VTK / Workbench / dark / bottom. Registered mesh intake, provider operation controls, and result review.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Mesh workbench"
+      ]
+    },
+    {
+      "number": 79,
+      "file": "screenshots/079_vtk_matrix_dark_bottom.jpg",
+      "provider": "VTK",
+      "tab": "Matrix",
+      "theme": "dark",
+      "position": "bottom",
+      "sha256": "43f89ef6bd54bf4c299824617f5c155e15258156f68aeb8967da07c5ea2e512b",
+      "bytes": 390395,
+      "caption": "VTK / Matrix / dark / bottom. Capability support and qualification matrix.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Runtime matrix"
+      ]
+    },
+    {
+      "number": 80,
+      "file": "screenshots/080_vtk_environment_dark_bottom.jpg",
+      "provider": "VTK",
+      "tab": "Environment",
+      "theme": "dark",
+      "position": "bottom",
+      "sha256": "56ad3a8b4e62cf7a812abd3055962d37a0badf9e3de865eaf55099da24518c7e",
+      "bytes": 416240,
+      "caption": "VTK / Environment / dark / bottom. Runtime environment and dependency details.",
+      "visibleHeadings": [
+        "VTK / Windows Native",
+        "Candidate environment definition",
+        "Environment Inspector"
+      ]
+    },
+    {
+      "number": 81,
+      "file": "screenshots/081_gmsh_state_light_top.jpg",
+      "provider": "Gmsh",
+      "tab": "State",
+      "theme": "light",
+      "position": "top",
+      "sha256": "4f791078f56afd856baeee3da134e0edb3b7425fd2e37ab75ce0ca10452fd7ac",
+      "bytes": 387843,
+      "caption": "Gmsh / State / light / top. Recorded readiness, probes, and capability status.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Readiness evidence"
+      ]
+    },
+    {
+      "number": 82,
+      "file": "screenshots/082_gmsh_matrix_light_top.jpg",
+      "provider": "Gmsh",
+      "tab": "Matrix",
+      "theme": "light",
+      "position": "top",
+      "sha256": "e1e0c1f1a2404f8ac93c049dc89ba10e7757bf2310811b9d43bc35ef3413371a",
+      "bytes": 425053,
+      "caption": "Gmsh / Matrix / light / top. Capability support and qualification matrix.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Runtime matrix"
+      ]
+    },
+    {
+      "number": 83,
+      "file": "screenshots/083_gmsh_environment_light_top.jpg",
+      "provider": "Gmsh",
+      "tab": "Environment",
+      "theme": "light",
+      "position": "top",
+      "sha256": "f893788d7df4522a8e1af4abb4700d51c00842172766908bd47ea9dfc926ba81",
+      "bytes": 409729,
+      "caption": "Gmsh / Environment / light / top. Runtime environment and dependency details.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Candidate environment definition"
+      ]
+    },
+    {
+      "number": 84,
+      "file": "screenshots/084_gmsh_commands_light_top.jpg",
+      "provider": "Gmsh",
+      "tab": "Commands",
+      "theme": "light",
+      "position": "top",
+      "sha256": "d3063dffe8d8109a6e4ec718b0f099c2602a3a16f0b47775dfa5b83a6505d7b0",
+      "bytes": 461717,
+      "caption": "Gmsh / Commands / light / top. Provider commands and managed execution controls.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Quick commands / registered recipes",
+        "Parameterized mesh operations"
+      ]
+    },
+    {
+      "number": 85,
+      "file": "screenshots/085_gmsh_tests_light_top.jpg",
+      "provider": "Gmsh",
+      "tab": "Tests",
+      "theme": "light",
+      "position": "top",
+      "sha256": "969ee1f57b74123943b68e040dace456e1f50c71c4555b32d1f2a0ab2d2ef9b8",
+      "bytes": 470817,
+      "caption": "Gmsh / Tests / light / top. Managed qualification and acceptance actions.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Gmsh capability coverage",
+        "Capability acceptance tests"
+      ]
+    },
+    {
+      "number": 86,
+      "file": "screenshots/086_gmsh_benchmarks_light_top.jpg",
+      "provider": "Gmsh",
+      "tab": "Benchmarks",
+      "theme": "light",
+      "position": "top",
+      "sha256": "4d7c582cb7e2993eed20d2276ac21537c866673bdc47c9b28f451d5215c3d5fb",
+      "bytes": 379660,
+      "caption": "Gmsh / Benchmarks / light / top. Saved benchmark evidence and measurement controls.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Reproducible benchmarks"
+      ]
+    },
+    {
+      "number": 87,
+      "file": "screenshots/087_gmsh_packages_light_top.jpg",
+      "provider": "Gmsh",
+      "tab": "Packages",
+      "theme": "light",
+      "position": "top",
+      "sha256": "77956952e7781af22bb0f6ffa0d432d8860f324d47651b7ae097df9e25973805",
+      "bytes": 467843,
+      "caption": "Gmsh / Packages / light / top. Package inventory and runtime dependencies.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Package provenance"
+      ]
+    },
+    {
+      "number": 88,
+      "file": "screenshots/088_gmsh_history_light_top.jpg",
+      "provider": "Gmsh",
+      "tab": "History",
+      "theme": "light",
+      "position": "top",
+      "sha256": "5268df2607aa0f141110bb656fb80c645f88528b717eddb2cd119fb48ba92ba8",
+      "bytes": 415658,
+      "caption": "Gmsh / History / light / top. Managed job history and saved evidence.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Run history"
+      ]
+    },
+    {
+      "number": 89,
+      "file": "screenshots/089_gmsh_integration_light_top.jpg",
+      "provider": "Gmsh",
+      "tab": "Integration",
+      "theme": "light",
+      "position": "top",
+      "sha256": "a67fdfd76d7793634fa22867a7dbe7b61a219b5736b8e285b9dc118c5aa7c43f",
+      "bytes": 370512,
+      "caption": "Gmsh / Integration / light / top. MATH3D integration and backend selection controls.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Gmsh / MATH3D integration"
+      ]
+    },
+    {
+      "number": 90,
+      "file": "screenshots/090_gmsh_state_light_bottom.jpg",
+      "provider": "Gmsh",
+      "tab": "State",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "9c42ec69da822237365f171826e82849ca2f9cb92879c5264fa065be455fb209",
+      "bytes": 392522,
+      "caption": "Gmsh / State / light / bottom. Recorded readiness, probes, and capability status.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Readiness evidence"
+      ]
+    },
+    {
+      "number": 91,
+      "file": "screenshots/091_gmsh_matrix_light_bottom.jpg",
+      "provider": "Gmsh",
+      "tab": "Matrix",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "53060e200fc21d2c9ce7c6111d623c96b842e1135a16aee3594634508fcd463f",
+      "bytes": 394256,
+      "caption": "Gmsh / Matrix / light / bottom. Capability support and qualification matrix.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Runtime matrix"
+      ]
+    },
+    {
+      "number": 92,
+      "file": "screenshots/092_gmsh_environment_light_bottom.jpg",
+      "provider": "Gmsh",
+      "tab": "Environment",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "6b91f2b5b8390587f6f56714cea72b4d71f39f6e96f8c42541064b6acf00e062",
+      "bytes": 410999,
+      "caption": "Gmsh / Environment / light / bottom. Runtime environment and dependency details.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Candidate environment definition"
+      ]
+    },
+    {
+      "number": 93,
+      "file": "screenshots/093_gmsh_commands_light_bottom.jpg",
+      "provider": "Gmsh",
+      "tab": "Commands",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "c9307f9aea175d8301ace5fdf0cd89e20895a2c881ab7f252e238fdf489aa69e",
+      "bytes": 456382,
+      "caption": "Gmsh / Commands / light / bottom. Provider commands and managed execution controls.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Quick commands / registered recipes",
+        "Parameterized mesh operations"
+      ]
+    },
+    {
+      "number": 94,
+      "file": "screenshots/094_gmsh_tests_light_bottom.jpg",
+      "provider": "Gmsh",
+      "tab": "Tests",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "1a770d24cd7e2d78c03b610c1552207c868282221f5448504b1c649c09b012ed",
+      "bytes": 462835,
+      "caption": "Gmsh / Tests / light / bottom. Managed qualification and acceptance actions.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Gmsh capability coverage",
+        "Capability acceptance tests"
+      ]
+    },
+    {
+      "number": 95,
+      "file": "screenshots/095_gmsh_benchmarks_light_bottom.jpg",
+      "provider": "Gmsh",
+      "tab": "Benchmarks",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "b2416928967e8108568295e9ad767b972c314df5d1acae29ed6434196aca215a",
+      "bytes": 379360,
+      "caption": "Gmsh / Benchmarks / light / bottom. Saved benchmark evidence and measurement controls.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Reproducible benchmarks"
+      ]
+    },
+    {
+      "number": 96,
+      "file": "screenshots/096_gmsh_packages_light_bottom.jpg",
+      "provider": "Gmsh",
+      "tab": "Packages",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "7499cc3d8eaf0bd6507697a4b958e41c0d5d81fa4ed613f3c5764eef19ecda91",
+      "bytes": 466988,
+      "caption": "Gmsh / Packages / light / bottom. Package inventory and runtime dependencies.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Package provenance"
+      ]
+    },
+    {
+      "number": 97,
+      "file": "screenshots/097_gmsh_history_light_bottom.jpg",
+      "provider": "Gmsh",
+      "tab": "History",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "f3f3c3954cde0b4bccd889906b71702fa21cbcc636a1571bee9acc37c22363c2",
+      "bytes": 415699,
+      "caption": "Gmsh / History / light / bottom. Managed job history and saved evidence.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Run history"
+      ]
+    },
+    {
+      "number": 98,
+      "file": "screenshots/098_gmsh_integration_light_bottom.jpg",
+      "provider": "Gmsh",
+      "tab": "Integration",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "5a8c5e7833c4f2b113aaf73c4d0d96bd11c180b8e965128eb8a2713d8f58e393",
+      "bytes": 370366,
+      "caption": "Gmsh / Integration / light / bottom. MATH3D integration and backend selection controls.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Gmsh / MATH3D integration"
+      ]
+    },
+    {
+      "number": 99,
+      "file": "screenshots/099_gmsh_state_dark_top.jpg",
+      "provider": "Gmsh",
+      "tab": "State",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "7d703f35caf4ebbe99751d04135ec4dc7f02bd3186a018ffb4eb41e699101629",
+      "bytes": 387736,
+      "caption": "Gmsh / State / dark / top. Recorded readiness, probes, and capability status.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Readiness evidence"
+      ]
+    },
+    {
+      "number": 100,
+      "file": "screenshots/100_gmsh_matrix_dark_top.jpg",
+      "provider": "Gmsh",
+      "tab": "Matrix",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "1231f27897d317a28ea0ef4381e21320e6370c455448c8b9e0d5384ba944075a",
+      "bytes": 446966,
+      "caption": "Gmsh / Matrix / dark / top. Capability support and qualification matrix.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Runtime matrix"
+      ]
+    },
+    {
+      "number": 101,
+      "file": "screenshots/101_gmsh_environment_dark_top.jpg",
+      "provider": "Gmsh",
+      "tab": "Environment",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "abd53f964fe4d4b779d446731eb98feea6df8d263286e1adf931417610b5ca81",
+      "bytes": 408387,
+      "caption": "Gmsh / Environment / dark / top. Runtime environment and dependency details.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Candidate environment definition"
+      ]
+    },
+    {
+      "number": 102,
+      "file": "screenshots/102_gmsh_commands_dark_top.jpg",
+      "provider": "Gmsh",
+      "tab": "Commands",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "18bf6cd660b4676f4d121ceca38d7c3b826c83f89fb5267a08ec685a984e34c0",
+      "bytes": 462140,
+      "caption": "Gmsh / Commands / dark / top. Provider commands and managed execution controls.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Quick commands / registered recipes",
+        "Parameterized mesh operations"
+      ]
+    },
+    {
+      "number": 103,
+      "file": "screenshots/103_gmsh_tests_dark_top.jpg",
+      "provider": "Gmsh",
+      "tab": "Tests",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "f55e256421298e0d4bda891ad21df205565bd420d13f028c8737887f40dd943d",
+      "bytes": 470601,
+      "caption": "Gmsh / Tests / dark / top. Managed qualification and acceptance actions.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Gmsh capability coverage",
+        "Capability acceptance tests"
+      ]
+    },
+    {
+      "number": 104,
+      "file": "screenshots/104_gmsh_benchmarks_dark_top.jpg",
+      "provider": "Gmsh",
+      "tab": "Benchmarks",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "4c5f7aaba5ac238b35c834680313a7a1b704fbccabf4686de48b8dd9ebdbceb6",
+      "bytes": 378935,
+      "caption": "Gmsh / Benchmarks / dark / top. Saved benchmark evidence and measurement controls.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Reproducible benchmarks"
+      ]
+    },
+    {
+      "number": 105,
+      "file": "screenshots/105_gmsh_packages_dark_top.jpg",
+      "provider": "Gmsh",
+      "tab": "Packages",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "e9f9f3ad0f22dbf79fdfdd2cf857b7a06969443237e45fec87194b51ec3bb1bc",
+      "bytes": 466845,
+      "caption": "Gmsh / Packages / dark / top. Package inventory and runtime dependencies.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Package provenance"
+      ]
+    },
+    {
+      "number": 106,
+      "file": "screenshots/106_gmsh_history_dark_top.jpg",
+      "provider": "Gmsh",
+      "tab": "History",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "d857c6b7b156f7c0b6e45e46516e028230b42dcf766385a7617a934022dcfe31",
+      "bytes": 415929,
+      "caption": "Gmsh / History / dark / top. Managed job history and saved evidence.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Run history"
+      ]
+    },
+    {
+      "number": 107,
+      "file": "screenshots/107_gmsh_integration_dark_top.jpg",
+      "provider": "Gmsh",
+      "tab": "Integration",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "066d0ed720a9772f4765daebcae3e85aba3bec409ae000cc4901715824c2d6ad",
+      "bytes": 369497,
+      "caption": "Gmsh / Integration / dark / top. MATH3D integration and backend selection controls.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Gmsh / MATH3D integration"
+      ]
+    },
+    {
+      "number": 108,
+      "file": "screenshots/108_gmsh_state_dark_bottom.jpg",
+      "provider": "Gmsh",
+      "tab": "State",
+      "theme": "dark",
+      "position": "bottom",
+      "sha256": "4190f2d8fc6ee6b0f561bebba21e814c7216253a91ec5a5fb2080c3c87d38274",
+      "bytes": 391214,
+      "caption": "Gmsh / State / dark / bottom. Recorded readiness, probes, and capability status.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Readiness evidence"
+      ]
+    },
+    {
+      "number": 109,
+      "file": "screenshots/109_gmsh_matrix_dark_bottom.jpg",
+      "provider": "Gmsh",
+      "tab": "Matrix",
+      "theme": "dark",
+      "position": "bottom",
+      "sha256": "e55898ae53fb52a259010bd495c27799b440cf4e5fc34aa61d2ae604d6baeb48",
+      "bytes": 391756,
+      "caption": "Gmsh / Matrix / dark / bottom. Capability support and qualification matrix.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Runtime matrix"
+      ]
+    },
+    {
+      "number": 110,
+      "file": "screenshots/110_gmsh_environment_dark_bottom.jpg",
+      "provider": "Gmsh",
+      "tab": "Environment",
+      "theme": "dark",
+      "position": "bottom",
+      "sha256": "8a21c82df280b93dfa0d5a66dfadd47cdb854eb308eb6e611a24cbb9f724705b",
+      "bytes": 409525,
+      "caption": "Gmsh / Environment / dark / bottom. Runtime environment and dependency details.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Candidate environment definition"
+      ]
+    },
+    {
+      "number": 111,
+      "file": "screenshots/111_gmsh_commands_dark_bottom.jpg",
+      "provider": "Gmsh",
+      "tab": "Commands",
+      "theme": "dark",
+      "position": "bottom",
+      "sha256": "c684e18a87443236924f812223734fa45042893bfcea2f36b3be3533dfc79932",
+      "bytes": 457165,
+      "caption": "Gmsh / Commands / dark / bottom. Provider commands and managed execution controls.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Quick commands / registered recipes",
+        "Parameterized mesh operations"
+      ]
+    },
+    {
+      "number": 112,
+      "file": "screenshots/112_gmsh_tests_dark_bottom.jpg",
+      "provider": "Gmsh",
+      "tab": "Tests",
+      "theme": "dark",
+      "position": "bottom",
+      "sha256": "27d89704e8229a8753db68d4b429265893904ef4b472519394020859b91f9c77",
+      "bytes": 462028,
+      "caption": "Gmsh / Tests / dark / bottom. Managed qualification and acceptance actions.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Gmsh capability coverage",
+        "Capability acceptance tests"
+      ]
+    },
+    {
+      "number": 113,
+      "file": "screenshots/113_gmsh_benchmarks_dark_bottom.jpg",
+      "provider": "Gmsh",
+      "tab": "Benchmarks",
+      "theme": "dark",
+      "position": "bottom",
+      "sha256": "56831298e128e54fab5e4b28d78b078a93dda025783a50e254a3c11cb4b7644f",
+      "bytes": 378296,
+      "caption": "Gmsh / Benchmarks / dark / bottom. Saved benchmark evidence and measurement controls.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Reproducible benchmarks"
+      ]
+    },
+    {
+      "number": 114,
+      "file": "screenshots/114_gmsh_packages_dark_bottom.jpg",
+      "provider": "Gmsh",
+      "tab": "Packages",
+      "theme": "dark",
+      "position": "bottom",
+      "sha256": "6b5ceda62464ed6928ba9b4148aac7f7b6d2fb057a9cece9d4fd03f07d3d4e78",
+      "bytes": 463470,
+      "caption": "Gmsh / Packages / dark / bottom. Package inventory and runtime dependencies.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Package provenance"
+      ]
+    },
+    {
+      "number": 115,
+      "file": "screenshots/115_gmsh_history_dark_bottom.jpg",
+      "provider": "Gmsh",
+      "tab": "History",
+      "theme": "dark",
+      "position": "bottom",
+      "sha256": "2bb891a15d540b90358e2f7e67e4650c66920f75a23e94bf9fef114fee9bbc7d",
+      "bytes": 415675,
+      "caption": "Gmsh / History / dark / bottom. Managed job history and saved evidence.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Run history"
+      ]
+    },
+    {
+      "number": 116,
+      "file": "screenshots/116_gmsh_integration_dark_bottom.jpg",
+      "provider": "Gmsh",
+      "tab": "Integration",
+      "theme": "dark",
+      "position": "bottom",
+      "sha256": "3a3c2ed857e3fa92d92380bbc96c2142e6bd2c48fa1a3019eabd1b7279a69c44",
+      "bytes": 369179,
+      "caption": "Gmsh / Integration / dark / bottom. MATH3D integration and backend selection controls.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Gmsh / MATH3D integration"
+      ]
+    },
+    {
+      "number": 117,
+      "file": "screenshots/117_gmsh_state_light_middle.jpg",
+      "provider": "Gmsh",
+      "tab": "State",
+      "theme": "light",
+      "position": "middle",
+      "sha256": "a62a9a914db46579c320072a69d4047f311967968e965922bda0e5ca8079ebd5",
+      "bytes": 395652,
+      "caption": "Gmsh / State / light / middle. Recorded readiness, probes, and capability status.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Readiness evidence"
+      ]
+    },
+    {
+      "number": 118,
+      "file": "screenshots/118_gmsh_matrix_light_middle.jpg",
+      "provider": "Gmsh",
+      "tab": "Matrix",
+      "theme": "light",
+      "position": "middle",
+      "sha256": "d122873ac422a81da332e2f378c66d9578f9bb328f7315a957ff45d9e621eeee",
+      "bytes": 427907,
+      "caption": "Gmsh / Matrix / light / middle. Capability support and qualification matrix.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Runtime matrix"
+      ]
+    },
+    {
+      "number": 119,
+      "file": "screenshots/119_gmsh_environment_light_middle.jpg",
+      "provider": "Gmsh",
+      "tab": "Environment",
+      "theme": "light",
+      "position": "middle",
+      "sha256": "a6bde7bb7eecfcfaf0e4d0c89d0c470712cd6bcc4fbb09224465d76174c5e3a3",
+      "bytes": 413553,
+      "caption": "Gmsh / Environment / light / middle. Runtime environment and dependency details.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Candidate environment definition"
+      ]
+    },
+    {
+      "number": 120,
+      "file": "screenshots/120_gmsh_commands_light_middle.jpg",
+      "provider": "Gmsh",
+      "tab": "Commands",
+      "theme": "light",
+      "position": "middle",
+      "sha256": "a96ddf907688eddfe056233439a02bcea452d092f0bbf5da105fdf4b83c21342",
+      "bytes": 509185,
+      "caption": "Gmsh / Commands / light / middle. Provider commands and managed execution controls.",
+      "visibleHeadings": [
+        "Gmsh / Windows Native",
+        "Quick commands / registered recipes",
+        "Parameterized mesh operations"
+      ]
+    },
+    {
+      "number": 121,
+      "file": "screenshots/121_sagemath_state_light_top.jpg",
+      "provider": "SageMath",
+      "tab": "State",
+      "theme": "light",
+      "position": "top",
+      "sha256": "7ff5aae8cf7f65e3aebd9ffeeb03e8c341e3abcb3281f878801fda18d7f3df9e",
+      "bytes": 348597,
+      "caption": "SageMath / State / light / top. Recorded readiness, probes, and capability status.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Not configured"
+      ]
+    },
+    {
+      "number": 122,
+      "file": "screenshots/122_sagemath_matrix_light_top.jpg",
+      "provider": "SageMath",
+      "tab": "Matrix",
+      "theme": "light",
+      "position": "top",
+      "sha256": "06b0c9cc4763b10fc5b41eb3c1aad90818ef2bd51421310e8014e28dddb0dc09",
+      "bytes": 440169,
+      "caption": "SageMath / Matrix / light / top. Capability support and qualification matrix.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Runtime matrix"
+      ]
+    },
+    {
+      "number": 123,
+      "file": "screenshots/123_sagemath_environment_light_top.jpg",
+      "provider": "SageMath",
+      "tab": "Environment",
+      "theme": "light",
+      "position": "top",
+      "sha256": "f571d3b9acbd1d5505174308047ba78ab0642878ffc3ab502f8fa1a25eeff2c7",
+      "bytes": 382341,
+      "caption": "SageMath / Environment / light / top. Runtime environment and dependency details.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Candidate environment definition"
+      ]
+    },
+    {
+      "number": 124,
+      "file": "screenshots/124_sagemath_packages_light_top.jpg",
+      "provider": "SageMath",
+      "tab": "Packages",
+      "theme": "light",
+      "position": "top",
+      "sha256": "c043f807d834445dae1bf7bdab408665528213e97be492577f516ccdaa0e85f5",
+      "bytes": 338509,
+      "caption": "SageMath / Packages / light / top. Package inventory and runtime dependencies.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Package provenance"
+      ]
+    },
+    {
+      "number": 125,
+      "file": "screenshots/125_sagemath_history_light_top.jpg",
+      "provider": "SageMath",
+      "tab": "History",
+      "theme": "light",
+      "position": "top",
+      "sha256": "0891216ee259cba1d017dc6ca62e63c290bbed4607e7186c6ae2c3799c2f828e",
+      "bytes": 375332,
+      "caption": "SageMath / History / light / top. Managed job history and saved evidence.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Run history"
+      ]
+    },
+    {
+      "number": 126,
+      "file": "screenshots/126_sagemath_state_light_bottom.jpg",
+      "provider": "SageMath",
+      "tab": "State",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "3b300cee765de8dd27c20dbaba943b16a38386f28f4062da9318fe3ad1b28c51",
+      "bytes": 350972,
+      "caption": "SageMath / State / light / bottom. Recorded readiness, probes, and capability status.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Not configured"
+      ]
+    },
+    {
+      "number": 127,
+      "file": "screenshots/127_sagemath_matrix_light_bottom.jpg",
+      "provider": "SageMath",
+      "tab": "Matrix",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "96f3e66dbe262a01acf8eb305cdba541314b0d71605b30e65c9c158bd5349cb0",
+      "bytes": 397522,
+      "caption": "SageMath / Matrix / light / bottom. Capability support and qualification matrix.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Runtime matrix"
+      ]
+    },
+    {
+      "number": 128,
+      "file": "screenshots/128_sagemath_environment_light_bottom.jpg",
+      "provider": "SageMath",
+      "tab": "Environment",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "dc8561293ced2e764f33f165dbd9540272bc906c3dbf47d716b3a4aa178ca63c",
+      "bytes": 383714,
+      "caption": "SageMath / Environment / light / bottom. Runtime environment and dependency details.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Candidate environment definition"
+      ]
+    },
+    {
+      "number": 129,
+      "file": "screenshots/129_sagemath_packages_light_bottom.jpg",
+      "provider": "SageMath",
+      "tab": "Packages",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "f0d936c484d52c4f19889f13d61f905b7fb2041378549547b08ac1b4be8fcabf",
+      "bytes": 341131,
+      "caption": "SageMath / Packages / light / bottom. Package inventory and runtime dependencies.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Package provenance"
+      ]
+    },
+    {
+      "number": 130,
+      "file": "screenshots/130_sagemath_history_light_bottom.jpg",
+      "provider": "SageMath",
+      "tab": "History",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "7e741c2398fd6dab207c3fb92125048b2d61d2b965cfc9792e3cb01cd1b36f30",
+      "bytes": 376687,
+      "caption": "SageMath / History / light / bottom. Managed job history and saved evidence.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Run history"
+      ]
+    },
+    {
+      "number": 131,
+      "file": "screenshots/131_sagemath_state_dark_top.jpg",
+      "provider": "SageMath",
+      "tab": "State",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "891ecd82979c9b3eae76b89defd7be1f4f30aefbebf6f64fad069f4c7169c782",
+      "bytes": 347165,
+      "caption": "SageMath / State / dark / top. Recorded readiness, probes, and capability status.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Not configured"
+      ]
+    },
+    {
+      "number": 132,
+      "file": "screenshots/132_sagemath_matrix_dark_top.jpg",
+      "provider": "SageMath",
+      "tab": "Matrix",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "2386f5ee3dfd4f63fe20141a260f65b2cbd5c434dc6a9b45bf81e0ea2fdd162f",
+      "bytes": 434715,
+      "caption": "SageMath / Matrix / dark / top. Capability support and qualification matrix.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Runtime matrix"
+      ]
+    },
+    {
+      "number": 133,
+      "file": "screenshots/133_sagemath_environment_dark_top.jpg",
+      "provider": "SageMath",
+      "tab": "Environment",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "bbff55d6a8e86f801b941ffb928e26c00f6a787128369d703eb177f61661eab2",
+      "bytes": 387734,
+      "caption": "SageMath / Environment / dark / top. Runtime environment and dependency details.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Candidate environment definition"
+      ]
+    },
+    {
+      "number": 134,
+      "file": "screenshots/134_sagemath_packages_dark_top.jpg",
+      "provider": "SageMath",
+      "tab": "Packages",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "7dcc0e3918a48bc898a8e9cfe18e5f33e0195f77809b2d2d7a0e52bfcb96f883",
+      "bytes": 341563,
+      "caption": "SageMath / Packages / dark / top. Package inventory and runtime dependencies.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Package provenance"
+      ]
+    },
+    {
+      "number": 135,
+      "file": "screenshots/135_sagemath_history_dark_top.jpg",
+      "provider": "SageMath",
+      "tab": "History",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "b9873be8cd9a8fd092df00a4679957909078a548fb0a1580bf36fd0408a85170",
+      "bytes": 375000,
+      "caption": "SageMath / History / dark / top. Managed job history and saved evidence.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Run history"
+      ]
+    },
+    {
+      "number": 136,
+      "file": "screenshots/136_sagemath_state_dark_bottom.jpg",
+      "provider": "SageMath",
+      "tab": "State",
+      "theme": "dark",
+      "position": "bottom",
+      "sha256": "390990fd6704256781542ac7fd21e3ded724ccdfea73de138ebc2589cf7ed466",
+      "bytes": 349188,
+      "caption": "SageMath / State / dark / bottom. Recorded readiness, probes, and capability status.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Not configured"
+      ]
+    },
+    {
+      "number": 137,
+      "file": "screenshots/137_sagemath_matrix_dark_bottom.jpg",
+      "provider": "SageMath",
+      "tab": "Matrix",
+      "theme": "dark",
+      "position": "bottom",
+      "sha256": "9c7d395aea428b4f8d79f0a4a465a8046dd45d039ec2fbb421276b3400e1bf23",
+      "bytes": 395366,
+      "caption": "SageMath / Matrix / dark / bottom. Capability support and qualification matrix.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Runtime matrix"
+      ]
+    },
+    {
+      "number": 138,
+      "file": "screenshots/138_sagemath_environment_dark_bottom.jpg",
+      "provider": "SageMath",
+      "tab": "Environment",
+      "theme": "dark",
+      "position": "bottom",
+      "sha256": "32a82d818b6a5f83db4abe2de45abc3c8c0c7a2cc71dc124f1503edcd6655b2d",
+      "bytes": 382534,
+      "caption": "SageMath / Environment / dark / bottom. Runtime environment and dependency details.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Candidate environment definition"
+      ]
+    },
+    {
+      "number": 139,
+      "file": "screenshots/139_sagemath_packages_dark_bottom.jpg",
+      "provider": "SageMath",
+      "tab": "Packages",
+      "theme": "dark",
+      "position": "bottom",
+      "sha256": "d211a1303410453ab3b16a51bd1857820a8248379a0249d7929c6596603a6011",
+      "bytes": 339487,
+      "caption": "SageMath / Packages / dark / bottom. Package inventory and runtime dependencies.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Package provenance"
+      ]
+    },
+    {
+      "number": 140,
+      "file": "screenshots/140_sagemath_history_dark_bottom.jpg",
+      "provider": "SageMath",
+      "tab": "History",
+      "theme": "dark",
+      "position": "bottom",
+      "sha256": "12ca951730e511ffe713a5083a4616185cb4c5a90e4c570dcd325dd98de7fb7c",
+      "bytes": 376220,
+      "caption": "SageMath / History / dark / bottom. Managed job history and saved evidence.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Run history"
+      ]
+    },
+    {
+      "number": 141,
+      "file": "screenshots/141_sagemath_state_light_middle.jpg",
+      "provider": "SageMath",
+      "tab": "State",
+      "theme": "light",
+      "position": "middle",
+      "sha256": "6a53ce931699790da8fd51dfe8239ca840777438e89a7769e974e77afce0c8a8",
+      "bytes": 354594,
+      "caption": "SageMath / State / light / middle. Recorded readiness, probes, and capability status.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Not configured"
+      ]
+    },
+    {
+      "number": 142,
+      "file": "screenshots/142_sagemath_matrix_light_middle.jpg",
+      "provider": "SageMath",
+      "tab": "Matrix",
+      "theme": "light",
+      "position": "middle",
+      "sha256": "79d705df510fd899397d6f28f792fa36a4843ba25fe6e08069e2c0de67a68ca9",
+      "bytes": 437581,
+      "caption": "SageMath / Matrix / light / middle. Capability support and qualification matrix.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Runtime matrix"
+      ]
+    },
+    {
+      "number": 143,
+      "file": "screenshots/143_sagemath_environment_light_middle.jpg",
+      "provider": "SageMath",
+      "tab": "Environment",
+      "theme": "light",
+      "position": "middle",
+      "sha256": "9a25c7973cf93d052d90c2b4c9002baf4b324109c70a9af53364c09af893e026",
+      "bytes": 384824,
+      "caption": "SageMath / Environment / light / middle. Runtime environment and dependency details.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Candidate environment definition"
+      ]
+    },
+    {
+      "number": 144,
+      "file": "screenshots/144_sagemath_packages_light_middle.jpg",
+      "provider": "SageMath",
+      "tab": "Packages",
+      "theme": "light",
+      "position": "middle",
+      "sha256": "389cd7f50c30d9a672f69ef20dd08cdd9354a4046ac170795a7d4959cda60011",
+      "bytes": 342717,
+      "caption": "SageMath / Packages / light / middle. Package inventory and runtime dependencies.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Package provenance"
+      ]
+    },
+    {
+      "number": 145,
+      "file": "screenshots/145_sagemath_history_light_middle.jpg",
+      "provider": "SageMath",
+      "tab": "History",
+      "theme": "light",
+      "position": "middle",
+      "sha256": "86351eab5a2c5901301b0550ee4b33f2a0760c05ddde3704e085b79129e68dea",
+      "bytes": 381909,
+      "caption": "SageMath / History / light / middle. Managed job history and saved evidence.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Run history"
+      ]
+    },
+    {
+      "number": 146,
+      "file": "screenshots/146_sagemath_state_dark_middle.jpg",
+      "provider": "SageMath",
+      "tab": "State",
+      "theme": "dark",
+      "position": "middle",
+      "sha256": "64a8d786330dcbdeceaa2132f633bf9f0bb6105d78ada6e682522eda3117d353",
+      "bytes": 352573,
+      "caption": "SageMath / State / dark / middle. Recorded readiness, probes, and capability status.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Not configured"
+      ]
+    },
+    {
+      "number": 147,
+      "file": "screenshots/147_sagemath_matrix_dark_middle.jpg",
+      "provider": "SageMath",
+      "tab": "Matrix",
+      "theme": "dark",
+      "position": "middle",
+      "sha256": "e0f0db7809bb95c21a7dcf1ca5a81f7dc18db9a7a7bcda8913d4b47150703fb1",
+      "bytes": 435796,
+      "caption": "SageMath / Matrix / dark / middle. Capability support and qualification matrix.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Runtime matrix"
+      ]
+    },
+    {
+      "number": 148,
+      "file": "screenshots/148_sagemath_environment_dark_middle.jpg",
+      "provider": "SageMath",
+      "tab": "Environment",
+      "theme": "dark",
+      "position": "middle",
+      "sha256": "4196bc7d53304b9eb16caea333f19551dcf2328644ea72249f0943e1b55b10d0",
+      "bytes": 382405,
+      "caption": "SageMath / Environment / dark / middle. Runtime environment and dependency details.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Candidate environment definition"
+      ]
+    },
+    {
+      "number": 149,
+      "file": "screenshots/149_sagemath_packages_dark_middle.jpg",
+      "provider": "SageMath",
+      "tab": "Packages",
+      "theme": "dark",
+      "position": "middle",
+      "sha256": "b257f8d36b73d535984d0afd96f7f0900fe3e39373b1712736e64c48ec411fff",
+      "bytes": 339993,
+      "caption": "SageMath / Packages / dark / middle. Package inventory and runtime dependencies.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Package provenance"
+      ]
+    },
+    {
+      "number": 150,
+      "file": "screenshots/150_sagemath_history_dark_middle.jpg",
+      "provider": "SageMath",
+      "tab": "History",
+      "theme": "dark",
+      "position": "middle",
+      "sha256": "fcbfe50a6ebadc184511c076464ef2c329e8729cf3011cdd16130746fc81e848",
+      "bytes": 380713,
+      "caption": "SageMath / History / dark / middle. Managed job history and saved evidence.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Run history"
+      ]
+    },
+    {
+      "number": 151,
+      "file": "screenshots/151_sagemath_state_light_upper.jpg",
+      "provider": "SageMath",
+      "tab": "State",
+      "theme": "light",
+      "position": "upper",
+      "sha256": "b70e3166b3cd065f4d848c5a64805c8a89abfe9b3d75b3e11a15af0189830dc7",
+      "bytes": 352806,
+      "caption": "SageMath / State / light / upper. Recorded readiness, probes, and capability status.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Not configured"
+      ]
+    },
+    {
+      "number": 152,
+      "file": "screenshots/152_sagemath_matrix_light_upper.jpg",
+      "provider": "SageMath",
+      "tab": "Matrix",
+      "theme": "light",
+      "position": "upper",
+      "sha256": "adab4a576e12328a5c09fc71e452b230c620e0e5edde88a8e168e56fae9f8bdd",
+      "bytes": 456768,
+      "caption": "SageMath / Matrix / light / upper. Capability support and qualification matrix.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Runtime matrix"
+      ]
+    },
+    {
+      "number": 153,
+      "file": "screenshots/153_sagemath_environment_light_upper.jpg",
+      "provider": "SageMath",
+      "tab": "Environment",
+      "theme": "light",
+      "position": "upper",
+      "sha256": "88cd61264e3b31b79ca0d9d4c526a9b27a2e78a706580bc62f8f5dcc20ae0c17",
+      "bytes": 382713,
+      "caption": "SageMath / Environment / light / upper. Runtime environment and dependency details.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Candidate environment definition"
+      ]
+    },
+    {
+      "number": 154,
+      "file": "screenshots/154_sagemath_packages_light_upper.jpg",
+      "provider": "SageMath",
+      "tab": "Packages",
+      "theme": "light",
+      "position": "upper",
+      "sha256": "fe5591b3386f72a3067ccede886f71f1b0855e445aa25b4a32a853935074e577",
+      "bytes": 344794,
+      "caption": "SageMath / Packages / light / upper. Package inventory and runtime dependencies.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Package provenance"
+      ]
+    },
+    {
+      "number": 155,
+      "file": "screenshots/155_sagemath_history_light_upper.jpg",
+      "provider": "SageMath",
+      "tab": "History",
+      "theme": "light",
+      "position": "upper",
+      "sha256": "dfb4ce09104950a696bfd98bc4d0ded6d70a59130af2ae1268219582ce933716",
+      "bytes": 382010,
+      "caption": "SageMath / History / light / upper. Managed job history and saved evidence.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Run history"
+      ]
+    },
+    {
+      "number": 156,
+      "file": "screenshots/156_sagemath_state_dark_lower.jpg",
+      "provider": "SageMath",
+      "tab": "State",
+      "theme": "dark",
+      "position": "lower",
+      "sha256": "9a26b5107ffc031d54cf08d270e0a68c5ccb64bf34d0cce0d9bf439fe02e543a",
+      "bytes": 352910,
+      "caption": "SageMath / State / dark / lower. Recorded readiness, probes, and capability status.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Not configured"
+      ]
+    },
+    {
+      "number": 157,
+      "file": "screenshots/157_sagemath_matrix_dark_lower.jpg",
+      "provider": "SageMath",
+      "tab": "Matrix",
+      "theme": "dark",
+      "position": "lower",
+      "sha256": "f0c1daaef1250acf0840ff0d60ebf9a8bf5fc7875a053016345451a9cda6546b",
+      "bytes": 423173,
+      "caption": "SageMath / Matrix / dark / lower. Capability support and qualification matrix.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Runtime matrix"
+      ]
+    },
+    {
+      "number": 158,
+      "file": "screenshots/158_sagemath_environment_dark_lower.jpg",
+      "provider": "SageMath",
+      "tab": "Environment",
+      "theme": "dark",
+      "position": "lower",
+      "sha256": "5c59cb379f523c3266cc24febb09d225558f0944e90aa005008fa261fa19665c",
+      "bytes": 385013,
+      "caption": "SageMath / Environment / dark / lower. Runtime environment and dependency details.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Candidate environment definition"
+      ]
+    },
+    {
+      "number": 159,
+      "file": "screenshots/159_sagemath_packages_dark_lower.jpg",
+      "provider": "SageMath",
+      "tab": "Packages",
+      "theme": "dark",
+      "position": "lower",
+      "sha256": "3cbacd65a680d13b6c7ccaab8aa9960a2adaae5147c51b89103e61defe123e4b",
+      "bytes": 338820,
+      "caption": "SageMath / Packages / dark / lower. Package inventory and runtime dependencies.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Package provenance"
+      ]
+    },
+    {
+      "number": 160,
+      "file": "screenshots/160_sagemath_history_dark_lower.jpg",
+      "provider": "SageMath",
+      "tab": "History",
+      "theme": "dark",
+      "position": "lower",
+      "sha256": "df35a05c81c2f7e97128c5326b63cd9b4f9b96a86c17334a505ccef7afd7bada",
+      "bytes": 388931,
+      "caption": "SageMath / History / dark / lower. Managed job history and saved evidence.",
+      "visibleHeadings": [
+        "SageMath / Windows Native",
+        "Run history"
+      ]
+    },
+    {
+      "number": 161,
+      "file": "screenshots/161_python-scipy_state_light_top.jpg",
+      "provider": "Python / SciPy",
+      "tab": "State",
+      "theme": "light",
+      "position": "top",
+      "sha256": "0fd824777bf0fedbd94c324020ef85e03491f29d896b94d6390af263fbe19b7b",
+      "bytes": 370631,
+      "caption": "Python / SciPy / State / light / top. Recorded readiness, probes, and capability status.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Readiness evidence"
+      ]
+    },
+    {
+      "number": 162,
+      "file": "screenshots/162_python-scipy_matrix_light_top.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Matrix",
+      "theme": "light",
+      "position": "top",
+      "sha256": "4574b5f8cb5a5eb7381a511c9b5363a7158a8e69d3ba0d78b8454b3951e48424",
+      "bytes": 448044,
+      "caption": "Python / SciPy / Matrix / light / top. Capability support and qualification matrix.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Runtime matrix"
+      ]
+    },
+    {
+      "number": 163,
+      "file": "screenshots/163_python-scipy_environment_light_top.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Environment",
+      "theme": "light",
+      "position": "top",
+      "sha256": "4c5e1ede4803668583d67c9397d3ed0eb81b4444030a567127588939b19c1352",
+      "bytes": 407266,
+      "caption": "Python / SciPy / Environment / light / top. Runtime environment and dependency details.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Candidate environment definition"
+      ]
+    },
+    {
+      "number": 164,
+      "file": "screenshots/164_python-scipy_tests_light_top.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Tests",
+      "theme": "light",
+      "position": "top",
+      "sha256": "9fef9d776b25b447e492a9ccd5ad37a9c049655d8560cd20dedb6c3077cbef53",
+      "bytes": 468439,
+      "caption": "Python / SciPy / Tests / light / top. Managed qualification and acceptance actions.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Python / SciPy capability coverage",
+        "Capability acceptance tests"
+      ]
+    },
+    {
+      "number": 165,
+      "file": "screenshots/165_python-scipy_benchmarks_light_top.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Benchmarks",
+      "theme": "light",
+      "position": "top",
+      "sha256": "0ebe645916a6f18368633646f7962ff7628e99780ba5b90afc04f8dbe22c64ee",
+      "bytes": 373193,
+      "caption": "Python / SciPy / Benchmarks / light / top. Saved benchmark evidence and measurement controls.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Reproducible benchmarks"
+      ]
+    },
+    {
+      "number": 166,
+      "file": "screenshots/166_python-scipy_packages_light_top.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Packages",
+      "theme": "light",
+      "position": "top",
+      "sha256": "3be3dd9338d3a00a16028d133e7f089969fa523d1f12490508644a17144cda77",
+      "bytes": 355491,
+      "caption": "Python / SciPy / Packages / light / top. Package inventory and runtime dependencies.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Package provenance"
+      ]
+    },
+    {
+      "number": 167,
+      "file": "screenshots/167_python-scipy_history_light_top.jpg",
+      "provider": "Python / SciPy",
+      "tab": "History",
+      "theme": "light",
+      "position": "top",
+      "sha256": "1b530c855cf284e9688d62eb92034e7ec241b4f9a8a2e8abff5ab6cac5ac4807",
+      "bytes": 409199,
+      "caption": "Python / SciPy / History / light / top. Managed job history and saved evidence.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Run history"
+      ]
+    },
+    {
+      "number": 168,
+      "file": "screenshots/168_python-scipy_integration_light_top.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Integration",
+      "theme": "light",
+      "position": "top",
+      "sha256": "bebcde133112779ca7f0b2b70dedd110725df3e3afe3a95d99608878754f8282",
+      "bytes": 365264,
+      "caption": "Python / SciPy / Integration / light / top. MATH3D integration and backend selection controls.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Python / SciPy / MATH3D integration"
+      ]
+    },
+    {
+      "number": 169,
+      "file": "screenshots/169_python-scipy_state_light_bottom.jpg",
+      "provider": "Python / SciPy",
+      "tab": "State",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "e29e6f3318c31424e7378b2ddcdcdc7833f4d27e84453fcdc53ff3cd93c9729d",
+      "bytes": 366112,
+      "caption": "Python / SciPy / State / light / bottom. Recorded readiness, probes, and capability status.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Readiness evidence"
+      ]
+    },
+    {
+      "number": 170,
+      "file": "screenshots/170_python-scipy_matrix_light_bottom.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Matrix",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "6cc7ae52011756dd7d0f1c04a10a66df22dfbdd5bb0e6e275f3b29808cd28885",
+      "bytes": 388302,
+      "caption": "Python / SciPy / Matrix / light / bottom. Capability support and qualification matrix.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Runtime matrix"
+      ]
+    },
+    {
+      "number": 171,
+      "file": "screenshots/171_python-scipy_environment_light_bottom.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Environment",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "1661ca93eea46627b7e88186165a651c7101bbab1c9e89449683b6a0724baf5e",
+      "bytes": 408762,
+      "caption": "Python / SciPy / Environment / light / bottom. Runtime environment and dependency details.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Candidate environment definition"
+      ]
+    },
+    {
+      "number": 172,
+      "file": "screenshots/172_python-scipy_tests_light_bottom.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Tests",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "cdc21c31ea3ff8b088c2bc212ee4920b4bd9b3444818868d5733f99992d9b908",
+      "bytes": 451004,
+      "caption": "Python / SciPy / Tests / light / bottom. Managed qualification and acceptance actions.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Python / SciPy capability coverage",
+        "Capability acceptance tests"
+      ]
+    },
+    {
+      "number": 173,
+      "file": "screenshots/173_python-scipy_benchmarks_light_bottom.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Benchmarks",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "823aa8e0a780f9fe5feacf41cc3009ac1e4efca68005ce4b012b302285258c25",
+      "bytes": 384818,
+      "caption": "Python / SciPy / Benchmarks / light / bottom. Saved benchmark evidence and measurement controls.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Reproducible benchmarks"
+      ]
+    },
+    {
+      "number": 174,
+      "file": "screenshots/174_python-scipy_packages_light_bottom.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Packages",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "99f18f95ecf76f283af5edec37fa96acfb76044e4ceb920db27cf7e8d5663de7",
+      "bytes": 357840,
+      "caption": "Python / SciPy / Packages / light / bottom. Package inventory and runtime dependencies.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Package provenance"
+      ]
+    },
+    {
+      "number": 175,
+      "file": "screenshots/175_python-scipy_history_light_bottom.jpg",
+      "provider": "Python / SciPy",
+      "tab": "History",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "296946121acd9f6ca69ef41518f40b46a9c3db6ab4db2229472d09502cba42dd",
+      "bytes": 409350,
+      "caption": "Python / SciPy / History / light / bottom. Managed job history and saved evidence.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Run history"
+      ]
+    },
+    {
+      "number": 176,
+      "file": "screenshots/176_python-scipy_integration_light_bottom.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Integration",
+      "theme": "light",
+      "position": "bottom",
+      "sha256": "31ce0e6a47534af705ad92ccdf820edf1e401de3a9e2521cc64f92bc81274d07",
+      "bytes": 366288,
+      "caption": "Python / SciPy / Integration / light / bottom. MATH3D integration and backend selection controls.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Python / SciPy / MATH3D integration"
+      ]
+    },
+    {
+      "number": 177,
+      "file": "screenshots/177_python-scipy_state_dark_top.jpg",
+      "provider": "Python / SciPy",
+      "tab": "State",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "60b8ef5994b8e7f3d58925f38fffd3d5689d94570a43d34f18de78a688a50174",
+      "bytes": 364621,
+      "caption": "Python / SciPy / State / dark / top. Recorded readiness, probes, and capability status.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Readiness evidence"
+      ]
+    },
+    {
+      "number": 178,
+      "file": "screenshots/178_python-scipy_matrix_dark_top.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Matrix",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "e9974e8b0cfeddf798b64aea0eabd4547bfb293c06b208df3c5045dd367ff0b8",
+      "bytes": 448012,
+      "caption": "Python / SciPy / Matrix / dark / top. Capability support and qualification matrix.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Runtime matrix"
+      ]
+    },
+    {
+      "number": 179,
+      "file": "screenshots/179_python-scipy_environment_dark_top.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Environment",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "fd75d938a3547134f81aa0c2d24b0b585586c8f20cb480592aee9f9e3c5338db",
+      "bytes": 406328,
+      "caption": "Python / SciPy / Environment / dark / top. Runtime environment and dependency details.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Candidate environment definition"
+      ]
+    },
+    {
+      "number": 180,
+      "file": "screenshots/180_python-scipy_tests_dark_top.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Tests",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "7c1bdd40363311998c4580a655e22a2c24e19cdd25a868a327359b131ea4bed0",
+      "bytes": 451093,
+      "caption": "Python / SciPy / Tests / dark / top. Managed qualification and acceptance actions.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Python / SciPy capability coverage",
+        "Capability acceptance tests"
+      ]
+    },
+    {
+      "number": 181,
+      "file": "screenshots/181_python-scipy_benchmarks_dark_top.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Benchmarks",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "08c6ac9194edfda98b0bab4a016b121cd49a330f9767a3954f0f911c2a43b5c9",
+      "bytes": 378382,
+      "caption": "Python / SciPy / Benchmarks / dark / top. Saved benchmark evidence and measurement controls.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Reproducible benchmarks"
+      ]
+    },
+    {
+      "number": 182,
+      "file": "screenshots/182_python-scipy_packages_dark_top.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Packages",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "ab955bce8afdff042455a4821c5cd4c2b57b184b2c09b1404962018f82ee6e3e",
+      "bytes": 357931,
+      "caption": "Python / SciPy / Packages / dark / top. Package inventory and runtime dependencies.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Package provenance"
+      ]
+    },
+    {
+      "number": 183,
+      "file": "screenshots/183_python-scipy_history_dark_top.jpg",
+      "provider": "Python / SciPy",
+      "tab": "History",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "ad56730071248515d7cae5938e8108efd41fc5c7890740af5d31d0ee96588f35",
+      "bytes": 410108,
+      "caption": "Python / SciPy / History / dark / top. Managed job history and saved evidence.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Run history"
+      ]
+    },
+    {
+      "number": 184,
+      "file": "screenshots/184_python-scipy_integration_dark_top.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Integration",
+      "theme": "dark",
+      "position": "top",
+      "sha256": "5114a3729d359f011073f38154a5e88261123f0105cba66c519caa2baef81127",
+      "bytes": 364480,
+      "caption": "Python / SciPy / Integration / dark / top. MATH3D integration and backend selection controls.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Python / SciPy / MATH3D integration"
+      ]
+    },
+    {
+      "number": 185,
+      "file": "screenshots/185_python-scipy_state_dark_bottom.jpg",
+      "provider": "Python / SciPy",
+      "tab": "State",
+      "theme": "dark",
+      "position": "bottom",
+      "sha256": "9229cc6efd9df577b1179b8e89f773886aa7ac755b2e8ec2dd7d9406aa753800",
+      "bytes": 365796,
+      "caption": "Python / SciPy / State / dark / bottom. Recorded readiness, probes, and capability status.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Readiness evidence"
+      ]
+    },
+    {
+      "number": 186,
+      "file": "screenshots/186_python-scipy_matrix_dark_bottom.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Matrix",
+      "theme": "dark",
+      "position": "bottom",
+      "sha256": "708fefdc1b5056de41ec30c2b72a3615f04c6fb493df72255cbd2a3983ac3f34",
+      "bytes": 386143,
+      "caption": "Python / SciPy / Matrix / dark / bottom. Capability support and qualification matrix.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Runtime matrix"
+      ]
+    },
+    {
+      "number": 187,
+      "file": "screenshots/187_python-scipy_environment_dark_bottom.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Environment",
+      "theme": "dark",
+      "position": "bottom",
+      "sha256": "ac4103011cc9032da2b57399776496addb7dde1246ac096fe74d46330d956c7c",
+      "bytes": 407521,
+      "caption": "Python / SciPy / Environment / dark / bottom. Runtime environment and dependency details.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Candidate environment definition"
+      ]
+    },
+    {
+      "number": 188,
+      "file": "screenshots/188_python-scipy_tests_dark_bottom.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Tests",
+      "theme": "dark",
+      "position": "bottom",
+      "sha256": "0d92e1b0c704ec575856ecc39a9211f63b0b94283405f1fc43bb89b124c4d3e8",
+      "bytes": 450260,
+      "caption": "Python / SciPy / Tests / dark / bottom. Managed qualification and acceptance actions.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Python / SciPy capability coverage",
+        "Capability acceptance tests"
+      ]
+    },
+    {
+      "number": 189,
+      "file": "screenshots/189_python-scipy_benchmarks_dark_bottom.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Benchmarks",
+      "theme": "dark",
+      "position": "bottom",
+      "sha256": "17cde44fbd714634acfc9c04d60b7c1268b6d86ab24a1e6371e706be7ca095e5",
+      "bytes": 373543,
+      "caption": "Python / SciPy / Benchmarks / dark / bottom. Saved benchmark evidence and measurement controls.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Reproducible benchmarks"
+      ]
+    },
+    {
+      "number": 190,
+      "file": "screenshots/190_python-scipy_packages_dark_bottom.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Packages",
+      "theme": "dark",
+      "position": "bottom",
+      "sha256": "cd0a73f2ecdcfc76eb2bb9123bd3eda6c3c9b0b19652b7076d6ce94ec44fa5a5",
+      "bytes": 355553,
+      "caption": "Python / SciPy / Packages / dark / bottom. Package inventory and runtime dependencies.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Package provenance"
+      ]
+    },
+    {
+      "number": 191,
+      "file": "screenshots/191_python-scipy_history_dark_bottom.jpg",
+      "provider": "Python / SciPy",
+      "tab": "History",
+      "theme": "dark",
+      "position": "bottom",
+      "sha256": "baa273153a41b60bae78bbe479003e03984cd41ad6f0b8b53b929d45eeeff614",
+      "bytes": 409807,
+      "caption": "Python / SciPy / History / dark / bottom. Managed job history and saved evidence.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Run history"
+      ]
+    },
+    {
+      "number": 192,
+      "file": "screenshots/192_python-scipy_integration_dark_bottom.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Integration",
+      "theme": "dark",
+      "position": "bottom",
+      "sha256": "447998ea4536b29c1313db0ede07f0b52b2b630d2eb179f8c0a0a11df55d65c1",
+      "bytes": 365235,
+      "caption": "Python / SciPy / Integration / dark / bottom. MATH3D integration and backend selection controls.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Python / SciPy / MATH3D integration"
+      ]
+    },
+    {
+      "number": 193,
+      "file": "screenshots/193_python-scipy_state_light_middle.jpg",
+      "provider": "Python / SciPy",
+      "tab": "State",
+      "theme": "light",
+      "position": "middle",
+      "sha256": "c3439df6edd122e13c0a8f74a0d3667405411f9b74cd9933b75e2757dfbf510c",
+      "bytes": 371049,
+      "caption": "Python / SciPy / State / light / middle. Recorded readiness, probes, and capability status.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Readiness evidence"
+      ]
+    },
+    {
+      "number": 194,
+      "file": "screenshots/194_python-scipy_matrix_light_middle.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Matrix",
+      "theme": "light",
+      "position": "middle",
+      "sha256": "228ef150ace4f797383e32e5aec838d2a2d83d71f0082e25a9929fb833384ba2",
+      "bytes": 427825,
+      "caption": "Python / SciPy / Matrix / light / middle. Capability support and qualification matrix.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Runtime matrix"
+      ]
+    },
+    {
+      "number": 195,
+      "file": "screenshots/195_python-scipy_environment_light_middle.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Environment",
+      "theme": "light",
+      "position": "middle",
+      "sha256": "0d4ac4332821c24e7ddd4f71ad38d23e6241d7dde6dff5aa111637ea6844c39d",
+      "bytes": 411344,
+      "caption": "Python / SciPy / Environment / light / middle. Runtime environment and dependency details.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Candidate environment definition"
+      ]
+    },
+    {
+      "number": 196,
+      "file": "screenshots/196_python-scipy_tests_light_middle.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Tests",
+      "theme": "light",
+      "position": "middle",
+      "sha256": "1019ea4df80c6719ee040ea5c0e98998abba6164a6274b45f3c51dc3f047ac05",
+      "bytes": 479718,
+      "caption": "Python / SciPy / Tests / light / middle. Managed qualification and acceptance actions.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Python / SciPy capability coverage",
+        "Capability acceptance tests"
+      ]
+    },
+    {
+      "number": 197,
+      "file": "screenshots/197_python-scipy_benchmarks_light_middle.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Benchmarks",
+      "theme": "light",
+      "position": "middle",
+      "sha256": "29ab3947ebb7e11b13429f43ab3fcb92ead4d63e5f4dc6f3c5b6806c42238f4c",
+      "bytes": 378335,
+      "caption": "Python / SciPy / Benchmarks / light / middle. Saved benchmark evidence and measurement controls.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Reproducible benchmarks"
+      ]
+    },
+    {
+      "number": 198,
+      "file": "screenshots/198_python-scipy_packages_light_middle.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Packages",
+      "theme": "light",
+      "position": "middle",
+      "sha256": "dc4c8df5420b9ef99c74ec7547590e64cad0ea216dd53aaaf7d00ec8a0912daa",
+      "bytes": 359302,
+      "caption": "Python / SciPy / Packages / light / middle. Package inventory and runtime dependencies.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Package provenance"
+      ]
+    },
+    {
+      "number": 199,
+      "file": "screenshots/199_python-scipy_history_light_middle.jpg",
+      "provider": "Python / SciPy",
+      "tab": "History",
+      "theme": "light",
+      "position": "middle",
+      "sha256": "44faf689d276dfabb8e61470972410bd256de5c1325dfeb4fc9fa221f737090b",
+      "bytes": 417586,
+      "caption": "Python / SciPy / History / light / middle. Managed job history and saved evidence.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Run history"
+      ]
+    },
+    {
+      "number": 200,
+      "file": "screenshots/200_python-scipy_integration_light_middle.jpg",
+      "provider": "Python / SciPy",
+      "tab": "Integration",
+      "theme": "light",
+      "position": "middle",
+      "sha256": "6e4bf6b5f9afd81af5201d276b82d16b424d2c380b6ed2e1c6b472ee61972fb0",
+      "bytes": 370537,
+      "caption": "Python / SciPy / Integration / light / middle. MATH3D integration and backend selection controls.",
+      "visibleHeadings": [
+        "Python / SciPy / Windows Native",
+        "Python / SciPy / MATH3D integration"
+      ]
+    }
+  ]
+}

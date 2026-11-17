@@ -1,5 +1,11 @@
 # Scientific Runtime Broker (DS-SCI-021/022)
 
+## Candidate typed journey profile
+
+`broker.py` also accepts a `profileKind: "typed-journey"` configuration on the same localhost `/v1/providers`, `/v1/jobs`, `/v1/jobs/{id}/cancel`, `/v1/jobs/{id}/artifacts/{name}`, and `/v1/jobs/{id}/promote` routes. This profile is deliberately reported as **candidate**. It pins one successful saved CGAL Boolean result and its two distinct validated inputs to a source commit and SHA-256. The broker runs the typed Gmsh, VTK, SciPy and pulled MATH3D stages, verifies the new-process cold reopen, and transports only registered hash-checked artifacts. Promotion stays blocked until a current qualified release and signed journey bundle exist; a passing transport job does not grant capability support.
+
+Use `typed_journey_profile.py` with explicit `--source-root`, `--math3d`, `--runs-root`, `--boolean-result`, `--jobs-root`, `--gmsh-python`, `--vtk-python`, `--node`, and `--output` paths. The profile generator rejects changed Boolean artifacts, stale source snapshots and dirty source or consumer checkouts. Run `python tools/scientific-broker/broker.py verify --config <profile.json>` to inspect candidate discovery, then `serve` on a localhost port. `DEVSHELL_TYPED_BROKER_CONFIG=<profile.json> python tests/test_scientific_typed_journey_broker.py` exercises accepted, rejected, changed-artifact and cancelled HTTP jobs, artifact transport and blocked promotion. This draft profile is independent of the existing certified L9 profiles and does not make their historical records current.
+
 The separate Sage exact worker, WSL adapter and managed L3 qualification suite are documented in [SCIENTIFIC_SAGE_WORKER.md](../SCIENTIFIC_SAGE_WORKER.md). These scoped operations are not exported as certified broker capabilities.
 
 This is a separate localhost process. It uses the existing version 1 CGAL worker request/result contract and emits the version 1 `math3d.mesh-product-handoff` consumed by `tools/math3d-l9-product-handoff.mjs`. The renderer does not load CGAL or link its SDK.

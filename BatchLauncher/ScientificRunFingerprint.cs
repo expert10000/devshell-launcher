@@ -148,6 +148,7 @@ public static class ScientificRunFingerprint
         if (recipeId == "workbench.math3d-handoff")
             names.AddRange(new[] { "BatchLauncher/Form1.Scientific.WorkbenchHandoff.cs",
                 "tools/scientific-workbench-math3d-convert.py", "tools/math3d-vtk-read-product.mjs",
+                "tools/math3d-typed-measurement.mjs",
                 "schemas/scientific-workbench-operations.v1.json" });
         if (recipeId is "configure" or "build" or "run" or "test-all" or "compile-link")
         {

@@ -5,6 +5,7 @@ import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { execFileSync } from 'node:child_process'
+import { verifyTypedMeasurement } from './math3d-typed-measurement.mjs'
 
 const args = new Map()
 for (let index = 2; index < process.argv.length; index += 2) args.set(process.argv[index], process.argv[index + 1])
@@ -23,14 +24,23 @@ if (sourceBytes.length < 1 || sourceBytes.length > 32 * 1024 * 1024
 const consumerCommit = execFileSync('git', ['-C', checkout, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
 let provenance = null
 let provenanceSha256 = null
+let typedMeasurement = null
 if (args.has('--provenance')) {
   const bytes = await readFile(resolve(args.get('--provenance')))
   provenanceSha256 = sha(bytes)
   if (provenanceSha256 !== args.get('--provenance-sha')) throw new Error('Workbench handoff provenance changed.')
   provenance = JSON.parse(bytes.toString('utf8'))
-  if (provenance.schemaVersion !== 1 || provenance.kind !== 'scientific.workbench-math3d-handoff'
+  if (provenance.schemaVersion !== 1 || !['scientific.workbench-math3d-handoff', 'scientific.typed-journey'].includes(provenance.kind)
     || provenance.convertedObjSha256 !== sha(sourceBytes) || provenance.math3dCommit !== consumerCommit)
     throw new Error('Workbench artifact or MATH3D consumer identity changed.')
+  if (provenance.kind === 'scientific.typed-journey') {
+    if (!args.has('--measurement') || !args.has('--measurement-sha')) throw new Error('Typed MATH3D handoff requires its SciPy measurement.')
+    const measurementBytes = await readFile(resolve(args.get('--measurement')))
+    if (measurementBytes.length < 1 || measurementBytes.length > 65536) throw new Error('Typed measurement exceeds 64 KiB.')
+    typedMeasurement = verifyTypedMeasurement(measurementBytes, args.get('--measurement-sha'), provenance, sha(sourceBytes), consumerCommit)
+  } else if (args.has('--measurement') || args.has('--measurement-sha')) {
+    throw new Error('A measurement requires typed journey provenance.')
+  }
 }
 
 const renderer = join(checkout, 'renderer')
@@ -79,7 +89,8 @@ try {
     sourceObjSha256: sha(sourceBytes), documentSha256: sha(await readFile(documentPath)),
     resourceSha256: sha(await readFile(resourcePath)), m3dmSha256: sha(await readFile(m3dmPath)),
     documentId: pkg.document.identity.id, structuralHash: pkg.document.identity.structuralHash,
-    points, triangles, consumerCommit, consumerSources, provenanceSha256 }
+    points, triangles, consumerCommit, consumerSources, provenanceSha256,
+    ...(typedMeasurement ? { typedMeasurement, producerPid: process.pid } : {}) }
   await writeFile(join(output, 'product.json'), JSON.stringify(report, null, 2))
   console.log(JSON.stringify({ verdict: report.verdict, documentId: report.documentId, output }))
 } finally {

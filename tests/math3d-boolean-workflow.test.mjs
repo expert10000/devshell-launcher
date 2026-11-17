@@ -12,6 +12,7 @@ import { meshStats } from '../tools/math3d-mesh-comparison.mjs';
 const worker = process.env.DEVSHELL_BOOLEAN_WORKER;
 const gmshPython = process.env.DEVSHELL_SCIENTIFIC_PYTHON;
 const vtkPython = process.env.DEVSHELL_VTK_PYTHON;
+const math3dRoot = process.env.DEVSHELL_MATH3D_ROOT;
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const cube = { vertices: [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]],
   faces: [[0,2,1],[0,3,2],[4,5,6],[4,6,7],[0,1,5],[0,5,4],[1,2,6],[1,6,5],[2,3,7],[2,7,6],[3,0,4],[3,4,7]] };
@@ -123,6 +124,52 @@ test('distinct-input native Boolean result enters bounded Gmsh volume bridge', {
     assert.equal(measured.inputHashes['vtk-analysis'], sha(vtkBytes));
     assert.equal(measured.measurement.unit, 'mm2');
     assert.ok(measured.measurement.value > 0);
+    if (math3dRoot) {
+      const converted = path.join(data.directory, 'converted.obj');
+      const conversion = JSON.parse(execFileSync(vtkPython,
+        ['tools/scientific-workbench-math3d-convert.py', '--source', vtp,
+          '--expected-sha', sha(vtkBytes), '--output', converted],
+        { cwd: path.resolve('.'), encoding: 'utf8', timeout: 120000 }));
+      const measurementPath = path.join(scipyDirectory, 'measurement.json');
+      const measurementBytes = await readFile(measurementPath);
+      const consumerCommit = execFileSync('git', ['-C', math3dRoot, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+      const provenance = { schemaVersion: 1, kind: 'scientific.typed-journey',
+        sourceCommit: 'a'.repeat(40), sourceSnapshotSha256: 'b'.repeat(64),
+        math3dCommit: consumerCommit, convertedObjSha256: conversion.objSha256,
+        vtkArtifactSha256: sha(vtkBytes), measurementSha256: sha(measurementBytes),
+        booleanSourceASha256: boolean.inputArtifacts[0].sha256,
+        booleanSourceBSha256: boolean.inputArtifacts[1].sha256,
+        booleanSurfaceSha256: artifact.sha256, gmshMeshSha256: gmsh.output.sha256,
+        gmshBoundarySha256: boundary.output.sha256,
+        lengthUnit: 'mm', frame: 'world', geometryGeneration: 4,
+        measurementGeneration: 5, consumerGeneration: 6, measurement: measured.measurement };
+      const provenancePath = path.join(data.directory, 'typed-provenance.json');
+      const provenanceBytes = Buffer.from(JSON.stringify(provenance));
+      await writeFile(provenancePath, provenanceBytes);
+      const productDirectory = path.join(data.directory, 'product');
+      execFileSync('node', ['tools/math3d-vtk-read-product.mjs', '--checkout', math3dRoot,
+        '--source', converted, '--expected-sha', conversion.objSha256,
+        '--provenance', provenancePath, '--provenance-sha', sha(provenanceBytes),
+        '--measurement', measurementPath, '--measurement-sha', sha(measurementBytes),
+        '--output', productDirectory], { cwd: path.resolve('.'), encoding: 'utf8', timeout: 180000 });
+      const product = JSON.parse(await readFile(path.join(productDirectory, 'product.json')));
+      assert.equal(product.verdict, 'passed');
+      assert.equal(product.consumerCommit, consumerCommit);
+      assert.equal(product.typedMeasurement.sha256, sha(measurementBytes));
+      assert.equal(product.typedMeasurement.value, measured.measurement.value);
+      const document = JSON.parse(await readFile(path.join(productDirectory, 'vtk-mesh-document.json')));
+      assert.deepEqual(document.source.origin.devshell.measurement, measured.measurement);
+      const coldPath = path.join(data.directory, 'cold-reopen.json');
+      const reopened = JSON.parse(execFileSync('node', ['tools/math3d-typed-cold-reopen.mjs',
+        '--checkout', math3dRoot, '--product', productDirectory,
+        '--provenance', provenancePath, '--output', coldPath],
+      { cwd: path.resolve('.'), encoding: 'utf8', timeout: 180000 }));
+      assert.equal(reopened.verdict, 'passed');
+      assert.equal(reopened.newProcess, true);
+      assert.notEqual(reopened.producerPid, reopened.reopenPid);
+      assert.equal(reopened.documentSha256, product.documentSha256);
+      assert.equal(reopened.measurementSha256, sha(measurementBytes));
+    }
   }
 });
 test('changed source inputs and changed validated operands stop execution', async () => {

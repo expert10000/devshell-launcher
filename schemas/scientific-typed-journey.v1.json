@@ -19,7 +19,7 @@
     "gmsh": ["boolean-surface"],
     "vtk": ["gmsh-boundary"],
     "scipy": ["vtk-analysis"],
-    "math3d": ["gmsh-mesh", "scipy-measurement"],
+    "math3d": ["vtk-analysis", "scipy-measurement"],
     "save": ["math3d-import"],
     "cold-reopen": ["document", "export"]
   },

@@ -66,7 +66,7 @@ class TypedJourneyTests(unittest.TestCase):
     def test_chain_and_cold_reopen_relations(self):
         with tempfile.TemporaryDirectory() as directory:
             fixture(Path(directory))
-            self.assertEqual(journey.verify(directory)['artifacts'], 13)
+            self.assertEqual(journey.verify(directory)['artifacts'], 14)
 
     def test_tampered_payload_and_duplicate_boolean_source_rejected(self):
         with tempfile.TemporaryDirectory() as directory:

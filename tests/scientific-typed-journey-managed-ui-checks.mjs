@@ -88,7 +88,7 @@ try {
   assert.ok(journey.result.artifacts.some(item => item.path === 'vtk/preview.png'))
   await nav.getByRole('button', { name: 'History', exact: true }).click()
   await main.getByRole('button', { name: /Refresh history|Load history/ }).click()
-  await main.locator(`[data-run-id="${journey.name}"]`).getByRole('button', { name: /Details|View|Open/ }).first().click()
+  await main.locator(`[data-run-id="${journey.name}"]`).getByRole('button', { name: 'Result' }).click()
   await main.getByRole('region', { name: 'Saved typed scientific journey' }).getByText('verified-typed-product-relations').waitFor()
   console.log(JSON.stringify({ verdict: 'managed-typed-journey-passed', booleanRunId: boolean.name,
     journeyRunId: journey.name, sourceCommit: journey.result.typedJourney.verification.sourceCommit,

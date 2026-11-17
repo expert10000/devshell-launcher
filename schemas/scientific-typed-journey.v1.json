@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "stageOrder": ["create", "validate", "boolean", "gmsh", "vtk", "scipy", "math3d", "save", "cold-reopen"],
+  "operations": {
+    "create": "mesh.register",
+    "validate": "cgal.validate",
+    "boolean": "cgal.boolean",
+    "gmsh": "gmsh.mesh",
+    "vtk": "mesh.inspect",
+    "scipy": "scipy.measure",
+    "math3d": "math3d.typed-import",
+    "save": "math3d.save-export",
+    "cold-reopen": "math3d.cold-reopen"
+  },
+  "requiredInputs": {
+    "create": [],
+    "validate": ["source-a", "source-b"],
+    "boolean": ["validated-a", "validated-b"],
+    "gmsh": ["boolean-surface"],
+    "vtk": ["gmsh-mesh"],
+    "scipy": ["vtk-analysis"],
+    "math3d": ["gmsh-mesh", "scipy-measurement"],
+    "save": ["math3d-import"],
+    "cold-reopen": ["document", "export"]
+  },
+  "requiredOutputs": {
+    "create": ["source-a", "source-b"],
+    "validate": ["validated-a", "validated-b"],
+    "boolean": ["boolean-surface"],
+    "gmsh": ["gmsh-mesh"],
+    "vtk": ["vtk-analysis"],
+    "scipy": ["scipy-measurement"],
+    "math3d": ["math3d-import"],
+    "save": ["document", "export"],
+    "cold-reopen": ["reopened-document", "reopened-export"]
+  }
+}

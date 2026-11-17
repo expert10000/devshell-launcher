@@ -52,7 +52,7 @@ def fixture(root, duplicate_source=False):
         if name == 'validate':
             result['topology'] = {role: {'closed': True, 'manifold': True, 'positiveVolume': True} for role in inputs}
         if name == 'scipy':
-            result['measurement'] = {'value': 2.5, 'unit': 'mm3', 'tolerance': 0.01}
+            result['measurement'] = {'value': 2.5, 'unit': 'mm2', 'tolerance': 0.01}
         if name == 'cold-reopen':
             result['newProcess'] = True
         evidence = write(root, f'evidence/{name}.json', result)

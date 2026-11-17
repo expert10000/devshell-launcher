@@ -105,7 +105,7 @@ def verify(directory):
             raise ValueError('Boolean demonstration requires two distinct source hashes.')
         if name == 'scipy':
             measurement = result.get('measurement')
-            expected_unit = manifest['lengthUnit'] + '3'
+            expected_unit = manifest['lengthUnit'] + '2'
             if (not isinstance(measurement, dict) or measurement.get('unit') != expected_unit
                     or not isinstance(measurement.get('value'), (float, int)) or not math.isfinite(measurement['value'])
                     or not isinstance(measurement.get('tolerance'), (float, int)) or not math.isfinite(measurement['tolerance'])

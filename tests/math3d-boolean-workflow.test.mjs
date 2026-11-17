@@ -103,14 +103,21 @@ test('distinct-input native Boolean result enters bounded Gmsh volume bridge', {
     assert.equal(boundary.inputHashes['gmsh-mesh'], gmsh.output.sha256);
     const vtkDirectory = path.join(data.directory, 'vtk'); await mkdir(vtkDirectory);
     const vtp = path.join(vtkDirectory, 'analysis.vtp');
-    const vtkScript = "import vtk,json,sys; r=vtk.vtkOBJReader(); r.SetFileName(sys.argv[1]); " +
-      "t=vtk.vtkTriangleFilter(); t.SetInputConnection(r.GetOutputPort()); t.Update(); " +
-      "m=t.GetOutput(); assert m.GetNumberOfPolys()>0; " +
-      "w=vtk.vtkXMLPolyDataWriter(); w.SetFileName(sys.argv[2]); w.SetInputData(m); assert w.Write()==1; " +
-      "print(json.dumps({'points':m.GetNumberOfPoints(),'triangles':m.GetNumberOfPolys()}))";
-    const inspected = JSON.parse(execFileSync(vtkPython, ['-c', vtkScript, path.join(boundaryDirectory, 'boundary.obj'), vtp],
-      { encoding: 'utf8', timeout: 120000 }));
+    const boundaryObj = path.join(boundaryDirectory, 'boundary.obj');
+    const vtkRequest = path.join(vtkDirectory, 'request.json');
+    await writeFile(vtkRequest, JSON.stringify({ schemaVersion: 1, operation: 'mesh.inspect',
+      runId: randomUUID().replaceAll('-', ''), sourceRunId: boundary.runId,
+      sourceCommit: 'a'.repeat(40), sourceSnapshotSha256: 'b'.repeat(64),
+      inputId: 'gmsh-boundary', workingDirectory: vtkDirectory, artifactRoot: data.directory,
+      lengthUnit: 'mm', frame: 'world', inputArtifact: {
+        path: boundaryObj, sha256: boundary.output.sha256, bytes: boundary.output.bytes } }));
+    const inspected = JSON.parse(execFileSync(vtkPython,
+      ['tools/scientific-vtk-boundary-inspect.py', '--request', vtkRequest],
+      { cwd: path.resolve('.'), encoding: 'utf8', timeout: 120000 }));
     assert.ok(inspected.triangles > 12);
+    assert.equal(inspected.inputHashes['gmsh-boundary'], boundary.output.sha256);
+    assert.ok(Math.abs(inspected.enclosedVolume - boolean.after.volume) < 0.02 * boolean.after.volume);
+    assert.equal(sha(await readFile(path.join(vtkDirectory, 'preview.png'))), inspected.preview.sha256);
     const scipyDirectory = path.join(data.directory, 'scipy'); await mkdir(scipyDirectory);
     const scipyRequest = path.join(scipyDirectory, 'request.json');
     const vtkBytes = await readFile(vtp);
@@ -123,7 +130,7 @@ test('distinct-input native Boolean result enters bounded Gmsh volume bridge', {
       { cwd: path.resolve('.'), encoding: 'utf8', timeout: 120000 }));
     assert.equal(measured.inputHashes['vtk-analysis'], sha(vtkBytes));
     assert.equal(measured.measurement.unit, 'mm2');
-    assert.ok(measured.measurement.value > 0);
+    assert.ok(Math.abs(measured.measurement.value - inspected.surfaceArea) <= measured.measurement.tolerance);
     if (math3dRoot) {
       const converted = path.join(data.directory, 'converted.obj');
       const conversion = JSON.parse(execFileSync(vtkPython,

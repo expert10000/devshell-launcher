@@ -28,10 +28,13 @@ public partial class Form1
                 || validated.RootElement.GetProperty("inputArtifacts")[0].GetProperty("sha256").GetString() != operands[index].GetProperty("sha256").GetString())
                 throw new InvalidOperationException($"Boolean input {role.ToUpperInvariant()} lacks matching closed-topology validation.");
         }
-        var surfaceRelative = source.GetProperty("boolean").GetProperty("outputArtifact").GetString() ?? "";
-        var surface = ScientificArtifactFiles.ResolveRegistered(sourceDirectory, source, surfaceRelative);
-        if (Path.GetExtension(surface).ToLowerInvariant() != ".obj" || source.GetProperty("boolean").GetProperty("empty").GetBoolean())
+        if (source.GetProperty("boolean").GetProperty("empty").GetBoolean())
             throw new InvalidOperationException("The Boolean result must be a nonempty registered OBJ surface.");
+        var exportRelative = source.GetProperty("boolean").GetProperty("outputArtifact").GetString() ?? "";
+        if (Path.GetExtension(exportRelative).ToLowerInvariant() != ".m3dm")
+            throw new InvalidDataException("The Boolean result has no M3DM export identity.");
+        var surfaceRelative = Path.ChangeExtension(exportRelative, ".obj");
+        var surface = ScientificArtifactFiles.ResolveRegistered(sourceDirectory, source, surfaceRelative);
         var snapshotSha = source.GetProperty("sourceSnapshotSha256").GetString() ?? "";
         var sourceSnapshot = ScientificSourceSnapshot.Verify(sourceDirectory, snapshotSha);
         if (ScientificSourceSnapshot.Assess(sourceSnapshot)["state"]?.GetValue<string>() != "current")

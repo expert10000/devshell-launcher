@@ -36,7 +36,7 @@ const entries = [original, smaller].map((content, index) => {
 assert.notEqual(entries[0].sha256, entries[1].sha256)
 writeFileSync(join(datasets, 'manifest.json'), JSON.stringify({ schemaVersion: 1, entries }))
 
-async function completed(before, recipeId, timeoutMs = 600_000) {
+async function completed(before, recipeId, expected = 'succeeded', timeoutMs = 600_000) {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     for (const name of readdirSync(runs)) {
@@ -47,7 +47,7 @@ async function completed(before, recipeId, timeoutMs = 600_000) {
       let result
       try { result = JSON.parse(readFileSync(path, 'utf8')) } catch { continue }
       if (result.recipeId !== recipeId) continue
-      assert.equal(result.state, 'succeeded', `${recipeId}: ${result.state} / ${JSON.stringify(result.diagnostics)}`)
+      assert.equal(result.state, expected, `${recipeId}: ${result.state} / ${JSON.stringify(result.diagnostics)}`)
       return { name, result, folder }
     }
     await delay(500)
@@ -88,10 +88,25 @@ try {
   assert.ok(journey.result.artifacts.some(item => item.path === 'vtk/preview.png'))
   await nav.getByRole('button', { name: 'History', exact: true }).click()
   await main.getByRole('button', { name: /Refresh history|Load history/ }).click()
-  await main.locator(`[data-run-id="${journey.name}"]`).getByRole('button', { name: 'Result' }).click()
+  await main.locator(`[data-run-id="${journey.result.runId}"]`).getByRole('button', { name: 'Result' }).click()
   await main.getByRole('region', { name: 'Saved typed scientific journey' }).getByText('verified-typed-product-relations').waitFor()
-  console.log(JSON.stringify({ verdict: 'managed-typed-journey-passed', booleanRunId: boolean.name,
-    journeyRunId: journey.name, sourceCommit: journey.result.typedJourney.verification.sourceCommit,
+  await main.locator(`[data-run-id="${boolean.result.runId}"]`).getByRole('button', { name: 'Result' }).click()
+  const surface = join(boolean.folder, boolean.result.boolean.outputArtifact.replace(/\.m3dm$/, '.obj'))
+  const originalSurface = readFileSync(surface)
+  try {
+    writeFileSync(surface, Buffer.concat([originalSurface, Buffer.from('\n# tampered\n')]))
+    await main.getByRole('button', { name: /Continue typed Gmsh/ }).click()
+    await main.getByRole('alert').filter({ hasText: /artifact changed/i }).waitFor()
+  } finally { writeFileSync(surface, originalSurface) }
+  const beforeCancelled = new Set(readdirSync(runs))
+  await main.getByRole('button', { name: /Continue typed Gmsh/ }).click()
+  await nav.getByRole('button', { name: 'Boolean', exact: true }).click()
+  await panel.getByRole('button', { name: 'Stop journey' }).click()
+  const cancelled = await completed(beforeCancelled, 'scientific.typed-journey', 'cancelled')
+  assert.equal(cancelled.result.artifacts.length, 0)
+  console.log(JSON.stringify({ verdict: 'managed-typed-journey-passed', booleanRunId: boolean.result.runId,
+    journeyRunId: journey.result.runId, cancelledRunId: cancelled.result.runId,
+    sourceCommit: journey.result.typedJourney.verification.sourceCommit,
     consumerCommit: journey.result.typedJourney.product.consumerCommit,
     documentId: journey.result.typedJourney.product.documentId }))
 } finally { await browser.close() }

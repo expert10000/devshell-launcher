@@ -131,7 +131,7 @@ public partial class Form1
                 sourceCommit, snapshotSha, boundary.Output, job.Directory, vtkPrefix, "scientific-vtk-boundary-inspect.py", "analysis.vtp", 120);
             if (vtk.Result["preview"]?["sha256"]?.GetValue<string>() != ScientificArtifactFiles.Hash(Path.Combine(job.Directory, "vtk", "preview.png")))
                 throw new InvalidDataException("VTK preview changed after rendering.");
-            var scipy = await ScientificTypedStageAsync(job, "scipy", "scipy.measure", "vtk-analysis", boundary.Id,
+            var scipy = await ScientificTypedStageAsync(job, "scipy", "scipy.measure", "vtk-analysis", vtk.Id,
                 sourceCommit, snapshotSha, vtk.Output, job.Directory, gmshPrefix, "scientific-scipy-surface-measure.py", "measurement.json", 120, measurement: true);
             job.Stage = "math3d-convert";
             var converted = Path.Combine(job.Directory, "converted.obj");

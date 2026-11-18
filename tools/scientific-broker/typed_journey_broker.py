@@ -256,11 +256,11 @@ class TypedJourneyBroker:
                 surface, source.parent, self.gmsh_python, 'scientific-gmsh-boolean-volume.py', 'volume.msh', deadline, 0.5)
             boundary_id, boundary, obj = self._stage(job, 'boundary', 'gmsh.extract-boundary', 'gmsh-mesh', gmsh_id,
                 msh, directory, self.gmsh_python, 'scientific-gmsh-boundary-extract.py', 'boundary.obj', deadline)
-            _, vtk, vtp = self._stage(job, 'vtk', 'mesh.inspect', 'gmsh-boundary', boundary_id,
+            vtk_id, vtk, vtp = self._stage(job, 'vtk', 'mesh.inspect', 'gmsh-boundary', boundary_id,
                 obj, directory, self.vtk_python, 'scientific-vtk-boundary-inspect.py', 'analysis.vtp', deadline)
             if sha(directory / 'vtk/preview.png') != vtk['preview']['sha256']:
                 raise ValueError('VTK preview changed.')
-            _, scipy, measurement = self._stage(job, 'scipy', 'scipy.measure', 'vtk-analysis', boundary_id,
+            _, scipy, measurement = self._stage(job, 'scipy', 'scipy.measure', 'vtk-analysis', vtk_id,
                 vtp, directory, self.gmsh_python, 'scientific-scipy-surface-measure.py', 'measurement.json',
                 deadline, measurement=True)
             converted = directory / 'converted.obj'

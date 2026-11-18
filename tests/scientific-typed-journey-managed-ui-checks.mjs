@@ -34,7 +34,12 @@ const entries = [original, smaller].map((content, index) => {
     sourcePath: name, sourceRoot: 'authored test fixture', expectedProblem: false, validation: { state: 'not-checked' } }
 })
 assert.notEqual(entries[0].sha256, entries[1].sha256)
-writeFileSync(join(datasets, 'manifest.json'), JSON.stringify({ schemaVersion: 1, entries }))
+const manifestPath = join(datasets, 'manifest.json')
+const existing = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : { schemaVersion: 1, entries: [] }
+assert.equal(existing.schemaVersion, 1)
+assert.ok(Array.isArray(existing.entries))
+writeFileSync(manifestPath, JSON.stringify({ ...existing,
+  entries: [...existing.entries.filter(item => !entries.some(entry => entry.id === item.id)), ...entries] }))
 
 async function completed(before, recipeId, expected = 'succeeded', timeoutMs = 600_000) {
   const deadline = Date.now() + timeoutMs
@@ -66,6 +71,18 @@ try {
   const nav = main.getByRole('navigation', { name: 'Scientific runtime sections' })
   await nav.getByRole('button', { name: 'Boolean', exact: true }).click()
   const panel = main.getByRole('region', { name: 'Boolean mesh operation' })
+  await panel.getByRole('button', { name: 'Refresh inputs and readiness' }).click()
+  await delay(1000)
+  if (await panel.getByRole('button', { name: 'Open preparation' }).isVisible()) {
+    await panel.getByRole('button', { name: 'Open preparation' }).click()
+    const preparation = main.getByRole('region', { name: 'MATH3D native worker integration' })
+    const beforePreparation = new Set(readdirSync(runs))
+    await preparation.getByRole('button', { name: 'Prepare & Run' }).click()
+    const prepared = await completed(beforePreparation, 'integration.math3d.native-boolean', 'succeeded', 900_000)
+    assert.equal(prepared.result.comparison.verdict, 'pass')
+    await nav.getByRole('button', { name: 'Boolean', exact: true }).click()
+    await panel.getByRole('button', { name: 'Refresh inputs and readiness' }).click()
+  }
   await panel.getByLabel('Boolean mesh A').selectOption(entries[0].id)
   await panel.getByLabel('Boolean mesh B').selectOption(entries[1].id)
   await panel.getByLabel('Boolean operation').selectOption('union')

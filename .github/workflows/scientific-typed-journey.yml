@@ -14,10 +14,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Install portable signature verifier
+        shell: pwsh
+        run: python -m pip install cryptography==42.0.2
       - name: Compile typed journey verifier and broker
         shell: pwsh
         run: |
-          $paths = @('tools/scientific-broker/verify_typed_journey.py', 'tools/scientific-broker/typed_journey_broker.py', 'tools/scientific-broker/typed_journey_release.py') | Where-Object { Test-Path $_ }
+          $paths = @('tools/scientific-broker/verify_typed_journey.py', 'tools/scientific-broker/typed_journey_broker.py', 'tools/scientific-broker/typed_journey_release.py', 'tools/scientific-broker/portable_typed_journey.py') | Where-Object { Test-Path $_ }
           python -m compileall -q $paths
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Contract, broker policy, and release gate tests

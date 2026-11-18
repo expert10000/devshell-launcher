@@ -34,7 +34,12 @@ const entries = [original, smaller].map((content, index) => {
     sourcePath: name, sourceRoot: 'authored test fixture', expectedProblem: false, validation: { state: 'not-checked' } }
 })
 assert.notEqual(entries[0].sha256, entries[1].sha256)
-writeFileSync(join(datasets, 'manifest.json'), JSON.stringify({ schemaVersion: 1, entries }))
+const manifestPath = join(datasets, 'manifest.json')
+const existing = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : { schemaVersion: 1, entries: [] }
+assert.equal(existing.schemaVersion, 1)
+assert.ok(Array.isArray(existing.entries))
+writeFileSync(manifestPath, JSON.stringify({ ...existing,
+  entries: [...existing.entries.filter(item => !entries.some(entry => entry.id === item.id)), ...entries] }))
 
 async function completed(before, recipeId, expected = 'succeeded', timeoutMs = 600_000) {
   const deadline = Date.now() + timeoutMs

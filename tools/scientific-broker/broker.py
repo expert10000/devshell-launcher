@@ -1608,7 +1608,8 @@ def handler_for(broker):
                 if len(parts) == 5 and parts[:2] == ['v1', 'jobs'] and parts[3] == 'artifacts':
                     raw = broker.artifact(parts[2], parts[4])
                     self.send_response(200)
-                    media_type = ('model/obj' if parts[4].endswith('.obj') else
+                    media_type = ('image/png' if parts[4].endswith('.png') else
+                                  'model/obj' if parts[4].endswith('.obj') else
                                   'application/vnd.vtk.vtp' if parts[4].endswith('.vtp') else
                                   'model/vnd.gmsh.msh' if parts[4].endswith('.msh') else
                                   'application/octet-stream' if parts[4].endswith('.m3dt') else 'application/json')
@@ -1651,7 +1652,12 @@ def main():
     parser.add_argument('--config', required=True)
     parser.add_argument('--port', type=int, default=8765)
     args = parser.parse_args()
-    broker = Broker(args.config)
+    config = json.loads(Path(args.config).read_text(encoding='utf-8'))
+    if config.get('profileKind') == 'typed-journey':
+        from typed_journey_broker import TypedJourneyBroker
+        broker = TypedJourneyBroker(config)
+    else:
+        broker = Broker(args.config)
     if args.command == 'verify':
         print(json.dumps(broker.discover(), indent=2))
         return

@@ -1,0 +1,27 @@
+name: Scientific typed journey
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  contract-and-policy:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile typed journey verifier and broker
+        shell: pwsh
+        run: |
+          $paths = @('tools/scientific-broker/verify_typed_journey.py', 'tools/scientific-broker/typed_journey_broker.py', 'tools/scientific-broker/typed_journey_release.py') | Where-Object { Test-Path $_ }
+          python -m compileall -q $paths
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Contract, broker policy, and release gate tests
+        shell: pwsh
+        run: |
+          python -m unittest discover -s tests -p 'test_scientific_typed_journey*.py' -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

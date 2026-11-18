@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "kind": "devshell.scientific-runtime-review-baseline",
+  "archiveSha256": "f2e44b4da8ec6c4e057d8e25c52d27cf5d4d801416d690fb8d4d065db1e9dfc4",
+  "manifestPath": "docs/evidence/scientific-runtime-review-2026-11-17.manifest.json",
+  "manifestSha256": "57eef2e4f3221cd6dfa0514dc655a4f0650cc5850e7bd9c9bb1e511f7eef9a74",
+  "sourceCommit": "46067b6893d71757d93127ed64f981a227fbdc6d",
+  "expectedProviders": ["CGAL", "VTK", "Gmsh", "SageMath", "Python / SciPy"],
+  "screenshotsPerProvider": 40,
+  "evidenceClass": "recorded-ui-only",
+  "acceptance": "Screenshots show visible states and do not establish operation, installer, or current-source qualification."
+}

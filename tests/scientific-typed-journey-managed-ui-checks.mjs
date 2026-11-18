@@ -66,6 +66,17 @@ try {
   const nav = main.getByRole('navigation', { name: 'Scientific runtime sections' })
   await nav.getByRole('button', { name: 'Boolean', exact: true }).click()
   const panel = main.getByRole('region', { name: 'Boolean mesh operation' })
+  await panel.getByRole('button', { name: 'Refresh inputs and readiness' }).click()
+  await delay(1000)
+  if (await panel.getByRole('button', { name: 'Open preparation' }).isVisible()) {
+    await panel.getByRole('button', { name: 'Open preparation' }).click()
+    const preparation = main.getByRole('region', { name: 'MATH3D native worker integration' })
+    await preparation.getByRole('button', { name: 'Prepare & Run' }).click()
+    const outcome = preparation.getByRole('status').filter({ hasText: /Managed job: (succeeded|failed|cancelled|timed-out)/ })
+    await outcome.waitFor({ timeout: 900_000 })
+    assert.match(await outcome.innerText(), /Managed job: succeeded/)
+    await nav.getByRole('button', { name: 'Boolean', exact: true }).click()
+  }
   await panel.getByLabel('Boolean mesh A').selectOption(entries[0].id)
   await panel.getByLabel('Boolean mesh B').selectOption(entries[1].id)
   await panel.getByLabel('Boolean operation').selectOption('union')

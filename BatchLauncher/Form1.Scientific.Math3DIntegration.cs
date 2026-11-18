@@ -8,7 +8,15 @@ public partial class Form1
 {
     private sealed record Math3DCheck(string Id, string Label, bool Ready, bool CanPrepare, string Detail);
     private sealed record Math3DReadiness(bool Ready, bool CanPrepare, Math3DCheck[] Checks);
-    private string Math3DCheckout => Path.Combine(_workspace.Globals?.WorkspaceRoot ?? Path.GetDirectoryName(ScientificRepositoryRoot())!, "Math3D");
+    private string Math3DCheckout
+    {
+        get
+        {
+            var configured = Environment.GetEnvironmentVariable("MATH3D_CHECKOUT");
+            return !string.IsNullOrWhiteSpace(configured) ? Path.GetFullPath(configured)
+                : Path.Combine(_workspace.Globals?.WorkspaceRoot ?? Path.GetDirectoryName(ScientificRepositoryRoot())!, "Math3D");
+        }
+    }
     private static string Math3DWorker => Path.Combine(ScientificDataRoot, "builds", "math3d-native-worker", "Release", "math3d-cgal-worker.exe");
     private string Math3DNode => EnvironmentTools().TryGetValue("node", out var node) && File.Exists(node) ? node : ScientificExecutable("node.exe");
 

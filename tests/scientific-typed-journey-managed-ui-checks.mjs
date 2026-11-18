@@ -8,8 +8,8 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { scientificDesktopPage } from './scientific-desktop-page.mjs'
 
 const require = createRequire(import.meta.url)
-const { chromium } = require(join(import.meta.dirname, '..', 'DevShell', 'ui', 'dev-ui-react', 'node_modules', 'playwright-core'))
-const root = join(import.meta.dirname, '..')
+const root = process.env.DEVSHELL_TYPED_WORKTREE_ROOT || join(import.meta.dirname, '..')
+const { chromium } = require(join(root, 'DevShell', 'ui', 'dev-ui-react', 'node_modules', 'playwright-core'))
 const dataRoot = join(root, '.scientific')
 const runs = join(dataRoot, 'runs')
 const datasets = join(dataRoot, 'datasets')

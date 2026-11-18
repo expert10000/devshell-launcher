@@ -1,5 +1,5 @@
 param(
-    [Parameter(Mandatory=$true)][ValidateSet('Repair', 'GmshVolume', 'Remesh', 'CgalInspect', 'Orientation', 'VtkRead')][string]$Scenario,
+    [Parameter(Mandatory=$true)][ValidateSet('Repair', 'GmshVolume', 'Remesh', 'CgalInspect', 'Orientation', 'VtkRead', 'TypedJourney')][string]$Scenario,
     [int]$CdpPort = 9244,
     [string]$Math3DCheckout = $env:MATH3D_CHECKOUT,
     [string]$ExistingWorktree,
@@ -25,6 +25,7 @@ $previousResume = [Environment]::GetEnvironmentVariable('DEVSHELL_REPAIR_RESUME_
 $previousScientificResume = [Environment]::GetEnvironmentVariable('DEVSHELL_SCIENTIFIC_RESUME_FROM', 'Process')
 $previousVolumeOnly = [Environment]::GetEnvironmentVariable('DEVSHELL_GMSH_VOLUME_ONLY', 'Process')
 $previousVolumeResume = [Environment]::GetEnvironmentVariable('DEVSHELL_GMSH_VOLUME_RESUME', 'Process')
+$previousTypedWorktree = [Environment]::GetEnvironmentVariable('DEVSHELL_TYPED_WORKTREE_ROOT', 'Process')
 $journeyVariables = @('DEVSHELL_DESKTOP_CLASS_RECORD', 'DEVSHELL_DESKTOP_INSPECT_INPUT',
     'DEVSHELL_DESKTOP_FALLBACK_INPUT', 'DEVSHELL_DESKTOP_JOURNEY_RUNS')
 $previousJourney = @{}
@@ -128,6 +129,7 @@ try {
         $(if ($Scenario -eq 'GmshVolume' -and $ResumeFrom -eq 'L0') { '1' } else { $null }), 'Process')
     [Environment]::SetEnvironmentVariable('DEVSHELL_GMSH_VOLUME_RESUME',
         $(if ($Scenario -eq 'GmshVolume' -and $ResumeFrom -eq 'L7') { '1' } else { $null }), 'Process')
+    [Environment]::SetEnvironmentVariable('DEVSHELL_TYPED_WORKTREE_ROOT', $worktree, 'Process')
     if ($ProductJourney) {
         [Environment]::SetEnvironmentVariable('DEVSHELL_DESKTOP_CLASS_RECORD', $ClassRecord, 'Process')
         [Environment]::SetEnvironmentVariable('DEVSHELL_DESKTOP_INSPECT_INPUT', $InspectInput, 'Process')
@@ -150,7 +152,8 @@ try {
     $launch.stage = 'page-ready'
     Save-LaunchDiagnostics
     if (!$BootOnly) {
-        $script = if ($ProductJourney) { 'scientific-inspect-selection-managed-ui-checks.mjs' }
+        $script = if ($Scenario -eq 'TypedJourney') { 'scientific-typed-journey-managed-ui-checks.mjs' }
+            elseif ($ProductJourney) { 'scientific-inspect-selection-managed-ui-checks.mjs' }
             elseif ($Scenario -eq 'Repair') { 'scientific-cgal-repair-managed-ui-checks.mjs' }
             elseif ($Scenario -eq 'Remesh') { 'scientific-cgal-remesh-managed-ui-checks.mjs' }
             elseif ($Scenario -eq 'CgalInspect') { 'scientific-cgal-inspect-managed-ui-checks.mjs' }
@@ -179,6 +182,7 @@ finally {
     [Environment]::SetEnvironmentVariable('DEVSHELL_SCIENTIFIC_RESUME_FROM', $previousScientificResume, 'Process')
     [Environment]::SetEnvironmentVariable('DEVSHELL_GMSH_VOLUME_ONLY', $previousVolumeOnly, 'Process')
     [Environment]::SetEnvironmentVariable('DEVSHELL_GMSH_VOLUME_RESUME', $previousVolumeResume, 'Process')
+    [Environment]::SetEnvironmentVariable('DEVSHELL_TYPED_WORKTREE_ROOT', $previousTypedWorktree, 'Process')
     foreach ($name in $journeyVariables) {
         [Environment]::SetEnvironmentVariable($name, $previousJourney[$name], 'Process')
     }
